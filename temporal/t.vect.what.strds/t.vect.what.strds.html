@@ -23,7 +23,8 @@ datasets must have the same temporal type, absolute or relative. Every vector
 map of <b>input</b> must have a time interval; a map with a time instant stops the
 tool. The tool changes the tables of the vector maps, so the maps must be in the
 current mapset, and each registered layer must have an attribute table. The
-STRDS may be in another mapset (<code>strds=levels@PERMANENT</code>), but the vector maps
+STRDS may be in another mapset (<code>strds=precipitation_monthly@t_vect_what_strds</code>),
+but the vector maps
 of <b>input</b> must be in the current mapset; the seventh example shows both.
 Points outside the current region get no value, as <em>v.what.rast</em> skips them;
 the second example shows it.
@@ -67,7 +68,8 @@ shows it.
 <h3>Choose the columns</h3>
 
 Without <b>column</b>, each raster map found for a vector map gets a column named
-after it, with dots replaced by underscores (<code>level_2</code>), in the table of the
+after it, with dots replaced by underscores (<code>precipitation_monthly_2020_02</code>),
+in the table of the
 layer of the vector map. The column type is <code>INT</code> for an integer raster map and
 <code>DOUBLE PRECISION</code> for any other. The value of a point is the value of the cell
 below it.
@@ -89,8 +91,8 @@ The option <b>t_where</b> is an SQL condition on the vector maps of <b>input</b>
 using the columns of the temporal database such as <code>name</code>, <code>start_time</code> and
 <code>end_time</code> (see <em><a href="t.vect.list.html">t.vect.list</a></em>). The tool changes only the
 vector maps that match. SQLite compares times as text: <code>start_time &gt;=
-'2026-02-01'</code> selects as expected, but an equality with a date without a time of
-day finds nothing, as the stored value reads <code>2026-02-01 00:00:00</code>.
+'2020-02-01'</code> selects as expected, but an equality with a date without a time of
+day finds nothing, as the stored value reads <code>2020-02-01 00:00:00</code>.
 
 <h3>Aggregate the raster maps of a window</h3>
 
@@ -100,16 +102,15 @@ that map. It does so only for a window with more than one raster map. A window
 with a single map is treated as if <b>method</b> were <code>disabled</code>: the values of the
 map go to the column named after it (or to <b>column</b>). With several maps and
 without <b>column</b>, the aggregate goes to the column <code>&lt;strds&gt;_&lt;method&gt;</code>, built
-from the name of the STRDS without the mapset, for example <code>levels_average</code>.
+from the name of the STRDS without the mapset, for example <code>precipitation_monthly_average</code>.
 Every character outside <code>A-Za-z0-9_</code> is replaced by an underscore, and a name
 that would start with a digit gets the prefix <code>c_</code>, because <em>v.what.rast</em>
 cannot write such a column. If the aggregate has no value at all, the tool adds
 no column. The temporary raster map is removed after it has been read.
 
 <p>
-For a window with two raster maps, here <code>level_2</code> and <code>level_3</code>, whose value
-at one point is 211 and 311 (the first point of the first example), the methods
-give:
+For a window with two raster maps whose values at one point are 211 and 311,
+the methods give:
 
 <ul>
 <li><code>average</code> 261, <code>median</code> 261, <code>mode</code> 211 (the first of the sorted values with
@@ -178,257 +179,214 @@ for the quantile that <em>r.series</em> would need.
 
 <h2>EXAMPLES</h2>
 
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_vect_what_strds</code> and sets the computational
+region to North Carolina with cells of 1 km; the later examples work in this
+mapset and region. The raster series are generated, they are not measurements:
+the points are real climate stations and stream gauges of the dataset, but the
+values at them come from a formula or from an assumed factor and say nothing
+about the precipitation there. The tool writes into the tables of the vector
+maps, so the examples copy the points into the mapset first. The last block of the
+fourth example and the sixth example use maps with small constant values.
+
 <h3>Sample the raster maps of each interval</h3>
 
-The dataset <code>levels</code> holds six raster maps, <code>level_1</code> to <code>level_6</code>, one for
-each month from January to June 2026. The region has two rows and two columns
-of size 1, and the value of <code>level_k</code> in the cell of row <code>r</code> and column <code>c</code> is
-<code>100 * k + 10 * r + c</code>. The dataset <code>stations</code> holds three vector maps with the
-same four points, one at the centre of each cell, with the column <code>height</code> 1 to
-4: the points <code>cat</code> 1 and 2 lie in the first row, 3 and 4 in the second.
-<code>stations_1</code> has the interval January, <code>stations_2</code> February and March, and
-<code>stations_3</code> April.
+The dataset <code>precipitation_monthly</code> holds twelve raster maps with the monthly
+precipitation sum of 2020 in millimeters, one for each month. Each map is
+generated: the monthly normals of the 136 climate stations of the dataset,
+interpolated with <em><a href="v.surf.idw.html">v.surf.idw</a></em> and multiplied by an assumed
+factor for each month.
+
+<p>
+The vector maps hold the first four climate stations, copied from
+<code>precip_30ynormals</code> with <em><a href="v.extract.html">v.extract</a></em>, with the columns of the
+original table. The dataset <code>stations</code> holds three copies: <code>stations_jan</code> has
+the interval January, <code>stations_feb_mar</code> February and March, and
+<code>stations_apr</code> April. The template <code>station_points</code> stays without time.
 
 <p>
 <em>t.vect.what.strds</em> uses the default <b>sampling</b>, <code>start</code>. For each vector map
-it takes the raster maps that start inside its interval: <code>level_1</code> for
-<code>stations_1</code>, <code>level_2</code> and <code>level_3</code> for <code>stations_2</code>, and <code>level_4</code> for
-<code>stations_3</code>. Each vector map gets one column per raster map, named after it.
-The last two commands print the tables of <code>stations_1</code> and <code>stations_2</code>. The
-point <code>cat</code> 3, in the second row and first column, reads 121 in <code>level_1</code>, 221
-in <code>level_2</code> and 321 in <code>level_3</code>.
+it takes the raster maps that start inside its interval: the map of January for
+<code>stations_jan</code>, the maps of February and March for <code>stations_feb_mar</code>, and the
+map of April for <code>stations_apr</code>. Each vector map gets one column per raster
+map, named after it. The last two commands print the tables of <code>stations_jan</code>
+and <code>stations_feb_mar</code>.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.region n=2 s=0 e=2 w=0 res=1
-for k in 1 2 3 4 5 6; do
-    r.mapcalc expression="level_$k = 100 * $k + 10 * row() + col()"
+g.mapset -c mapset=t_vect_what_strds
+g.region raster=elev_state_500m res=1000 -a
+month=1
+for entry in jan:1.2 feb:1.7 mar:0.9 apr:1.3 may:1.6 jun:0.9 \
+    jul:1.1 aug:1.5 sep:0.8 oct:1.0 nov:1.6 dec:0.9; do
+    name=$(printf %02d $month)
+    v.surf.idw input=precip_30ynormals column=${entry%:*} \
+        output=precipitation_normal_$name npoints=12 power=2
+    r.mapcalc expression="precipitation_monthly_2020_$name = if(isnull(elev_state_500m), null(), round(${entry#*:} * precipitation_normal_$name))"
+    month=$((month + 1))
 done
-t.create output=levels title="Levels" description="Six monthly maps"
-t.register -i input=levels \
-    maps=level_1,level_2,level_3,level_4,level_5,level_6 \
-    start=2026-01-01 increment="1 month"
-v.in.ascii input=- output=stations_1 separator=comma \
-    columns="x double precision, y double precision, height integer" &lt;&lt;EOF
-0.5,1.5,1
-1.5,1.5,2
-0.5,0.5,3
-1.5,0.5,4
-EOF
-g.copy vector=stations_1,stations_2
-g.copy vector=stations_1,stations_3
-t.create type=stvds output=stations title="Stations" \
-    description="Four points in three intervals"
-t.register type=vector input=stations maps=stations_1 \
-    start=2026-01-01 end=2026-02-01
-t.register type=vector input=stations maps=stations_2 \
-    start=2026-02-01 end=2026-04-01
-t.register type=vector input=stations maps=stations_3 \
-    start=2026-04-01 end=2026-05-01
-t.vect.what.strds input=stations strds=levels
-v.db.select map=stations_1
-v.db.select map=stations_2
+t.create output=precipitation_monthly title="Precipitation" \
+    description="Monthly precipitation sum 2020 in mm"
+t.register -i input=precipitation_monthly \
+    maps=$(g.list type=raster pattern="precipitation_monthly_*" mapset=. separator=comma) \
+    start=2020-01-01 increment="1 month"
 </pre></div>
 
 <div class="code"><pre>
-cat|x|y|height|level_1
-1|0.5|1.5|1|111
-2|1.5|1.5|2|112
-3|0.5|0.5|3|121
-4|1.5|0.5|4|122
-cat|x|y|height|level_2|level_3
-1|0.5|1.5|1|211|311
-2|1.5|1.5|2|212|312
-3|0.5|0.5|3|221|321
-4|1.5|0.5|4|222|322
+v.extract input=precip_30ynormals output=station_points where="cat &lt;= 4"
+g.copy vector=station_points,stations_jan
+g.copy vector=station_points,stations_feb_mar
+g.copy vector=station_points,stations_apr
+t.create type=stvds output=stations title="Stations" \
+    description="Four climate stations in three intervals"
+t.register type=vector input=stations maps=stations_jan \
+    start=2020-01-01 end=2020-02-01
+t.register type=vector input=stations maps=stations_feb_mar \
+    start=2020-02-01 end=2020-04-01
+t.register type=vector input=stations maps=stations_apr \
+    start=2020-04-01 end=2020-05-01
+t.vect.what.strds input=stations strds=precipitation_monthly
+v.db.select map=stations_jan columns=cat,station,precipitation_monthly_2020_01
+v.db.select map=stations_feb_mar \
+    columns=cat,station,precipitation_monthly_2020_02,precipitation_monthly_2020_03
+</pre></div>
+
+<div class="code"><pre>
+cat|station|precipitation_monthly_2020_01
+1|310090|133
+2|310184|219
+3|310241|120
+4|310286|135
+cat|station|precipitation_monthly_2020_02|precipitation_monthly_2020_03
+1|310090|157|110
+2|310184|263|159
+3|310241|149|102
+4|310286|160|98
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-from io import StringIO
-
 from grass.tools import Tools
 
 tools = Tools()
-tools.g_region(n=2, s=0, e=2, w=0, res=1)
-for k in range(1, 7):
-    tools.r_mapcalc(expression=f"level_{k} = 100 * {k} + 10 * row() + col()")
-tools.t_create(output="levels", title="Levels", description="Six monthly maps")
+tools.g_mapset(flags="c", mapset="t_vect_what_strds")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+months = range(1, 13)
+factors = {"jan": 1.2, "feb": 1.7, "mar": 0.9, "apr": 1.3, "may": 1.6, "jun": 0.9}
+factors |= {"jul": 1.1, "aug": 1.5, "sep": 0.8, "oct": 1.0, "nov": 1.6, "dec": 0.9}
+for month, (column, factor) in enumerate(factors.items(), start=1):
+    normal = f"precipitation_normal_{month:02d}"
+    tools.v_surf_idw(
+        input="precip_30ynormals", column=column, output=normal, npoints=12, power=2
+    )
+    tools.r_mapcalc(
+        expression=f"precipitation_monthly_2020_{month:02d} ="
+        f" if(isnull(elev_state_500m), null(), round({factor} * {normal}))"
+    )
+tools.t_create(
+    output="precipitation_monthly",
+    title="Precipitation",
+    description="Monthly precipitation sum 2020 in mm",
+)
 tools.t_register(
-    input="levels",
-    maps="level_1,level_2,level_3,level_4,level_5,level_6",
-    start="2026-01-01",
+    input="precipitation_monthly",
+    maps=",".join(f"precipitation_monthly_2020_{month:02d}" for month in months),
+    start="2020-01-01",
     increment="1 month",
     flags="i",
 )
-tools.v_in_ascii(
-    input=StringIO("0.5,1.5,1\n1.5,1.5,2\n0.5,0.5,3\n1.5,0.5,4\n"),
-    output="stations_1",
-    separator="comma",
-    columns="x double precision, y double precision, height integer",
-)
-tools.g_copy(vector="stations_1,stations_2")
-tools.g_copy(vector="stations_1,stations_3")
+</pre></div>
+
+<div class="code"><pre>
+tools.v_extract(input="precip_30ynormals", output="station_points", where="cat &lt;= 4")
+for name in ("stations_jan", "stations_feb_mar", "stations_apr"):
+    tools.g_copy(vector=f"station_points,{name}")
 tools.t_create(
     type="stvds",
     output="stations",
     title="Stations",
-    description="Four points in three intervals",
+    description="Four climate stations in three intervals",
 )
 for name, start, end in (
-    ("stations_1", "2026-01-01", "2026-02-01"),
-    ("stations_2", "2026-02-01", "2026-04-01"),
-    ("stations_3", "2026-04-01", "2026-05-01"),
+    ("stations_jan", "2020-01-01", "2020-02-01"),
+    ("stations_feb_mar", "2020-02-01", "2020-04-01"),
+    ("stations_apr", "2020-04-01", "2020-05-01"),
 ):
     tools.t_register(type="vector", input="stations", maps=name, start=start, end=end)
-tools.t_vect_what_strds(input="stations", strds="levels")
-print(tools.v_db_select(map="stations_1").text)
-print(tools.v_db_select(map="stations_2").text)
+tools.t_vect_what_strds(input="stations", strds="precipitation_monthly")
+print(
+    tools.v_db_select(
+        map="stations_jan", columns="cat,station,precipitation_monthly_2020_01"
+    ).text
+)
+print(
+    tools.v_db_select(
+        map="stations_feb_mar",
+        columns="cat,station,precipitation_monthly_2020_02,precipitation_monthly_2020_03",
+    ).text
+)
 </pre></div>
 
 <div class="code"><pre>
-cat|x|y|height|level_1
-1|0.5|1.5|1|111
-2|1.5|1.5|2|112
-3|0.5|0.5|3|121
-4|1.5|0.5|4|122
-cat|x|y|height|level_2|level_3
-1|0.5|1.5|1|211|311
-2|1.5|1.5|2|212|312
-3|0.5|0.5|3|221|321
-4|1.5|0.5|4|222|322
+cat|station|precipitation_monthly_2020_01
+1|310090|133
+2|310184|219
+3|310241|120
+4|310286|135
+cat|station|precipitation_monthly_2020_02|precipitation_monthly_2020_03
+1|310090|157|110
+2|310184|263|159
+3|310241|149|102
+4|310286|160|98
 </pre></div>
 
 <h3>Store one column and read only some points</h3>
 
 With <b>column</b>, the tool stores the values of one raster map per vector map in
-the column <code>first</code>. For <code>stations_2</code> that is <code>level_2</code>, the first of its two
-raster maps. <b>where</b> limits the points: only those with a <code>height</code> above 2
-get a value, and the column of the points 1 and 2 stays empty.
+the column <code>first</code>. For <code>stations_feb_mar</code> that is the map of February, the
+first of its two raster maps. <b>where</b> limits the points: only those with a
+<code>cat</code> above 2 get a value, and the column of the points 1 and 2 stays empty.
 
 <p>
-The second part reads the points with a smaller region, the first row only
-(<code>n=2</code>, <code>s=1</code>), and <b>t_where</b> limits the call to <code>stations_2</code>. The points of
-the second row lie outside the region and get no value in the new column <code>top</code>;
-the points of the first row read <code>level_2</code> again. The last command sets the
-region back.
+The second part reads the points with a smaller region, which ends at the
+northing 200 km (<code>n=200000</code>), and <b>t_where</b> limits the call to
+<code>stations_feb_mar</code>. The stations 3 and 4 lie north of it and get no value in
+the new column <code>south</code>; the stations 1 and 2 read the map of February again. The
+last command sets the region back.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-t.vect.what.strds input=stations strds=levels column=first \
-    where="height &gt; 2"
-v.db.select map=stations_2 columns=cat,height,first
+t.vect.what.strds input=stations strds=precipitation_monthly column=first \
+    where="cat &gt; 2"
+v.db.select map=stations_feb_mar columns=cat,station,first
 </pre></div>
 
 <div class="code"><pre>
-cat|height|first
-1|1|
-2|2|
-3|3|221
-4|4|222
+cat|station|first
+1|310090|
+2|310184|
+3|310241|149
+4|310286|160
 </pre></div>
 
 <div class="code"><pre>
-g.region n=2 s=1 e=2 w=0 res=1
-t.vect.what.strds input=stations strds=levels column=top \
-    t_where="name = 'stations_2'"
-v.db.select map=stations_2 columns=cat,height,top
-g.region n=2 s=0 e=2 w=0 res=1
+g.region n=200000
+t.vect.what.strds input=stations strds=precipitation_monthly column=south \
+    t_where="name = 'stations_feb_mar'"
+v.db.select map=stations_feb_mar columns=cat,station,south
+g.region raster=elev_state_500m res=1000 -a
 </pre></div>
 
 <div class="code"><pre>
-cat|height|top
-1|1|211
-2|2|212
-3|3|
-4|4|
-</pre></div>
-
-<p>Python (grass.tools):</p>
-
-<div class="code"><pre>
-tools.t_vect_what_strds(
-    input="stations", strds="levels", column="first", where="height &gt; 2"
-)
-print(tools.v_db_select(map="stations_2", columns="cat,height,first").text)
-</pre></div>
-
-<div class="code"><pre>
-cat|height|first
-1|1|
-2|2|
-3|3|221
-4|4|222
-</pre></div>
-
-<div class="code"><pre>
-tools.g_region(n=2, s=1, e=2, w=0, res=1)
-tools.t_vect_what_strds(
-    input="stations", strds="levels", column="top", t_where="name = 'stations_2'"
-)
-print(tools.v_db_select(map="stations_2", columns="cat,height,top").text)
-tools.g_region(n=2, s=0, e=2, w=0, res=1)
-</pre></div>
-
-<div class="code"><pre>
-cat|height|top
-1|1|211
-2|2|212
-3|3|
-4|4|
-</pre></div>
-
-<h3>Aggregate the raster maps of an interval</h3>
-
-The first call aggregates with <b>method</b><code>=average</code>, but only for
-<code>stations_2</code>, which <b>t_where</b> selects by name: it is the only vector map with
-two raster maps in its interval. Without <b>column</b> the aggregate goes to the
-column <code>levels_average</code>, the name of the dataset and the method. For the point
-<code>cat</code> 1 it is the mean of 211 and 311, which is 261.
-
-<p>
-The second call uses <b>column</b><code>=total</code> and <code>sum</code> for all three vector maps.
-In <code>stations_2</code> the column holds the sum of the two maps, 211 + 311 = 522 for
-the point 1. <code>stations_1</code> has one raster map in its interval, which is not
-aggregated: its column holds the values of <code>level_1</code>, 111 for the point 1. The
-description lists the values of the other methods.
-
-<p>Command line:</p>
-
-<div class="code"><pre>
-t.vect.what.strds input=stations strds=levels method=average \
-    t_where="name = 'stations_2'"
-v.db.select map=stations_2 columns=cat,levels_average
-</pre></div>
-
-<div class="code"><pre>
-cat|levels_average
-1|261
-2|262
-3|271
-4|272
-</pre></div>
-
-<div class="code"><pre>
-t.vect.what.strds input=stations strds=levels column=total method=sum
-v.db.select map=stations_2 columns=cat,total
-v.db.select map=stations_1 columns=cat,total
-</pre></div>
-
-<div class="code"><pre>
-cat|total
-1|522
-2|524
-3|542
-4|544
-cat|total
-1|111
-2|112
-3|121
-4|122
+cat|station|south
+1|310090|157
+2|310184|263
+3|310241|
+4|310286|
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -436,171 +394,258 @@ cat|total
 <div class="code"><pre>
 tools.t_vect_what_strds(
     input="stations",
-    strds="levels",
-    method="average",
-    t_where="name = 'stations_2'",
+    strds="precipitation_monthly",
+    column="first",
+    where="cat &gt; 2",
 )
-print(tools.v_db_select(map="stations_2", columns="cat,levels_average").text)
+print(tools.v_db_select(map="stations_feb_mar", columns="cat,station,first").text)
 </pre></div>
 
 <div class="code"><pre>
-cat|levels_average
-1|261
-2|262
-3|271
-4|272
+cat|station|first
+1|310090|
+2|310184|
+3|310241|149
+4|310286|160
 </pre></div>
 
 <div class="code"><pre>
-tools.t_vect_what_strds(input="stations", strds="levels", column="total", method="sum")
-print(tools.v_db_select(map="stations_2", columns="cat,total").text)
-print(tools.v_db_select(map="stations_1", columns="cat,total").text)
+tools.g_region(n=200000)
+tools.t_vect_what_strds(
+    input="stations",
+    strds="precipitation_monthly",
+    column="south",
+    t_where="name = 'stations_feb_mar'",
+)
+print(tools.v_db_select(map="stations_feb_mar", columns="cat,station,south").text)
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
 </pre></div>
 
 <div class="code"><pre>
-cat|total
-1|522
-2|524
-3|542
-4|544
-cat|total
-1|111
-2|112
-3|121
-4|122
+cat|station|south
+1|310090|157
+2|310184|263
+3|310241|
+4|310286|
+</pre></div>
+
+<h3>Aggregate the raster maps of an interval</h3>
+
+The first call aggregates with <b>method</b><code>=average</code>, but only for
+<code>stations_feb_mar</code>, which <b>t_where</b> selects by name: it is the only vector map
+with two raster maps in its interval. Without <b>column</b> the aggregate goes to
+the column <code>precipitation_monthly_average</code>, the name of the dataset and the
+method. The mean of two whole numbers can have a fraction, so the column has
+the type <code>DOUBLE PRECISION</code>: for the station 1 it is the mean of 157 and 110,
+which is 133.5.
+
+<p>
+The second call uses <b>column</b><code>=total</code> and <code>sum</code> for all three vector maps.
+In <code>stations_feb_mar</code> the column holds the sum of the two maps, 157 + 110 = 267
+for the station 1. <code>stations_jan</code> has one raster map in its interval, which is
+not aggregated: its column holds the values of the map of January, 133 for the
+station 1. The description lists the values of the other methods.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.vect.what.strds input=stations strds=precipitation_monthly method=average \
+    t_where="name = 'stations_feb_mar'"
+v.db.select map=stations_feb_mar columns=cat,station,precipitation_monthly_average
+</pre></div>
+
+<div class="code"><pre>
+cat|station|precipitation_monthly_average
+1|310090|133.5
+2|310184|211
+3|310241|125.5
+4|310286|129
+</pre></div>
+
+<div class="code"><pre>
+t.vect.what.strds input=stations strds=precipitation_monthly column=total \
+    method=sum
+v.db.select map=stations_feb_mar columns=cat,station,total
+v.db.select map=stations_jan columns=cat,station,total
+</pre></div>
+
+<div class="code"><pre>
+cat|station|total
+1|310090|267
+2|310184|422
+3|310241|251
+4|310286|258
+cat|station|total
+1|310090|133
+2|310184|219
+3|310241|120
+4|310286|135
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_vect_what_strds(
+    input="stations",
+    strds="precipitation_monthly",
+    method="average",
+    t_where="name = 'stations_feb_mar'",
+)
+print(
+    tools.v_db_select(
+        map="stations_feb_mar", columns="cat,station,precipitation_monthly_average"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+cat|station|precipitation_monthly_average
+1|310090|133.5
+2|310184|211
+3|310241|125.5
+4|310286|129
+</pre></div>
+
+<div class="code"><pre>
+tools.t_vect_what_strds(
+    input="stations", strds="precipitation_monthly", column="total", method="sum"
+)
+print(tools.v_db_select(map="stations_feb_mar", columns="cat,station,total").text)
+print(tools.v_db_select(map="stations_jan", columns="cat,station,total").text)
+</pre></div>
+
+<div class="code"><pre>
+cat|station|total
+1|310090|267
+2|310184|422
+3|310241|251
+4|310286|258
+cat|station|total
+1|310090|133
+2|310184|219
+3|310241|120
+4|310286|135
 </pre></div>
 
 <h3>Choose the raster maps by their relation to the interval</h3>
 
 The loop runs every value of <b>sampling</b> on four vector maps with the same
-points and these windows (all in 2026): <code>a</code> from 15 February to 15 April, <code>b</code>
+points and these windows (all in 2020): <code>a</code> from 15 February to 15 April, <code>b</code>
 from 10 to 20 March, <code>c</code> from 1 March to 1 April and <code>d</code> from 1 March to 10
-April. The raster maps are the monthly maps <code>level_1</code> to <code>level_6</code>, so
-<code>level_3</code> lasts from 1 March to 1 April, <code>level_2</code> from 1 February to 1 March
-and <code>level_4</code> from 1 April to 1 May. For each relation the loop makes a dataset
-<code>windows_&lt;relation&gt;</code> with four copies of a template map, runs the tool, and
-prints the raster columns of each copy.
+April. The raster maps are the monthly maps of <code>precipitation_monthly</code>, so the
+map of March lasts from 1 March to 1 April, the map of February from 1 February
+to 1 March and the map of April from 1 April to 1 May. For each relation the
+loop makes a dataset <code>windows_&lt;relation&gt;</code> with four copies of the template
+<code>station_points</code>, runs the tool, and prints the months of the raster columns of
+each copy: <code>03</code> stands for the column <code>precipitation_monthly_2020_03</code>.
 
 <p>
 Compare the rows of a window in the output:
 
 <ul>
-<li><code>start</code>: <code>level_3</code> and <code>level_4</code> for <code>a</code> and <code>d</code>, because both start inside
-these windows, though <code>level_4</code> ends after them; <code>level_3</code> alone for <code>c</code>,
-which it equals; nothing for <code>b</code>, because <code>level_3</code> starts before it.</li>
-<li><code>during</code>: <code>level_3</code> for <code>a</code> and for <code>d</code>, which shares its start with
-<code>level_3</code>; nothing for <code>c</code>, which equals <code>level_3</code>.</li>
-<li><code>overlap</code>: <code>level_2</code> and <code>level_4</code> for <code>a</code>, <code>level_4</code> for <code>d</code>.</li>
-<li><code>contain</code>: <code>level_3</code> for <code>b</code>, which lies inside it.</li>
-<li><code>equal</code>: <code>level_3</code> for <code>c</code>.</li>
-<li><code>follows</code>: <code>level_4</code> for <code>c</code>, which ends when <code>level_4</code> starts.</li>
-<li><code>precedes</code>: <code>level_2</code> for <code>c</code> and <code>d</code>, which start when <code>level_2</code> ends.</li>
+<li><code>start</code>: March and April for <code>a</code> and <code>d</code>, because both start inside these
+windows, though April ends after them; March alone for <code>c</code>, which it equals;
+nothing for <code>b</code>, because March starts before it.</li>
+<li><code>during</code>: March for <code>a</code> and for <code>d</code>, which shares its start with March;
+nothing for <code>c</code>, which equals March.</li>
+<li><code>overlap</code>: February and April for <code>a</code>, April for <code>d</code>.</li>
+<li><code>contain</code>: March for <code>b</code>, which lies inside it.</li>
+<li><code>equal</code>: March for <code>c</code>.</li>
+<li><code>follows</code>: April for <code>c</code>, which ends when April starts.</li>
+<li><code>precedes</code>: February for <code>c</code> and <code>d</code>, which start when February ends.</li>
 </ul>
 
 <p>
-The last block uses a dataset <code>readings</code> of two time instants, 5 and 25 March,
-and a window from 1 March to 1 April. No instant can contain a window, but with
-<b>sampling</b><code>=contain</code> the tool writes both columns: a STRDS with time instants
-is always sampled as with <code>start</code>.
+The last block uses a dataset <code>moisture</code> of two time instants, 5 and 25 March
+2026, with constant maps, and a window from 1 March to 1 April 2026. No instant
+can contain a window, but with <b>sampling</b><code>=contain</code> the tool writes both
+columns: a STRDS with time instants is always sampled as with <code>start</code>.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-v.in.ascii input=- output=window separator=comma \
-    columns="x double precision, y double precision, height integer" &lt;&lt;EOF
-0.5,1.5,1
-1.5,1.5,2
-0.5,0.5,3
-1.5,0.5,4
-EOF
 for s in start during overlap contain equal follows precedes; do
     t.create type=stvds output=windows_$s title="Windows" \
         description="Sampling $s"
     for w in a b c d; do
-        g.copy vector=window,${s}_$w
+        g.copy vector=station_points,${s}_$w
     done
     t.register type=vector input=windows_$s maps=${s}_a \
-        start=2026-02-15 end=2026-04-15
+        start=2020-02-15 end=2020-04-15
     t.register type=vector input=windows_$s maps=${s}_b \
-        start=2026-03-10 end=2026-03-20
+        start=2020-03-10 end=2020-03-20
     t.register type=vector input=windows_$s maps=${s}_c \
-        start=2026-03-01 end=2026-04-01
+        start=2020-03-01 end=2020-04-01
     t.register type=vector input=windows_$s maps=${s}_d \
-        start=2026-03-01 end=2026-04-10
-    t.vect.what.strds input=windows_$s strds=levels sampling=$s
+        start=2020-03-01 end=2020-04-10
+    t.vect.what.strds input=windows_$s strds=precipitation_monthly sampling=$s
     for w in a b c d; do
-        c=$(db.columns table=${s}_$w | awk '/^level_/' | paste -sd, -)
+        c=$(db.columns table=${s}_$w | awk -F_ '/^precipitation_monthly_/ {print $NF}' | paste -sd, -)
         echo "${s}_$w: ${c:--}"
     done
 done
 </pre></div>
 
 <div class="code"><pre>
-start_a: level_3,level_4
+start_a: 03,04
 start_b: -
-start_c: level_3
-start_d: level_3,level_4
-during_a: level_3
+start_c: 03
+start_d: 03,04
+during_a: 03
 during_b: -
 during_c: -
-during_d: level_3
-overlap_a: level_2,level_4
+during_d: 03
+overlap_a: 02,04
 overlap_b: -
 overlap_c: -
-overlap_d: level_4
+overlap_d: 04
 contain_a: -
-contain_b: level_3
+contain_b: 03
 contain_c: -
 contain_d: -
 equal_a: -
 equal_b: -
-equal_c: level_3
+equal_c: 03
 equal_d: -
 follows_a: -
 follows_b: -
-follows_c: level_4
+follows_c: 04
 follows_d: -
 precedes_a: -
 precedes_b: -
-precedes_c: level_2
-precedes_d: level_2
+precedes_c: 02
+precedes_d: 02
 </pre></div>
 
 <div class="code"><pre>
 for k in 1 2; do
-    r.mapcalc expression="reading_$k = 100 * $k + 10 * row() + col()"
+    r.mapcalc expression="moisture_$k = 100 * $k + 11"
 done
-t.create output=readings title="Readings" description="Two instants"
-t.register input=readings maps=reading_1 start=2026-03-05
-t.register input=readings maps=reading_2 start=2026-03-25
-g.copy vector=window,instant_window
+t.create output=moisture title="Moisture" description="Two instants"
+t.register input=moisture maps=moisture_1 start=2026-03-05
+t.register input=moisture maps=moisture_2 start=2026-03-25
+g.copy vector=station_points,instant_window
 t.create type=stvds output=instant_windows title="Windows" \
     description="One window"
 t.register type=vector input=instant_windows maps=instant_window \
     start=2026-03-01 end=2026-04-01
-t.vect.what.strds input=instant_windows strds=readings sampling=contain
-db.columns table=instant_window | awk '/^reading_/' | paste -sd, -
+t.vect.what.strds input=instant_windows strds=moisture sampling=contain
+db.columns table=instant_window | awk '/^moisture_/' | paste -sd, -
 </pre></div>
 
 <div class="code"><pre>
-reading_1,reading_2
+moisture_1,moisture_2
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
 windows = {
-    "a": ("2026-02-15", "2026-04-15"),
-    "b": ("2026-03-10", "2026-03-20"),
-    "c": ("2026-03-01", "2026-04-01"),
-    "d": ("2026-03-01", "2026-04-10"),
+    "a": ("2020-02-15", "2020-04-15"),
+    "b": ("2020-03-10", "2020-03-20"),
+    "c": ("2020-03-01", "2020-04-01"),
+    "d": ("2020-03-01", "2020-04-10"),
 }
-tools.v_in_ascii(
-    input=StringIO("0.5,1.5,1\n1.5,1.5,2\n0.5,0.5,3\n1.5,0.5,4\n"),
-    output="window",
-    separator="comma",
-    columns="x double precision, y double precision, height integer",
-)
 for sampling in (
     "start",
     "during",
@@ -619,54 +664,60 @@ for sampling in (
     )
     for letter, (start, end) in windows.items():
         name = f"{sampling}_{letter}"
-        tools.g_copy(vector=f"window,{name}")
+        tools.g_copy(vector=f"station_points,{name}")
         tools.t_register(type="vector", input=dataset, maps=name, start=start, end=end)
-    tools.t_vect_what_strds(input=dataset, strds="levels", sampling=sampling)
+    tools.t_vect_what_strds(
+        input=dataset, strds="precipitation_monthly", sampling=sampling
+    )
     for letter in windows:
         name = f"{sampling}_{letter}"
         columns = tools.db_columns(table=name).text.split()
-        raster_columns = [column for column in columns if column.startswith("level_")]
-        print(f"{name}: {','.join(raster_columns) or '-'}")
+        months = [
+            column.rsplit("_", 1)[1]
+            for column in columns
+            if column.startswith("precipitation_monthly_")
+        ]
+        print(f"{name}: {','.join(months) or '-'}")
 </pre></div>
 
 <div class="code"><pre>
-start_a: level_3,level_4
+start_a: 03,04
 start_b: -
-start_c: level_3
-start_d: level_3,level_4
-during_a: level_3
+start_c: 03
+start_d: 03,04
+during_a: 03
 during_b: -
 during_c: -
-during_d: level_3
-overlap_a: level_2,level_4
+during_d: 03
+overlap_a: 02,04
 overlap_b: -
 overlap_c: -
-overlap_d: level_4
+overlap_d: 04
 contain_a: -
-contain_b: level_3
+contain_b: 03
 contain_c: -
 contain_d: -
 equal_a: -
 equal_b: -
-equal_c: level_3
+equal_c: 03
 equal_d: -
 follows_a: -
 follows_b: -
-follows_c: level_4
+follows_c: 04
 follows_d: -
 precedes_a: -
 precedes_b: -
-precedes_c: level_2
-precedes_d: level_2
+precedes_c: 02
+precedes_d: 02
 </pre></div>
 
 <div class="code"><pre>
 for k in (1, 2):
-    tools.r_mapcalc(expression=f"reading_{k} = 100 * {k} + 10 * row() + col()")
-tools.t_create(output="readings", title="Readings", description="Two instants")
-tools.t_register(input="readings", maps="reading_1", start="2026-03-05")
-tools.t_register(input="readings", maps="reading_2", start="2026-03-25")
-tools.g_copy(vector="window,instant_window")
+    tools.r_mapcalc(expression=f"moisture_{k} = 100 * {k} + 11")
+tools.t_create(output="moisture", title="Moisture", description="Two instants")
+tools.t_register(input="moisture", maps="moisture_1", start="2026-03-05")
+tools.t_register(input="moisture", maps="moisture_2", start="2026-03-25")
+tools.g_copy(vector="station_points,instant_window")
 tools.t_create(
     type="stvds",
     output="instant_windows",
@@ -680,54 +731,56 @@ tools.t_register(
     start="2026-03-01",
     end="2026-04-01",
 )
-tools.t_vect_what_strds(input="instant_windows", strds="readings", sampling="contain")
+tools.t_vect_what_strds(input="instant_windows", strds="moisture", sampling="contain")
 columns = tools.db_columns(table="instant_window").text.split()
-print(",".join(column for column in columns if column.startswith("reading_")))
+print(",".join(column for column in columns if column.startswith("moisture_")))
 </pre></div>
 
 <div class="code"><pre>
-reading_1,reading_2
+moisture_1,moisture_2
 </pre></div>
 
 <h3>Select vector maps by time and write the values again</h3>
 
 <b>t_where</b> restricts the tool to the vector maps whose temporal metadata
 match. Here it takes the maps that start on or after 1 February, so
-<code>stations_2</code> and <code>stations_3</code> get the column <code>late</code> and <code>stations_1</code> does not.
-The loop prints the columns named <code>late</code>, with <code>-</code> where there is none.
+<code>stations_feb_mar</code> and <code>stations_apr</code> get the column <code>late</code> and <code>stations_jan</code>
+does not. The loop prints the columns named <code>late</code>, with <code>-</code> where there is
+none.
 
 <p>
 The second call repeats the first one with <b>--overwrite</b>. The columns exist
 now, and the flag lets the tool write them again instead of stopping. The call
-changes what is read: <b>method</b><code>=maximum</code> takes the larger of the two maps of
-<code>stations_2</code>, <code>level_3</code>, and <b>where</b> limits the new values to the points
-with a <code>height</code> of at most 2. The points 1 and 2 of <code>stations_2</code> read 311 and
-312 from <code>level_3</code>; the points 3 and 4 keep the values 221 and 222 of the first
-call.
+changes what is read: <b>method</b><code>=minimum</code> takes the smaller of the two maps of
+<code>stations_feb_mar</code>, the map of March, and <b>where</b> limits the new values to
+the points with a <code>cat</code> of at most 2. The stations 1 and 2 read 110 and 159
+from the map of March; the stations 3 and 4 keep the values 149 and 160 of the
+first call, which are the values of the map of February.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-t.vect.what.strds input=stations strds=levels column=late \
-    t_where="start_time &gt;= '2026-02-01'"
-for m in stations_1 stations_2 stations_3; do
+t.vect.what.strds input=stations strds=precipitation_monthly column=late \
+    t_where="start_time &gt;= '2020-02-01'"
+for m in stations_jan stations_feb_mar stations_apr; do
     c=$(db.columns table=$m | awk '/^late$/')
     echo "$m: ${c:--}"
 done
-t.vect.what.strds --overwrite input=stations strds=levels column=late \
-    method=maximum where="height &lt;= 2" t_where="start_time &gt;= '2026-02-01'"
-v.db.select map=stations_2 columns=cat,height,late
+t.vect.what.strds --overwrite input=stations strds=precipitation_monthly \
+    column=late method=minimum where="cat &lt;= 2" \
+    t_where="start_time &gt;= '2020-02-01'"
+v.db.select map=stations_feb_mar columns=cat,station,late
 </pre></div>
 
 <div class="code"><pre>
-stations_1: -
-stations_2: late
-stations_3: late
-cat|height|late
-1|1|311
-2|2|312
-3|3|221
-4|4|222
+stations_jan: -
+stations_feb_mar: late
+stations_apr: late
+cat|station|late
+1|310090|110
+2|310184|159
+3|310241|149
+4|310286|160
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -735,234 +788,244 @@ cat|height|late
 <div class="code"><pre>
 tools.t_vect_what_strds(
     input="stations",
-    strds="levels",
+    strds="precipitation_monthly",
     column="late",
-    t_where="start_time &gt;= '2026-02-01'",
+    t_where="start_time &gt;= '2020-02-01'",
 )
-for name in ("stations_1", "stations_2", "stations_3"):
+for name in ("stations_jan", "stations_feb_mar", "stations_apr"):
     columns = tools.db_columns(table=name).text.split()
     print(f"{name}: {'late' if 'late' in columns else '-'}")
 tools.t_vect_what_strds(
     input="stations",
-    strds="levels",
+    strds="precipitation_monthly",
     column="late",
-    method="maximum",
-    where="height &lt;= 2",
-    t_where="start_time &gt;= '2026-02-01'",
+    method="minimum",
+    where="cat &lt;= 2",
+    t_where="start_time &gt;= '2020-02-01'",
     overwrite=True,
 )
-print(tools.v_db_select(map="stations_2", columns="cat,height,late").text)
+print(tools.v_db_select(map="stations_feb_mar", columns="cat,station,late").text)
 </pre></div>
 
 <div class="code"><pre>
-stations_1: -
-stations_2: late
-stations_3: late
-cat|height|late
-1|1|311
-2|2|312
-3|3|221
-4|4|222
+stations_jan: -
+stations_feb_mar: late
+stations_apr: late
+cat|station|late
+1|310090|110
+2|310184|159
+3|310241|149
+4|310286|160
 </pre></div>
 
 <h3>Relative time</h3>
 
-The dataset <code>steps</code> has three raster maps for the hours 0 to 1, 1 to 2 and 2 to
-3, and <code>probes</code> two vector maps with the intervals 0 to 2 and 2 to 3, both in
-hours. Both datasets have relative time. <code>probe_1</code> has <code>step_1</code> and <code>step_2</code> in
-its interval, so <b>method</b><code>=average</code> stores their mean, 111 and 211 for the
-first point, 161, in the column <code>steps_average</code>. <code>probe_2</code> has only <code>step_3</code>,
-which is stored under its own name, 311 for the first point.
+The dataset <code>flow</code> has three raster maps with constant values for the hours 0
+to 1, 1 to 2 and 2 to 3: <code>flow_1</code> is 111, <code>flow_2</code> 211 and <code>flow_3</code> 311. The
+dataset <code>gauge_runs</code> holds two vector maps with the intervals 0 to 2 and 2 to 3,
+both in hours. Their points are two gauges of the Crabtree Creek, copied from
+<code>usgsgages</code>. Both datasets have relative time. <code>gauge_run_1</code> has <code>flow_1</code> and
+<code>flow_2</code> in its interval, so <b>method</b><code>=average</code> stores their mean, 161, in the
+column <code>flow_average</code>. <code>gauge_run_2</code> has only <code>flow_3</code>, which is stored under
+its own name, 311.
 
 <p>
 The last block shows that the tool does not look at the unit. The vector map
-<code>probe_days</code> has the interval 0 to 2 days, while <code>steps</code> counts hours. The
-tool compares the numbers: it takes <code>step_1</code> and <code>step_2</code>, which start at 0 and
-1, but not <code>step_3</code>, which starts at 2, although 2 days are 48 hours and cover
+<code>gauge_run_days</code> has the interval 0 to 2 days, while <code>flow</code> counts hours. The
+tool compares the numbers: it takes <code>flow_1</code> and <code>flow_2</code>, which start at 0 and
+1, but not <code>flow_3</code>, which starts at 2, although 2 days are 48 hours and cover
 all three maps. Use the same unit in both datasets.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
 for k in 1 2 3; do
-    r.mapcalc expression="step_$k = 100 * $k + 10 * row() + col()"
+    r.mapcalc expression="flow_$k = 100 * $k + 11"
 done
-t.create output=steps temporaltype=relative title="Steps" \
-    description="Three hourly maps"
-t.register -i input=steps maps=step_1,step_2,step_3 \
+t.create output=flow temporaltype=relative title="Flow" \
+    description="Three hourly maps with constant values"
+t.register -i input=flow maps=flow_1,flow_2,flow_3 \
     start=0 increment=1 unit=hours
-g.copy vector=window,probe_1
-g.copy vector=window,probe_2
-t.create type=stvds temporaltype=relative output=probes title="Probes" \
+v.extract input=usgsgages output=gauge_run_1 \
+    where="SITE_NAME LIKE 'Crabtree Creek%' AND cat &lt;= 150"
+g.copy vector=gauge_run_1,gauge_run_2
+t.create type=stvds temporaltype=relative output=gauge_runs title="Gauge runs" \
     description="Two intervals"
-t.register type=vector input=probes maps=probe_1 start=0 end=2 unit=hours
-t.register type=vector input=probes maps=probe_2 start=2 end=3 unit=hours
-t.vect.what.strds input=probes strds=steps method=average
-v.db.select map=probe_1
-v.db.select map=probe_2
+t.register type=vector input=gauge_runs maps=gauge_run_1 start=0 end=2 unit=hours
+t.register type=vector input=gauge_runs maps=gauge_run_2 start=2 end=3 unit=hours
+t.vect.what.strds input=gauge_runs strds=flow method=average
+v.db.select map=gauge_run_1 columns=cat,SITE_ID,flow_average
+v.db.select map=gauge_run_2 columns=cat,SITE_ID,flow_3
 </pre></div>
 
 <div class="code"><pre>
-cat|x|y|height|steps_average
-1|0.5|1.5|1|161
-2|1.5|1.5|2|162
-3|0.5|0.5|3|171
-4|1.5|0.5|4|172
-cat|x|y|height|step_3
-1|0.5|1.5|1|311
-2|1.5|1.5|2|312
-3|0.5|0.5|3|321
-4|1.5|0.5|4|322
+cat|SITE_ID|flow_average
+149|0208726005|161
+150|02087275|161
+cat|SITE_ID|flow_3
+149|0208726005|311
+150|02087275|311
 </pre></div>
 
 <div class="code"><pre>
-g.copy vector=window,probe_days
-t.create type=stvds temporaltype=relative output=probes_days \
-    title="Probes in days" description="One interval in days"
-t.register type=vector input=probes_days maps=probe_days \
+v.extract input=usgsgages output=gauge_run_days \
+    where="SITE_NAME LIKE 'Crabtree Creek%' AND cat &lt;= 150"
+t.create type=stvds temporaltype=relative output=gauge_runs_days \
+    title="Gauge runs in days" description="One interval in days"
+t.register type=vector input=gauge_runs_days maps=gauge_run_days \
     start=0 end=2 unit=days
-t.vect.what.strds input=probes_days strds=steps
-db.columns table=probe_days | awk '/^step_/' | paste -sd, -
+t.vect.what.strds input=gauge_runs_days strds=flow
+db.columns table=gauge_run_days | awk '/^flow_/' | paste -sd, -
 </pre></div>
 
 <div class="code"><pre>
-step_1,step_2
+flow_1,flow_2
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
 for k in range(1, 4):
-    tools.r_mapcalc(expression=f"step_{k} = 100 * {k} + 10 * row() + col()")
+    tools.r_mapcalc(expression=f"flow_{k} = 100 * {k} + 11")
 tools.t_create(
-    output="steps",
+    output="flow",
     temporaltype="relative",
-    title="Steps",
-    description="Three hourly maps",
+    title="Flow",
+    description="Three hourly maps with constant values",
 )
 tools.t_register(
-    input="steps",
-    maps="step_1,step_2,step_3",
+    input="flow",
+    maps="flow_1,flow_2,flow_3",
     start=0,
     increment=1,
     unit="hours",
     flags="i",
 )
-tools.g_copy(vector="window,probe_1")
-tools.g_copy(vector="window,probe_2")
+tools.v_extract(
+    input="usgsgages",
+    output="gauge_run_1",
+    where="SITE_NAME LIKE 'Crabtree Creek%' AND cat &lt;= 150",
+)
+tools.g_copy(vector="gauge_run_1,gauge_run_2")
 tools.t_create(
     type="stvds",
     temporaltype="relative",
-    output="probes",
-    title="Probes",
+    output="gauge_runs",
+    title="Gauge runs",
     description="Two intervals",
 )
 tools.t_register(
-    type="vector", input="probes", maps="probe_1", start=0, end=2, unit="hours"
+    type="vector", input="gauge_runs", maps="gauge_run_1", start=0, end=2, unit="hours"
 )
 tools.t_register(
-    type="vector", input="probes", maps="probe_2", start=2, end=3, unit="hours"
+    type="vector", input="gauge_runs", maps="gauge_run_2", start=2, end=3, unit="hours"
 )
-tools.t_vect_what_strds(input="probes", strds="steps", method="average")
-print(tools.v_db_select(map="probe_1").text)
-print(tools.v_db_select(map="probe_2").text)
+tools.t_vect_what_strds(input="gauge_runs", strds="flow", method="average")
+print(tools.v_db_select(map="gauge_run_1", columns="cat,SITE_ID,flow_average").text)
+print(tools.v_db_select(map="gauge_run_2", columns="cat,SITE_ID,flow_3").text)
 </pre></div>
 
 <div class="code"><pre>
-cat|x|y|height|steps_average
-1|0.5|1.5|1|161
-2|1.5|1.5|2|162
-3|0.5|0.5|3|171
-4|1.5|0.5|4|172
-cat|x|y|height|step_3
-1|0.5|1.5|1|311
-2|1.5|1.5|2|312
-3|0.5|0.5|3|321
-4|1.5|0.5|4|322
+cat|SITE_ID|flow_average
+149|0208726005|161
+150|02087275|161
+cat|SITE_ID|flow_3
+149|0208726005|311
+150|02087275|311
 </pre></div>
 
 <div class="code"><pre>
-tools.g_copy(vector="window,probe_days")
+tools.v_extract(
+    input="usgsgages",
+    output="gauge_run_days",
+    where="SITE_NAME LIKE 'Crabtree Creek%' AND cat &lt;= 150",
+)
 tools.t_create(
     type="stvds",
     temporaltype="relative",
-    output="probes_days",
-    title="Probes in days",
+    output="gauge_runs_days",
+    title="Gauge runs in days",
     description="One interval in days",
 )
 tools.t_register(
     type="vector",
-    input="probes_days",
-    maps="probe_days",
+    input="gauge_runs_days",
+    maps="gauge_run_days",
     start=0,
     end=2,
     unit="days",
 )
-tools.t_vect_what_strds(input="probes_days", strds="steps")
-columns = tools.db_columns(table="probe_days").text.split()
-print(",".join(column for column in columns if column.startswith("step_")))
+tools.t_vect_what_strds(input="gauge_runs_days", strds="flow")
+columns = tools.db_columns(table="gauge_run_days").text.split()
+print(",".join(column for column in columns if column.startswith("flow_")))
 </pre></div>
 
 <div class="code"><pre>
-step_1,step_2
+flow_1,flow_2
 </pre></div>
 
 <h3>Datasets of another mapset</h3>
 
-The example creates the mapset <code>analysis</code> and switches to it, where the region
-is its own and is set again. The dataset <code>levels</code> stays in <code>PERMANENT</code>, and
-<b>strds</b><code>=levels@PERMANENT</code> names it with its mapset. The vector map <code>remote</code>
-and its dataset belong to <code>analysis</code>, so the tool writes the columns <code>level_2</code>
-and <code>level_3</code> into the table of <code>remote</code> in the current mapset. The second
-block asks for the dataset <code>stations</code> in <code>PERMANENT</code> as <b>input</b>. The tool
-refuses it before it writes anything, because it would have to change the
-tables of vector maps of another mapset, and the block prints the message.
+The example creates the mapset <code>t_vect_what_strds_2</code> and switches to it, where
+the region is its own and is set again. It adds the mapset <code>t_vect_what_strds</code>
+with <em><a href="g.mapsets.html">g.mapsets</a></em>. The dataset <code>precipitation_monthly</code> stays in
+<code>t_vect_what_strds</code>, and
+<b>strds</b><code>=precipitation_monthly@t_vect_what_strds</code> names it with its mapset.
+The vector map <code>remote</code> and its dataset belong to <code>t_vect_what_strds_2</code>, so the
+tool writes the columns for February and March into the table of <code>remote</code> in
+the current mapset. The second block asks for the dataset <code>stations</code> in
+<code>t_vect_what_strds</code> as <b>input</b>. The tool refuses it before it writes
+anything, because it would have to change the tables of
+vector maps of another mapset, and the block prints the message.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.mapset -c mapset=analysis
-g.region n=2 s=0 e=2 w=0 res=1
-g.copy vector=window@PERMANENT,remote
+g.mapset -c mapset=t_vect_what_strds_2
+g.region raster=elev_state_500m res=1000 -a
+g.mapsets mapset=t_vect_what_strds operation=add
+g.copy vector=station_points@t_vect_what_strds,remote
 t.create type=stvds output=remote_ds title="Remote" \
     description="One interval in the new mapset"
 t.register type=vector input=remote_ds maps=remote \
-    start=2026-02-01 end=2026-04-01
-t.vect.what.strds input=remote_ds strds=levels@PERMANENT
-v.db.select map=remote
+    start=2020-02-01 end=2020-04-01
+t.vect.what.strds input=remote_ds strds=precipitation_monthly@t_vect_what_strds
+v.db.select map=remote \
+    columns=cat,station,precipitation_monthly_2020_02,precipitation_monthly_2020_03
 </pre></div>
 
 <div class="code"><pre>
-cat|x|y|height|level_2|level_3
-1|0.5|1.5|1|211|311
-2|1.5|1.5|2|212|312
-3|0.5|0.5|3|221|321
-4|1.5|0.5|4|222|322
+cat|station|precipitation_monthly_2020_02|precipitation_monthly_2020_03
+1|310090|157|110
+2|310184|263|159
+3|310241|149|102
+4|310286|160|98
 </pre></div>
 
 <div class="code"><pre>
-if ! t.vect.what.strds input=stations@PERMANENT strds=levels@PERMANENT \
-    column=other 2&gt;&amp;1; then
+if ! t.vect.what.strds input=stations@t_vect_what_strds \
+    strds=precipitation_monthly@t_vect_what_strds column=other 2&gt;&amp;1; then
     echo "t.vect.what.strds failed"
 fi
 </pre></div>
 
 <div class="code"><pre>
-ERROR: Vector map &lt;stations_1@PERMANENT&gt; is not in the current mapset, so
-       its table cannot be written
-       Vector map &lt;stations_2@PERMANENT&gt; is not in the current mapset, so
-       its table cannot be written
-       Vector map &lt;stations_3@PERMANENT&gt; is not in the current mapset, so
-       its table cannot be written
+ERROR: Vector map &lt;stations_jan@t_vect_what_strds&gt; is not in the current
+       mapset, so its table cannot be written
+       Vector map &lt;stations_feb_mar@t_vect_what_strds&gt; is not in the
+       current mapset, so its table cannot be written
+       Vector map &lt;stations_apr@t_vect_what_strds&gt; is not in the current
+       mapset, so its table cannot be written
 t.vect.what.strds failed
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-tools.g_mapset(mapset="analysis", flags="c")
-tools.g_region(n=2, s=0, e=2, w=0, res=1)
-tools.g_copy(vector="window@PERMANENT,remote")
+tools.g_mapset(mapset="t_vect_what_strds_2", flags="c")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+tools.g_mapsets(mapset="t_vect_what_strds", operation="add")
+tools.g_copy(vector="station_points@t_vect_what_strds,remote")
 tools.t_create(
     type="stvds",
     output="remote_ds",
@@ -973,19 +1036,26 @@ tools.t_register(
     type="vector",
     input="remote_ds",
     maps="remote",
-    start="2026-02-01",
-    end="2026-04-01",
+    start="2020-02-01",
+    end="2020-04-01",
 )
-tools.t_vect_what_strds(input="remote_ds", strds="levels@PERMANENT")
-print(tools.v_db_select(map="remote").text)
+tools.t_vect_what_strds(
+    input="remote_ds", strds="precipitation_monthly@t_vect_what_strds"
+)
+print(
+    tools.v_db_select(
+        map="remote",
+        columns="cat,station,precipitation_monthly_2020_02,precipitation_monthly_2020_03",
+    ).text
+)
 </pre></div>
 
 <div class="code"><pre>
-cat|x|y|height|level_2|level_3
-1|0.5|1.5|1|211|311
-2|1.5|1.5|2|212|312
-3|0.5|0.5|3|221|321
-4|1.5|0.5|4|222|322
+cat|station|precipitation_monthly_2020_02|precipitation_monthly_2020_03
+1|310090|157|110
+2|310184|263|159
+3|310241|149|102
+4|310286|160|98
 </pre></div>
 
 <div class="code"><pre>
@@ -993,7 +1063,9 @@ from grass.tools import ToolError
 
 try:
     tools.t_vect_what_strds(
-        input="stations@PERMANENT", strds="levels@PERMANENT", column="other"
+        input="stations@t_vect_what_strds",
+        strds="precipitation_monthly@t_vect_what_strds",
+        column="other",
     )
 except ToolError as error:
     print(error.stderr.strip())
@@ -1001,12 +1073,12 @@ except ToolError as error:
 </pre></div>
 
 <div class="code"><pre>
-ERROR: Vector map &lt;stations_1@PERMANENT&gt; is not in the current mapset, so
-       its table cannot be written
-       Vector map &lt;stations_2@PERMANENT&gt; is not in the current mapset, so
-       its table cannot be written
-       Vector map &lt;stations_3@PERMANENT&gt; is not in the current mapset, so
-       its table cannot be written
+ERROR: Vector map &lt;stations_jan@t_vect_what_strds&gt; is not in the current
+       mapset, so its table cannot be written
+       Vector map &lt;stations_feb_mar@t_vect_what_strds&gt; is not in the
+       current mapset, so its table cannot be written
+       Vector map &lt;stations_apr@t_vect_what_strds&gt; is not in the current
+       mapset, so its table cannot be written
 t.vect.what.strds failed
 </pre></div>
 
