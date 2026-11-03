@@ -48,10 +48,12 @@ of the archive. The flag **-o** assumes that the archive has the coordinate
 reference system of the current project and leaves out only this second
 warning.
 
-The flag **-e** extends the extent of the project to the imported maps: it
-makes the default region and the current region of the project cover them. With
-**project**, the flag is always on, so the new project has the extent of the
-maps. This holds for all formats of the archive, `pack` as well.
+The flag **-e** extends the region to the imported maps: it grows the current
+region until it covers them (see the example "Extend the region to the
+imported maps"). In the mapset `PERMANENT` it also extends the default region
+of the project, so use it with care in a project that you share. The maps of a
+`pack` archive extend the region as well as those of a `GML` or `GPKG`
+archive.
 
 ### Files and layers
 
@@ -118,27 +120,39 @@ sign.
 
 ## EXAMPLES
 
-The examples run in a project called `temporal_examples` with the coordinate
-reference system EPSG:3358; where a command names this project, use the name of
-your own project.
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_vect_import`, sets the computational region to
+North Carolina with cells of 1 km, generates a dataset of three monthly
+vector maps and imports the archive that *[t.vect.export](t.vect.export.md)*
+wrote from it; the later examples work in this mapset and with this archive.
+The example with several layers creates a second mapset with the same region.
+The new projects of the examples are made in the GRASS database of the
+session, next to the dataset, and the dataset itself stays as it is. Where a
+command names the project `nc_spm_08_grass7`, use the name of the project you
+opened.
 
-<!-- example-project: crs=EPSG:3358 -->
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_vect_import -->
 
 <!-- markdownlint-disable MD046 -->
 
 ### Import an archive under new names
 
-The dataset `gauges` has two point maps of wind speed for the days from 1 to 2
-March 2026. Map `gauges_k` has the two points `(k, 1)` and `(k, 2)` with the
-speeds `10 * k + 1` and `10 * k + 2`. The first block creates it.
+The dataset `stations_monthly` has three vector maps for January to March 2020.
+Each map is a copy of the 136 climate stations of the dataset, with the column
+`precipitation`, which holds the normal of the month in millimetres, rounded to
+a whole number. The maps are copies in the current mapset, so the dataset stays
+as it is. Each map is an interval of one month. The first block creates the
+dataset.
 
-The second block writes the archive `gauges.tar` with
+The second block writes the archive `stations.tar` with
 *[t.vect.export](t.vect.export.md)* and imports it into the same project. The
 maps of the archive carry the names of the maps that exist already, so
-**basename** names the new maps `imported_1` and `imported_2`. The archive is
+**basename** names the new maps `imported_1` to `imported_3`. The archive is
 extracted to the existing directory `work`, which keeps the pack files.
 **title** and **description** are set; *t.info* prints them. The map
-`imported_2` has the points of `gauges_2`.
+`imported_2` has the stations of `stations_monthly_2020_02`; the commands print
+the first three of them.
 
 The third block imports the archive again under the same names. **--overwrite**
 replaces the dataset and its maps.
@@ -146,106 +160,118 @@ replaces the dataset and its maps.
 === "Command line"
 
     ```sh
-    for k in 1 2; do
-        v.in.ascii --quiet input=- output=gauges_$k separator=comma \
-            columns="x double precision, y double precision, speed double precision" <<EOF
-    $k,1,$((10 * k + 1))
-    $k,2,$((10 * k + 2))
-    EOF
+    g.mapset -c mapset=t_vect_import
+    g.region raster=elev_state_500m res=1000 -a
+    for entry in 01:jan 02:feb 03:mar; do
+        v.extract --quiet input=precip_30ynormals \
+            output=stations_monthly_2020_${entry%:*}
+        v.db.addcolumn --quiet map=stations_monthly_2020_${entry%:*} \
+            columns="precipitation integer"
+        v.db.update --quiet map=stations_monthly_2020_${entry%:*} \
+            column=precipitation query_column="round(${entry#*:})"
     done
-    t.create type=stvds output=gauges title="Wind speed" \
-        description="Wind speed at two gauges"
-    t.register -i type=vector input=gauges maps=gauges_1,gauges_2 \
-        start=2026-03-01 increment="1 day"
+    t.create type=stvds output=stations_monthly title="Precipitation" \
+        description="Monthly precipitation normal in mm at the climate stations"
+    t.register -i type=vector input=stations_monthly \
+        maps=$(g.list type=vector pattern="stations_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
     ```
 
     ```sh
-    t.vect.export input=gauges output=gauges.tar format=pack compression=no
+    t.vect.export input=stations_monthly output=stations.tar format=pack \
+        compression=no
     mkdir work
-    t.vect.import input=gauges.tar output=copy basename=imported \
-        directory=work title="Copy of gauges" \
+    t.vect.import input=stations.tar output=copy basename=imported \
+        directory=work title="Copy of stations" \
         description="Imported from the archive"
     t.vect.list input=copy columns=name,layer,start_time,end_time
-    v.db.select map=imported_2
+    v.db.select map=imported_2 columns=cat,station,precipitation \
+        where="cat <= 3"
     t.info type=stvds input=copy | grep -A3 "Title:"
     ls work | grep pack
     ```
 
     ```text
     name|layer|start_time|end_time
-    imported_1|1|2026-03-01 00:00:00|2026-03-02 00:00:00
-    imported_2|1|2026-03-02 00:00:00|2026-03-03 00:00:00
-    cat|x|y|speed
-    1|2|1|21
-    2|2|2|22
+    imported_1|1|2020-01-01 00:00:00|2020-02-01 00:00:00
+    imported_2|1|2020-02-01 00:00:00|2020-03-01 00:00:00
+    imported_3|1|2020-03-01 00:00:00|2020-04-01 00:00:00
+    cat|station|precipitation
+    1|310090|92
+    2|310184|155
+    3|310241|88
      | Title:
-     | Copy of gauges
+     | Copy of stations
      | Description:
      | Imported from the archive
-    gauges_1.pack
-    gauges_2.pack
+    stations_monthly_2020_01.pack
+    stations_monthly_2020_02.pack
+    stations_monthly_2020_03.pack
     ```
 
     ```sh
-    t.vect.import --overwrite input=gauges.tar output=copy basename=imported \
+    t.vect.import --overwrite input=stations.tar output=copy basename=imported \
         directory=work
     t.vect.list input=copy columns=name,start_time
     ```
 
     ```text
     name|start_time
-    imported_1|2026-03-01 00:00:00
-    imported_2|2026-03-02 00:00:00
+    imported_1|2020-01-01 00:00:00
+    imported_2|2020-02-01 00:00:00
+    imported_3|2020-03-01 00:00:00
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    from io import StringIO
+    from pathlib import Path
 
     from grass.tools import Tools
 
     tools = Tools()
-    for k in (1, 2):
-        tools.v_in_ascii(
-            input=StringIO(f"{k},1,{10 * k + 1}\n{k},2,{10 * k + 2}\n"),
-            output=f"gauges_{k}",
-            separator="comma",
-            columns="x double precision, y double precision, speed double precision",
-        )
+    tools.g_mapset(flags="c", mapset="t_vect_import")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    for month, column in enumerate(("jan", "feb", "mar"), start=1):
+        name = f"stations_monthly_2020_{month:02d}"
+        tools.v_extract(input="precip_30ynormals", output=name)
+        tools.v_db_addcolumn(map=name, columns="precipitation integer")
+        tools.v_db_update(map=name, column="precipitation", query_column=f"round({column})")
     tools.t_create(
         type="stvds",
-        output="gauges",
-        title="Wind speed",
-        description="Wind speed at two gauges",
+        output="stations_monthly",
+        title="Precipitation",
+        description="Monthly precipitation normal in mm at the climate stations",
     )
     tools.t_register(
         type="vector",
-        input="gauges",
-        maps="gauges_1,gauges_2",
-        start="2026-03-01",
-        increment="1 day",
+        input="stations_monthly",
+        maps=",".join(f"stations_monthly_2020_{month:02d}" for month in (1, 2, 3)),
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
     ```
 
     ```python
-    from pathlib import Path
-
     tools.t_vect_export(
-        input="gauges", output="gauges.tar", format="pack", compression="no"
+        input="stations_monthly", output="stations.tar", format="pack", compression="no"
     )
     Path("work").mkdir()
     tools.t_vect_import(
-        input="gauges.tar",
+        input="stations.tar",
         output="copy",
         basename="imported",
         directory="work",
-        title="Copy of gauges",
+        title="Copy of stations",
         description="Imported from the archive",
     )
     print(tools.t_vect_list(input="copy", columns="name,layer,start_time,end_time").text)
-    print(tools.v_db_select(map="imported_2").text)
+    print(
+        tools.v_db_select(
+            map="imported_2", columns="cat,station,precipitation", where="cat <= 3"
+        ).text
+    )
     info = tools.t_info(type="stvds", input="copy").stdout.splitlines()
     first = next(index for index, line in enumerate(info) if "Title:" in line)
     print("\n".join(info[first : first + 4]))
@@ -254,22 +280,25 @@ replaces the dataset and its maps.
 
     ```text
     name|layer|start_time|end_time
-    imported_1|1|2026-03-01 00:00:00|2026-03-02 00:00:00
-    imported_2|1|2026-03-02 00:00:00|2026-03-03 00:00:00
-    cat|x|y|speed
-    1|2|1|21
-    2|2|2|22
+    imported_1|1|2020-01-01 00:00:00|2020-02-01 00:00:00
+    imported_2|1|2020-02-01 00:00:00|2020-03-01 00:00:00
+    imported_3|1|2020-03-01 00:00:00|2020-04-01 00:00:00
+    cat|station|precipitation
+    1|310090|92
+    2|310184|155
+    3|310241|88
      | Title:
-     | Copy of gauges
+     | Copy of stations
      | Description:
      | Imported from the archive
-    gauges_1.pack
-    gauges_2.pack
+    stations_monthly_2020_01.pack
+    stations_monthly_2020_02.pack
+    stations_monthly_2020_03.pack
     ```
 
     ```python
     tools.t_vect_import(
-        input="gauges.tar",
+        input="stations.tar",
         output="copy",
         basename="imported",
         directory="work",
@@ -280,8 +309,9 @@ replaces the dataset and its maps.
 
     ```text
     name|start_time
-    imported_1|2026-03-01 00:00:00
-    imported_2|2026-03-02 00:00:00
+    imported_1|2020-01-01 00:00:00
+    imported_2|2020-02-01 00:00:00
+    imported_3|2020-03-01 00:00:00
     ```
 
 ### Choose the format of the archive
@@ -289,62 +319,64 @@ replaces the dataset and its maps.
 *[t.vect.export](t.vect.export.md)* writes the maps as GML (the default),
 GeoPackage (`GPKG`) or `pack` files. The archives here are compressed with
 `gzip` and `bzip2`; the import finds the compression and the format itself.
-The first block imports a GML archive, with the names `gml_1` and `gml_2`. The
+The first block imports a GML archive, with the names `gml_1` to `gml_3`. The
 directory `gml_files` keeps the GML files that *v.in.ogr* read. The table of
-`gml_1` has the columns of the GML file besides `x`, `y` and `speed`: `gml_id`,
-the feature id, and `cat_`, the field `cat` of the archive, which *v.in.ogr*
-renamed because it made a new key column `cat`. The second block imports a
-GeoPackage archive and prints the speeds of the points of `gpkg_2`, which are
-those of `gauges_2`.
+`gml_1` has the columns of the GML file besides those of the stations: the
+commands print the three that the import adds or renames, `cat`, the new key
+column, `gml_id`, the feature id, and `cat_`, the field `cat` of the archive,
+which *v.in.ogr* renamed because it made a new key column `cat`. The second
+block imports a GeoPackage archive and prints the precipitation of the first
+three stations of `gpkg_2`, which are those of `stations_monthly_2020_02`.
 
 === "Command line"
 
     <!-- example: requires=gdal:GML -->
 
     ```sh
-    t.vect.export input=gauges output=gauges_gml.tar.gz format=GML \
+    t.vect.export input=stations_monthly output=stations_gml.tar.gz format=GML \
         compression=gzip
     mkdir gml_files
-    t.vect.import input=gauges_gml.tar.gz output=gml_copy basename=gml \
+    t.vect.import input=stations_gml.tar.gz output=gml_copy basename=gml \
         directory=gml_files
     t.vect.list input=gml_copy columns=name,layer,start_time
-    db.columns table=gml_1
+    db.columns table=gml_1 | grep -E "^(cat|gml_id|cat_)$"
     ls gml_files | grep xml
     ```
 
     ```text
     name|layer|start_time
-    gml_1|None|2026-03-01 00:00:00
-    gml_2|None|2026-03-02 00:00:00
+    gml_1|None|2020-01-01 00:00:00
+    gml_2|None|2020-02-01 00:00:00
+    gml_3|None|2020-03-01 00:00:00
     cat
     gml_id
     cat_
-    x
-    y
-    speed
-    gauges_1.xml
-    gauges_2.xml
+    stations_monthly_2020_01.xml
+    stations_monthly_2020_02.xml
+    stations_monthly_2020_03.xml
     ```
 
     <!-- example: requires=gdal:GPKG -->
 
     ```sh
-    t.vect.export input=gauges output=gauges_gpkg.tar.bz2 format=GPKG \
-        compression=bzip2
+    t.vect.export input=stations_monthly output=stations_gpkg.tar.bz2 \
+        format=GPKG compression=bzip2
     mkdir gpkg_files
-    t.vect.import input=gauges_gpkg.tar.bz2 output=gpkg_copy basename=gpkg \
+    t.vect.import input=stations_gpkg.tar.bz2 output=gpkg_copy basename=gpkg \
         directory=gpkg_files
     t.vect.list input=gpkg_copy columns=name,layer,start_time
-    v.db.select map=gpkg_2 columns=speed
+    v.db.select map=gpkg_2 columns=station,precipitation where="cat_ <= 3"
     ```
 
     ```text
     name|layer|start_time
-    gpkg_1|None|2026-03-01 00:00:00
-    gpkg_2|None|2026-03-02 00:00:00
-    speed
-    21
-    22
+    gpkg_1|None|2020-01-01 00:00:00
+    gpkg_2|None|2020-02-01 00:00:00
+    gpkg_3|None|2020-03-01 00:00:00
+    station|precipitation
+    310090|92
+    310184|155
+    310241|88
     ```
 
 === "Python (grass.tools)"
@@ -353,209 +385,208 @@ those of `gauges_2`.
 
     ```python
     tools.t_vect_export(
-        input="gauges",
-        output="gauges_gml.tar.gz",
+        input="stations_monthly",
+        output="stations_gml.tar.gz",
         format="GML",
         compression="gzip",
     )
     Path("gml_files").mkdir()
     tools.t_vect_import(
-        input="gauges_gml.tar.gz",
+        input="stations_gml.tar.gz",
         output="gml_copy",
         basename="gml",
         directory="gml_files",
     )
     print(tools.t_vect_list(input="gml_copy", columns="name,layer,start_time").text)
-    print(tools.db_columns(table="gml_1").text)
+    columns = tools.db_columns(table="gml_1").text.splitlines()
+    print("\n".join(name for name in columns if name in ("cat", "gml_id", "cat_")))
     print("\n".join(sorted(path.name for path in Path("gml_files").glob("*.xml"))))
     ```
 
     ```text
     name|layer|start_time
-    gml_1|None|2026-03-01 00:00:00
-    gml_2|None|2026-03-02 00:00:00
+    gml_1|None|2020-01-01 00:00:00
+    gml_2|None|2020-02-01 00:00:00
+    gml_3|None|2020-03-01 00:00:00
     cat
     gml_id
     cat_
-    x
-    y
-    speed
-    gauges_1.xml
-    gauges_2.xml
+    stations_monthly_2020_01.xml
+    stations_monthly_2020_02.xml
+    stations_monthly_2020_03.xml
     ```
 
     <!-- example: requires=gdal:GPKG -->
 
     ```python
     tools.t_vect_export(
-        input="gauges",
-        output="gauges_gpkg.tar.bz2",
+        input="stations_monthly",
+        output="stations_gpkg.tar.bz2",
         format="GPKG",
         compression="bzip2",
     )
     Path("gpkg_files").mkdir()
     tools.t_vect_import(
-        input="gauges_gpkg.tar.bz2",
+        input="stations_gpkg.tar.bz2",
         output="gpkg_copy",
         basename="gpkg",
         directory="gpkg_files",
     )
     print(tools.t_vect_list(input="gpkg_copy", columns="name,layer,start_time").text)
-    print(tools.v_db_select(map="gpkg_2", columns="speed").text)
+    print(
+        tools.v_db_select(
+            map="gpkg_2", columns="station,precipitation", where="cat_ <= 3"
+        ).text
+    )
     ```
 
     ```text
     name|layer|start_time
-    gpkg_1|None|2026-03-01 00:00:00
-    gpkg_2|None|2026-03-02 00:00:00
-    speed
-    21
-    22
+    gpkg_1|None|2020-01-01 00:00:00
+    gpkg_2|None|2020-02-01 00:00:00
+    gpkg_3|None|2020-03-01 00:00:00
+    station|precipitation
+    310090|92
+    310184|155
+    310241|88
     ```
 
 ### Import into a new project
 
 With **project**, the tool makes a new project with the coordinate reference
 system of the archive, imports into it and goes back to the project it was
-called in. The maps keep their names, because the new project has none of
-them. The new project takes the extent of the maps, for a GML archive as well
-as for a `pack` archive: the default region of a new project is a single cell
-from (0, 0) to (1, 1), and the points lie between (1, 1) and (2, 2), so the
-region grows to the corners (0, 0) and (2, 2).
-
-The first block imports the `pack` archive. It switches to the new project to
-look at it and back to the project `temporal_examples` of these examples. The
-last two commands print the projection and the ellipsoid of the new project and
-of the project of the examples, which are the same. The second block does the
-same for the GML archive of the previous example and prints the region of its
-new project.
+called in. The new project is made in the GRASS database of the session, so it
+lies next to the project `nc_spm_08_grass7`. The maps keep their names, because
+the new project has none of them. The first block imports the `pack` archive.
+It switches to the new project to look at it and back to the mapset of these
+examples. The commands print the dataset and the bounds of the first map,
+which are those of the stations in the project of the examples. The second
+block does the same for the GML archive of the previous example.
 
 === "Command line"
 
     ```sh
-    t.vect.import input=gauges.tar output=gauges project=archive_copy \
+    t.vect.import input=stations.tar output=stations project=archive_copy \
         directory=work
     g.mapset project=archive_copy mapset=PERMANENT
-    t.vect.list input=gauges columns=name,start_time
-    g.region -dg | grep -E "^(n|s|e|w)="
-    g.proj -g | grep -E "^(proj|ellps)="
-    g.mapset project=temporal_examples mapset=PERMANENT
-    g.proj -g | grep -E "^(proj|ellps)="
+    t.vect.list input=stations columns=name,start_time
+    v.info format=shell map=stations_monthly_2020_01 | grep -E "^(north|south|east|west)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
+    g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
+    v.info format=shell map=stations_monthly_2020_01 | grep -E "^(north|south|east|west)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
     ```
 
     ```text
     name|start_time
-    gauges_1|2026-03-01 00:00:00
-    gauges_2|2026-03-02 00:00:00
-    n=2
-    s=0
-    w=0
-    e=2
-    ellps=grs80
-    proj=lcc
-    ellps=grs80
-    proj=lcc
+    stations_monthly_2020_01|2020-01-01 00:00:00
+    stations_monthly_2020_02|2020-02-01 00:00:00
+    stations_monthly_2020_03|2020-03-01 00:00:00
+    north=306222
+    south=27607
+    east=917005
+    west=151769
+    north=306222
+    south=27607
+    east=917005
+    west=151769
     ```
 
     <!-- example: requires=gdal:GML -->
 
     ```sh
-    t.vect.import input=gauges_gml.tar.gz output=gauges project=archive_gml \
+    t.vect.import input=stations_gml.tar.gz output=stations project=archive_gml \
         directory=gml_files
     g.mapset project=archive_gml mapset=PERMANENT
-    g.region -dg | grep -E "^(n|s|e|w)="
-    g.mapset project=temporal_examples mapset=PERMANENT
+    t.vect.list input=stations columns=name,layer,start_time
+    g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
     ```
 
     ```text
-    n=2
-    s=0
-    w=0
-    e=2
+    name|layer|start_time
+    stations_monthly_2020_01|None|2020-01-01 00:00:00
+    stations_monthly_2020_02|None|2020-02-01 00:00:00
+    stations_monthly_2020_03|None|2020-03-01 00:00:00
     ```
 
 === "Python (grass.tools)"
 
     ```python
+    def print_bounds(name):
+        info = tools.v_info(map=name, format="shell").keyval
+        keys = ("north", "south", "east", "west")
+        print("\n".join(f"{key}={info[key]:.0f}" for key in keys))
+
+
     tools.t_vect_import(
-        input="gauges.tar", output="gauges", project="archive_copy", directory="work"
+        input="stations.tar", output="stations", project="archive_copy", directory="work"
     )
     tools.g_mapset(project="archive_copy", mapset="PERMANENT")
-    print(tools.t_vect_list(input="gauges", columns="name,start_time").text)
-    region = tools.g_region(flags="dg").keyval
-    print("\n".join(f"{key}={region[key]}" for key in ("n", "s", "w", "e")))
-    projection = tools.g_proj(flags="g").keyval
-    print("\n".join(f"{key}={projection[key]}" for key in ("ellps", "proj")))
-    tools.g_mapset(project="temporal_examples", mapset="PERMANENT")
-    projection = tools.g_proj(flags="g").keyval
-    print("\n".join(f"{key}={projection[key]}" for key in ("ellps", "proj")))
+    print(tools.t_vect_list(input="stations", columns="name,start_time").text)
+    print_bounds("stations_monthly_2020_01")
+    tools.g_mapset(project="nc_spm_08_grass7", mapset="t_vect_import")
+    print_bounds("stations_monthly_2020_01")
     ```
 
     ```text
     name|start_time
-    gauges_1|2026-03-01 00:00:00
-    gauges_2|2026-03-02 00:00:00
-    n=2
-    s=0
-    w=0
-    e=2
-    ellps=grs80
-    proj=lcc
-    ellps=grs80
-    proj=lcc
+    stations_monthly_2020_01|2020-01-01 00:00:00
+    stations_monthly_2020_02|2020-02-01 00:00:00
+    stations_monthly_2020_03|2020-03-01 00:00:00
+    north=306222
+    south=27607
+    east=917005
+    west=151769
+    north=306222
+    south=27607
+    east=917005
+    west=151769
     ```
 
     <!-- example: requires=gdal:GML -->
 
     ```python
     tools.t_vect_import(
-        input="gauges_gml.tar.gz",
-        output="gauges",
+        input="stations_gml.tar.gz",
+        output="stations",
         project="archive_gml",
         directory="gml_files",
     )
     tools.g_mapset(project="archive_gml", mapset="PERMANENT")
-    region = tools.g_region(flags="dg").keyval
-    print("\n".join(f"{key}={region[key]}" for key in ("n", "s", "w", "e")))
-    tools.g_mapset(project="temporal_examples", mapset="PERMANENT")
+    print(tools.t_vect_list(input="stations", columns="name,layer,start_time").text)
+    tools.g_mapset(project="nc_spm_08_grass7", mapset="t_vect_import")
     ```
 
     ```text
-    n=2
-    s=0
-    w=0
-    e=2
+    name|layer|start_time
+    stations_monthly_2020_01|None|2020-01-01 00:00:00
+    stations_monthly_2020_02|None|2020-02-01 00:00:00
+    stations_monthly_2020_03|None|2020-03-01 00:00:00
     ```
 
-### Create a project and extend its region
+### Create a project without importing
 
-The flag **-c** makes the project and imports nothing: the region of the new
-project is its default one, a single cell from (0, 0) to (1, 1). The second
-import goes into that project with **-e**, so the default region and the current
-region grow to the extent of the maps. The flag works for a `pack` archive as it
-does for GML and GPKG.
+The flag **-c** makes the project and imports nothing. The commands switch to
+the new project and show that it has no vector map and no dataset, and that
+its default region is one cell.
 
 === "Command line"
 
     ```sh
-    t.vect.import -c input=gauges.tar output=gauges project=empty_project \
+    t.vect.import -c input=stations.tar output=stations project=empty_project \
         directory=work
     g.mapset project=empty_project mapset=PERMANENT
+    g.list type=vector | wc -l
+    t.list type=stvds | wc -l
     g.region -dg | grep -E "^(n|s|e|w)="
-    t.vect.import -e input=gauges.tar output=gauges directory=work
-    g.region -dg | grep -E "^(n|s|e|w)="
-    g.mapset project=temporal_examples mapset=PERMANENT
+    g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
     ```
 
     ```text
+    0
+    0
     n=1
     s=0
     w=0
     e=1
-    n=2
-    s=0
-    w=0
-    e=2
     ```
 
 === "Python (grass.tools)"
@@ -563,43 +594,98 @@ does for GML and GPKG.
     ```python
     def print_extent(flags):
         region = tools.g_region(flags=flags).keyval
-        print("\n".join(f"{key}={region[key]}" for key in ("n", "s", "w", "e")))
+        print("\n".join(f"{key}={region[key]:.0f}" for key in ("n", "s", "w", "e")))
 
 
     tools.t_vect_import(
-        input="gauges.tar",
-        output="gauges",
+        input="stations.tar",
+        output="stations",
         project="empty_project",
         directory="work",
         flags="c",
     )
     tools.g_mapset(project="empty_project", mapset="PERMANENT")
+    for result in (tools.g_list(type="vector"), tools.t_list(type="stvds")):
+        print(len(result.text.splitlines()) if result else 0)
     print_extent("dg")
-    tools.t_vect_import(input="gauges.tar", output="gauges", directory="work", flags="e")
-    print_extent("dg")
-    tools.g_mapset(project="temporal_examples", mapset="PERMANENT")
+    tools.g_mapset(project="nc_spm_08_grass7", mapset="t_vect_import")
     ```
 
     ```text
+    0
+    0
     n=1
     s=0
     w=0
     e=1
-    n=2
-    s=0
-    w=0
-    e=2
+    ```
+
+### Extend the region to the imported maps
+
+The flag **-e** grows the current region until it covers the imported maps. The
+first command moves the region to a small window; the import then grows it to
+the extent of the stations, in cells of 1 km, from the north and west edges
+of the stations. The maps of a `pack` archive extend the region as well as
+those of a GML or GeoPackage archive.
+
+=== "Command line"
+
+    ```sh
+    g.region n=250000 s=240000 w=500000 e=510000 res=1000
+    g.region -g | grep -E "^(n|s|e|w)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
+    t.vect.import -e input=stations.tar output=extended basename=extended \
+        directory=work
+    g.region -g | grep -E "^(n|s|e|w)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
+    g.region raster=elev_state_500m res=1000 -a
+    ```
+
+    ```text
+    n=250000
+    s=240000
+    w=500000
+    e=510000
+    n=306222
+    s=27222
+    w=151769
+    e=917769
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.g_region(n=250000, s=240000, w=500000, e=510000, res=1000)
+    print_extent("g")
+    tools.t_vect_import(
+        input="stations.tar",
+        output="extended",
+        basename="extended",
+        directory="work",
+        flags="e",
+    )
+    print_extent("g")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    ```
+
+    ```text
+    n=250000
+    s=240000
+    w=500000
+    e=510000
+    n=306222
+    s=27222
+    w=151769
+    e=917769
     ```
 
 ### Import into a project with another coordinate reference system
 
-The archive `gauges.tar` has the coordinate reference system EPSG:3358. The
-project `utm` made here has EPSG:32632. The first block imports the archive
-into it without **-o**, the second with **-o** and under other names. Neither
-import is refused, and neither reprojects: the maps keep their coordinates, and
-the points of `gauges_1` still lie at x = 1 and y = 1 and 2. Both warn that the
-projections differ; **-o** only leaves out the warning that re-projection is
-not supported.
+The archive `stations.tar` has the coordinate reference system of the dataset,
+EPSG:3358. The project `utm` made here has EPSG:32632. The first block imports
+the archive into it without **-o**, the second with **-o** and under other
+names. Neither import is refused, and neither reprojects: the maps keep their
+coordinates, and the bounds of `stations_monthly_2020_01` are those printed in
+the example with the new project. Both warn that the projections differ; **-o**
+only leaves out the warning that re-projection is not supported.
 
 The project `flat` is made with `grass -c XY` and has no coordinate reference
 system. The `pack` archive
@@ -612,38 +698,40 @@ block needs the GML driver).
     ```sh
     g.proj -c project=utm epsg=32632
     g.mapset project=utm mapset=PERMANENT
-    t.vect.import input=gauges.tar output=gauges directory=work
-    t.vect.list input=gauges columns=name,start_time
-    v.info format=shell map=gauges_1 | grep -E "^(north|south|east|west)="
-    t.vect.import -o input=gauges.tar output=again basename=again \
+    t.vect.import input=stations.tar output=stations directory=work
+    t.vect.list input=stations columns=name,start_time
+    v.info format=shell map=stations_monthly_2020_01 | grep -E "^(north|south|east|west)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
+    t.vect.import -o input=stations.tar output=again basename=again \
         directory=work
     t.vect.list input=again columns=name,start_time
-    v.info format=shell map=again_1 | grep -E "^(north|south|east|west)="
-    g.mapset project=temporal_examples mapset=PERMANENT
+    v.info format=shell map=again_1 | grep -E "^(north|south|east|west)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
+    g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
     ```
 
     ```text
     name|start_time
-    gauges_1|2026-03-01 00:00:00
-    gauges_2|2026-03-02 00:00:00
-    north=2
-    south=1
-    east=1
-    west=1
+    stations_monthly_2020_01|2020-01-01 00:00:00
+    stations_monthly_2020_02|2020-02-01 00:00:00
+    stations_monthly_2020_03|2020-03-01 00:00:00
+    north=306222
+    south=27607
+    east=917005
+    west=151769
     name|start_time
-    again_1|2026-03-01 00:00:00
-    again_2|2026-03-02 00:00:00
-    north=2
-    south=1
-    east=1
-    west=1
+    again_1|2020-01-01 00:00:00
+    again_2|2020-02-01 00:00:00
+    again_3|2020-03-01 00:00:00
+    north=306222
+    south=27607
+    east=917005
+    west=151769
     ```
 
     ```sh
     grass -c XY "$(g.gisenv get=GISDBASE)/flat" --exec true
     g.mapset project=flat mapset=PERMANENT
     mkdir flat_files
-    if ! t.vect.import input=gauges.tar output=gauges directory=flat_files \
+    if ! t.vect.import input=stations.tar output=stations directory=flat_files \
         2> flat_error.txt; then
         grep -q PROJ_INFO flat_error.txt && echo "PROJ_INFO is missing"
     fi
@@ -657,34 +745,29 @@ block needs the GML driver).
 
     ```sh
     mkdir flat_gml_files
-    t.vect.import input=gauges_gml.tar.gz output=flat_gauges \
+    t.vect.import input=stations_gml.tar.gz output=flat_stations \
         directory=flat_gml_files
-    t.vect.list input=flat_gauges columns=name,start_time
-    g.mapset project=temporal_examples mapset=PERMANENT
+    t.vect.list input=flat_stations columns=name,layer,start_time
+    g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
     ```
 
     ```text
-    name|start_time
-    gauges_1|2026-03-01 00:00:00
-    gauges_2|2026-03-02 00:00:00
+    name|layer|start_time
+    stations_monthly_2020_01|None|2020-01-01 00:00:00
+    stations_monthly_2020_02|None|2020-02-01 00:00:00
+    stations_monthly_2020_03|None|2020-03-01 00:00:00
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    def print_bounds(name):
-        info = tools.v_info(map=name, format="shell").keyval
-        keys = ("north", "south", "east", "west")
-        print("\n".join(f"{key}={info[key]}" for key in keys))
-
-
     tools.g_proj(flags="c", project="utm", epsg=32632)
     tools.g_mapset(project="utm", mapset="PERMANENT")
-    tools.t_vect_import(input="gauges.tar", output="gauges", directory="work")
-    print(tools.t_vect_list(input="gauges", columns="name,start_time").text)
-    print_bounds("gauges_1")
+    tools.t_vect_import(input="stations.tar", output="stations", directory="work")
+    print(tools.t_vect_list(input="stations", columns="name,start_time").text)
+    print_bounds("stations_monthly_2020_01")
     tools.t_vect_import(
-        input="gauges.tar",
+        input="stations.tar",
         output="again",
         basename="again",
         directory="work",
@@ -692,24 +775,26 @@ block needs the GML driver).
     )
     print(tools.t_vect_list(input="again", columns="name,start_time").text)
     print_bounds("again_1")
-    tools.g_mapset(project="temporal_examples", mapset="PERMANENT")
+    tools.g_mapset(project="nc_spm_08_grass7", mapset="t_vect_import")
     ```
 
     ```text
     name|start_time
-    gauges_1|2026-03-01 00:00:00
-    gauges_2|2026-03-02 00:00:00
-    north=2
-    south=1
-    east=1
-    west=1
+    stations_monthly_2020_01|2020-01-01 00:00:00
+    stations_monthly_2020_02|2020-02-01 00:00:00
+    stations_monthly_2020_03|2020-03-01 00:00:00
+    north=306222
+    south=27607
+    east=917005
+    west=151769
     name|start_time
-    again_1|2026-03-01 00:00:00
-    again_2|2026-03-02 00:00:00
-    north=2
-    south=1
-    east=1
-    west=1
+    again_1|2020-01-01 00:00:00
+    again_2|2020-02-01 00:00:00
+    again_3|2020-03-01 00:00:00
+    north=306222
+    south=27607
+    east=917005
+    west=151769
     ```
 
     ```python
@@ -722,7 +807,7 @@ block needs the GML driver).
     tools.g_mapset(project="flat", mapset="PERMANENT")
     Path("flat_files").mkdir()
     try:
-        tools.t_vect_import(input="gauges.tar", output="gauges", directory="flat_files")
+        tools.t_vect_import(input="stations.tar", output="stations", directory="flat_files")
     except ToolError as error:
         if "PROJ_INFO" in str(error):
             print("PROJ_INFO is missing")
@@ -737,61 +822,65 @@ block needs the GML driver).
     ```python
     Path("flat_gml_files").mkdir()
     tools.t_vect_import(
-        input="gauges_gml.tar.gz", output="flat_gauges", directory="flat_gml_files"
+        input="stations_gml.tar.gz", output="flat_stations", directory="flat_gml_files"
     )
-    print(tools.t_vect_list(input="flat_gauges", columns="name,start_time").text)
-    tools.g_mapset(project="temporal_examples", mapset="PERMANENT")
+    print(tools.t_vect_list(input="flat_stations", columns="name,layer,start_time").text)
+    tools.g_mapset(project="nc_spm_08_grass7", mapset="t_vect_import")
     ```
 
     ```text
-    name|start_time
-    gauges_1|2026-03-01 00:00:00
-    gauges_2|2026-03-02 00:00:00
+    name|layer|start_time
+    stations_monthly_2020_01|None|2020-01-01 00:00:00
+    stations_monthly_2020_02|None|2020-02-01 00:00:00
+    stations_monthly_2020_03|None|2020-03-01 00:00:00
     ```
 
 ### Import a map with several layers
 
-The map `layered` has the points of `gauges_1` in two layers with the same
-categories 1 and 2. Layer 2 has its own table, `layered_2`, in which the speeds
-are 100 higher. The dataset `layered` registers layer 2 of the map as
-`layered:2`.
+The map `layered` has the stations of `stations_monthly_2020_01` in two layers
+with the same categories. Layer 2 has its own table, `layered_2`, in which the
+precipitation is 100 mm higher. The dataset `layered` registers layer 2 of the
+map as `layered:2`.
 
 A `pack` archive holds the whole map, so the import into the new mapset
-`layers` has both layers, and the dataset registers layer 2 as before. The
-speeds of layer 2 are 111 and 112. The GML archive holds the registered layer
-as the only layer of the map: the imported map `lgml_1` has layer 1, and its
-table has the speeds of layer 2.
+`t_vect_import_2` has both layers, and the dataset registers layer 2 as before.
+The values of layer 2 of the first three stations are 211, 282 and 200 mm.
+The GML archive holds the registered layer as the only layer of the map: the
+imported map `lgml_1` has layer 1, and its table has the values of layer 2.
 
 === "Command line"
 
     ```sh
-    v.category --quiet input=gauges_1 output=layered option=transfer \
-        layer=1,2
+    v.category --quiet input=stations_monthly_2020_01 output=layered \
+        option=transfer layer=1,2
     db.copy from_table=layered to_table=layered_2
     v.db.connect --quiet map=layered table=layered_2 layer=2 key=cat
-    db.execute sql="UPDATE layered_2 SET speed = speed + 100"
+    db.execute sql="UPDATE layered_2 SET precipitation = precipitation + 100"
     t.create type=stvds output=layered title="Layers" \
         description="A map with two layers"
     t.register type=vector input=layered maps=layered:2 \
-        start=2026-03-01 end=2026-03-02
+        start=2020-01-01 end=2020-02-01
     t.vect.export input=layered output=layered.tar format=pack compression=no
     mkdir layer_files
-    g.mapset -c mapset=layers
+    g.mapset -c mapset=t_vect_import_2
+    g.region raster=elev_state_500m res=1000 -a
     t.vect.import input=layered.tar output=layered_copy directory=layer_files
     t.vect.list input=layered_copy columns=name,layer,mapset
-    v.category input=layered@layers option=layers
-    v.db.select map=layered@layers layer=2 columns=speed
-    g.mapset mapset=PERMANENT
+    v.category input=layered@t_vect_import_2 option=layers
+    v.db.select map=layered@t_vect_import_2 layer=2 \
+        columns=cat,station,precipitation where="cat <= 3"
+    g.mapset mapset=t_vect_import
     ```
 
     ```text
     name|layer|mapset
-    layered|2|layers
+    layered|2|t_vect_import_2
     1
     2
-    speed
-    111
-    112
+    cat|station|precipitation
+    1|310090|211
+    2|310184|282
+    3|310241|200
     ```
 
     <!-- example: requires=gdal:GML -->
@@ -804,25 +893,28 @@ table has the speeds of layer 2.
         directory=layer_gml_files
     t.vect.list input=layered_gml columns=name,layer
     v.category input=lgml_1 option=layers
-    v.db.select map=lgml_1 columns=speed
+    v.db.select map=lgml_1 columns=station,precipitation where="cat_ <= 3"
     ```
 
     ```text
     name|layer
     lgml_1|None
     1
-    speed
-    111
-    112
+    station|precipitation
+    310090|211
+    310184|282
+    310241|200
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.v_category(input="gauges_1", output="layered", option="transfer", layer="1,2")
+    tools.v_category(
+        input="stations_monthly_2020_01", output="layered", option="transfer", layer="1,2"
+    )
     tools.db_copy(from_table="layered", to_table="layered_2")
     tools.v_db_connect(map="layered", table="layered_2", layer=2, key="cat")
-    tools.db_execute(sql="UPDATE layered_2 SET speed = speed + 100")
+    tools.db_execute(sql="UPDATE layered_2 SET precipitation = precipitation + 100")
     tools.t_create(
         type="stvds", output="layered", title="Layers", description="A map with two layers"
     )
@@ -830,29 +922,38 @@ table has the speeds of layer 2.
         type="vector",
         input="layered",
         maps="layered:2",
-        start="2026-03-01",
-        end="2026-03-02",
+        start="2020-01-01",
+        end="2020-02-01",
     )
     tools.t_vect_export(
         input="layered", output="layered.tar", format="pack", compression="no"
     )
     Path("layer_files").mkdir()
-    tools.g_mapset(mapset="layers", flags="c")
+    tools.g_mapset(mapset="t_vect_import_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     tools.t_vect_import(input="layered.tar", output="layered_copy", directory="layer_files")
     print(tools.t_vect_list(input="layered_copy", columns="name,layer,mapset").text)
-    print(tools.v_category(input="layered@layers", option="layers").text)
-    print(tools.v_db_select(map="layered@layers", layer=2, columns="speed").text)
-    tools.g_mapset(mapset="PERMANENT")
+    print(tools.v_category(input="layered@t_vect_import_2", option="layers").text)
+    print(
+        tools.v_db_select(
+            map="layered@t_vect_import_2",
+            layer=2,
+            columns="cat,station,precipitation",
+            where="cat <= 3",
+        ).text
+    )
+    tools.g_mapset(mapset="t_vect_import")
     ```
 
     ```text
     name|layer|mapset
-    layered|2|layers
+    layered|2|t_vect_import_2
     1
     2
-    speed
-    111
-    112
+    cat|station|precipitation
+    1|310090|211
+    2|310184|282
+    3|310241|200
     ```
 
     <!-- example: requires=gdal:GML -->
@@ -870,16 +971,21 @@ table has the speeds of layer 2.
     )
     print(tools.t_vect_list(input="layered_gml", columns="name,layer").text)
     print(tools.v_category(input="lgml_1", option="layers").text)
-    print(tools.v_db_select(map="lgml_1", columns="speed").text)
+    print(
+        tools.v_db_select(
+            map="lgml_1", columns="station,precipitation", where="cat_ <= 3"
+        ).text
+    )
     ```
 
     ```text
     name|layer
     lgml_1|None
     1
-    speed
-    111
-    112
+    station|precipitation
+    310090|211
+    310184|282
+    310241|200
     ```
 
 <!-- markdownlint-enable MD046 -->
