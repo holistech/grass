@@ -74,8 +74,8 @@ The option **suffix** sets the form of the suffix:
 
 - `gran` (the default), for absolute time: the start of the interval, cut to
   the granularity of the sampler, with underscores. For a sampler with a
-  granularity of one day this is `2026_06_01`;
-- `time`: the full start time, `2026_06_01T00_00_00`;
+  granularity of one day this is `2020_07_01`;
+- `time`: the full start time, `2020_07_01T00_00_00`;
 - `num`: the number of the interval with five digits, `00001`; `num%03` sets
   the number of digits to 3.
 
@@ -99,7 +99,7 @@ default it is not registered, and the flag **-n** keeps it. The option
 result does not depend on it.
 
 *t.rast.aggregate.ds* computes in the current computational region, as
-*r.series* does, as the eighth example shows.
+*r.series* does, as the fourth example shows.
 
 ## NOTES
 
@@ -168,84 +168,90 @@ runs).
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_aggregate_ds` and sets the computational
+region to North Carolina with cells of 1 km; the later examples work in this
+mapset and region, except the last, which creates a second mapset with the
+same region. The first four examples aggregate the precipitation of July 2020.
+It is generated from the 30-year normals of the climate stations in
+`precip_30ynormals`, not measured. The examples that show how the sampling
+works use maps with small constant values, so that the results can be checked
+by hand.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_aggregate_ds -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Aggregate by the intervals of another dataset
 
-The dataset `rain` holds the rain of eight days from 1 June 2026 as maps with
-constant values 1 to 8. The gauge failed on 4 and 5 June, so `rain_4` and
-`rain_5` have no value at all, and `rain_3` has no value in its western
-column. The dataset has the semantic type `sum`.
+The dataset `precipitation_daily` holds the precipitation sums of the 31 days
+of July 2020 in whole millimetres, with the semantic type `sum`. The monthly
+sum of July is interpolated from the normals of the stations with
+*v.surf.idw*, times 1.1 for an assumed wet year; the daily sums distribute it
+over the days `1` to `3`, `9` to `11`, `17` to `19` and `25` to `27`, the days
+with rain, and all other days are dry.
 
-The sampler `periods` has four intervals: 1 to 4 June, 4 to 6 June, 6 to 8
-June and 8 to 9 June, one day long. The default `sampling=contains` and the
-method `sum` give:
+The sampler `dekads` has three intervals, the dekads of the month: 1 to 10
+July, 11 to 20 July and 21 to 31 July. A dekad is ten days long, the last one
+of a month up to eleven, so the intervals differ in length, which
+*[t.rast.aggregate](t.rast.aggregate.md)* cannot do. The default
+`sampling=contains` takes the daily maps of each interval, and the method
+`sum` gives the precipitation of the dekad in millimetres. The first dekad has
+five days with rain, the days 1 to 3, 9 and 10, the second four, the days 11
+and 17 to 19, and the third three, the days 25 to 27. The sums of the cells
+range from 36 to 94 mm in the first dekad, from 27 to 71 mm in the second and
+from 21 to 55 mm in the third. In the wettest cell the five days of the first
+dekad have 16, 23, 16, 16 and 23 mm, which is 94 mm.
 
-- 1 to 4 June: `rain_1`, `rain_2` and `rain_3` lie in the interval, the sum is
-  1 + 2 + 3 = 6 in the eastern columns, and 1 + 2 = 3 in the western column,
-  where `rain_3` has no value and is passed over. The map has the minimum 3 and
-  the maximum 6;
-- 4 to 6 June: both maps have no value, so there is no map with data. Without
-  **-n** the tool does not register the result;
-- 6 to 8 June: 6 + 7 = 13;
-- 8 June: `rain_8` has the start and the end of the interval, so it is `equal`
-  and not related by `contains`. The interval gets no map.
-
-The first block aggregates with **nprocs** 2 and lists the result with
-*[t.rast.list](t.rast.list.md)*. The second block runs the same aggregation
-with **-n**. The map for 4 to 6 June is then registered, and its minimum and
-maximum are `None`. The third block reads the semantic type and the aggregation
-type of the new dataset.
+The first block creates the daily dataset, the second block the sampler and
+aggregates with **nprocs** 2, and lists the result with
+*[t.rast.list](t.rast.list.md)*. The third block reads the semantic type and
+the aggregation type of the new dataset.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 t=1 b=0 res=1 res3=1 tbres=1
-    for day in 1 2 6 7 8; do
-        r.mapcalc expression="rain_$day = $day"
+    g.mapset -c mapset=t_rast_aggregate_ds
+    g.region raster=elev_state_500m res=1000 -a
+    v.surf.idw input=precip_30ynormals column=jul \
+        output=precipitation_normal_07 npoints=12 power=2
+    r.mapcalc expression="precipitation_monthly_2020_07 = if(isnull(elev_state_500m), null(), round(1.1 * precipitation_normal_07))"
+    for day in $(seq 31); do
+        echo "precipitation_daily_2020_07_$(printf %02d $day) =" \
+            "round(precipitation_monthly_2020_07 * max(0, sin(45 * $day)) / 9.65685)"
+    done | r.mapcalc file=-
+    t.create output=precipitation_daily semantictype=sum title="Precipitation" \
+        description="Daily precipitation sum July 2020 in mm"
+    t.register -i input=precipitation_daily \
+        maps=$(g.list type=raster pattern="precipitation_daily_*" mapset=. separator=comma) \
+        start=2020-07-01 increment="1 day"
+    ```
+
+    ```sh
+    t.create output=dekads title="Dekads" \
+        description="The three dekads of July 2020"
+    for dekad in "1 2020-07-01 2020-07-11" "2 2020-07-11 2020-07-21" \
+        "3 2020-07-21 2020-08-01"; do
+        set -- $dekad
+        r.mapcalc expression="dekad_$1 = $1"
+        t.register input=dekads maps=dekad_$1 start=$2 end=$3
     done
-    r.mapcalc expression="rain_3 = if(col() == 1, null(), 3)"
-    r.mapcalc expression="rain_4 = null()"
-    r.mapcalc expression="rain_5 = null()"
-    t.create output=rain semantictype=sum title="Daily rain" \
-        description="Rain on eight days, the gauge failed on days 4 and 5"
-    t.register -i input=rain \
-        maps=rain_1,rain_2,rain_3,rain_4,rain_5,rain_6,rain_7,rain_8 \
-        start=2026-06-01 increment="1 day"
-    t.create output=periods title="Periods" \
-        description="Four intervals of different length"
-    for period in "1 2026-06-01 2026-06-04" "2 2026-06-04 2026-06-06" \
-        "3 2026-06-06 2026-06-08" "4 2026-06-08 2026-06-09"; do
-        set -- $period
-        r.mapcalc expression="period_$1 = $1"
-        t.register input=periods maps=period_$1 start=$2 end=$3
-    done
-    t.rast.aggregate.ds input=rain sample=periods output=rain_periods \
-        basename=rain_period method=sum nprocs=2
-    t.rast.list input=rain_periods columns=name,start_time,end_time,min,max
+    t.rast.aggregate.ds input=precipitation_daily sample=dekads \
+        output=precipitation_dekads basename=precipitation_dekad method=sum \
+        nprocs=2
+    t.rast.list input=precipitation_dekads columns=name,start_time,end_time,min,max
     ```
 
     ```text
     name|start_time|end_time|min|max
-    rain_period_2026_06_01|2026-06-01 00:00:00|2026-06-04 00:00:00|3.0|6.0
-    rain_period_2026_06_06|2026-06-06 00:00:00|2026-06-08 00:00:00|13.0|13.0
+    precipitation_dekad_2020_07_01|2020-07-01 00:00:00|2020-07-11 00:00:00|36.0|94.0
+    precipitation_dekad_2020_07_11|2020-07-11 00:00:00|2020-07-21 00:00:00|27.0|71.0
+    precipitation_dekad_2020_07_21|2020-07-21 00:00:00|2020-08-01 00:00:00|21.0|55.0
     ```
 
     ```sh
-    t.rast.aggregate.ds -n input=rain sample=periods output=rain_periods_n \
-        basename=rain_period_n method=sum
-    t.rast.list input=rain_periods_n columns=name,start_time,end_time,min,max
-    ```
-
-    ```text
-    name|start_time|end_time|min|max
-    rain_period_n_2026_06_01|2026-06-01 00:00:00|2026-06-04 00:00:00|3.0|6.0
-    rain_period_n_2026_06_04|2026-06-04 00:00:00|2026-06-06 00:00:00|None|None
-    rain_period_n_2026_06_06|2026-06-06 00:00:00|2026-06-08 00:00:00|13.0|13.0
-    ```
-
-    ```sh
-    t.info -g input=rain_periods | grep -E "^(semantic_type|aggregation_type)="
+    t.info -g input=precipitation_dekads | grep -E "^(semantic_type|aggregation_type)="
     ```
 
     ```text
@@ -259,85 +265,74 @@ type of the new dataset.
     from grass.tools import Tools
 
     tools = Tools()
-
-    tools.g_region(n=2, s=0, e=3, w=0, t=1, b=0, res=1, res3=1, tbres=1)
-    for day in (1, 2, 6, 7, 8):
-        tools.r_mapcalc(expression=f"rain_{day} = {day}")
-    tools.r_mapcalc(expression="rain_3 = if(col() == 1, null(), 3)")
-    tools.r_mapcalc(expression="rain_4 = null()")
-    tools.r_mapcalc(expression="rain_5 = null()")
+    tools.g_mapset(flags="c", mapset="t_rast_aggregate_ds")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.v_surf_idw(
+        input="precip_30ynormals",
+        column="jul",
+        output="precipitation_normal_07",
+        npoints=12,
+        power=2,
+    )
+    tools.r_mapcalc(
+        expression="precipitation_monthly_2020_07 ="
+        " if(isnull(elev_state_500m), null(), round(1.1 * precipitation_normal_07))"
+    )
+    days = range(1, 32)
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"precipitation_daily_2020_07_{day:02d} ="
+            f" round(precipitation_monthly_2020_07 * max(0, sin(45 * {day})) / 9.65685)"
+            for day in days
+        )
+    )
     tools.t_create(
-        output="rain",
+        output="precipitation_daily",
         semantictype="sum",
-        title="Daily rain",
-        description="Rain on eight days, the gauge failed on days 4 and 5",
+        title="Precipitation",
+        description="Daily precipitation sum July 2020 in mm",
     )
     tools.t_register(
-        input="rain",
-        maps="rain_1,rain_2,rain_3,rain_4,rain_5,rain_6,rain_7,rain_8",
-        start="2026-06-01",
+        input="precipitation_daily",
+        maps=",".join(f"precipitation_daily_2020_07_{day:02d}" for day in days),
+        start="2020-07-01",
         increment="1 day",
         flags="i",
     )
+    ```
+
+    ```python
     tools.t_create(
-        output="periods",
-        title="Periods",
-        description="Four intervals of different length",
+        output="dekads", title="Dekads", description="The three dekads of July 2020"
     )
     for number, start, end in (
-        (1, "2026-06-01", "2026-06-04"),
-        (2, "2026-06-04", "2026-06-06"),
-        (3, "2026-06-06", "2026-06-08"),
-        (4, "2026-06-08", "2026-06-09"),
+        (1, "2020-07-01", "2020-07-11"),
+        (2, "2020-07-11", "2020-07-21"),
+        (3, "2020-07-21", "2020-08-01"),
     ):
-        tools.r_mapcalc(expression=f"period_{number} = {number}")
-        tools.t_register(input="periods", maps=f"period_{number}", start=start, end=end)
+        tools.r_mapcalc(expression=f"dekad_{number} = {number}")
+        tools.t_register(input="dekads", maps=f"dekad_{number}", start=start, end=end)
     tools.t_rast_aggregate_ds(
-        input="rain",
-        sample="periods",
-        output="rain_periods",
-        basename="rain_period",
+        input="precipitation_daily",
+        sample="dekads",
+        output="precipitation_dekads",
+        basename="precipitation_dekad",
         method="sum",
         nprocs=2,
     )
-    print(
-        tools.t_rast_list(
-            input="rain_periods", columns="name,start_time,end_time,min,max"
-        ).text
-    )
+    columns = "name,start_time,end_time,min,max"
+    print(tools.t_rast_list(input="precipitation_dekads", columns=columns).text)
     ```
 
     ```text
     name|start_time|end_time|min|max
-    rain_period_2026_06_01|2026-06-01 00:00:00|2026-06-04 00:00:00|3.0|6.0
-    rain_period_2026_06_06|2026-06-06 00:00:00|2026-06-08 00:00:00|13.0|13.0
+    precipitation_dekad_2020_07_01|2020-07-01 00:00:00|2020-07-11 00:00:00|36.0|94.0
+    precipitation_dekad_2020_07_11|2020-07-11 00:00:00|2020-07-21 00:00:00|27.0|71.0
+    precipitation_dekad_2020_07_21|2020-07-21 00:00:00|2020-08-01 00:00:00|21.0|55.0
     ```
 
     ```python
-    tools.t_rast_aggregate_ds(
-        input="rain",
-        sample="periods",
-        output="rain_periods_n",
-        basename="rain_period_n",
-        method="sum",
-        flags="n",
-    )
-    print(
-        tools.t_rast_list(
-            input="rain_periods_n", columns="name,start_time,end_time,min,max"
-        ).text
-    )
-    ```
-
-    ```text
-    name|start_time|end_time|min|max
-    rain_period_n_2026_06_01|2026-06-01 00:00:00|2026-06-04 00:00:00|3.0|6.0
-    rain_period_n_2026_06_04|2026-06-04 00:00:00|2026-06-06 00:00:00|None|None
-    rain_period_n_2026_06_06|2026-06-06 00:00:00|2026-06-08 00:00:00|13.0|13.0
-    ```
-
-    ```python
-    info = tools.t_info(input="rain_periods", flags="g").keyval
+    info = tools.t_info(input="precipitation_dekads", flags="g").keyval
     for key in ("semantic_type", "aggregation_type"):
         print(f"{key}={info[key]}")
     ```
@@ -350,77 +345,81 @@ type of the new dataset.
 ### Name the new maps
 
 The option **suffix** with `num%02` numbers the intervals with two digits, and
-**offset** adds 10 to the number. The interval for 4 to 6 June, number 2, has
-no map without **-n**, and the interval for 8 June, number 4, has none either,
-so the maps carry the numbers 11 and 13 and 12 is missing. The second block
-uses `suffix=time` with the same **offset**, which does not change the names.
-The default suffix `gran`, the day of the start, was used in the previous
-example.
+**offset** adds 10 to the number, so the maps of the three dekads carry the
+numbers 11, 12 and 13. The second block uses `suffix=time` with the same
+**offset**, which does not change the names. The default suffix `gran`, the day
+of the start, was used in the previous example.
 
 === "Command line"
 
     ```sh
-    t.rast.aggregate.ds input=rain sample=periods output=rain_num \
-        basename=rain_num method=sum suffix=num%02 offset=10
-    t.rast.list input=rain_num columns=name,start_time
+    t.rast.aggregate.ds input=precipitation_daily sample=dekads \
+        output=precipitation_num basename=precipitation_num method=sum \
+        suffix=num%02 offset=10
+    t.rast.list input=precipitation_num columns=name,start_time
     ```
 
     ```text
     name|start_time
-    rain_num_11|2026-06-01 00:00:00
-    rain_num_13|2026-06-06 00:00:00
+    precipitation_num_11|2020-07-01 00:00:00
+    precipitation_num_12|2020-07-11 00:00:00
+    precipitation_num_13|2020-07-21 00:00:00
     ```
 
     ```sh
-    t.rast.aggregate.ds input=rain sample=periods output=rain_time \
-        basename=rain_time method=sum suffix=time offset=10
-    t.rast.list input=rain_time columns=name,start_time
+    t.rast.aggregate.ds input=precipitation_daily sample=dekads \
+        output=precipitation_time basename=precipitation_time method=sum \
+        suffix=time offset=10
+    t.rast.list input=precipitation_time columns=name,start_time
     ```
 
     ```text
     name|start_time
-    rain_time_2026_06_01T00_00_00|2026-06-01 00:00:00
-    rain_time_2026_06_06T00_00_00|2026-06-06 00:00:00
+    precipitation_time_2020_07_01T00_00_00|2020-07-01 00:00:00
+    precipitation_time_2020_07_11T00_00_00|2020-07-11 00:00:00
+    precipitation_time_2020_07_21T00_00_00|2020-07-21 00:00:00
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.t_rast_aggregate_ds(
-        input="rain",
-        sample="periods",
-        output="rain_num",
-        basename="rain_num",
+        input="precipitation_daily",
+        sample="dekads",
+        output="precipitation_num",
+        basename="precipitation_num",
         method="sum",
         suffix="num%02",
         offset=10,
     )
-    print(tools.t_rast_list(input="rain_num", columns="name,start_time").text)
+    print(tools.t_rast_list(input="precipitation_num", columns="name,start_time").text)
     ```
 
     ```text
     name|start_time
-    rain_num_11|2026-06-01 00:00:00
-    rain_num_13|2026-06-06 00:00:00
+    precipitation_num_11|2020-07-01 00:00:00
+    precipitation_num_12|2020-07-11 00:00:00
+    precipitation_num_13|2020-07-21 00:00:00
     ```
 
     ```python
     tools.t_rast_aggregate_ds(
-        input="rain",
-        sample="periods",
-        output="rain_time",
-        basename="rain_time",
+        input="precipitation_daily",
+        sample="dekads",
+        output="precipitation_time",
+        basename="precipitation_time",
         method="sum",
         suffix="time",
         offset=10,
     )
-    print(tools.t_rast_list(input="rain_time", columns="name,start_time").text)
+    print(tools.t_rast_list(input="precipitation_time", columns="name,start_time").text)
     ```
 
     ```text
     name|start_time
-    rain_time_2026_06_01T00_00_00|2026-06-01 00:00:00
-    rain_time_2026_06_06T00_00_00|2026-06-06 00:00:00
+    precipitation_time_2020_07_01T00_00_00|2020-07-01 00:00:00
+    precipitation_time_2020_07_11T00_00_00|2020-07-11 00:00:00
+    precipitation_time_2020_07_21T00_00_00|2020-07-21 00:00:00
     ```
 
 ### Choose the temporal relation
@@ -560,6 +559,209 @@ replaces the previous result with **--overwrite**.
     during,starts 385.0
     ```
 
+### Aggregate in a smaller region
+
+The new maps cover the current computational region at the time of the run.
+The region is reduced to a window of 20 km from north to south and 40 km from
+west to east, and the aggregation of the first example is repeated. The map has
+20 rows and 40 columns. The region is
+then set back to North Carolina for the next examples.
+
+=== "Command line"
+
+    ```sh
+    g.region n=240000 s=220000 w=640000 e=680000 res=1000
+    t.rast.aggregate.ds input=precipitation_daily sample=dekads \
+        output=precipitation_window basename=precipitation_window method=sum
+    r.info -g map=precipitation_window_2020_07_01
+    g.region raster=elev_state_500m res=1000 -a
+    ```
+
+    ```text
+    north=240000
+    south=220000
+    east=680000
+    west=640000
+    nsres=1000
+    ewres=1000
+    rows=20
+    cols=40
+    cells=800
+    datatype=DCELL
+    ncats=0
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.g_region(n=240000, s=220000, w=640000, e=680000, res=1000)
+    tools.t_rast_aggregate_ds(
+        input="precipitation_daily",
+        sample="dekads",
+        output="precipitation_window",
+        basename="precipitation_window",
+        method="sum",
+    )
+    print(tools.r_info(map="precipitation_window_2020_07_01", flags="g").text)
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    ```
+
+    ```text
+    north=240000
+    south=220000
+    east=680000
+    west=640000
+    nsres=1000
+    ewres=1000
+    rows=20
+    cols=40
+    cells=800
+    datatype=DCELL
+    ncats=0
+    ```
+
+### Null cells and empty intervals
+
+The dataset `rain` holds the rain of eight days from 1 June 2026 as maps with
+constant values 1 to 8. The gauge failed on 4 and 5 June, so `rain_4` and
+`rain_5` have no value at all, and `rain_3` has no value in its western
+column. The sampler `periods` has four intervals: 1 to 4 June, 4 to 6 June, 6
+to 8 June and 8 to 9 June, one day long. The default `sampling=contains` and
+the method `sum` give:
+
+- 1 to 4 June: `rain_1`, `rain_2` and `rain_3` lie in the interval, the sum is
+  1 + 2 + 3 = 6 in the eastern columns, and 1 + 2 = 3 in the western column,
+  where `rain_3` has no value and is passed over. The map has the minimum 3 and
+  the maximum 6;
+- 4 to 6 June: both maps have no value, so there is no map with data. Without
+  **-n** the tool does not register the result;
+- 6 to 8 June: 6 + 7 = 13;
+- 8 June: `rain_8` has the start and the end of the interval, so it is `equal`
+  and not related by `contains`. The interval gets no map.
+
+The first block uses `suffix=num`: the maps carry the numbers 1 and 3 of their
+intervals, and the number 2 of the interval without data is missing. The
+second block runs the same aggregation with **-n**. The map for 4 to 6 June,
+number 2, is then registered, and its minimum and maximum are `None`; the
+interval of 8 June, number 4, has no related map and still gets none.
+
+=== "Command line"
+
+    ```sh
+    for day in 1 2 6 7 8; do
+        r.mapcalc expression="rain_$day = $day"
+    done
+    r.mapcalc expression="rain_3 = if(col() == 1, null(), 3)"
+    r.mapcalc expression="rain_4 = null()"
+    r.mapcalc expression="rain_5 = null()"
+    t.create output=rain title="Daily rain" \
+        description="Rain on eight days, the gauge failed on days 4 and 5"
+    t.register -i input=rain \
+        maps=rain_1,rain_2,rain_3,rain_4,rain_5,rain_6,rain_7,rain_8 \
+        start=2026-06-01 increment="1 day"
+    t.create output=periods title="Periods" \
+        description="Four intervals of different length"
+    for period in "1 2026-06-01 2026-06-04" "2 2026-06-04 2026-06-06" \
+        "3 2026-06-06 2026-06-08" "4 2026-06-08 2026-06-09"; do
+        set -- $period
+        r.mapcalc expression="period_$1 = $1"
+        t.register input=periods maps=period_$1 start=$2 end=$3
+    done
+    t.rast.aggregate.ds input=rain sample=periods output=rain_periods \
+        basename=rain_period method=sum suffix=num
+    t.rast.list input=rain_periods columns=name,start_time,end_time,min,max
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    rain_period_00001|2026-06-01 00:00:00|2026-06-04 00:00:00|3.0|6.0
+    rain_period_00003|2026-06-06 00:00:00|2026-06-08 00:00:00|13.0|13.0
+    ```
+
+    ```sh
+    t.rast.aggregate.ds -n input=rain sample=periods output=rain_periods_n \
+        basename=rain_period_n method=sum suffix=num
+    t.rast.list input=rain_periods_n columns=name,start_time,end_time,min,max
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    rain_period_n_00001|2026-06-01 00:00:00|2026-06-04 00:00:00|3.0|6.0
+    rain_period_n_00002|2026-06-04 00:00:00|2026-06-06 00:00:00|None|None
+    rain_period_n_00003|2026-06-06 00:00:00|2026-06-08 00:00:00|13.0|13.0
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    for day in (1, 2, 6, 7, 8):
+        tools.r_mapcalc(expression=f"rain_{day} = {day}")
+    tools.r_mapcalc(expression="rain_3 = if(col() == 1, null(), 3)")
+    tools.r_mapcalc(expression="rain_4 = null()")
+    tools.r_mapcalc(expression="rain_5 = null()")
+    tools.t_create(
+        output="rain",
+        title="Daily rain",
+        description="Rain on eight days, the gauge failed on days 4 and 5",
+    )
+    tools.t_register(
+        input="rain",
+        maps="rain_1,rain_2,rain_3,rain_4,rain_5,rain_6,rain_7,rain_8",
+        start="2026-06-01",
+        increment="1 day",
+        flags="i",
+    )
+    tools.t_create(
+        output="periods",
+        title="Periods",
+        description="Four intervals of different length",
+    )
+    for number, start, end in (
+        (1, "2026-06-01", "2026-06-04"),
+        (2, "2026-06-04", "2026-06-06"),
+        (3, "2026-06-06", "2026-06-08"),
+        (4, "2026-06-08", "2026-06-09"),
+    ):
+        tools.r_mapcalc(expression=f"period_{number} = {number}")
+        tools.t_register(input="periods", maps=f"period_{number}", start=start, end=end)
+    tools.t_rast_aggregate_ds(
+        input="rain",
+        sample="periods",
+        output="rain_periods",
+        basename="rain_period",
+        method="sum",
+        suffix="num",
+    )
+    columns = "name,start_time,end_time,min,max"
+    print(tools.t_rast_list(input="rain_periods", columns=columns).text)
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    rain_period_00001|2026-06-01 00:00:00|2026-06-04 00:00:00|3.0|6.0
+    rain_period_00003|2026-06-06 00:00:00|2026-06-08 00:00:00|13.0|13.0
+    ```
+
+    ```python
+    tools.t_rast_aggregate_ds(
+        input="rain",
+        sample="periods",
+        output="rain_periods_n",
+        basename="rain_period_n",
+        method="sum",
+        suffix="num",
+        flags="n",
+    )
+    print(tools.t_rast_list(input="rain_periods_n", columns=columns).text)
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    rain_period_n_00001|2026-06-01 00:00:00|2026-06-04 00:00:00|3.0|6.0
+    rain_period_n_00002|2026-06-04 00:00:00|2026-06-06 00:00:00|None|None
+    rain_period_n_00003|2026-06-06 00:00:00|2026-06-08 00:00:00|13.0|13.0
+    ```
+
 ### Select the relations and the maps
 
 The default `contains` leaves out the map of 8 June, which is `equal` to the
@@ -647,18 +849,20 @@ The days between are in no interval, so `rain_3` is not used: the sums are
 1 + 2 = 3 and, for the second interval, 6 + 7 + 8 = 21, as `rain_5` has no
 value. The 3D raster dataset `slabs` has three intervals, 1 to 3 June, 3 to 6
 June and 6 to 9 June; the sums are 3, then 3 for `rain_3` alone, as `rain_4`
-and `rain_5` have no value, and 21.
+and `rain_5` have no value, and 21. The 3D maps are one layer thick: the
+first block of the example sets a 3D region of one layer of 1000 m.
 
 === "Command line"
 
     ```sh
+    g.region raster=elev_state_500m res=1000 res3=1000 t=1000 b=0 tbres=1000 -a
     t.create type=stvds output=gauges title="Gauges" \
         description="Two gauge periods with a gap between them"
     t.create type=str3ds output=slabs title="Slabs" \
         description="Three periods without a gap"
     for gauge in "1 2026-06-01 2026-06-03" "2 2026-06-05 2026-06-09"; do
         set -- $gauge
-        echo "0.5,0.5" | v.in.ascii input=- output=gauge_$1 separator=comma \
+        echo "640000,220000" | v.in.ascii input=- output=gauge_$1 separator=comma \
             columns="x double precision, y double precision"
         t.register type=vector input=gauges maps=gauge_$1 start=$2 end=$3
     done
@@ -668,6 +872,9 @@ and `rain_5` have no value, and 21.
         r3.mapcalc expression="slab_$1 = $1"
         t.register type=raster_3d input=slabs maps=slab_$1 start=$2 end=$3
     done
+    ```
+
+    ```sh
     t.rast.aggregate.ds type=stvds input=rain sample=gauges \
         output=rain_gauges basename=rain_gauge method=sum
     t.rast.list input=rain_gauges columns=name,start_time,end_time,min
@@ -697,6 +904,9 @@ and `rain_5` have no value, and 21.
     ```python
     from io import StringIO
 
+    tools.g_region(
+        raster="elev_state_500m", res=1000, res3=1000, t=1000, b=0, tbres=1000, flags="a"
+    )
     tools.t_create(
         type="stvds",
         output="gauges",
@@ -714,7 +924,7 @@ and `rain_5` have no value, and 21.
         (2, "2026-06-05", "2026-06-09"),
     ):
         tools.v_in_ascii(
-            input=StringIO("0.5,0.5\n"),
+            input=StringIO("640000,220000\n"),
             output=f"gauge_{number}",
             separator="comma",
             columns="x double precision, y double precision",
@@ -731,6 +941,9 @@ and `rain_5` have no value, and 21.
         tools.t_register(
             type="raster_3d", input="slabs", maps=f"slab_{number}", start=start, end=end
         )
+    ```
+
+    ```python
     tools.t_rast_aggregate_ds(
         type="stvds",
         input="rain",
@@ -739,9 +952,8 @@ and `rain_5` have no value, and 21.
         basename="rain_gauge",
         method="sum",
     )
-    print(
-        tools.t_rast_list(input="rain_gauges", columns="name,start_time,end_time,min").text
-    )
+    columns = "name,start_time,end_time,min"
+    print(tools.t_rast_list(input="rain_gauges", columns=columns).text)
     ```
 
     ```text
@@ -759,9 +971,7 @@ and `rain_5` have no value, and 21.
         basename="rain_slab",
         method="sum",
     )
-    print(
-        tools.t_rast_list(input="rain_slabs", columns="name,start_time,end_time,min").text
-    )
+    print(tools.t_rast_list(input="rain_slabs", columns=columns).text)
     ```
 
     ```text
@@ -774,7 +984,7 @@ and `rain_5` have no value, and 21.
 ### Aggregate a dataset with relative time
 
 A model writes one map per hour for six hours, with the values 1 to 6. The
-dataset `model` has relative time in the unit hours, and so has the sampler
+dataset `runoff` has relative time in the unit hours, and so has the sampler
 `blocks` with the intervals 0 to 3 and 3 to 6. The method `maximum` gives 3 and
 6. Start and end of the new maps are numbers of the unit of the input, printed
 without it. The sampler needs the same unit as the input. The last two blocks
@@ -784,12 +994,12 @@ The tool refuses and prints the error; the block goes on after it.
 === "Command line"
 
     ```sh
-    for step in 1 2 3 4 5 6; do
-        r.mapcalc expression="step_$step = $step"
+    for hour in 1 2 3 4 5 6; do
+        r.mapcalc expression="runoff_$hour = $hour"
     done
-    t.create output=model temporaltype=relative title="Model" \
-        description="Model output per hour"
-    t.register -i input=model maps=step_1,step_2,step_3,step_4,step_5,step_6 \
+    t.create output=runoff temporaltype=relative title="Runoff" \
+        description="Simulated runoff in mm per model hour"
+    t.register -i input=runoff maps=runoff_1,runoff_2,runoff_3,runoff_4,runoff_5,runoff_6 \
         start=0 increment=1 unit=hours
     t.create output=blocks temporaltype=relative title="Blocks" \
         description="Two blocks of three hours"
@@ -798,15 +1008,15 @@ The tool refuses and prints the error; the block goes on after it.
         r.mapcalc expression="block_$1 = $1"
         t.register input=blocks maps=block_$1 start=$2 end=$3 unit=hours
     done
-    t.rast.aggregate.ds input=model sample=blocks output=model_blocks \
-        basename=model_block method=maximum
-    t.rast.list input=model_blocks columns=name,start_time,end_time,min
+    t.rast.aggregate.ds input=runoff sample=blocks output=runoff_blocks \
+        basename=runoff_block method=maximum
+    t.rast.list input=runoff_blocks columns=name,start_time,end_time,min
     ```
 
     ```text
     name|start_time|end_time|min
-    model_block_00001|0|3|3.0
-    model_block_00002|3|6|6.0
+    runoff_block_00001|0|3|3.0
+    runoff_block_00002|3|6|6.0
     ```
 
     ```sh
@@ -814,32 +1024,32 @@ The tool refuses and prints the error; the block goes on after it.
     t.create output=blocks_years temporaltype=relative title="Blocks in years" \
         description="One block of one year"
     t.register input=blocks_years maps=block_years start=0 end=1 unit=years
-    if ! t.rast.aggregate.ds input=model sample=blocks_years \
-        output=model_years basename=model_year method=maximum 2>&1; then
+    if ! t.rast.aggregate.ds input=runoff sample=blocks_years \
+        output=runoff_years basename=runoff_year method=maximum 2>&1; then
         echo "t.rast.aggregate.ds failed"
     fi
     ```
 
     ```text
     ERROR: The unit <years> of the aggregation dataset <blocks_years> differs
-           from the unit <hours> of the input dataset <model>
+           from the unit <hours> of the input dataset <runoff>
     t.rast.aggregate.ds failed
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    for step in range(1, 7):
-        tools.r_mapcalc(expression=f"step_{step} = {step}")
+    for hour in range(1, 7):
+        tools.r_mapcalc(expression=f"runoff_{hour} = {hour}")
     tools.t_create(
-        output="model",
+        output="runoff",
         temporaltype="relative",
-        title="Model",
-        description="Model output per hour",
+        title="Runoff",
+        description="Simulated runoff in mm per model hour",
     )
     tools.t_register(
-        input="model",
-        maps="step_1,step_2,step_3,step_4,step_5,step_6",
+        input="runoff",
+        maps="runoff_1,runoff_2,runoff_3,runoff_4,runoff_5,runoff_6",
         start=0,
         increment=1,
         unit="hours",
@@ -857,21 +1067,23 @@ The tool refuses and prints the error; the block goes on after it.
             input="blocks", maps=f"block_{number}", start=start, end=end, unit="hours"
         )
     tools.t_rast_aggregate_ds(
-        input="model",
+        input="runoff",
         sample="blocks",
-        output="model_blocks",
-        basename="model_block",
+        output="runoff_blocks",
+        basename="runoff_block",
         method="maximum",
     )
     print(
-        tools.t_rast_list(input="model_blocks", columns="name,start_time,end_time,min").text
+        tools.t_rast_list(
+            input="runoff_blocks", columns="name,start_time,end_time,min"
+        ).text
     )
     ```
 
     ```text
     name|start_time|end_time|min
-    model_block_00001|0|3|3.0
-    model_block_00002|3|6|6.0
+    runoff_block_00001|0|3|3.0
+    runoff_block_00002|3|6|6.0
     ```
 
     ```python
@@ -887,10 +1099,10 @@ The tool refuses and prints the error; the block goes on after it.
     tools.t_register(input="blocks_years", maps="block_years", start=0, end=1, unit="years")
     try:
         tools.t_rast_aggregate_ds(
-            input="model",
+            input="runoff",
             sample="blocks_years",
-            output="model_years",
-            basename="model_year",
+            output="runoff_years",
+            basename="runoff_year",
             method="maximum",
         )
     except ToolError as error:
@@ -900,7 +1112,7 @@ The tool refuses and prints the error; the block goes on after it.
 
     ```text
     ERROR: The unit <years> of the aggregation dataset <blocks_years> differs
-           from the unit <hours> of the input dataset <model>
+           from the unit <hours> of the input dataset <runoff>
     t.rast.aggregate.ds failed
     ```
 
@@ -919,54 +1131,54 @@ the sampling is `contains,equal`. The sums are 1 + 2 + 3 = 6, 4, 5 + 6 + 7 =
 
     ```sh
     for day in 1 2 3 4 5 6 7 8; do
-        r.mapcalc expression="turn_$day = $day"
+        r.mapcalc expression="year_change_$day = $day"
     done
-    t.create output=turn title="Year change" \
+    t.create output=year_change title="Year change" \
         description="Eight daily maps over the end of a year"
-    t.register -i input=turn \
-        maps=turn_1,turn_2,turn_3,turn_4,turn_5,turn_6,turn_7,turn_8 \
+    t.register -i input=year_change \
+        maps=year_change_1,year_change_2,year_change_3,year_change_4,year_change_5,year_change_6,year_change_7,year_change_8 \
         start=2026-12-28 increment="1 day"
-    t.create output=turn_seeds title="Seeds" \
+    t.create output=year_intervals title="Year intervals" \
         description="Intervals that restart on 1 January"
-    for seed in "1 2026-12-28 2026-12-31" "2 2026-12-31 2027-01-01" \
+    for interval in "1 2026-12-28 2026-12-31" "2 2026-12-31 2027-01-01" \
         "3 2027-01-01 2027-01-04" "4 2027-01-04 2027-01-07"; do
-        set -- $seed
-        r.mapcalc expression="seed_$1 = $1"
-        t.register input=turn_seeds maps=seed_$1 start=$2 end=$3
+        set -- $interval
+        r.mapcalc expression="interval_$1 = $1"
+        t.register input=year_intervals maps=interval_$1 start=$2 end=$3
     done
-    t.rast.aggregate.ds input=turn sample=turn_seeds output=turn_sum \
-        basename=turn_sum method=sum sampling=contains,equal
-    t.rast.list input=turn_sum columns=name,start_time,end_time,min
+    t.rast.aggregate.ds input=year_change sample=year_intervals output=year_sums \
+        basename=year_sum method=sum sampling=contains,equal
+    t.rast.list input=year_sums columns=name,start_time,end_time,min
     ```
 
     ```text
     name|start_time|end_time|min
-    turn_sum_2026_12_28|2026-12-28 00:00:00|2026-12-31 00:00:00|6.0
-    turn_sum_2026_12_31|2026-12-31 00:00:00|2027-01-01 00:00:00|4.0
-    turn_sum_2027_01_01|2027-01-01 00:00:00|2027-01-04 00:00:00|18.0
-    turn_sum_2027_01_04|2027-01-04 00:00:00|2027-01-07 00:00:00|8.0
+    year_sum_2026_12_28|2026-12-28 00:00:00|2026-12-31 00:00:00|6.0
+    year_sum_2026_12_31|2026-12-31 00:00:00|2027-01-01 00:00:00|4.0
+    year_sum_2027_01_01|2027-01-01 00:00:00|2027-01-04 00:00:00|18.0
+    year_sum_2027_01_04|2027-01-04 00:00:00|2027-01-07 00:00:00|8.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
     for day in range(1, 9):
-        tools.r_mapcalc(expression=f"turn_{day} = {day}")
+        tools.r_mapcalc(expression=f"year_change_{day} = {day}")
     tools.t_create(
-        output="turn",
+        output="year_change",
         title="Year change",
         description="Eight daily maps over the end of a year",
     )
     tools.t_register(
-        input="turn",
-        maps="turn_1,turn_2,turn_3,turn_4,turn_5,turn_6,turn_7,turn_8",
+        input="year_change",
+        maps=",".join(f"year_change_{day}" for day in range(1, 9)),
         start="2026-12-28",
         increment="1 day",
         flags="i",
     )
     tools.t_create(
-        output="turn_seeds",
-        title="Seeds",
+        output="year_intervals",
+        title="Year intervals",
         description="Intervals that restart on 1 January",
     )
     for number, start, end in (
@@ -975,131 +1187,84 @@ the sampling is `contains,equal`. The sums are 1 + 2 + 3 = 6, 4, 5 + 6 + 7 =
         (3, "2027-01-01", "2027-01-04"),
         (4, "2027-01-04", "2027-01-07"),
     ):
-        tools.r_mapcalc(expression=f"seed_{number} = {number}")
-        tools.t_register(input="turn_seeds", maps=f"seed_{number}", start=start, end=end)
+        tools.r_mapcalc(expression=f"interval_{number} = {number}")
+        tools.t_register(
+            input="year_intervals", maps=f"interval_{number}", start=start, end=end
+        )
     tools.t_rast_aggregate_ds(
-        input="turn",
-        sample="turn_seeds",
-        output="turn_sum",
-        basename="turn_sum",
+        input="year_change",
+        sample="year_intervals",
+        output="year_sums",
+        basename="year_sum",
         method="sum",
         sampling="contains,equal",
     )
-    print(tools.t_rast_list(input="turn_sum", columns="name,start_time,end_time,min").text)
+    print(tools.t_rast_list(input="year_sums", columns="name,start_time,end_time,min").text)
     ```
 
     ```text
     name|start_time|end_time|min
-    turn_sum_2026_12_28|2026-12-28 00:00:00|2026-12-31 00:00:00|6.0
-    turn_sum_2026_12_31|2026-12-31 00:00:00|2027-01-01 00:00:00|4.0
-    turn_sum_2027_01_01|2027-01-01 00:00:00|2027-01-04 00:00:00|18.0
-    turn_sum_2027_01_04|2027-01-04 00:00:00|2027-01-07 00:00:00|8.0
-    ```
-
-### Aggregate in a smaller region
-
-The new maps cover the current computational region at the time of the run.
-The region is reduced to the northern row of the maps, and the aggregation of
-the first example is repeated. The map has one row and three columns. The
-region is then set back for the next example.
-
-=== "Command line"
-
-    ```sh
-    g.region n=1 s=0 e=3 w=0 res=1
-    t.rast.aggregate.ds input=rain sample=periods output=rain_small \
-        basename=rain_small method=sum
-    r.info -g map=rain_small_2026_06_01
-    g.region n=2 s=0 e=3 w=0 res=1
-    ```
-
-    ```text
-    north=1
-    south=0
-    east=3
-    west=0
-    nsres=1
-    ewres=1
-    rows=1
-    cols=3
-    cells=3
-    datatype=DCELL
-    ncats=0
-    ```
-
-=== "Python (grass.tools)"
-
-    ```python
-    tools.g_region(n=1, s=0, e=3, w=0, res=1)
-    tools.t_rast_aggregate_ds(
-        input="rain",
-        sample="periods",
-        output="rain_small",
-        basename="rain_small",
-        method="sum",
-    )
-    print(tools.r_info(map="rain_small_2026_06_01", flags="g").text)
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    ```
-
-    ```text
-    north=1
-    south=0
-    east=3
-    west=0
-    nsres=1
-    ewres=1
-    rows=1
-    cols=3
-    cells=3
-    datatype=DCELL
-    ncats=0
+    year_sum_2026_12_28|2026-12-28 00:00:00|2026-12-31 00:00:00|6.0
+    year_sum_2026_12_31|2026-12-31 00:00:00|2027-01-01 00:00:00|4.0
+    year_sum_2027_01_01|2027-01-01 00:00:00|2027-01-04 00:00:00|18.0
+    year_sum_2027_01_04|2027-01-04 00:00:00|2027-01-07 00:00:00|8.0
     ```
 
 ### Use datasets of another mapset
 
 The tool reads datasets of other mapsets and creates the new dataset and its
-maps in the current mapset. The example creates the mapset `analysis` and
-switches to it. The datasets `rain` and `periods` stay in `PERMANENT` and are
-named with their mapset. The listing shows the new maps in `analysis`.
+maps in the current mapset. The example creates the mapset
+`t_rast_aggregate_ds_2` and switches to it. A new mapset starts with the
+default region of the dataset, cells of 500 m, so the example sets the region
+of the first example again. *g.mapsets* adds the mapset `t_rast_aggregate_ds`
+to the search path. The datasets `precipitation_daily` and `dekads` stay in
+that mapset and are named with it. The listing shows the new maps in
+`t_rast_aggregate_ds_2`.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=analysis
-    g.region n=2 s=0 e=3 w=0 res=1
-    t.rast.aggregate.ds input=rain@PERMANENT sample=periods@PERMANENT \
-        output=rain_analysis basename=rain_analysis method=sum
-    t.rast.list input=rain_analysis columns=name,mapset,start_time,min
+    g.mapset -c mapset=t_rast_aggregate_ds_2
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapsets mapset=t_rast_aggregate_ds operation=add
+    t.rast.aggregate.ds input=precipitation_daily@t_rast_aggregate_ds \
+        sample=dekads@t_rast_aggregate_ds output=precipitation_dekads_2 \
+        basename=precipitation_dekad method=sum
+    t.rast.list input=precipitation_dekads_2 columns=name,mapset,start_time,min
     ```
 
     ```text
     name|mapset|start_time|min
-    rain_analysis_2026_06_01|analysis|2026-06-01 00:00:00|3.0
-    rain_analysis_2026_06_06|analysis|2026-06-06 00:00:00|13.0
+    precipitation_dekad_2020_07_01|t_rast_aggregate_ds_2|2020-07-01 00:00:00|36.0
+    precipitation_dekad_2020_07_11|t_rast_aggregate_ds_2|2020-07-11 00:00:00|27.0
+    precipitation_dekad_2020_07_21|t_rast_aggregate_ds_2|2020-07-21 00:00:00|21.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(mapset="analysis", flags="c")
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
+    tools.g_mapset(mapset="t_rast_aggregate_ds_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapsets(mapset="t_rast_aggregate_ds", operation="add")
     tools.t_rast_aggregate_ds(
-        input="rain@PERMANENT",
-        sample="periods@PERMANENT",
-        output="rain_analysis",
-        basename="rain_analysis",
+        input="precipitation_daily@t_rast_aggregate_ds",
+        sample="dekads@t_rast_aggregate_ds",
+        output="precipitation_dekads_2",
+        basename="precipitation_dekad",
         method="sum",
     )
     print(
-        tools.t_rast_list(input="rain_analysis", columns="name,mapset,start_time,min").text
+        tools.t_rast_list(
+            input="precipitation_dekads_2", columns="name,mapset,start_time,min"
+        ).text
     )
     ```
 
     ```text
     name|mapset|start_time|min
-    rain_analysis_2026_06_01|analysis|2026-06-01 00:00:00|3.0
-    rain_analysis_2026_06_06|analysis|2026-06-06 00:00:00|13.0
+    precipitation_dekad_2020_07_01|t_rast_aggregate_ds_2|2020-07-01 00:00:00|36.0
+    precipitation_dekad_2020_07_11|t_rast_aggregate_ds_2|2020-07-11 00:00:00|27.0
+    precipitation_dekad_2020_07_21|t_rast_aggregate_ds_2|2020-07-21 00:00:00|21.0
     ```
 
 <!-- markdownlint-enable MD046 -->
