@@ -175,6 +175,17 @@ columns that all of them have.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_list` and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. *t.list* reads the temporal database and no map values, so the maps
+hold small constant values. Most listings name the current mapset with
+`mapset=.`, which restricts them to the datasets and maps made here; the last
+example turns to the other mapsets.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_list -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### List the space time datasets
@@ -183,8 +194,10 @@ Three space time raster datasets are made for the examples. The dataset
 `temperature` has three maps of daily mean air temperature in March 2026. The
 dataset `rain` has two maps of daily precipitation sums in June 2026; its
 semantic type is `sum`. The dataset `model` has relative time and two model
-steps of 6 hours. The default listing prints the `id` of the datasets with
-absolute time, sorted by name, and then those with relative time.
+steps of 6 hours. The temperature maps hold two values each, one in the first
+row and one in the other rows, so that their minimum and maximum differ. The
+default listing prints the `id` of the datasets with absolute time, sorted by
+name, and then those with relative time.
 
 The second block adds the flag **-c**, which puts the column name `id` before
 the datasets.
@@ -192,10 +205,11 @@ the datasets.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
-    r.mapcalc expression="temperature_1 = col() - 3"
-    r.mapcalc expression="temperature_2 = col()"
-    r.mapcalc expression="temperature_3 = col() + 3"
+    g.mapset -c mapset=t_list
+    g.region raster=elev_state_500m res=1000 -a
+    r.mapcalc expression="temperature_1 = if(row() == 1, -2, 0)"
+    r.mapcalc expression="temperature_2 = if(row() == 1, 1, 3)"
+    r.mapcalc expression="temperature_3 = if(row() == 1, 4, 6)"
     t.create output=temperature title="Air temperature" \
         description="Daily mean air temperature"
     t.register -i input=temperature \
@@ -213,24 +227,24 @@ the datasets.
         description="Model output per step of 6 hours"
     t.register -i input=model maps=step_1,step_2 \
         start=0 increment=6 unit=hours
-    t.list
+    t.list mapset=.
     ```
 
     ```text
-    rain@PERMANENT
-    temperature@PERMANENT
-    model@PERMANENT
+    rain@t_list
+    temperature@t_list
+    model@t_list
     ```
 
     ```sh
-    t.list -c
+    t.list -c mapset=.
     ```
 
     ```text
     id
-    rain@PERMANENT
-    temperature@PERMANENT
-    model@PERMANENT
+    rain@t_list
+    temperature@t_list
+    model@t_list
     ```
 
 === "Python (grass.tools)"
@@ -239,10 +253,11 @@ the datasets.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    tools.r_mapcalc(expression="temperature_1 = col() - 3")
-    tools.r_mapcalc(expression="temperature_2 = col()")
-    tools.r_mapcalc(expression="temperature_3 = col() + 3")
+    tools.g_mapset(flags="c", mapset="t_list")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.r_mapcalc(expression="temperature_1 = if(row() == 1, -2, 0)")
+    tools.r_mapcalc(expression="temperature_2 = if(row() == 1, 1, 3)")
+    tools.r_mapcalc(expression="temperature_3 = if(row() == 1, 4, 6)")
     tools.t_create(
         output="temperature",
         title="Air temperature",
@@ -286,32 +301,34 @@ the datasets.
         unit="hours",
         flags="i",
     )
-    print(tools.t_list().text)
+    print(tools.t_list(mapset=".").text)
     ```
 
     ```text
-    rain@PERMANENT
-    temperature@PERMANENT
-    model@PERMANENT
+    rain@t_list
+    temperature@t_list
+    model@t_list
     ```
 
     ```python
-    print(tools.t_list(flags="c").text)
+    print(tools.t_list(flags="c", mapset=".").text)
     ```
 
     ```text
     id
-    rain@PERMANENT
-    temperature@PERMANENT
-    model@PERMANENT
+    rain@t_list
+    temperature@t_list
+    model@t_list
     ```
 
 ### Choose the types and the columns
 
 Two more datasets are made: the space time 3D raster dataset `soil` and the
-space time vector dataset `gauges`. The first block lists all three dataset
-types with the columns `name` and `number_of_maps`. The `type` is added as the
-last column, and the datasets are grouped by type within the temporal type.
+space time vector dataset `gauges`. The 3D region gets three layers of 1
+unit. The vector map `gauges_1` holds two stream gauges, copied from the
+sample dataset's `usgsgages`. The first block lists all three dataset types
+with the columns `name` and `number_of_maps`. The `type` is added as the last
+column, and the datasets are grouped by type within the temporal type.
 
 The second block lists the space time raster datasets with more columns and
 the column names. The granularity of the dataset `model` is the number 6, the
@@ -323,24 +340,19 @@ The third block names `type` first, but it is printed last.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=2 w=0 t=3 b=0 res=1 res3=1 tbres=1
+    g.region t=3 b=0 res3=1000 tbres=1
     r3.mapcalc expression="soil_1 = depth()"
     r3.mapcalc expression="soil_2 = depth() + 10"
     t.create type=str3ds output=soil title="Soil" \
         description="Soil temperature in three layers"
     t.register -i type=raster_3d input=soil maps=soil_1,soil_2 \
         start=2026-03-01 increment="1 day"
-    v.in.ascii input=- output=gauges_1 separator=comma \
-        columns="x double precision, y double precision, speed double precision" <<EOF
-    0.5,0.5,3.0
-    2.5,1.5,5.0
-    EOF
+    v.extract input=usgsgages output=gauges_1 where="cat <= 2"
     t.create type=stvds output=gauges title="Gauges" \
-        description="Wind speed at two gauges"
+        description="Water level at two stream gauges"
     t.register -i type=vector input=gauges maps=gauges_1 \
         start=2026-03-01 increment="1 day"
-    g.region n=2 s=0 e=3 w=0 res=1
-    t.list type=strds,str3ds,stvds columns=name,number_of_maps
+    t.list type=strds,str3ds,stvds columns=name,number_of_maps mapset=.
     ```
 
     ```text
@@ -352,7 +364,7 @@ The third block names `type` first, but it is printed last.
     ```
 
     ```sh
-    t.list -c columns=name,semantic_type,number_of_maps,granularity,start_time,end_time
+    t.list -c columns=name,semantic_type,number_of_maps,granularity,start_time,end_time mapset=.
     ```
 
     ```text
@@ -363,7 +375,7 @@ The third block names `type` first, but it is printed last.
     ```
 
     ```sh
-    t.list -c type=stvds columns=type,name
+    t.list -c type=stvds columns=type,name mapset=.
     ```
 
     ```text
@@ -374,9 +386,7 @@ The third block names `type` first, but it is printed last.
 === "Python (grass.tools)"
 
     ```python
-    from io import StringIO
-
-    tools.g_region(n=2, s=0, e=2, w=0, t=3, b=0, res=1, res3=1, tbres=1)
+    tools.g_region(t=3, b=0, res3=1000, tbres=1)
     tools.r3_mapcalc(expression="soil_1 = depth()")
     tools.r3_mapcalc(expression="soil_2 = depth() + 10")
     tools.t_create(
@@ -393,17 +403,12 @@ The third block names `type` first, but it is printed last.
         increment="1 day",
         flags="i",
     )
-    tools.v_in_ascii(
-        input=StringIO("0.5,0.5,3.0\n2.5,1.5,5.0\n"),
-        output="gauges_1",
-        separator="comma",
-        columns="x double precision, y double precision, speed double precision",
-    )
+    tools.v_extract(input="usgsgages", output="gauges_1", where="cat <= 2")
     tools.t_create(
         type="stvds",
         output="gauges",
         title="Gauges",
-        description="Wind speed at two gauges",
+        description="Water level at two stream gauges",
     )
     tools.t_register(
         type="vector",
@@ -413,8 +418,11 @@ The third block names `type` first, but it is printed last.
         increment="1 day",
         flags="i",
     )
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    print(tools.t_list(type="strds,str3ds,stvds", columns="name,number_of_maps").text)
+    print(
+        tools.t_list(
+            type="strds,str3ds,stvds", columns="name,number_of_maps", mapset="."
+        ).text
+    )
     ```
 
     ```text
@@ -430,6 +438,7 @@ The third block names `type` first, but it is printed last.
         tools.t_list(
             columns="name,semantic_type,number_of_maps,granularity,start_time,end_time",
             flags="c",
+            mapset=".",
         ).text
     )
     ```
@@ -442,7 +451,7 @@ The third block names `type` first, but it is printed last.
     ```
 
     ```python
-    print(tools.t_list(type="stvds", columns="type,name", flags="c").text)
+    print(tools.t_list(type="stvds", columns="type,name", flags="c", mapset=".").text)
     ```
 
     ```text
@@ -462,7 +471,7 @@ only the datasets with relative time, and the numbers are those of its unit.
 === "Command line"
 
     ```sh
-    t.list -c columns=name,number_of_maps where="number_of_maps > 2"
+    t.list -c columns=name,number_of_maps where="number_of_maps > 2" mapset=.
     ```
 
     ```text
@@ -471,7 +480,7 @@ only the datasets with relative time, and the numbers are those of its unit.
     ```
 
     ```sh
-    t.list columns=name where="name LIKE 'r%'"
+    t.list columns=name where="name LIKE 'r%'" mapset=.
     ```
 
     ```text
@@ -479,7 +488,7 @@ only the datasets with relative time, and the numbers are those of its unit.
     ```
 
     ```sh
-    t.list columns=name,start_time order=start_time
+    t.list columns=name,start_time order=start_time mapset=.
     ```
 
     ```text
@@ -489,7 +498,7 @@ only the datasets with relative time, and the numbers are those of its unit.
     ```
 
     ```sh
-    t.list -c temporaltype=relative columns=name,start_time,end_time,granularity
+    t.list -c temporaltype=relative columns=name,start_time,end_time,granularity mapset=.
     ```
 
     ```text
@@ -501,7 +510,10 @@ only the datasets with relative time, and the numbers are those of its unit.
 
     ```python
     result = tools.t_list(
-        columns="name,number_of_maps", where="number_of_maps > 2", flags="c"
+        columns="name,number_of_maps",
+        where="number_of_maps > 2",
+        flags="c",
+        mapset=".",
     )
     print(result.text)
     ```
@@ -512,7 +524,7 @@ only the datasets with relative time, and the numbers are those of its unit.
     ```
 
     ```python
-    print(tools.t_list(columns="name", where="name LIKE 'r%'").text)
+    print(tools.t_list(columns="name", where="name LIKE 'r%'", mapset=".").text)
     ```
 
     ```text
@@ -520,7 +532,7 @@ only the datasets with relative time, and the numbers are those of its unit.
     ```
 
     ```python
-    print(tools.t_list(columns="name,start_time", order="start_time").text)
+    print(tools.t_list(columns="name,start_time", order="start_time", mapset=".").text)
     ```
 
     ```text
@@ -534,6 +546,7 @@ only the datasets with relative time, and the numbers are those of its unit.
         temporaltype="relative",
         columns="name,start_time,end_time,granularity",
         flags="c",
+        mapset=".",
     )
     print(result.text)
     ```
@@ -555,7 +568,7 @@ instead of the standard output and shows the file.
 === "Command line"
 
     ```sh
-    t.list format=csv columns=name,start_time,end_time
+    t.list format=csv columns=name,start_time,end_time mapset=.
     ```
 
     ```text
@@ -566,7 +579,7 @@ instead of the standard output and shows the file.
     ```
 
     ```sh
-    t.list -c columns=name,number_of_maps separator=";"
+    t.list -c columns=name,number_of_maps separator=";" mapset=.
     ```
 
     ```text
@@ -577,7 +590,7 @@ instead of the standard output and shows the file.
     ```
 
     ```sh
-    t.list format=line columns=name
+    t.list format=line columns=name mapset=.
     ```
 
     ```text
@@ -586,7 +599,7 @@ instead of the standard output and shows the file.
 
     ```sh
     t.list format=json columns=name,number_of_maps,start_time,granularity \
-        where="name IN ('temperature', 'model')"
+        where="name IN ('temperature', 'model')" mapset=.
     ```
 
     ```text
@@ -607,7 +620,7 @@ instead of the standard output and shows the file.
     ```
 
     ```sh
-    t.list format=csv columns=name,number_of_maps output=datasets.csv
+    t.list format=csv columns=name,number_of_maps output=datasets.csv mapset=.
     cat datasets.csv
     ```
 
@@ -621,7 +634,7 @@ instead of the standard output and shows the file.
 === "Python (grass.tools)"
 
     ```python
-    print(tools.t_list(format="csv", columns="name,start_time,end_time").text)
+    print(tools.t_list(format="csv", columns="name,start_time,end_time", mapset=".").text)
     ```
 
     ```text
@@ -632,7 +645,9 @@ instead of the standard output and shows the file.
     ```
 
     ```python
-    result = tools.t_list(columns="name,number_of_maps", separator=";", flags="c")
+    result = tools.t_list(
+        columns="name,number_of_maps", separator=";", flags="c", mapset="."
+    )
     print(result.text)
     ```
 
@@ -644,7 +659,7 @@ instead of the standard output and shows the file.
     ```
 
     ```python
-    print(tools.t_list(format="line", columns="name").text)
+    print(tools.t_list(format="line", columns="name", mapset=".").text)
     ```
 
     ```text
@@ -658,6 +673,7 @@ instead of the standard output and shows the file.
         format="json",
         columns="name,number_of_maps,start_time,granularity",
         where="name IN ('temperature', 'model')",
+        mapset=".",
     )
     print(json.dumps(result.json, indent=4))
     ```
@@ -682,7 +698,9 @@ instead of the standard output and shows the file.
     ```python
     from pathlib import Path
 
-    tools.t_list(format="csv", columns="name,number_of_maps", output="datasets.csv")
+    tools.t_list(
+        format="csv", columns="name,number_of_maps", output="datasets.csv", mapset="."
+    )
     print(Path("datasets.csv").read_text(), end="")
     ```
 
@@ -711,7 +729,7 @@ The largest maximum is the 6 of `temperature_3`, the smallest one the 0 of
 
     ```sh
     for kind in strds str3ds stvds raster raster_3d vector; do
-        t.list type=$kind columns=all -c where="name = 'none'"
+        t.list type=$kind columns=all -c where="name = 'none'" mapset=.
     done
     ```
 
@@ -725,7 +743,7 @@ The largest maximum is the 6 of `temperature_3`, the smallest one the 0 of
     ```
 
     ```sh
-    t.list format=json where="name IN ('temperature', 'model')" |
+    t.list format=json where="name IN ('temperature', 'model')" mapset=. |
         grep -E '"(name|temporal_type|unit|bottom|top|nsres_min|min_min|min_max|max_min|max_max)"'
     ```
 
@@ -734,7 +752,7 @@ The largest maximum is the 6 of `temperature_3`, the smallest one the 0 of
             "temporal_type": "absolute",
             "bottom": 0.0,
             "top": 0.0,
-            "nsres_min": 1.0,
+            "nsres_min": 1000.0,
             "min_min": -2.0,
             "min_max": 4.0,
             "max_min": 0.0,
@@ -744,7 +762,7 @@ The largest maximum is the 6 of `temperature_3`, the smallest one the 0 of
             "unit": "hours",
             "bottom": 0.0,
             "top": 0.0,
-            "nsres_min": 1.0,
+            "nsres_min": 1000.0,
             "min_min": 1.0,
             "min_max": 2.0,
             "max_min": 1.0,
@@ -755,7 +773,9 @@ The largest maximum is the 6 of `temperature_3`, the smallest one the 0 of
 
     ```python
     for kind in ("strds", "str3ds", "stvds", "raster", "raster_3d", "vector"):
-        result = tools.t_list(type=kind, columns="all", flags="c", where="name = 'none'")
+        result = tools.t_list(
+            type=kind, columns="all", flags="c", where="name = 'none'", mapset="."
+        )
         print(result.text)
     ```
 
@@ -781,14 +801,16 @@ The largest maximum is the 6 of `temperature_3`, the smallest one the 0 of
         "max_min",
         "max_max",
     )
-    result = tools.t_list(format="json", where="name IN ('temperature', 'model')")
+    result = tools.t_list(
+        format="json", where="name IN ('temperature', 'model')", mapset="."
+    )
     for row in result.json:
         print({key: row[key] for key in keys if key in row})
     ```
 
     ```text
-    {'name': 'temperature', 'temporal_type': 'absolute', 'bottom': 0.0, 'top': 0.0, 'nsres_min': 1.0, 'min_min': -2.0, 'min_max': 4.0, 'max_min': 0.0, 'max_max': 6.0}
-    {'name': 'model', 'temporal_type': 'relative', 'unit': 'hours', 'bottom': 0.0, 'top': 0.0, 'nsres_min': 1.0, 'min_min': 1.0, 'min_max': 2.0, 'max_min': 1.0, 'max_max': 2.0}
+    {'name': 'temperature', 'temporal_type': 'absolute', 'bottom': 0.0, 'top': 0.0, 'nsres_min': 1000.0, 'min_min': -2.0, 'min_max': 4.0, 'max_min': 0.0, 'max_max': 6.0}
+    {'name': 'model', 'temporal_type': 'relative', 'unit': 'hours', 'bottom': 0.0, 'top': 0.0, 'nsres_min': 1000.0, 'min_min': 1.0, 'min_max': 2.0, 'max_min': 1.0, 'max_max': 2.0}
     ```
 
 ### List time stamped maps and semantic labels
@@ -810,7 +832,7 @@ The fourth lists the 3D raster and vector maps; their type is added.
     r.mapcalc expression="lonely = 7"
     t.register maps=lonely start=2026-07-15
     t.list type=raster columns=name,start_time,end_time \
-        where="name LIKE 'rain%' OR name = 'lonely'" order=start_time
+        where="name LIKE 'rain%' OR name = 'lonely'" order=start_time mapset=.
     ```
 
     ```text
@@ -828,7 +850,7 @@ The fourth lists the 3D raster and vector maps; their type is added.
         description="Red and near infrared"
     t.register input=sentinel maps=red_1,nir_1 start="2026-06-01 10:30:00"
     t.list type=raster columns=name,semantic_label,start_time \
-        where="semantic_label IS NOT NULL" order=semantic_label
+        where="semantic_label IS NOT NULL" order=semantic_label mapset=.
     ```
 
     ```text
@@ -838,7 +860,7 @@ The fourth lists the 3D raster and vector maps; their type is added.
 
     ```sh
     t.list -c columns=name,number_of_maps,number_of_semantic_labels \
-        where="name = 'sentinel'"
+        where="name = 'sentinel'" mapset=.
     ```
 
     ```text
@@ -847,7 +869,7 @@ The fourth lists the 3D raster and vector maps; their type is added.
     ```
 
     ```sh
-    t.list type=raster_3d,vector columns=name
+    t.list type=raster_3d,vector columns=name mapset=.
     ```
 
     ```text
@@ -866,6 +888,7 @@ The fourth lists the 3D raster and vector maps; their type is added.
         columns="name,start_time,end_time",
         where="name LIKE 'rain%' OR name = 'lonely'",
         order="start_time",
+        mapset=".",
     )
     print(result.text)
     ```
@@ -892,6 +915,7 @@ The fourth lists the 3D raster and vector maps; their type is added.
         columns="name,semantic_label,start_time",
         where="semantic_label IS NOT NULL",
         order="semantic_label",
+        mapset=".",
     )
     print(result.text)
     ```
@@ -906,6 +930,7 @@ The fourth lists the 3D raster and vector maps; their type is added.
         columns="name,number_of_maps,number_of_semantic_labels",
         where="name = 'sentinel'",
         flags="c",
+        mapset=".",
     )
     print(result.text)
     ```
@@ -916,7 +941,7 @@ The fourth lists the 3D raster and vector maps; their type is added.
     ```
 
     ```python
-    print(tools.t_list(type="raster_3d,vector", columns="name").text)
+    print(tools.t_list(type="raster_3d,vector", columns="name", mapset=".").text)
     ```
 
     ```text
@@ -927,81 +952,96 @@ The fourth lists the 3D raster and vector maps; their type is added.
 
 ### List the datasets of other mapsets
 
-The example creates the mapset `analysis` with the dataset `wind` and switches
-to it. The first block lists the space time raster datasets of the search path
-(the current mapset `analysis` and `PERMANENT`), the second only those of the
-current mapset (`mapset=.`).
+The example creates the mapset `t_list_2` with the dataset `wind` and switches
+to it. The first block lists the space time raster datasets of the current
+mapset (`mapset=.`), the second those of the mapset `t_list`, which is not in
+the search path of the new mapset but can be named all the same.
 
-*g.mapsets* then removes `PERMANENT` from the search path. A listing without
-**mapset** shows only `wind`, but `mapset=PERMANENT` still lists the datasets
-of `PERMANENT`, and `mapset='*'` those of all mapsets. The last block puts
+The third block sets the search path to the current mapset alone with
+*[g.mapsets](g.mapsets.md)*. A listing without **mapset** then shows only
+`wind`, but `mapset=t_list` still lists the datasets of `t_list`. The fourth
+block adds `t_list` to the search path, so that the listing without **mapset**
+shows the datasets of both mapsets. The last block lists every mapset of the
+project with `mapset='*'`, whether or not it is in the search path, and puts
 `PERMANENT` back into the search path.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=analysis
-    g.region n=2 s=0 e=3 w=0 res=1
+    g.mapset -c mapset=t_list_2
+    g.region raster=elev_state_500m res=1000 -a
     r.mapcalc expression="wind_1 = 5"
     t.create output=wind title="Wind" description="Wind speed"
     t.register -i input=wind maps=wind_1 start=2026-03-01 increment="1 day"
-    t.list
-    ```
-
-    ```text
-    wind@analysis
-    rain@PERMANENT
-    sentinel@PERMANENT
-    temperature@PERMANENT
-    model@PERMANENT
-    ```
-
-    ```sh
     t.list mapset=.
     ```
 
     ```text
-    wind@analysis
+    wind@t_list_2
     ```
 
     ```sh
-    g.mapsets operation=remove mapset=PERMANENT
+    t.list mapset=t_list
+    ```
+
+    ```text
+    rain@t_list
+    sentinel@t_list
+    temperature@t_list
+    model@t_list
+    ```
+
+    ```sh
+    g.mapsets operation=set mapset=t_list_2
     t.list
     ```
 
     ```text
-    wind@analysis
+    wind@t_list_2
     ```
 
     ```sh
-    t.list mapset=PERMANENT
+    t.list mapset=t_list
     ```
 
     ```text
-    rain@PERMANENT
-    sentinel@PERMANENT
-    temperature@PERMANENT
-    model@PERMANENT
+    rain@t_list
+    sentinel@t_list
+    temperature@t_list
+    model@t_list
+    ```
+
+    ```sh
+    g.mapsets operation=add mapset=t_list
+    t.list
+    ```
+
+    ```text
+    wind@t_list_2
+    rain@t_list
+    sentinel@t_list
+    temperature@t_list
+    model@t_list
     ```
 
     ```sh
     t.list mapset='*'
-    g.mapsets operation=add mapset=PERMANENT
+    g.mapsets operation=set mapset=t_list_2,PERMANENT
     ```
 
     ```text
-    rain@PERMANENT
-    sentinel@PERMANENT
-    temperature@PERMANENT
-    wind@analysis
-    model@PERMANENT
+    rain@t_list
+    sentinel@t_list
+    temperature@t_list
+    wind@t_list_2
+    model@t_list
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(mapset="analysis", flags="c")
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
+    tools.g_mapset(mapset="t_list_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     tools.r_mapcalc(expression="wind_1 = 5")
     tools.t_create(output="wind", title="Wind", description="Wind speed")
     tools.t_register(
@@ -1011,56 +1051,68 @@ of `PERMANENT`, and `mapset='*'` those of all mapsets. The last block puts
         increment="1 day",
         flags="i",
     )
-    print(tools.t_list().text)
-    ```
-
-    ```text
-    wind@analysis
-    rain@PERMANENT
-    sentinel@PERMANENT
-    temperature@PERMANENT
-    model@PERMANENT
-    ```
-
-    ```python
     print(tools.t_list(mapset=".").text)
     ```
 
     ```text
-    wind@analysis
+    wind@t_list_2
     ```
 
     ```python
-    tools.g_mapsets(operation="remove", mapset="PERMANENT")
+    print(tools.t_list(mapset="t_list").text)
+    ```
+
+    ```text
+    rain@t_list
+    sentinel@t_list
+    temperature@t_list
+    model@t_list
+    ```
+
+    ```python
+    tools.g_mapsets(operation="set", mapset="t_list_2")
     print(tools.t_list().text)
     ```
 
     ```text
-    wind@analysis
+    wind@t_list_2
     ```
 
     ```python
-    print(tools.t_list(mapset="PERMANENT").text)
+    print(tools.t_list(mapset="t_list").text)
     ```
 
     ```text
-    rain@PERMANENT
-    sentinel@PERMANENT
-    temperature@PERMANENT
-    model@PERMANENT
+    rain@t_list
+    sentinel@t_list
+    temperature@t_list
+    model@t_list
+    ```
+
+    ```python
+    tools.g_mapsets(operation="add", mapset="t_list")
+    print(tools.t_list().text)
+    ```
+
+    ```text
+    wind@t_list_2
+    rain@t_list
+    sentinel@t_list
+    temperature@t_list
+    model@t_list
     ```
 
     ```python
     print(tools.t_list(mapset="*").text)
-    tools.g_mapsets(operation="add", mapset="PERMANENT")
+    tools.g_mapsets(operation="set", mapset="t_list_2,PERMANENT")
     ```
 
     ```text
-    rain@PERMANENT
-    sentinel@PERMANENT
-    temperature@PERMANENT
-    wind@analysis
-    model@PERMANENT
+    rain@t_list
+    sentinel@t_list
+    temperature@t_list
+    wind@t_list_2
+    model@t_list
     ```
 
 <!-- markdownlint-enable MD046 -->
