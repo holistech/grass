@@ -114,11 +114,21 @@ Errors that the examples do not show:
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). *t.connect*
+changes the connection of the current mapset, so the first example creates the
+mapset `t_connect` and every example runs in it or in `t_connect_2`; the
+mapset `PERMANENT` of the dataset keeps its connection. *t.connect* handles
+connections only and reads no map, so the examples need no data besides the
+computational region, which they set to North Carolina with cells of 1 km.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_connect -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Print the connection
 
-A new project has no connection yet: **-p** prints empty values. **-c** finds
+A new mapset has no connection yet: **-p** prints empty values. **-c** finds
 nothing set, sets the default connection and reports it in a message, which is
 not part of the standard output. After that, **-p** prints the connection in
 the form `plain`, and `format=shell` in the form `shell`. The deprecated flag
@@ -128,6 +138,8 @@ connection and prints nothing.
 === "Command line"
 
     ```sh
+    g.mapset -c mapset=t_connect
+    g.region raster=elev_state_500m res=1000 -a
     t.connect -p
     ```
 
@@ -174,6 +186,8 @@ connection and prints nothing.
     from grass.tools import Tools
 
     tools = Tools()
+    tools.g_mapset(flags="c", mapset="t_connect")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     print(tools.t_connect(flags="p").text)
     ```
 
@@ -216,26 +230,29 @@ connection and prints nothing.
 
 ### Print and check the connection of several mapsets
 
-The JSON form lists the mapsets on the search path, here only the current
-mapset `PERMANENT`. JSON escapes the slashes in the path with a backslash.
-The example creates a second mapset `other`, which has no connection yet
-and is not on the search path of `PERMANENT`. The option **mapset** selects
-mapsets by name: `other` and `.` (the current mapset) are printed in this
-order, and `other` has `null` for driver and database. Then **-c** is run in
-`other`: it finds nothing set and sets the default connection, so the same
-call now prints it. `*` stands for all mapsets of the project; their names are
-sorted here because the order of `*` is not defined.
+The JSON form lists the mapsets on the search path. In the sample dataset
+that includes `PERMANENT`, which has a connection of its own that is not the
+subject here, so the first call selects the current mapset with `.`. JSON
+escapes the slashes in the path with a backslash. The example creates a second
+mapset `t_connect_2`, which has no connection yet and is not on the search path
+of `t_connect`. The option **mapset** selects mapsets by name: `t_connect_2`
+and `.` (the current mapset) are printed in this order, and `t_connect_2` has
+`null` for driver and database. Then **-c** is run in `t_connect_2`: it finds
+nothing set and sets the default connection, so the same call now prints it.
+`*` stands for all mapsets of the project, `PERMANENT` among them; the last
+call keeps the two mapsets of the example and sorts their names because the
+order of `*` is not defined.
 
 === "Command line"
 
     ```sh
-    t.connect -p format=json
+    t.connect -p format=json mapset=.
     ```
 
     ```text
     [
         {
-            "mapset": "PERMANENT",
+            "mapset": "t_connect",
             "driver": "sqlite",
             "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
         }
@@ -243,20 +260,21 @@ sorted here because the order of `*` is not defined.
     ```
 
     ```sh
-    g.mapset -c mapset=other
-    g.mapset mapset=PERMANENT
-    t.connect -p format=json mapset=other,.
+    g.mapset -c mapset=t_connect_2
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapset mapset=t_connect
+    t.connect -p format=json mapset=t_connect_2,.
     ```
 
     ```text
     [
         {
-            "mapset": "other",
+            "mapset": "t_connect_2",
             "driver": null,
             "database": null
         },
         {
-            "mapset": "PERMANENT",
+            "mapset": "t_connect",
             "driver": "sqlite",
             "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
         }
@@ -264,16 +282,16 @@ sorted here because the order of `*` is not defined.
     ```
 
     ```sh
-    g.mapset mapset=other
+    g.mapset mapset=t_connect_2
     t.connect -c
-    g.mapset mapset=PERMANENT
-    t.connect -p format=json mapset=other
+    g.mapset mapset=t_connect
+    t.connect -p format=json mapset=t_connect_2
     ```
 
     ```text
     [
         {
-            "mapset": "other",
+            "mapset": "t_connect_2",
             "driver": "sqlite",
             "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
         }
@@ -281,24 +299,24 @@ sorted here because the order of `*` is not defined.
     ```
 
     ```sh
-    t.connect -p format=json mapset='*' | grep -o '"mapset": "[^"]*"' | LC_ALL=C sort
+    t.connect -p format=json mapset='*' | grep -o '"mapset": "t_connect[^"]*"' | LC_ALL=C sort
     ```
 
     ```text
-    "mapset": "PERMANENT"
-    "mapset": "other"
+    "mapset": "t_connect"
+    "mapset": "t_connect_2"
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    print(tools.t_connect(flags="p", format="json").text)
+    print(tools.t_connect(flags="p", format="json", mapset=".").text)
     ```
 
     ```text
     [
         {
-            "mapset": "PERMANENT",
+            "mapset": "t_connect",
             "driver": "sqlite",
             "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
         }
@@ -306,20 +324,21 @@ sorted here because the order of `*` is not defined.
     ```
 
     ```python
-    tools.g_mapset(mapset="other", flags="c")
-    tools.g_mapset(mapset="PERMANENT")
-    print(tools.t_connect(flags="p", format="json", mapset="other,.").text)
+    tools.g_mapset(mapset="t_connect_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapset(mapset="t_connect")
+    print(tools.t_connect(flags="p", format="json", mapset="t_connect_2,.").text)
     ```
 
     ```text
     [
         {
-            "mapset": "other",
+            "mapset": "t_connect_2",
             "driver": null,
             "database": null
         },
         {
-            "mapset": "PERMANENT",
+            "mapset": "t_connect",
             "driver": "sqlite",
             "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
         }
@@ -327,16 +346,16 @@ sorted here because the order of `*` is not defined.
     ```
 
     ```python
-    tools.g_mapset(mapset="other")
+    tools.g_mapset(mapset="t_connect_2")
     tools.t_connect(flags="c")
-    tools.g_mapset(mapset="PERMANENT")
-    print(tools.t_connect(flags="p", format="json", mapset="other").text)
+    tools.g_mapset(mapset="t_connect")
+    print(tools.t_connect(flags="p", format="json", mapset="t_connect_2").text)
     ```
 
     ```text
     [
         {
-            "mapset": "other",
+            "mapset": "t_connect_2",
             "driver": "sqlite",
             "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
         }
@@ -346,12 +365,13 @@ sorted here because the order of `*` is not defined.
     ```python
     result = tools.t_connect(flags="p", format="json", mapset="*")
     for name in sorted(entry["mapset"] for entry in result.json):
-        print(f'"mapset": "{name}"')
+        if name.startswith("t_connect"):
+            print(f'"mapset": "{name}"')
     ```
 
     ```text
-    "mapset": "PERMANENT"
-    "mapset": "other"
+    "mapset": "t_connect"
+    "mapset": "t_connect_2"
     ```
 
 ### Use a database file of your own
@@ -381,7 +401,7 @@ default `sqlite`.
     ```
 
     ```text
-     | Temporal database string:... /home/user/grassdata/temporal_examples/PERMANENT/tgis/mine.db
+     | Temporal database string:... /home/user/grassdata/nc_spm_08_grass7/t_connect/tgis/mine.db
     ```
 
     ```sh
@@ -417,7 +437,7 @@ default `sqlite`.
     ```
 
     ```text
-     | Temporal database string:... /home/user/grassdata/temporal_examples/PERMANENT/tgis/mine.db
+     | Temporal database string:... /home/user/grassdata/nc_spm_08_grass7/t_connect/tgis/mine.db
     ```
 
     ```python

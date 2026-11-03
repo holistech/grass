@@ -130,9 +130,17 @@ format=json.</code> for <b>mapset</b> without <b>-p</b> or without <code>format=
 
 <h2>EXAMPLES</h2>
 
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. <em>t.connect</em>
+changes the connection of the current mapset, so the first example creates the
+mapset <code>t_connect</code> and every example runs in it or in <code>t_connect_2</code>; the
+mapset <code>PERMANENT</code> of the dataset keeps its connection. <em>t.connect</em> handles
+connections only and reads no map, so the examples need no data besides the
+computational region, which they set to North Carolina with cells of 1 km.
+
 <h3>Print the connection</h3>
 
-A new project has no connection yet: <b>-p</b> prints empty values. <b>-c</b> finds
+A new mapset has no connection yet: <b>-p</b> prints empty values. <b>-c</b> finds
 nothing set, sets the default connection and reports it in a message, which is
 not part of the standard output. After that, <b>-p</b> prints the connection in
 the form <code>plain</code>, and <code>format=shell</code> in the form <code>shell</code>. The deprecated flag
@@ -142,6 +150,8 @@ connection and prints nothing.
 <p>Command line:</p>
 
 <div class="code"><pre>
+g.mapset -c mapset=t_connect
+g.region raster=elev_state_500m res=1000 -a
 t.connect -p
 </pre></div>
 
@@ -188,6 +198,8 @@ database=$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db
 from grass.tools import Tools
 
 tools = Tools()
+tools.g_mapset(flags="c", mapset="t_connect")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
 print(tools.t_connect(flags="p").text)
 </pre></div>
 
@@ -230,26 +242,29 @@ database=$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db
 
 <h3>Print and check the connection of several mapsets</h3>
 
-The JSON form lists the mapsets on the search path, here only the current
-mapset <code>PERMANENT</code>. JSON escapes the slashes in the path with a backslash.
-The example creates a second mapset <code>other</code>, which has no connection yet
-and is not on the search path of <code>PERMANENT</code>. The option <b>mapset</b> selects
-mapsets by name: <code>other</code> and <code>.</code> (the current mapset) are printed in this
-order, and <code>other</code> has <code>null</code> for driver and database. Then <b>-c</b> is run in
-<code>other</code>: it finds nothing set and sets the default connection, so the same
-call now prints it. <code>*</code> stands for all mapsets of the project; their names are
-sorted here because the order of <code>*</code> is not defined.
+The JSON form lists the mapsets on the search path. In the sample dataset
+that includes <code>PERMANENT</code>, which has a connection of its own that is not the
+subject here, so the first call selects the current mapset with <code>.</code>. JSON
+escapes the slashes in the path with a backslash. The example creates a second
+mapset <code>t_connect_2</code>, which has no connection yet and is not on the search path
+of <code>t_connect</code>. The option <b>mapset</b> selects mapsets by name: <code>t_connect_2</code>
+and <code>.</code> (the current mapset) are printed in this order, and <code>t_connect_2</code> has
+<code>null</code> for driver and database. Then <b>-c</b> is run in <code>t_connect_2</code>: it finds
+nothing set and sets the default connection, so the same call now prints it.
+<code>*</code> stands for all mapsets of the project, <code>PERMANENT</code> among them; the last
+call keeps the two mapsets of the example and sorts their names because the
+order of <code>*</code> is not defined.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-t.connect -p format=json
+t.connect -p format=json mapset=.
 </pre></div>
 
 <div class="code"><pre>
 [
     {
-        "mapset": "PERMANENT",
+        "mapset": "t_connect",
         "driver": "sqlite",
         "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
     }
@@ -257,20 +272,21 @@ t.connect -p format=json
 </pre></div>
 
 <div class="code"><pre>
-g.mapset -c mapset=other
-g.mapset mapset=PERMANENT
-t.connect -p format=json mapset=other,.
+g.mapset -c mapset=t_connect_2
+g.region raster=elev_state_500m res=1000 -a
+g.mapset mapset=t_connect
+t.connect -p format=json mapset=t_connect_2,.
 </pre></div>
 
 <div class="code"><pre>
 [
     {
-        "mapset": "other",
+        "mapset": "t_connect_2",
         "driver": null,
         "database": null
     },
     {
-        "mapset": "PERMANENT",
+        "mapset": "t_connect",
         "driver": "sqlite",
         "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
     }
@@ -278,16 +294,16 @@ t.connect -p format=json mapset=other,.
 </pre></div>
 
 <div class="code"><pre>
-g.mapset mapset=other
+g.mapset mapset=t_connect_2
 t.connect -c
-g.mapset mapset=PERMANENT
-t.connect -p format=json mapset=other
+g.mapset mapset=t_connect
+t.connect -p format=json mapset=t_connect_2
 </pre></div>
 
 <div class="code"><pre>
 [
     {
-        "mapset": "other",
+        "mapset": "t_connect_2",
         "driver": "sqlite",
         "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
     }
@@ -295,24 +311,24 @@ t.connect -p format=json mapset=other
 </pre></div>
 
 <div class="code"><pre>
-t.connect -p format=json mapset='*' | grep -o '"mapset": "[^"]*"' | LC_ALL=C sort
+t.connect -p format=json mapset='*' | grep -o '"mapset": "t_connect[^"]*"' | LC_ALL=C sort
 </pre></div>
 
 <div class="code"><pre>
-"mapset": "PERMANENT"
-"mapset": "other"
+"mapset": "t_connect"
+"mapset": "t_connect_2"
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-print(tools.t_connect(flags="p", format="json").text)
+print(tools.t_connect(flags="p", format="json", mapset=".").text)
 </pre></div>
 
 <div class="code"><pre>
 [
     {
-        "mapset": "PERMANENT",
+        "mapset": "t_connect",
         "driver": "sqlite",
         "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
     }
@@ -320,20 +336,21 @@ print(tools.t_connect(flags="p", format="json").text)
 </pre></div>
 
 <div class="code"><pre>
-tools.g_mapset(mapset="other", flags="c")
-tools.g_mapset(mapset="PERMANENT")
-print(tools.t_connect(flags="p", format="json", mapset="other,.").text)
+tools.g_mapset(mapset="t_connect_2", flags="c")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+tools.g_mapset(mapset="t_connect")
+print(tools.t_connect(flags="p", format="json", mapset="t_connect_2,.").text)
 </pre></div>
 
 <div class="code"><pre>
 [
     {
-        "mapset": "other",
+        "mapset": "t_connect_2",
         "driver": null,
         "database": null
     },
     {
-        "mapset": "PERMANENT",
+        "mapset": "t_connect",
         "driver": "sqlite",
         "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
     }
@@ -341,16 +358,16 @@ print(tools.t_connect(flags="p", format="json", mapset="other,.").text)
 </pre></div>
 
 <div class="code"><pre>
-tools.g_mapset(mapset="other")
+tools.g_mapset(mapset="t_connect_2")
 tools.t_connect(flags="c")
-tools.g_mapset(mapset="PERMANENT")
-print(tools.t_connect(flags="p", format="json", mapset="other").text)
+tools.g_mapset(mapset="t_connect")
+print(tools.t_connect(flags="p", format="json", mapset="t_connect_2").text)
 </pre></div>
 
 <div class="code"><pre>
 [
     {
-        "mapset": "other",
+        "mapset": "t_connect_2",
         "driver": "sqlite",
         "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
     }
@@ -360,12 +377,13 @@ print(tools.t_connect(flags="p", format="json", mapset="other").text)
 <div class="code"><pre>
 result = tools.t_connect(flags="p", format="json", mapset="*")
 for name in sorted(entry["mapset"] for entry in result.json):
-    print(f'"mapset": "{name}"')
+    if name.startswith("t_connect"):
+        print(f'"mapset": "{name}"')
 </pre></div>
 
 <div class="code"><pre>
-"mapset": "PERMANENT"
-"mapset": "other"
+"mapset": "t_connect"
+"mapset": "t_connect_2"
 </pre></div>
 
 <h3>Use a database file of your own</h3>
@@ -395,7 +413,7 @@ t.info -d | grep "database string"
 </pre></div>
 
 <div class="code"><pre>
- | Temporal database string:... /home/user/grassdata/temporal_examples/PERMANENT/tgis/mine.db
+ | Temporal database string:... /home/user/grassdata/nc_spm_08_grass7/t_connect/tgis/mine.db
 </pre></div>
 
 <div class="code"><pre>
@@ -431,7 +449,7 @@ for line in tools.t_info(flags="d").stdout.splitlines():
 </pre></div>
 
 <div class="code"><pre>
- | Temporal database string:... /home/user/grassdata/temporal_examples/PERMANENT/tgis/mine.db
+ | Temporal database string:... /home/user/grassdata/nc_spm_08_grass7/t_connect/tgis/mine.db
 </pre></div>
 
 <div class="code"><pre>
