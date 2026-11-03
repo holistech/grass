@@ -367,34 +367,48 @@ without computing.
 
 ## EXAMPLES
 
-The examples use one small dataset of four daily air temperature maps that
-they build step by step. The region has 2 by 3 cells, and the map
-`temperature_n` has the value `column + 3 * (n - 1)` in each cell, so that the
-values of the four maps are 1 to 3, 4 to 6, 7 to 9 and 10 to 12. Each example
-uses the result of the previous one.
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `temporalintro` and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset
+and region. The temporal manuals use the same kind of data: series of maps for
+2020 that are generated from maps of the dataset, here the monthly air
+temperature and the monthly precipitation. The values are generated, not
+measured. Each example uses the result of the previous one.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=temporalintro -->
 
 <!-- markdownlint-disable MD046 -->
 
 ### Create a dataset and register maps
 
-*[t.create](t.create.md)* creates the empty dataset `temperature` and
-*[t.register](t.register.md)* registers the four maps in it. With the flag
-**-i** and the options **start** and **increment**, the maps become
-consecutive intervals of one day, the first starting on 1 March 2026. The
-commands print nothing.
+The dataset `temperature_monthly` holds twelve maps of the monthly mean air
+temperature in 2020, in degrees Celsius rounded to tenths. They are generated
+from the elevation model `elev_state_500m`: 16.5 degrees at sea level and the
+northing 160 km, an annual cycle of plus and minus 10.5 degrees with its
+maximum in July, 6.5 degrees less for every 1000 m of elevation, and 1 degree
+more for every 100 km to the south.
+
+*[t.create](t.create.md)* creates the empty dataset and *[t.register](t.register.md)*
+registers the twelve maps in it. With the flag **-i** and the options **start**
+and **increment**, the maps become consecutive intervals of one month, the
+first starting on 1 January 2020. The commands print nothing.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
-    for i in 1 2 3 4; do
-        r.mapcalc expression="temperature_$i = col() + 3 * ($i - 1)"
-    done
-    t.create output=temperature title="Air temperature" \
-        description="Daily mean air temperature"
-    t.register -i input=temperature \
-        maps=temperature_1,temperature_2,temperature_3,temperature_4 \
-        start=2026-03-01 increment="1 day"
+    g.mapset -c mapset=temporalintro
+    g.region raster=elev_state_500m res=1000 -a
+    for month in $(seq 12); do
+        echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r.mapcalc file=-
+    t.create output=temperature_monthly title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degree Celsius"
+    t.register -i input=temperature_monthly \
+        maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
     ```
 
 === "Python (grass.tools)"
@@ -403,19 +417,27 @@ commands print nothing.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    for step in range(4):
-        tools.r_mapcalc(expression=f"temperature_{step + 1} = col() + {3 * step}")
+    tools.g_mapset(flags="c", mapset="temporalintro")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    months = range(1, 13)
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"temperature_monthly_2020_{month:02d} = round((16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
     tools.t_create(
-        output="temperature",
+        output="temperature_monthly",
         title="Air temperature",
-        description="Daily mean air temperature",
+        description="Monthly mean air temperature 2020 in degree Celsius",
     )
     tools.t_register(
-        input="temperature",
-        maps="temperature_1,temperature_2,temperature_3,temperature_4",
-        start="2026-03-01",
-        increment="1 day",
+        input="temperature_monthly",
+        maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
     ```
@@ -423,29 +445,31 @@ commands print nothing.
 ### Look at the dataset and its time
 
 *[t.info](t.info.md)* with the flag **-g** prints the properties of the dataset.
-The four maps cover 1 to 5 March, and the granularity is one day.
+The twelve maps cover the year 2020, and the granularity is one month.
 *[t.topology](t.topology.md)* shows that the topology is valid: the maps touch
-without gaps, so there are three `Follows` and three `Precedes` pairs.
+without gaps, so there are eleven `Follows` and eleven `Precedes` pairs.
 *[t.rast.list](t.rast.list.md)* lists the maps with their times and the
-minimum and maximum of their values.
+minimum and maximum of their values. January is the coldest month with
+-7.0 degrees in the coldest cell, and July the warmest with 28.4 degrees in the
+warmest cell.
 
 === "Command line"
 
     ```sh
-    t.info -g input=temperature | grep -E "^(start_time|end_time|granularity|number_of_maps)="
-    t.topology input=temperature
-    t.rast.list input=temperature columns=name,start_time,end_time,min,max
+    t.info -g input=temperature_monthly | grep -E "^(start_time|end_time|granularity|number_of_maps)="
+    t.topology input=temperature_monthly
+    t.rast.list input=temperature_monthly columns=name,start_time,end_time,min,max
     ```
 
     ```text
-    start_time='2026-03-01 00:00:00'
-    end_time='2026-03-05 00:00:00'
-    granularity='1 day'
-    number_of_maps=4
+    start_time='2020-01-01 00:00:00'
+    end_time='2021-01-01 00:00:00'
+    granularity='1 month'
+    number_of_maps=12
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ temperature@PERMANENT
-     | Name: ...................... temperature
-     | Mapset: .................... PERMANENT
+     | Id: ........................ temperature_monthly@temporalintro
+     | Name: ...................... temperature_monthly
+     | Mapset: .................... temporalintro
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
@@ -455,14 +479,14 @@ minimum and maximum of their values.
      | Is subset of dataset: ...... False
      | Temporal topology is: ...... valid
      | Number of points: .......... 0
-     | Number of intervals: ....... 4
+     | Number of intervals: ....... 12
      | Invalid time stamps: ....... 0
      | Number of gaps: ............ 0
-     | Granularity: ............... 1 day
+     | Granularity: ............... 1 month
      +-------------------- Topological relations ---------------------------------+
      | Equal:...................... 0
-     | Follows: ................... 3
-     | Precedes: .................. 3
+     | Follows: ................... 11
+     | Precedes: .................. 11
      | Overlaps: .................. 0
      | Overlapped: ................ 0
      | During: .................... 0
@@ -473,35 +497,43 @@ minimum and maximum of their values.
      | Finished: .................. 0
     +----------------------------------------------------------------------------+
     name|start_time|end_time|min|max
-    temperature_1|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|3.0
-    temperature_2|2026-03-02 00:00:00|2026-03-03 00:00:00|4.0|6.0
-    temperature_3|2026-03-03 00:00:00|2026-03-04 00:00:00|7.0|9.0
-    temperature_4|2026-03-04 00:00:00|2026-03-05 00:00:00|10.0|12.0
+    temperature_monthly_2020_01|2020-01-01 00:00:00|2020-02-01 00:00:00|-7.0|7.5
+    temperature_monthly_2020_02|2020-02-01 00:00:00|2020-03-01 00:00:00|-6.1|8.4
+    temperature_monthly_2020_03|2020-03-01 00:00:00|2020-04-01 00:00:00|-2.7|11.8
+    temperature_monthly_2020_04|2020-04-01 00:00:00|2020-05-01 00:00:00|2.4|16.9
+    temperature_monthly_2020_05|2020-05-01 00:00:00|2020-06-01 00:00:00|7.7|22.2
+    temperature_monthly_2020_06|2020-06-01 00:00:00|2020-07-01 00:00:00|12.0|26.5
+    temperature_monthly_2020_07|2020-07-01 00:00:00|2020-08-01 00:00:00|13.9|28.4
+    temperature_monthly_2020_08|2020-08-01 00:00:00|2020-09-01 00:00:00|13.1|27.6
+    temperature_monthly_2020_09|2020-09-01 00:00:00|2020-10-01 00:00:00|9.6|24.2
+    temperature_monthly_2020_10|2020-10-01 00:00:00|2020-11-01 00:00:00|4.6|19.1
+    temperature_monthly_2020_11|2020-11-01 00:00:00|2020-12-01 00:00:00|-0.8|13.7
+    temperature_monthly_2020_12|2020-12-01 00:00:00|2021-01-01 00:00:00|-5.0|9.5
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    info = tools.t_info(input="temperature", flags="g").keyval
+    info = tools.t_info(input="temperature_monthly", flags="g").keyval
     for key in ("start_time", "end_time", "granularity", "number_of_maps"):
         print(f"{key}={info[key]}")
-    print(tools.t_topology(input="temperature").stdout, end="")
+    print(tools.t_topology(input="temperature_monthly").stdout, end="")
     print(
         tools.t_rast_list(
-            input="temperature", columns="name,start_time,end_time,min,max"
+            input="temperature_monthly", columns="name,start_time,end_time,min,max"
         ).text
     )
     ```
 
     ```text
-    start_time='2026-03-01 00:00:00'
-    end_time='2026-03-05 00:00:00'
-    granularity='1 day'
-    number_of_maps=4
+    start_time='2020-01-01 00:00:00'
+    end_time='2021-01-01 00:00:00'
+    granularity='1 month'
+    number_of_maps=12
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ temperature@PERMANENT
-     | Name: ...................... temperature
-     | Mapset: .................... PERMANENT
+     | Id: ........................ temperature_monthly@temporalintro
+     | Name: ...................... temperature_monthly
+     | Mapset: .................... temporalintro
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
@@ -511,14 +543,14 @@ minimum and maximum of their values.
      | Is subset of dataset: ...... False
      | Temporal topology is: ...... valid
      | Number of points: .......... 0
-     | Number of intervals: ....... 4
+     | Number of intervals: ....... 12
      | Invalid time stamps: ....... 0
      | Number of gaps: ............ 0
-     | Granularity: ............... 1 day
+     | Granularity: ............... 1 month
      +-------------------- Topological relations ---------------------------------+
      | Equal:...................... 0
-     | Follows: ................... 3
-     | Precedes: .................. 3
+     | Follows: ................... 11
+     | Precedes: .................. 11
      | Overlaps: .................. 0
      | Overlapped: ................ 0
      | During: .................... 0
@@ -529,142 +561,294 @@ minimum and maximum of their values.
      | Finished: .................. 0
     +----------------------------------------------------------------------------+
     name|start_time|end_time|min|max
-    temperature_1|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|3.0
-    temperature_2|2026-03-02 00:00:00|2026-03-03 00:00:00|4.0|6.0
-    temperature_3|2026-03-03 00:00:00|2026-03-04 00:00:00|7.0|9.0
-    temperature_4|2026-03-04 00:00:00|2026-03-05 00:00:00|10.0|12.0
+    temperature_monthly_2020_01|2020-01-01 00:00:00|2020-02-01 00:00:00|-7.0|7.5
+    temperature_monthly_2020_02|2020-02-01 00:00:00|2020-03-01 00:00:00|-6.1|8.4
+    temperature_monthly_2020_03|2020-03-01 00:00:00|2020-04-01 00:00:00|-2.7|11.8
+    temperature_monthly_2020_04|2020-04-01 00:00:00|2020-05-01 00:00:00|2.4|16.9
+    temperature_monthly_2020_05|2020-05-01 00:00:00|2020-06-01 00:00:00|7.7|22.2
+    temperature_monthly_2020_06|2020-06-01 00:00:00|2020-07-01 00:00:00|12.0|26.5
+    temperature_monthly_2020_07|2020-07-01 00:00:00|2020-08-01 00:00:00|13.9|28.4
+    temperature_monthly_2020_08|2020-08-01 00:00:00|2020-09-01 00:00:00|13.1|27.6
+    temperature_monthly_2020_09|2020-09-01 00:00:00|2020-10-01 00:00:00|9.6|24.2
+    temperature_monthly_2020_10|2020-10-01 00:00:00|2020-11-01 00:00:00|4.6|19.1
+    temperature_monthly_2020_11|2020-11-01 00:00:00|2020-12-01 00:00:00|-0.8|13.7
+    temperature_monthly_2020_12|2020-12-01 00:00:00|2021-01-01 00:00:00|-5.0|9.5
     ```
 
 ### Aggregate over a longer period
 
-*[t.rast.aggregate](t.rast.aggregate.md)* cuts the time into granules of two
-days and averages the maps of each granule. The two new maps cover 1 to 3 March
-and 3 to 5 March. Here the input maps differ from each other by a constant, so the
-minimum and the maximum of a new map are the means of the minima and of the
-maxima of its input maps: for the first, (1 + 4) / 2 = 2.5 and (3 + 6) / 2 =
-4.5.
+*[t.rast.aggregate](t.rast.aggregate.md)* cuts the time into granules of three
+months and averages the maps of each granule. The **where** condition selects
+the maps from March to November, so the granules are March to May, June to
+August and September to November: spring, summer and autumn. In summer the
+warmest cell has 26.5, 28.4 and 27.6 degrees in June, July and August, so its
+mean is 27.5 degrees.
+
+The figure shows the three new maps with the border of North Carolina from the
+vector map `nc_state`. *[t.rast.colors](t.rast.colors.md)* gives the maps the
+colour table `celsius`, so the same colour means the same temperature in all
+three maps. *d.frame* makes one frame per map, *d.rast* draws the map, *d.vect*
+the border and *d.text* the name; *d.legend* draws the legend in a frame of its
+own.
 
 === "Command line"
 
     ```sh
-    t.rast.aggregate input=temperature output=two_days basename=two_days \
-        granularity="2 days" method=average
-    t.rast.list input=two_days columns=name,start_time,end_time,min,max
+    t.rast.aggregate input=temperature_monthly output=temperature_season \
+        basename=temperature_season granularity="3 months" method=average \
+        where="start_time >= '2020-03-01' and start_time < '2020-12-01'"
+    t.rast.list input=temperature_season columns=name,start_time,end_time,min,max
+    t.rast.colors input=temperature_season color=celsius
+    d.mon start=cairo output=temporalintro_summer.png width=600 height=600
+    row=0
+    for map in "temperature_season_2020_03 spring" \
+        "temperature_season_2020_06 summer" \
+        "temperature_season_2020_09 autumn"; do
+        set -- $map
+        top=$((100 - 33 * row))
+        d.frame -c frame=map_$row at=$((top - 33)),$top,0,80
+        d.rast map=$1
+        d.vect map=nc_state type=boundary color=black
+        d.text text=$2 at=2,8 size=14 color=black
+        row=$((row + 1))
+    done
+    d.frame -c frame=legend at=0,100,80,100
+    d.legend raster=temperature_season_2020_06 range=0,30 at=10,90,10,35 \
+        label_step=5 digits=0 title="deg C"
+    d.mon stop=cairo
     ```
 
     ```text
     name|start_time|end_time|min|max
-    two_days_2026_03_01|2026-03-01 00:00:00|2026-03-03 00:00:00|2.5|4.5
-    two_days_2026_03_03|2026-03-03 00:00:00|2026-03-05 00:00:00|8.5|10.5
+    temperature_season_2020_03|2020-03-01 00:00:00|2020-06-01 00:00:00|2.466666666666667|16.966666666666665
+    temperature_season_2020_06|2020-06-01 00:00:00|2020-09-01 00:00:00|13.0|27.5
+    temperature_season_2020_09|2020-09-01 00:00:00|2020-12-01 00:00:00|4.466666666666666|19.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.t_rast_aggregate(
-        input="temperature",
-        output="two_days",
-        basename="two_days",
-        granularity="2 days",
+        input="temperature_monthly",
+        output="temperature_season",
+        basename="temperature_season",
+        granularity="3 months",
         method="average",
+        where="start_time >= '2020-03-01' and start_time < '2020-12-01'",
     )
-    print(
-        tools.t_rast_list(input="two_days", columns="name,start_time,end_time,min,max").text
+    columns = "name,start_time,end_time,min,max"
+    print(tools.t_rast_list(input="temperature_season", columns=columns).text)
+    tools.t_rast_colors(input="temperature_season", color="celsius")
+    tools.d_mon(start="cairo", output="temporalintro_summer.png", width=600, height=600)
+    for row, (name, label) in enumerate(
+        (
+            ("temperature_season_2020_03", "spring"),
+            ("temperature_season_2020_06", "summer"),
+            ("temperature_season_2020_09", "autumn"),
+        )
+    ):
+        top = 100 - 33 * row
+        tools.d_frame(flags="c", frame=f"map_{row}", at=[top - 33, top, 0, 80])
+        tools.d_rast(map=name)
+        tools.d_vect(map="nc_state", type="boundary", color="black")
+        tools.d_text(text=label, at=[2, 8], size=14, color="black")
+    tools.d_frame(flags="c", frame="legend", at=[0, 100, 80, 100])
+    tools.d_legend(
+        raster="temperature_season_2020_06",
+        range=[0, 30],
+        at=[10, 90, 10, 35],
+        label_step=5,
+        digits=0,
+        title="deg C",
     )
+    tools.d_mon(stop="cairo")
     ```
 
     ```text
     name|start_time|end_time|min|max
-    two_days_2026_03_01|2026-03-01 00:00:00|2026-03-03 00:00:00|2.5|4.5
-    two_days_2026_03_03|2026-03-03 00:00:00|2026-03-05 00:00:00|8.5|10.5
+    temperature_season_2020_03|2020-03-01 00:00:00|2020-06-01 00:00:00|2.466666666666667|16.966666666666665
+    temperature_season_2020_06|2020-06-01 00:00:00|2020-09-01 00:00:00|13.0|27.5
+    temperature_season_2020_09|2020-09-01 00:00:00|2020-12-01 00:00:00|4.466666666666666|19.0
     ```
+
+![Generated mean air temperature of spring, summer and autumn 2020 in North Carolina](temporalintro_summer.png)
+
+*Figure: Mean air temperature of spring, summer and autumn 2020, computed from
+generated monthly maps (not measured data).*
 
 ### Sample one dataset by another
 
-*[t.sample](t.sample.md)* takes `two_days` as the sampler and prints, for each
-of its maps, the maps of `temperature` in the default relations `during`,
-`overlap`, `contain` and `equal`. Each daily map lies in one granule of two
-days, so each row names two maps. The columns are the sampler map, the related
-maps of `temperature`, the start and end of the granule, its length in days and
-the distance of its start from the first granule in days (the manual of
-*t.sample* describes them).
+A second generated series, `precipitation_monthly`, holds the monthly
+precipitation sum of 2020 in millimetres. The monthly normals of the 136
+climate stations in the vector map `precip_30ynormals` are interpolated for
+each month with *[v.surf.idw](v.surf.idw.md)* and multiplied by an assumed
+factor for the wet year 2020. The maps are registered like the temperature
+maps.
+
+*[t.sample](t.sample.md)* takes `temperature_season` as the sampler and prints,
+for each of its maps, the maps of `precipitation_monthly` in the default
+relations `during`, `overlap`, `contain` and `equal`. Each season contains
+three monthly maps, so each row names three maps. The columns are the sampler
+map, the related maps of `precipitation_monthly`, the start and end of the
+granule, its length in days (92, 92 and 91) and the distance of its start from
+the first granule in days (the manual of *t.sample* describes them).
 
 === "Command line"
 
     ```sh
-    t.sample inputs=temperature sample=two_days
+    month=1
+    for entry in jan:1.2 feb:1.7 mar:0.9 apr:1.3 may:1.6 jun:0.9 \
+        jul:1.1 aug:1.5 sep:0.8 oct:1.0 nov:1.6 dec:0.9; do
+        name=$(printf %02d $month)
+        v.surf.idw input=precip_30ynormals column=${entry%:*} \
+            output=precipitation_normal_$name npoints=12 power=2
+        r.mapcalc expression="precipitation_monthly_2020_$name = if(isnull(elev_state_500m), null(), round(${entry#*:} * precipitation_normal_$name))"
+        month=$((month + 1))
+    done
+    t.create output=precipitation_monthly title="Precipitation" \
+        description="Monthly precipitation sum 2020 in mm"
+    t.register -i input=precipitation_monthly \
+        maps=$(g.list type=raster pattern="precipitation_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    t.sample inputs=precipitation_monthly sample=temperature_season
     ```
 
     ```text
-    two_days_2026_03_01@PERMANENT|temperature_1@PERMANENT,temperature_2@PERMANENT|2026-03-01 00:00:00|2026-03-03 00:00:00|2.0|0.0
-    two_days_2026_03_03@PERMANENT|temperature_3@PERMANENT,temperature_4@PERMANENT|2026-03-03 00:00:00|2026-03-05 00:00:00|2.0|2.0
+    temperature_season_2020_03@temporalintro|precipitation_monthly_2020_03@temporalintro,precipitation_monthly_2020_04@temporalintro,precipitation_monthly_2020_05@temporalintro|2020-03-01 00:00:00|2020-06-01 00:00:00|92.0|0.0
+    temperature_season_2020_06@temporalintro|precipitation_monthly_2020_06@temporalintro,precipitation_monthly_2020_07@temporalintro,precipitation_monthly_2020_08@temporalintro|2020-06-01 00:00:00|2020-09-01 00:00:00|92.0|92.0
+    temperature_season_2020_09@temporalintro|precipitation_monthly_2020_09@temporalintro,precipitation_monthly_2020_10@temporalintro,precipitation_monthly_2020_11@temporalintro|2020-09-01 00:00:00|2020-12-01 00:00:00|91.0|184.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    print(tools.t_sample(inputs="temperature", sample="two_days").text)
+    factors = {"jan": 1.2, "feb": 1.7, "mar": 0.9, "apr": 1.3, "may": 1.6, "jun": 0.9}
+    factors |= {"jul": 1.1, "aug": 1.5, "sep": 0.8, "oct": 1.0, "nov": 1.6, "dec": 0.9}
+    for month, (column, factor) in enumerate(factors.items(), start=1):
+        normal = f"precipitation_normal_{month:02d}"
+        tools.v_surf_idw(
+            input="precip_30ynormals", column=column, output=normal, npoints=12, power=2
+        )
+        tools.r_mapcalc(
+            expression=f"precipitation_monthly_2020_{month:02d} ="
+            f" if(isnull(elev_state_500m), null(), round({factor} * {normal}))"
+        )
+    tools.t_create(
+        output="precipitation_monthly",
+        title="Precipitation",
+        description="Monthly precipitation sum 2020 in mm",
+    )
+    tools.t_register(
+        input="precipitation_monthly",
+        maps=",".join(f"precipitation_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
+        flags="i",
+    )
+    print(tools.t_sample(inputs="precipitation_monthly", sample="temperature_season").text)
     ```
 
     ```text
-    two_days_2026_03_01@PERMANENT|temperature_1@PERMANENT,temperature_2@PERMANENT|2026-03-01 00:00:00|2026-03-03 00:00:00|2.0|0.0
-    two_days_2026_03_03@PERMANENT|temperature_3@PERMANENT,temperature_4@PERMANENT|2026-03-03 00:00:00|2026-03-05 00:00:00|2.0|2.0
+    temperature_season_2020_03@temporalintro|precipitation_monthly_2020_03@temporalintro,precipitation_monthly_2020_04@temporalintro,precipitation_monthly_2020_05@temporalintro|2020-03-01 00:00:00|2020-06-01 00:00:00|92.0|0.0
+    temperature_season_2020_06@temporalintro|precipitation_monthly_2020_06@temporalintro,precipitation_monthly_2020_07@temporalintro,precipitation_monthly_2020_08@temporalintro|2020-06-01 00:00:00|2020-09-01 00:00:00|92.0|92.0
+    temperature_season_2020_09@temporalintro|precipitation_monthly_2020_09@temporalintro,precipitation_monthly_2020_10@temporalintro,precipitation_monthly_2020_11@temporalintro|2020-09-01 00:00:00|2020-12-01 00:00:00|91.0|184.0
     ```
 
 ### Compute with the temporal algebra
 
-*[t.rast.algebra](t.rast.algebra.md)* adds 10 to every map of `temperature`
-and registers the results in the new dataset `warm`, which keeps the times of
-the input maps. The minima and maxima are those of the input plus 10. The flag
-**-c** selects the classic algebra: the second call computes the same
-expression with it into `warm_classic`, and the list shows the same values and
-times. The names of the maps differ only in the basename.
+*[t.rast.algebra](t.rast.algebra.md)* combines the two datasets, which have the
+same months. The expression marks the cells that are warm and wet in a month:
+warmer than 15 degrees and with more than 100 mm of precipitation. The result
+dataset `warm_wet` keeps the times of the input maps; each map holds 1 where
+both conditions are true and 0 elsewhere, so its largest value is 1 from April
+to October, the months with such a cell. The flag **-c** selects the classic
+algebra: the second call computes the same expression with it into
+`warm_wet_classic`, and the list shows the same values and times. The names of
+the maps differ only in the basename.
 
 === "Command line"
 
     ```sh
-    t.rast.algebra expression="warm = temperature + 10" basename=warm
-    t.rast.list input=warm columns=name,start_time,min,max
-    t.rast.algebra -c expression="warm_classic = temperature + 10" \
-        basename=classic
-    t.rast.list input=warm_classic columns=name,start_time,min,max
+    t.rast.algebra expression="warm_wet = if(temperature_monthly > 15.0 && precipitation_monthly > 100, 1, 0)" basename=warm_wet
+    t.rast.list input=warm_wet columns=name,start_time,min,max
+    t.rast.algebra -c expression="warm_wet_classic = if(temperature_monthly > 15.0 && precipitation_monthly > 100, 1, 0)" basename=classic
+    t.rast.list input=warm_wet_classic columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    warm_0|2026-03-01 00:00:00|11.0|13.0
-    warm_1|2026-03-02 00:00:00|14.0|16.0
-    warm_2|2026-03-03 00:00:00|17.0|19.0
-    warm_3|2026-03-04 00:00:00|20.0|22.0
+    warm_wet_00|2020-01-01 00:00:00|0.0|0.0
+    warm_wet_01|2020-02-01 00:00:00|0.0|0.0
+    warm_wet_02|2020-03-01 00:00:00|0.0|0.0
+    warm_wet_03|2020-04-01 00:00:00|0.0|1.0
+    warm_wet_04|2020-05-01 00:00:00|0.0|1.0
+    warm_wet_05|2020-06-01 00:00:00|0.0|1.0
+    warm_wet_06|2020-07-01 00:00:00|0.0|1.0
+    warm_wet_07|2020-08-01 00:00:00|0.0|1.0
+    warm_wet_08|2020-09-01 00:00:00|0.0|1.0
+    warm_wet_09|2020-10-01 00:00:00|0.0|1.0
+    warm_wet_10|2020-11-01 00:00:00|0.0|0.0
+    warm_wet_11|2020-12-01 00:00:00|0.0|0.0
     name|start_time|min|max
-    classic_0|2026-03-01 00:00:00|11.0|13.0
-    classic_1|2026-03-02 00:00:00|14.0|16.0
-    classic_2|2026-03-03 00:00:00|17.0|19.0
-    classic_3|2026-03-04 00:00:00|20.0|22.0
+    classic_00|2020-01-01 00:00:00|0.0|0.0
+    classic_01|2020-02-01 00:00:00|0.0|0.0
+    classic_02|2020-03-01 00:00:00|0.0|0.0
+    classic_03|2020-04-01 00:00:00|0.0|1.0
+    classic_04|2020-05-01 00:00:00|0.0|1.0
+    classic_05|2020-06-01 00:00:00|0.0|1.0
+    classic_06|2020-07-01 00:00:00|0.0|1.0
+    classic_07|2020-08-01 00:00:00|0.0|1.0
+    classic_08|2020-09-01 00:00:00|0.0|1.0
+    classic_09|2020-10-01 00:00:00|0.0|1.0
+    classic_10|2020-11-01 00:00:00|0.0|0.0
+    classic_11|2020-12-01 00:00:00|0.0|0.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.t_rast_algebra(expression="warm = temperature + 10", basename="warm")
-    print(tools.t_rast_list(input="warm", columns="name,start_time,min,max").text)
+    condition = "temperature_monthly > 15.0 && precipitation_monthly > 100"
     tools.t_rast_algebra(
-        expression="warm_classic = temperature + 10", basename="classic", flags="c"
+        expression=f"warm_wet = if({condition}, 1, 0)", basename="warm_wet"
     )
-    print(tools.t_rast_list(input="warm_classic", columns="name,start_time,min,max").text)
+    print(tools.t_rast_list(input="warm_wet", columns="name,start_time,min,max").text)
+    tools.t_rast_algebra(
+        expression=f"warm_wet_classic = if({condition}, 1, 0)",
+        basename="classic",
+        flags="c",
+    )
+    print(
+        tools.t_rast_list(input="warm_wet_classic", columns="name,start_time,min,max").text
+    )
     ```
 
     ```text
     name|start_time|min|max
-    warm_0|2026-03-01 00:00:00|11.0|13.0
-    warm_1|2026-03-02 00:00:00|14.0|16.0
-    warm_2|2026-03-03 00:00:00|17.0|19.0
-    warm_3|2026-03-04 00:00:00|20.0|22.0
+    warm_wet_00|2020-01-01 00:00:00|0.0|0.0
+    warm_wet_01|2020-02-01 00:00:00|0.0|0.0
+    warm_wet_02|2020-03-01 00:00:00|0.0|0.0
+    warm_wet_03|2020-04-01 00:00:00|0.0|1.0
+    warm_wet_04|2020-05-01 00:00:00|0.0|1.0
+    warm_wet_05|2020-06-01 00:00:00|0.0|1.0
+    warm_wet_06|2020-07-01 00:00:00|0.0|1.0
+    warm_wet_07|2020-08-01 00:00:00|0.0|1.0
+    warm_wet_08|2020-09-01 00:00:00|0.0|1.0
+    warm_wet_09|2020-10-01 00:00:00|0.0|1.0
+    warm_wet_10|2020-11-01 00:00:00|0.0|0.0
+    warm_wet_11|2020-12-01 00:00:00|0.0|0.0
     name|start_time|min|max
-    classic_0|2026-03-01 00:00:00|11.0|13.0
-    classic_1|2026-03-02 00:00:00|14.0|16.0
-    classic_2|2026-03-03 00:00:00|17.0|19.0
-    classic_3|2026-03-04 00:00:00|20.0|22.0
+    classic_00|2020-01-01 00:00:00|0.0|0.0
+    classic_01|2020-02-01 00:00:00|0.0|0.0
+    classic_02|2020-03-01 00:00:00|0.0|0.0
+    classic_03|2020-04-01 00:00:00|0.0|1.0
+    classic_04|2020-05-01 00:00:00|0.0|1.0
+    classic_05|2020-06-01 00:00:00|0.0|1.0
+    classic_06|2020-07-01 00:00:00|0.0|1.0
+    classic_07|2020-08-01 00:00:00|0.0|1.0
+    classic_08|2020-09-01 00:00:00|0.0|1.0
+    classic_09|2020-10-01 00:00:00|0.0|1.0
+    classic_10|2020-11-01 00:00:00|0.0|0.0
+    classic_11|2020-12-01 00:00:00|0.0|0.0
     ```
 
 <!-- markdownlint-enable MD046 -->
