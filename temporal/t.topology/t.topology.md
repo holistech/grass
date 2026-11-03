@@ -102,34 +102,46 @@ it explicitly.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_topology` and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset.
+*t.topology* looks at times and extents only, so the maps hold small constant
+values and the dates are chosen to show each relation.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_topology -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Check a dataset whose maps follow each other
 
-The dataset `days` holds four maps of one day each, one after the other.
-The summary shows the topology as valid, four intervals, no gap and the
-granularity `1 day`. Three pairs of neighbours touch, which are counted as
-three `Follows` and three `Precedes`. The box above the summary is the basic
-information of the dataset.
+The dataset `rain_days` holds four maps of daily rain, 4 mm in every cell, one
+day each, one after the other. The summary shows the topology as valid, four
+intervals, no gap and the granularity `1 day`. Three pairs of neighbours touch,
+which are counted as three `Follows` and three `Precedes`. The box above the
+summary is the basic information of the dataset.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
-    for name in day_1 day_2 day_3 day_4; do
-        r.mapcalc expression="$name = 1"
+    g.mapset -c mapset=t_topology
+    g.region raster=elev_state_500m res=1000 -a
+    for day in 1 2 3 4; do
+        r.mapcalc expression="rain_day_$day = 4"
     done
-    t.create output=days title="Days" description="Four adjacent days"
-    t.register -i input=days maps=day_1,day_2,day_3,day_4 \
+    t.create output=rain_days title="Daily rain" \
+        description="Four adjacent days of rain in mm"
+    t.register -i input=rain_days \
+        maps=rain_day_1,rain_day_2,rain_day_3,rain_day_4 \
         start=2026-06-01 increment="1 day"
-    t.topology input=days
+    t.topology input=rain_days
     ```
 
     ```text
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ days@PERMANENT
-     | Name: ...................... days
-     | Mapset: .................... PERMANENT
+     | Id: ........................ rain_days@t_topology
+     | Name: ...................... rain_days
+     | Mapset: .................... t_topology
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
@@ -164,25 +176,30 @@ information of the dataset.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    for name in ("day_1", "day_2", "day_3", "day_4"):
-        tools.r_mapcalc(expression=f"{name} = 1")
-    tools.t_create(output="days", title="Days", description="Four adjacent days")
+    tools.g_mapset(flags="c", mapset="t_topology")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    for day in range(1, 5):
+        tools.r_mapcalc(expression=f"rain_day_{day} = 4")
+    tools.t_create(
+        output="rain_days",
+        title="Daily rain",
+        description="Four adjacent days of rain in mm",
+    )
     tools.t_register(
-        input="days",
-        maps="day_1,day_2,day_3,day_4",
+        input="rain_days",
+        maps="rain_day_1,rain_day_2,rain_day_3,rain_day_4",
         start="2026-06-01",
         increment="1 day",
         flags="i",
     )
-    print(tools.t_topology(input="days").stdout, end="")
+    print(tools.t_topology(input="rain_days").stdout, end="")
     ```
 
     ```text
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ days@PERMANENT
-     | Name: ...................... days
-     | Mapset: .................... PERMANENT
+     | Id: ........................ rain_days@t_topology
+     | Name: ...................... rain_days
+     | Mapset: .................... t_topology
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
@@ -213,31 +230,34 @@ information of the dataset.
 
 ### Find overlaps, equal times and gaps
 
-The dataset `mixed` has the map `a` from 1 June to 3 June, the maps `b` and
-`c` with the same times from 2 June to 4 June, and the map `d` from 6 June to
-7 June. The map `a` overlaps `b` and `c`, which `Overlaps` and `Overlapped`
-count as two pairs each. `b` and `c` are equal; the one pair is counted twice,
-as `Equal: 2`. The gap before `d` is the one gap. The topology is invalid
-because of the overlaps and the equal maps.
+The dataset `moisture` has the map `moisture_a` from 1 June to 3 June, the maps
+`moisture_b` and `moisture_c` with the same times from 2 June to 4 June, and the
+map `moisture_d` from 6 June to 7 June. The map `moisture_a` overlaps
+`moisture_b` and `moisture_c`, which `Overlaps` and `Overlapped` count as two
+pairs each. `moisture_b` and `moisture_c` are equal; the one pair is counted
+twice, as `Equal: 2`. The gap before `moisture_d` is the one gap. The topology
+is invalid because of the overlaps and the equal maps.
 
 === "Command line"
 
     ```sh
     for name in a b c d; do
-        r.mapcalc expression="$name = 1"
+        r.mapcalc expression="moisture_$name = 30"
     done
-    t.create output=mixed title="Mixed" description="Overlap, equal times, a gap"
-    t.register input=mixed maps=a start=2026-06-01 end=2026-06-03
-    t.register input=mixed maps=b,c start=2026-06-02 end=2026-06-04
-    t.register input=mixed maps=d start=2026-06-06 end=2026-06-07
-    t.topology input=mixed
+    t.create output=moisture title="Soil moisture" \
+        description="Soil moisture in percent: overlap, equal times, a gap"
+    t.register input=moisture maps=moisture_a start=2026-06-01 end=2026-06-03
+    t.register input=moisture maps=moisture_b,moisture_c \
+        start=2026-06-02 end=2026-06-04
+    t.register input=moisture maps=moisture_d start=2026-06-06 end=2026-06-07
+    t.topology input=moisture
     ```
 
     ```text
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ mixed@PERMANENT
-     | Name: ...................... mixed
-     | Mapset: .................... PERMANENT
+     | Id: ........................ moisture@t_topology
+     | Name: ...................... moisture
+     | Mapset: .................... t_topology
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
@@ -270,19 +290,32 @@ because of the overlaps and the equal maps.
 
     ```python
     for name in ("a", "b", "c", "d"):
-        tools.r_mapcalc(expression=f"{name} = 1")
-    tools.t_create(output="mixed", title="Mixed", description="Overlap, equal times, a gap")
-    tools.t_register(input="mixed", maps="a", start="2026-06-01", end="2026-06-03")
-    tools.t_register(input="mixed", maps="b,c", start="2026-06-02", end="2026-06-04")
-    tools.t_register(input="mixed", maps="d", start="2026-06-06", end="2026-06-07")
-    print(tools.t_topology(input="mixed").stdout, end="")
+        tools.r_mapcalc(expression=f"moisture_{name} = 30")
+    tools.t_create(
+        output="moisture",
+        title="Soil moisture",
+        description="Soil moisture in percent: overlap, equal times, a gap",
+    )
+    tools.t_register(
+        input="moisture", maps="moisture_a", start="2026-06-01", end="2026-06-03"
+    )
+    tools.t_register(
+        input="moisture",
+        maps="moisture_b,moisture_c",
+        start="2026-06-02",
+        end="2026-06-04",
+    )
+    tools.t_register(
+        input="moisture", maps="moisture_d", start="2026-06-06", end="2026-06-07"
+    )
+    print(tools.t_topology(input="moisture").stdout, end="")
     ```
 
     ```text
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ mixed@PERMANENT
-     | Name: ...................... mixed
-     | Mapset: .................... PERMANENT
+     | Id: ........................ moisture@t_topology
+     | Name: ...................... moisture
+     | Mapset: .................... t_topology
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
@@ -313,22 +346,22 @@ because of the overlaps and the equal maps.
 
 ### Check a part of a dataset
 
-The condition selects the maps `a` and `d` of the dataset `mixed`. The two
-maps do not touch, so no relation is counted, the one gap between them
-remains, and the topology of the selection is valid. The line `Is subset of
-dataset` is `True`.
+The condition selects the maps `moisture_a` and `moisture_d` of the dataset
+`moisture`. The two maps do not touch, so no relation is counted, the one gap
+between them remains, and the topology of the selection is valid. The line `Is
+subset of dataset` is `True`.
 
 === "Command line"
 
     ```sh
-    t.topology input=mixed where="name in ('a', 'd')"
+    t.topology input=moisture where="name in ('moisture_a', 'moisture_d')"
     ```
 
     ```text
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ mixed@PERMANENT
-     | Name: ...................... mixed
-     | Mapset: .................... PERMANENT
+     | Id: ........................ moisture@t_topology
+     | Name: ...................... moisture
+     | Mapset: .................... t_topology
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
@@ -360,15 +393,17 @@ dataset` is `True`.
 === "Python (grass.tools)"
 
     ```python
-    result = tools.t_topology(input="mixed", where="name in ('a', 'd')")
+    result = tools.t_topology(
+        input="moisture", where="name in ('moisture_a', 'moisture_d')"
+    )
     print(result.stdout, end="")
     ```
 
     ```text
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ mixed@PERMANENT
-     | Name: ...................... mixed
-     | Mapset: .................... PERMANENT
+     | Id: ........................ moisture@t_topology
+     | Name: ...................... moisture
+     | Mapset: .................... t_topology
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
@@ -402,35 +437,37 @@ dataset` is `True`.
 With **-m**, *t.topology* prints the information of each map instead of the
 summary. The listing is long, so the first block of each tab keeps only the
 lines with the identifier of the map and with its neighbours and relations, for
-the maps `a`, `b` and `d`; `c` is left out with **where**, because it has the
-same start time as `b`, and maps with the same start time have no fixed order.
-`a` is followed by `b`, which it overlaps, and `b` is followed by `d`, after a
-gap. The second block selects the single map `a` and prints the whole entry:
-without other maps in the selection it has no neighbours and no relations.
+the maps `moisture_a`, `moisture_b` and `moisture_d`; `moisture_c` is left out
+with **where**, because it has the same start time as `moisture_b`, and maps
+with the same start time have no fixed order. `moisture_a` is followed by
+`moisture_b`, which it overlaps, and `moisture_b` is followed by `moisture_d`,
+after a gap. The second block selects the single map `moisture_a` and prints the
+whole entry: without other maps in the selection it has no neighbours and no
+relations.
 
 === "Command line"
 
     ```sh
-    t.topology -m input=mixed where="name != 'c'" | grep -E "^ \| (Id|Next|Previous|Equal|Overlaps|Overlapped|During|Contains|Follows|Precedes|Starts|Started|Finishes|Finished):"
-    t.topology -m input=mixed where="name = 'a'"
+    t.topology -m input=moisture where="name != 'moisture_c'" | grep -E "^ \| (Id|Next|Previous|Equal|Overlaps|Overlapped|During|Contains|Follows|Precedes|Starts|Started|Finishes|Finished):"
+    t.topology -m input=moisture where="name = 'moisture_a'"
     ```
 
     ```text
-     | Id: ........................ a@PERMANENT
-     | Next: ...................... b@PERMANENT
-     | Overlaps: .................. b@PERMANENT
-     | Id: ........................ b@PERMANENT
-     | Next: ...................... d@PERMANENT
-     | Previous: .................. a@PERMANENT
-     | Overlapped: ................ a@PERMANENT
-     | Id: ........................ d@PERMANENT
-     | Previous: .................. b@PERMANENT
+     | Id: ........................ moisture_a@t_topology
+     | Next: ...................... moisture_b@t_topology
+     | Overlaps: .................. moisture_b@t_topology
+     | Id: ........................ moisture_b@t_topology
+     | Next: ...................... moisture_d@t_topology
+     | Previous: .................. moisture_a@t_topology
+     | Overlapped: ................ moisture_a@t_topology
+     | Id: ........................ moisture_d@t_topology
+     | Previous: .................. moisture_b@t_topology
      +-------------------- Raster Dataset ----------------------------------------+
      |                                                                            |
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ a@PERMANENT
-     | Name: ...................... a
-     | Mapset: .................... PERMANENT
+     | Id: ........................ moisture_a@t_topology
+     | Name: ...................... moisture_a
+     | Mapset: .................... t_topology
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
@@ -439,23 +476,23 @@ without other maps in the selection it has no neighbours and no relations.
      | End time:................... 2026-06-03 00:00:00
      +-------------------- Temporal Topology -------------------------------------+
      +-------------------- Spatial extent ----------------------------------------+
-     | North:...................... 2.0
-     | South:...................... 0.0
-     | East:.. .................... 3.0
-     | West:....................... 0.0
+     | North:...................... 319000.0
+     | South:...................... -16000.0
+     | East:.. .................... 963000.0
+     | West:....................... 124000.0
      | Top:........................ 0.0
      | Bottom:..................... 0.0
      +-------------------- Metadata information ----------------------------------+
      | Datatype:................... CELL
-     | Number of columns:.......... 3
-     | Number of rows:............. 2
-     | Number of cells:............ 6
-     | North-South resolution:..... 1.0
-     | East-west resolution:....... 1.0
-     | Minimum value:.............. 1.0
-     | Maximum value:.............. 1.0
+     | Number of columns:.......... 839
+     | Number of rows:............. 335
+     | Number of cells:............ 281065
+     | North-South resolution:..... 1000.0
+     | East-west resolution:....... 1000.0
+     | Minimum value:.............. 30.0
+     | Maximum value:.............. 30.0
      | Semantic label:............. None
-     | Registered datasets ........ mixed@PERMANENT
+     | Registered datasets ........ moisture@t_topology
      +----------------------------------------------------------------------------+
     ```
 
@@ -477,27 +514,30 @@ without other maps in the selection it has no neighbours and no relations.
                 print(line)
 
 
-    print_lines(tools.t_topology(input="mixed", flags="m", where="name != 'c'"), TEMPORAL)
-    result = tools.t_topology(input="mixed", flags="m", where="name = 'a'")
+    print_lines(
+        tools.t_topology(input="moisture", flags="m", where="name != 'moisture_c'"),
+        TEMPORAL,
+    )
+    result = tools.t_topology(input="moisture", flags="m", where="name = 'moisture_a'")
     print(result.stdout, end="")
     ```
 
     ```text
-     | Id: ........................ a@PERMANENT
-     | Next: ...................... b@PERMANENT
-     | Overlaps: .................. b@PERMANENT
-     | Id: ........................ b@PERMANENT
-     | Next: ...................... d@PERMANENT
-     | Previous: .................. a@PERMANENT
-     | Overlapped: ................ a@PERMANENT
-     | Id: ........................ d@PERMANENT
-     | Previous: .................. b@PERMANENT
+     | Id: ........................ moisture_a@t_topology
+     | Next: ...................... moisture_b@t_topology
+     | Overlaps: .................. moisture_b@t_topology
+     | Id: ........................ moisture_b@t_topology
+     | Next: ...................... moisture_d@t_topology
+     | Previous: .................. moisture_a@t_topology
+     | Overlapped: ................ moisture_a@t_topology
+     | Id: ........................ moisture_d@t_topology
+     | Previous: .................. moisture_b@t_topology
      +-------------------- Raster Dataset ----------------------------------------+
      |                                                                            |
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ a@PERMANENT
-     | Name: ...................... a
-     | Mapset: .................... PERMANENT
+     | Id: ........................ moisture_a@t_topology
+     | Name: ...................... moisture_a
+     | Mapset: .................... t_topology
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
@@ -506,92 +546,98 @@ without other maps in the selection it has no neighbours and no relations.
      | End time:................... 2026-06-03 00:00:00
      +-------------------- Temporal Topology -------------------------------------+
      +-------------------- Spatial extent ----------------------------------------+
-     | North:...................... 2.0
-     | South:...................... 0.0
-     | East:.. .................... 3.0
-     | West:....................... 0.0
+     | North:...................... 319000.0
+     | South:...................... -16000.0
+     | East:.. .................... 963000.0
+     | West:....................... 124000.0
      | Top:........................ 0.0
      | Bottom:..................... 0.0
      +-------------------- Metadata information ----------------------------------+
      | Datatype:................... CELL
-     | Number of columns:.......... 3
-     | Number of rows:............. 2
-     | Number of cells:............ 6
-     | North-South resolution:..... 1.0
-     | East-west resolution:....... 1.0
-     | Minimum value:.............. 1.0
-     | Maximum value:.............. 1.0
+     | Number of columns:.......... 839
+     | Number of rows:............. 335
+     | Number of cells:............ 281065
+     | North-South resolution:..... 1000.0
+     | East-west resolution:....... 1000.0
+     | Minimum value:.............. 30.0
+     | Maximum value:.............. 30.0
      | Semantic label:............. None
-     | Registered datasets ........ mixed@PERMANENT
+     | Registered datasets ........ moisture@t_topology
      +----------------------------------------------------------------------------+
     ```
 
 ### Include the spatial relations
 
 The dataset `scenes` holds three maps of one day each, one after the other:
-`big` covers 0 to 4 in both directions, `small` lies inside it, and `far` lies
-at 4 to 8 and has no common area with `small`. The maps get the extent of the
-region that is current when they are created. The first block lists the temporal
-relations with **-m**: `big` precedes `small`, which precedes `far`. The second
-block adds the spatial ones with **-s**: `big` contains `small` and `small` is
-in `big`. `far` and `small` are related in time but disjoint in space, so the
-listing of **-s** has no `Follows` line for `far` and no `Precedes` line naming
-`far` for `small`; only the chain of `Next` and `Previous` stays.
+`scene_big` covers a square of 4 km by 4 km, `scene_small` is a square of 2 km
+by 2 km inside it, and `scene_far` is a second square of 4 km by 4 km that
+lies apart from `scene_big` and has no common area with `scene_small`. The
+maps get the extent of the region that is current when they are created. The
+first block
+lists the temporal relations with **-m**: `scene_big` precedes `scene_small`,
+which precedes `scene_far`. The second block adds the spatial ones with **-s**:
+`scene_big` contains `scene_small` and `scene_small` is in `scene_big`.
+`scene_far` and `scene_small` are related in time but disjoint in space, so the
+listing of **-s** has no `Follows` line for `scene_far` and no `Precedes` line
+naming `scene_far` for `scene_small`; only the chain of `Next` and `Previous`
+stays.
 
 === "Command line"
 
     ```sh
-    g.region n=4 s=0 e=4 w=0 res=1
-    r.mapcalc expression="big = 1"
-    g.region n=2 s=1 e=3 w=1 res=1
-    r.mapcalc expression="small = 1"
-    g.region n=8 s=4 e=8 w=4 res=1
-    r.mapcalc expression="far = 1"
-    t.create output=scenes title="Scenes" description="Maps of different extents"
-    t.register -i input=scenes maps=big,small,far start=2026-06-01 increment="1 day"
+    g.region n=104000 s=100000 e=204000 w=200000 res=1000
+    r.mapcalc expression="scene_big = 1"
+    g.region n=103000 s=101000 e=203000 w=201000 res=1000
+    r.mapcalc expression="scene_small = 1"
+    g.region n=110000 s=106000 e=210000 w=206000 res=1000
+    r.mapcalc expression="scene_far = 1"
+    t.create output=scenes title="Scenes" \
+        description="Maps of different extents"
+    t.register -i input=scenes maps=scene_big,scene_small,scene_far \
+        start=2026-06-01 increment="1 day"
     t.topology -m input=scenes | grep -E "^ \| (Id|Next|Previous|Equal|Overlaps|Overlapped|During|Contains|Follows|Precedes|Starts|Started|Finishes|Finished):"
     t.topology -s input=scenes | grep -E "^ \| (Id|Next|Previous|Follows|Precedes|Equivalent|Cover|Covered|Overlap|In|Contain|Meet):"
     ```
 
     ```text
-     | Id: ........................ big@PERMANENT
-     | Next: ...................... small@PERMANENT
-     | Precedes: .................. small@PERMANENT
-     | Id: ........................ small@PERMANENT
-     | Next: ...................... far@PERMANENT
-     | Previous: .................. big@PERMANENT
-     | Follows: ................... big@PERMANENT
-     | Precedes: .................. far@PERMANENT
-     | Id: ........................ far@PERMANENT
-     | Previous: .................. small@PERMANENT
-     | Follows: ................... small@PERMANENT
-     | Id: ........................ big@PERMANENT
-     | Next: ...................... small@PERMANENT
-     | Precedes: .................. small@PERMANENT
-     | Contain: ................... small@PERMANENT
-     | Id: ........................ small@PERMANENT
-     | Next: ...................... far@PERMANENT
-     | Previous: .................. big@PERMANENT
-     | Follows: ................... big@PERMANENT
-     | In: ........................ big@PERMANENT
-     | Id: ........................ far@PERMANENT
-     | Previous: .................. small@PERMANENT
+     | Id: ........................ scene_big@t_topology
+     | Next: ...................... scene_small@t_topology
+     | Precedes: .................. scene_small@t_topology
+     | Id: ........................ scene_small@t_topology
+     | Next: ...................... scene_far@t_topology
+     | Previous: .................. scene_big@t_topology
+     | Follows: ................... scene_big@t_topology
+     | Precedes: .................. scene_far@t_topology
+     | Id: ........................ scene_far@t_topology
+     | Previous: .................. scene_small@t_topology
+     | Follows: ................... scene_small@t_topology
+     | Id: ........................ scene_big@t_topology
+     | Next: ...................... scene_small@t_topology
+     | Precedes: .................. scene_small@t_topology
+     | Contain: ................... scene_small@t_topology
+     | Id: ........................ scene_small@t_topology
+     | Next: ...................... scene_far@t_topology
+     | Previous: .................. scene_big@t_topology
+     | Follows: ................... scene_big@t_topology
+     | In: ........................ scene_big@t_topology
+     | Id: ........................ scene_far@t_topology
+     | Previous: .................. scene_small@t_topology
     ```
 
 === "Python (grass.tools)"
 
     ```python
     for name, north, south, east, west in (
-        ("big", 4, 0, 4, 0),
-        ("small", 2, 1, 3, 1),
-        ("far", 8, 4, 8, 4),
+        ("scene_big", 104000, 100000, 204000, 200000),
+        ("scene_small", 103000, 101000, 203000, 201000),
+        ("scene_far", 110000, 106000, 210000, 206000),
     ):
-        tools.g_region(n=north, s=south, e=east, w=west, res=1)
+        tools.g_region(n=north, s=south, e=east, w=west, res=1000)
         tools.r_mapcalc(expression=f"{name} = 1")
     tools.t_create(output="scenes", title="Scenes", description="Maps of different extents")
     tools.t_register(
         input="scenes",
-        maps="big,small,far",
+        maps="scene_big,scene_small,scene_far",
         start="2026-06-01",
         increment="1 day",
         flags="i",
@@ -604,68 +650,69 @@ listing of **-s** has no `Follows` line for `far` and no `Precedes` line naming
     ```
 
     ```text
-     | Id: ........................ big@PERMANENT
-     | Next: ...................... small@PERMANENT
-     | Precedes: .................. small@PERMANENT
-     | Id: ........................ small@PERMANENT
-     | Next: ...................... far@PERMANENT
-     | Previous: .................. big@PERMANENT
-     | Follows: ................... big@PERMANENT
-     | Precedes: .................. far@PERMANENT
-     | Id: ........................ far@PERMANENT
-     | Previous: .................. small@PERMANENT
-     | Follows: ................... small@PERMANENT
-     | Id: ........................ big@PERMANENT
-     | Next: ...................... small@PERMANENT
-     | Precedes: .................. small@PERMANENT
-     | Contain: ................... small@PERMANENT
-     | Id: ........................ small@PERMANENT
-     | Next: ...................... far@PERMANENT
-     | Previous: .................. big@PERMANENT
-     | Follows: ................... big@PERMANENT
-     | In: ........................ big@PERMANENT
-     | Id: ........................ far@PERMANENT
-     | Previous: .................. small@PERMANENT
+     | Id: ........................ scene_big@t_topology
+     | Next: ...................... scene_small@t_topology
+     | Precedes: .................. scene_small@t_topology
+     | Id: ........................ scene_small@t_topology
+     | Next: ...................... scene_far@t_topology
+     | Previous: .................. scene_big@t_topology
+     | Follows: ................... scene_big@t_topology
+     | Precedes: .................. scene_far@t_topology
+     | Id: ........................ scene_far@t_topology
+     | Previous: .................. scene_small@t_topology
+     | Follows: ................... scene_small@t_topology
+     | Id: ........................ scene_big@t_topology
+     | Next: ...................... scene_small@t_topology
+     | Precedes: .................. scene_small@t_topology
+     | Contain: ................... scene_small@t_topology
+     | Id: ........................ scene_small@t_topology
+     | Next: ...................... scene_far@t_topology
+     | Previous: .................. scene_big@t_topology
+     | Follows: ................... scene_big@t_topology
+     | In: ........................ scene_big@t_topology
+     | Id: ........................ scene_far@t_topology
+     | Previous: .................. scene_small@t_topology
     ```
 
 ### Relative time and vector datasets
 
-The dataset `model` has relative time in hours. The maps `s1` from 0 to 2
-and `s2` from 1 to 3 overlap, and `s3` from 6 to 7 lies after a gap. The summary
-counts the overlap and the gap, and the granularity is the number `1` without
-a unit. The dataset `gauges` is a vector dataset; its maps `g1` and `g2` follow
-each other and have the same point. **type=stvds** selects the type, and **-s**
-lists the two maps as spatially equivalent.
+The dataset `runoff` has relative time in hours. The maps `runoff_1` from 0 to 2
+and `runoff_2` from 1 to 3 overlap, and `runoff_3` from 6 to 7 lies after a gap.
+The summary counts the overlap and the gap, and the granularity is the number
+`1` without a unit. The dataset `gauges` is a vector dataset; its maps
+`gauge_1` and `gauge_2` follow each other and have the same point. **type=stvds**
+selects the type, and **-s** lists the two maps as spatially equivalent.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
-    for name in s1 s2 s3; do
-        r.mapcalc expression="$name = 1"
+    g.region raster=elev_state_500m res=1000 -a
+    for step in 1 2 3; do
+        r.mapcalc expression="runoff_$step = $step"
     done
-    t.create output=model temporaltype=relative title="Model" description="Steps"
-    t.register input=model maps=s1 start=0 end=2 unit=hours
-    t.register input=model maps=s2 start=1 end=3 unit=hours
-    t.register input=model maps=s3 start=6 end=7 unit=hours
-    t.topology type=strds input=model
-    for name in g1 g2; do
+    t.create output=runoff temporaltype=relative title="Runoff" \
+        description="Simulated runoff in mm per model hour"
+    t.register input=runoff maps=runoff_1 start=0 end=2 unit=hours
+    t.register input=runoff maps=runoff_2 start=1 end=3 unit=hours
+    t.register input=runoff maps=runoff_3 start=6 end=7 unit=hours
+    t.topology type=strds input=runoff
+    for name in gauge_1 gauge_2; do
         v.in.ascii input=- output=$name separator=comma \
             columns="x double precision, y double precision" <<EOF
-    0.5,0.5
+    205000,105000
     EOF
     done
     t.create type=stvds output=gauges title="Gauges" description="One point"
-    t.register -i type=vector input=gauges maps=g1,g2 \
+    t.register -i type=vector input=gauges maps=gauge_1,gauge_2 \
         start=2026-06-01 increment="1 day"
     t.topology -s type=stvds input=gauges | grep -E "^ \| (Id|Next|Previous|Follows|Precedes|Equivalent|Cover|Covered|Overlap|In|Contain|Meet):"
     ```
 
     ```text
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ model@PERMANENT
-     | Name: ...................... model
-     | Mapset: .................... PERMANENT
+     | Id: ........................ runoff@t_topology
+     | Name: ...................... runoff
+     | Mapset: .................... t_topology
      | Creator: ................... user
      | Temporal type: ............. relative
      | Creation time: ............. 2026-11-01 12:00:00
@@ -692,14 +739,14 @@ lists the two maps as spatially equivalent.
      | Finishes: .................. 0
      | Finished: .................. 0
     +----------------------------------------------------------------------------+
-     | Id: ........................ g1@PERMANENT
-     | Next: ...................... g2@PERMANENT
-     | Precedes: .................. g2@PERMANENT
-     | Equivalent: ................ g2@PERMANENT
-     | Id: ........................ g2@PERMANENT
-     | Previous: .................. g1@PERMANENT
-     | Follows: ................... g1@PERMANENT
-     | Equivalent: ................ g1@PERMANENT
+     | Id: ........................ gauge_1@t_topology
+     | Next: ...................... gauge_2@t_topology
+     | Precedes: .................. gauge_2@t_topology
+     | Equivalent: ................ gauge_2@t_topology
+     | Id: ........................ gauge_2@t_topology
+     | Previous: .................. gauge_1@t_topology
+     | Follows: ................... gauge_1@t_topology
+     | Equivalent: ................ gauge_1@t_topology
     ```
 
 === "Python (grass.tools)"
@@ -707,18 +754,21 @@ lists the two maps as spatially equivalent.
     ```python
     from io import StringIO
 
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    for name in ("s1", "s2", "s3"):
-        tools.r_mapcalc(expression=f"{name} = 1")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    for step in (1, 2, 3):
+        tools.r_mapcalc(expression=f"runoff_{step} = {step}")
     tools.t_create(
-        output="model", temporaltype="relative", title="Model", description="Steps"
+        output="runoff",
+        temporaltype="relative",
+        title="Runoff",
+        description="Simulated runoff in mm per model hour",
     )
-    for name, start, end in (("s1", 0, 2), ("s2", 1, 3), ("s3", 6, 7)):
-        tools.t_register(input="model", maps=name, start=start, end=end, unit="hours")
-    print(tools.t_topology(type="strds", input="model").stdout, end="")
-    for name in ("g1", "g2"):
+    for name, start, end in (("runoff_1", 0, 2), ("runoff_2", 1, 3), ("runoff_3", 6, 7)):
+        tools.t_register(input="runoff", maps=name, start=start, end=end, unit="hours")
+    print(tools.t_topology(type="strds", input="runoff").stdout, end="")
+    for name in ("gauge_1", "gauge_2"):
         tools.v_in_ascii(
-            input=StringIO("0.5,0.5\n"),
+            input=StringIO("205000,105000\n"),
             output=name,
             separator="comma",
             columns="x double precision, y double precision",
@@ -727,7 +777,7 @@ lists the two maps as spatially equivalent.
     tools.t_register(
         type="vector",
         input="gauges",
-        maps="g1,g2",
+        maps="gauge_1,gauge_2",
         start="2026-06-01",
         increment="1 day",
         flags="i",
@@ -737,9 +787,9 @@ lists the two maps as spatially equivalent.
 
     ```text
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ model@PERMANENT
-     | Name: ...................... model
-     | Mapset: .................... PERMANENT
+     | Id: ........................ runoff@t_topology
+     | Name: ...................... runoff
+     | Mapset: .................... t_topology
      | Creator: ................... user
      | Temporal type: ............. relative
      | Creation time: ............. 2026-11-01 12:00:00
@@ -766,14 +816,14 @@ lists the two maps as spatially equivalent.
      | Finishes: .................. 0
      | Finished: .................. 0
     +----------------------------------------------------------------------------+
-     | Id: ........................ g1@PERMANENT
-     | Next: ...................... g2@PERMANENT
-     | Precedes: .................. g2@PERMANENT
-     | Equivalent: ................ g2@PERMANENT
-     | Id: ........................ g2@PERMANENT
-     | Previous: .................. g1@PERMANENT
-     | Follows: ................... g1@PERMANENT
-     | Equivalent: ................ g1@PERMANENT
+     | Id: ........................ gauge_1@t_topology
+     | Next: ...................... gauge_2@t_topology
+     | Precedes: .................. gauge_2@t_topology
+     | Equivalent: ................ gauge_2@t_topology
+     | Id: ........................ gauge_2@t_topology
+     | Previous: .................. gauge_1@t_topology
+     | Follows: ................... gauge_1@t_topology
+     | Equivalent: ................ gauge_1@t_topology
     ```
 
 <!-- markdownlint-enable MD046 -->
