@@ -41,7 +41,7 @@ dataset, an existing dataset of that name and, with **-c**, the maps that would
 be copied. A refused call leaves no copied maps behind. With **-c**, a map of
 the original that has the name of a map in the current mapset stops the call
 with an error such as `A raster map <rain_1> exists already in the current
-mapset <analysis>`. **--overwrite** does not lift this refusal: it concerns the
+mapset <t_copy_2>`. **--overwrite** does not lift this refusal: it concerns the
 output dataset and the entries of the temporal database, not the maps of the
 mapset. The call with **--overwrite** fails in the same way, so that repeating
 a call with **-c** needs the maps removed first, as the last block of the
@@ -71,29 +71,40 @@ datasets.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_copy` and sets the computational region to North
+Carolina with cells of 1 km; the later examples work in this mapset and region.
+*t.copy* copies entries and time stamps only, so the maps hold small constant
+values. The listings name the mapset `.` so that only the temporal database of
+the current mapset is read.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_copy -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Copy a dataset and share its maps
 
-The dataset `rain` holds three daily maps and has the semantic type `sum`.
-The first command copies it to `rain_copy`. *t.list* then shows both datasets
-with three maps each and the same semantic type, and *t.rast.list* lists the
-maps of the copy. *t.info* shows with **-g** that the map `rain_2` belongs to
-both datasets.
+The dataset `rain` holds three daily maps of rain in millimeters, 4, 6 and 2
+in every cell, and has the semantic type `sum`. The first command copies it to
+`rain_copy`. *t.list* then shows both datasets with three maps each and the same
+semantic type, and *t.rast.list* lists the maps of the copy. *t.info* shows with
+**-g** that the map `rain_2` belongs to both datasets.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
-    for name in rain_1 rain_2 rain_3; do
-        r.mapcalc expression="$name = 1"
-    done
-    t.create output=rain title="Daily rain" description="Rain per day" \
-        semantictype=sum
+    g.mapset -c mapset=t_copy
+    g.region raster=elev_state_500m res=1000 -a
+    r.mapcalc expression="rain_1 = 4"
+    r.mapcalc expression="rain_2 = 6"
+    r.mapcalc expression="rain_3 = 2"
+    t.create output=rain title="Daily rain" \
+        description="Rain per day in millimeters" semantictype=sum
     t.register -i input=rain maps=rain_1,rain_2,rain_3 \
         start=2026-06-01 increment="1 day"
     t.copy input=rain output=rain_copy
-    t.list type=strds columns=name,number_of_maps,semantic_type
+    t.list type=strds mapset=. columns=name,number_of_maps,semantic_type
     t.rast.list input=rain_copy columns=name,mapset,start_time
     t.info -g type=raster input=rain_2 | grep registered_datasets
     ```
@@ -102,10 +113,10 @@ both datasets.
     rain|3|sum
     rain_copy|3|sum
     name|mapset|start_time
-    rain_1|PERMANENT|2026-06-01 00:00:00
-    rain_2|PERMANENT|2026-06-02 00:00:00
-    rain_3|PERMANENT|2026-06-03 00:00:00
-    registered_datasets=rain@PERMANENT,rain_copy@PERMANENT
+    rain_1|t_copy|2026-06-01 00:00:00
+    rain_2|t_copy|2026-06-02 00:00:00
+    rain_3|t_copy|2026-06-03 00:00:00
+    registered_datasets=rain@t_copy,rain_copy@t_copy
     ```
 
 === "Python (grass.tools)"
@@ -114,13 +125,14 @@ both datasets.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    for name in ("rain_1", "rain_2", "rain_3"):
-        tools.r_mapcalc(expression=f"{name} = 1")
+    tools.g_mapset(flags="c", mapset="t_copy")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    for name, value in (("rain_1", 4), ("rain_2", 6), ("rain_3", 2)):
+        tools.r_mapcalc(expression=f"{name} = {value}")
     tools.t_create(
         output="rain",
         title="Daily rain",
-        description="Rain per day",
+        description="Rain per day in millimeters",
         semantictype="sum",
     )
     tools.t_register(
@@ -131,7 +143,11 @@ both datasets.
         flags="i",
     )
     tools.t_copy(input="rain", output="rain_copy")
-    print(tools.t_list(type="strds", columns="name,number_of_maps,semantic_type").text)
+    print(
+        tools.t_list(
+            type="strds", mapset=".", columns="name,number_of_maps,semantic_type"
+        ).text
+    )
     print(tools.t_rast_list(input="rain_copy", columns="name,mapset,start_time").text)
     info = tools.t_info(type="raster", input="rain_2", flags="g").keyval
     print(f"registered_datasets={info['registered_datasets']}")
@@ -141,10 +157,10 @@ both datasets.
     rain|3|sum
     rain_copy|3|sum
     name|mapset|start_time
-    rain_1|PERMANENT|2026-06-01 00:00:00
-    rain_2|PERMANENT|2026-06-02 00:00:00
-    rain_3|PERMANENT|2026-06-03 00:00:00
-    registered_datasets=rain@PERMANENT,rain_copy@PERMANENT
+    rain_1|t_copy|2026-06-01 00:00:00
+    rain_2|t_copy|2026-06-02 00:00:00
+    rain_3|t_copy|2026-06-03 00:00:00
+    registered_datasets=rain@t_copy,rain_copy@t_copy
     ```
 
 ### Replace an existing dataset
@@ -166,8 +182,8 @@ This example continues with the data of the previous one.
     t.create output=old title="Old" description="Replaced by a copy"
     t.register input=old maps=old_1 start=2026-01-01
     t.copy --overwrite input=rain output=old
-    t.list type=strds columns=name,number_of_maps
-    t.list type=raster columns=name,start_time
+    t.list type=strds mapset=. columns=name,number_of_maps
+    t.list type=raster mapset=. columns=name,start_time
     ```
 
     ```text
@@ -187,8 +203,8 @@ This example continues with the data of the previous one.
     tools.t_create(output="old", title="Old", description="Replaced by a copy")
     tools.t_register(input="old", maps="old_1", start="2026-01-01")
     tools.t_copy(input="rain", output="old", overwrite=True)
-    print(tools.t_list(type="strds", columns="name,number_of_maps").text)
-    print(tools.t_list(type="raster", columns="name,start_time").text)
+    print(tools.t_list(type="strds", mapset=".", columns="name,number_of_maps").text)
+    print(tools.t_list(type="raster", mapset=".", columns="name,start_time").text)
     ```
 
     ```text
@@ -205,12 +221,14 @@ This example continues with the data of the previous one.
 
 The option **type** gives the type of the dataset, here a space time 3D raster
 dataset `soil` and a space time vector dataset `gauges`. The copies hold the
-maps of the originals.
+maps of the originals. The 3D map holds the number of its layer, 1 to 3, in
+every cell. The two gauges lie in North Carolina and have a wind speed in
+meters per second.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 t=3 b=0 res=1 res3=1 tbres=1
+    g.region t=3 b=0 res3=1000 tbres=1
     r3.mapcalc expression="soil_1 = depth()"
     t.create type=str3ds output=soil title="Soil" description="Soil layers"
     t.register -i type=raster_3d input=soil maps=soil_1 \
@@ -219,8 +237,8 @@ maps of the originals.
     t.rast3d.list input=soil_copy columns=name,start_time
     v.in.ascii input=- output=gauges_1 separator=comma \
         columns="x double precision, y double precision, speed double precision" <<EOF
-    0.5,0.5,3.0
-    2.5,1.5,5.0
+    638000,220000,3.0
+    780000,150000,5.0
     EOF
     t.create type=stvds output=gauges title="Gauges" description="Wind speed"
     t.register -i type=vector input=gauges maps=gauges_1 \
@@ -241,7 +259,7 @@ maps of the originals.
     ```python
     from io import StringIO
 
-    tools.g_region(n=2, s=0, e=3, w=0, t=3, b=0, res=1, res3=1, tbres=1)
+    tools.g_region(t=3, b=0, res3=1000, tbres=1)
     tools.r3_mapcalc(expression="soil_1 = depth()")
     tools.t_create(type="str3ds", output="soil", title="Soil", description="Soil layers")
     tools.t_register(
@@ -255,7 +273,7 @@ maps of the originals.
     tools.t_copy(type="str3ds", input="soil", output="soil_copy")
     print(tools.t_rast3d_list(input="soil_copy", columns="name,start_time").text)
     tools.v_in_ascii(
-        input=StringIO("0.5,0.5,3.0\n2.5,1.5,5.0\n"),
+        input=StringIO("638000,220000,3.0\n780000,150000,5.0\n"),
         output="gauges_1",
         separator="comma",
         columns="x double precision, y double precision, speed double precision",
@@ -282,134 +300,138 @@ maps of the originals.
 
 ### Copy a dataset of another mapset
 
-The example creates the mapset `analysis` and switches to it. The dataset
-`rain` stays in the mapset `PERMANENT`; this mapset is in the search path of
-the new mapset, so *t.copy* finds the dataset without naming the mapset. The
-first command copies the dataset to `rain_linked` without **-c**: the maps of
-the copy are still the maps of `PERMANENT`, as the column `mapset` shows. The
-second command copies the dataset with **-c** to `rain_own`: the copy holds new
-maps with the same names in the mapset `analysis`, and the maps of `rain` in
-`PERMANENT` are as they were. *g.list* shows the new maps in `analysis`. The
-third command repeats the call with **--overwrite**: it fails, because the maps
-`rain_1` to `rain_3` exist in `analysis` now. After *g.remove* has removed them,
-the call with **--overwrite** replaces `rain_own` and copies the maps again.
+The example creates the mapset `t_copy_2`, sets the region again and adds the
+mapset `t_copy` to the search path with *g.mapsets*, so that *t.copy* finds the
+dataset `rain` without naming the mapset. The first command copies the dataset
+to `rain_linked` without **-c**: the maps of the copy are still the maps of
+`t_copy`, as the column `mapset` shows. The second command copies the dataset
+with **-c** to `rain_own`: the copy holds new maps with the same names in the
+mapset `t_copy_2`, and the maps of `rain` in `t_copy` are as they were. *g.list*
+shows the new maps in `t_copy_2`. The third command repeats the call with
+**--overwrite**: it fails, because the maps `rain_1` to `rain_3` exist in
+`t_copy_2` now. After *g.remove* has removed them, the call with
+**--overwrite** replaces `rain_own` and copies the maps again.
 
 This example continues with the data of the first one.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=analysis
+    g.mapset -c mapset=t_copy_2
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapsets mapset=t_copy operation=add
     t.copy input=rain output=rain_linked
     t.rast.list input=rain_linked columns=name,mapset
     ```
 
     ```text
     name|mapset
-    rain_1|PERMANENT
-    rain_2|PERMANENT
-    rain_3|PERMANENT
+    rain_1|t_copy
+    rain_2|t_copy
+    rain_3|t_copy
     ```
 
     ```sh
-    t.copy -c input=rain@PERMANENT output=rain_own
+    t.copy -c input=rain@t_copy output=rain_own
     t.rast.list input=rain_own columns=name,mapset
-    g.list type=raster mapset=analysis
-    t.rast.list input=rain@PERMANENT columns=name,mapset
+    g.list type=raster mapset=t_copy_2
+    t.rast.list input=rain@t_copy columns=name,mapset
     ```
 
     ```text
     name|mapset
-    rain_1|analysis
-    rain_2|analysis
-    rain_3|analysis
+    rain_1|t_copy_2
+    rain_2|t_copy_2
+    rain_3|t_copy_2
     rain_1
     rain_2
     rain_3
     name|mapset
-    rain_1|PERMANENT
-    rain_2|PERMANENT
-    rain_3|PERMANENT
+    rain_1|t_copy
+    rain_2|t_copy
+    rain_3|t_copy
     ```
 
     ```sh
-    if ! t.copy -c --overwrite input=rain@PERMANENT output=rain_own 2>&1; then
+    if ! t.copy -c --overwrite input=rain@t_copy output=rain_own 2>&1; then
         echo "t.copy failed"
     fi
     g.remove -f type=raster name=rain_1,rain_2,rain_3
-    t.copy -c --overwrite input=rain@PERMANENT output=rain_own
+    t.copy -c --overwrite input=rain@t_copy output=rain_own
     t.rast.list input=rain_own columns=name,mapset
     ```
 
     ```text
     Copying raster maps to the current mapset...
     ERROR: A raster map <rain_1> exists already in the current mapset
-           <analysis>.
+           <t_copy_2>.
     t.copy failed
     name|mapset
-    rain_1|analysis
-    rain_2|analysis
-    rain_3|analysis
+    rain_1|t_copy_2
+    rain_2|t_copy_2
+    rain_3|t_copy_2
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(mapset="analysis", flags="c")
+    tools.g_mapset(flags="c", mapset="t_copy_2")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapsets(mapset="t_copy", operation="add")
     tools.t_copy(input="rain", output="rain_linked")
     print(tools.t_rast_list(input="rain_linked", columns="name,mapset").text)
     ```
 
     ```text
     name|mapset
-    rain_1|PERMANENT
-    rain_2|PERMANENT
-    rain_3|PERMANENT
+    rain_1|t_copy
+    rain_2|t_copy
+    rain_3|t_copy
     ```
 
     ```python
-    tools.t_copy(input="rain@PERMANENT", output="rain_own", flags="c")
+    tools.t_copy(input="rain@t_copy", output="rain_own", flags="c")
     print(tools.t_rast_list(input="rain_own", columns="name,mapset").text)
-    print(tools.g_list(type="raster", mapset="analysis").text)
-    print(tools.t_rast_list(input="rain@PERMANENT", columns="name,mapset").text)
+    print(tools.g_list(type="raster", mapset="t_copy_2").text)
+    print(tools.t_rast_list(input="rain@t_copy", columns="name,mapset").text)
     ```
 
     ```text
     name|mapset
-    rain_1|analysis
-    rain_2|analysis
-    rain_3|analysis
+    rain_1|t_copy_2
+    rain_2|t_copy_2
+    rain_3|t_copy_2
     rain_1
     rain_2
     rain_3
     name|mapset
-    rain_1|PERMANENT
-    rain_2|PERMANENT
-    rain_3|PERMANENT
+    rain_1|t_copy
+    rain_2|t_copy
+    rain_3|t_copy
     ```
 
     ```python
     from grass.tools import ToolError
 
     try:
-        tools.t_copy(input="rain@PERMANENT", output="rain_own", flags="c", overwrite=True)
+        tools.t_copy(input="rain@t_copy", output="rain_own", flags="c", overwrite=True)
     except ToolError as error:
         print(error.stderr.strip())
         print("t.copy failed")
     tools.g_remove(flags="f", type="raster", name="rain_1,rain_2,rain_3")
-    tools.t_copy(input="rain@PERMANENT", output="rain_own", flags="c", overwrite=True)
+    tools.t_copy(input="rain@t_copy", output="rain_own", flags="c", overwrite=True)
     print(tools.t_rast_list(input="rain_own", columns="name,mapset").text)
     ```
 
     ```text
     Copying raster maps to the current mapset...
     ERROR: A raster map <rain_1> exists already in the current mapset
-           <analysis>.
+           <t_copy_2>.
     t.copy failed
     name|mapset
-    rain_1|analysis
-    rain_2|analysis
-    rain_3|analysis
+    rain_1|t_copy_2
+    rain_2|t_copy_2
+    rain_3|t_copy_2
     ```
 
 <!-- markdownlint-enable MD046 -->
