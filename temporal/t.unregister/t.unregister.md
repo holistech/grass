@@ -67,12 +67,23 @@ time raster dataset.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_unregister` and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. *t.unregister* changes registrations and time stamps only and never
+touches a map of the sample dataset, so the maps of the examples hold small
+constant values.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_unregister -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Unregister maps from one dataset
 
-The dataset `rain` holds three daily maps; `wet` holds the second and the
-third of them, which keep their time stamps. *t.unregister* with **input**
+The dataset `rain` holds three daily maps of precipitation, 4, 2 and 6 mm in
+every cell; `wet` holds the second and the third of them, which keep their
+time stamps. *t.unregister* with **input**
 `rain` takes `rain_3` out of `rain` only. *t.list* shows that `rain` has two
 maps and `wet` still two, and *t.info* that the end of `rain` moved from the
 fourth to the third of June, computed from `rain_1` and `rain_2`. The third
@@ -82,19 +93,20 @@ still there.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
-    for name in rain_1 rain_2 rain_3; do
-        r.mapcalc expression="$name = 1"
-    done
-    t.create output=rain title="Rain" description="Daily rain"
+    g.mapset -c mapset=t_unregister
+    g.region raster=elev_state_500m res=1000 -a
+    r.mapcalc expression="rain_1 = 4"
+    r.mapcalc expression="rain_2 = 2"
+    r.mapcalc expression="rain_3 = 6"
+    t.create output=rain title="Rain" description="Daily precipitation in mm"
     t.register -i input=rain maps=rain_1,rain_2,rain_3 \
         start=2026-06-01 increment="1 day"
-    t.create output=wet title="Wet" description="Wet days"
+    t.create output=wet title="Wet" description="Wet days, precipitation in mm"
     t.register input=wet maps=rain_2,rain_3
     t.unregister input=rain maps=rain_3
-    t.list type=strds columns=name,number_of_maps
+    t.list type=strds columns=name,number_of_maps mapset=.
     t.info -g input=rain | grep -E "^(start_time|end_time|number_of_maps)="
-    t.list type=raster columns=name,start_time
+    t.list type=raster columns=name,start_time mapset=.
     ```
 
     ```text
@@ -114,10 +126,11 @@ still there.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    for name in ("rain_1", "rain_2", "rain_3"):
-        tools.r_mapcalc(expression=f"{name} = 1")
-    tools.t_create(output="rain", title="Rain", description="Daily rain")
+    tools.g_mapset(flags="c", mapset="t_unregister")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    for name, value in (("rain_1", 4), ("rain_2", 2), ("rain_3", 6)):
+        tools.r_mapcalc(expression=f"{name} = {value}")
+    tools.t_create(output="rain", title="Rain", description="Daily precipitation in mm")
     tools.t_register(
         input="rain",
         maps="rain_1,rain_2,rain_3",
@@ -125,14 +138,14 @@ still there.
         increment="1 day",
         flags="i",
     )
-    tools.t_create(output="wet", title="Wet", description="Wet days")
+    tools.t_create(output="wet", title="Wet", description="Wet days, precipitation in mm")
     tools.t_register(input="wet", maps="rain_2,rain_3")
     tools.t_unregister(input="rain", maps="rain_3")
-    print(tools.t_list(type="strds", columns="name,number_of_maps").text)
+    print(tools.t_list(type="strds", columns="name,number_of_maps", mapset=".").text)
     info = tools.t_info(input="rain", flags="g").keyval
     for key in ("start_time", "end_time", "number_of_maps"):
         print(f"{key}={info[key]}")
-    print(tools.t_list(type="raster", columns="name,start_time").text)
+    print(tools.t_list(type="raster", columns="name,start_time", mapset=".").text)
     ```
 
     ```text
@@ -158,8 +171,8 @@ as *g.list* shows.
 
     ```sh
     t.unregister maps=rain_2,rain_3
-    t.list type=strds columns=name,number_of_maps
-    t.list type=raster columns=name,start_time
+    t.list type=strds columns=name,number_of_maps mapset=.
+    t.list type=raster columns=name,start_time mapset=.
     g.list type=raster pattern="rain_*"
     ```
 
@@ -176,8 +189,8 @@ as *g.list* shows.
 
     ```python
     tools.t_unregister(maps="rain_2,rain_3")
-    print(tools.t_list(type="strds", columns="name,number_of_maps").text)
-    print(tools.t_list(type="raster", columns="name,start_time").text)
+    print(tools.t_list(type="strds", columns="name,number_of_maps", mapset=".").text)
+    print(tools.t_list(type="raster", columns="name,start_time", mapset=".").text)
     print(tools.g_list(type="raster", pattern="rain_*").text)
     ```
 
@@ -192,8 +205,9 @@ as *g.list* shows.
 
 ### Take the map names from a file
 
-The file `dry.txt` names two of the three maps of the new dataset `dry`, with
-an empty line between the names. First, **file** is combined with **input**:
+The file `dry.txt` names two of the three maps of the new dataset `dry`, which
+holds the precipitation of dry days, 0 mm in every cell, with an empty line
+between the names. First, **file** is combined with **input**:
 the two maps leave `dry`, which keeps one map, but all three maps keep their
 time stamps. Then the same file without **input** removes the time stamps of
 the two maps.
@@ -202,15 +216,15 @@ the two maps.
 
     ```sh
     for name in dry_1 dry_2 dry_3; do
-        r.mapcalc expression="$name = 1"
+        r.mapcalc expression="$name = 0"
     done
-    t.create output=dry title="Dry" description="Dry days"
+    t.create output=dry title="Dry" description="Dry days, precipitation in mm"
     t.register -i input=dry maps=dry_1,dry_2,dry_3 \
         start=2026-07-01 increment="1 day"
     printf "dry_1\n\ndry_2\n" > dry.txt
     t.unregister input=dry file=dry.txt
-    t.list type=strds columns=name,number_of_maps where="name = 'dry'"
-    t.list type=raster columns=name where="name like 'dry_%'"
+    t.list type=strds columns=name,number_of_maps where="name = 'dry'" mapset=.
+    t.list type=raster columns=name where="name like 'dry_%'" mapset=.
     ```
 
     ```text
@@ -222,7 +236,7 @@ the two maps.
 
     ```sh
     t.unregister file=dry.txt
-    t.list type=raster columns=name where="name like 'dry_%'"
+    t.list type=raster columns=name where="name like 'dry_%'" mapset=.
     ```
 
     ```text
@@ -235,8 +249,8 @@ the two maps.
     from pathlib import Path
 
     for name in ("dry_1", "dry_2", "dry_3"):
-        tools.r_mapcalc(expression=f"{name} = 1")
-    tools.t_create(output="dry", title="Dry", description="Dry days")
+        tools.r_mapcalc(expression=f"{name} = 0")
+    tools.t_create(output="dry", title="Dry", description="Dry days, precipitation in mm")
     tools.t_register(
         input="dry",
         maps="dry_1,dry_2,dry_3",
@@ -247,9 +261,18 @@ the two maps.
     Path("dry.txt").write_text("dry_1\n\ndry_2\n")
     tools.t_unregister(input="dry", file="dry.txt")
     print(
-        tools.t_list(type="strds", columns="name,number_of_maps", where="name = 'dry'").text
+        tools.t_list(
+            type="strds",
+            columns="name,number_of_maps",
+            where="name = 'dry'",
+            mapset=".",
+        ).text
     )
-    print(tools.t_list(type="raster", columns="name", where="name like 'dry_%'").text)
+    print(
+        tools.t_list(
+            type="raster", columns="name", where="name like 'dry_%'", mapset="."
+        ).text
+    )
     ```
 
     ```text
@@ -261,7 +284,11 @@ the two maps.
 
     ```python
     tools.t_unregister(file="dry.txt")
-    print(tools.t_list(type="raster", columns="name", where="name like 'dry_%'").text)
+    print(
+        tools.t_list(
+            type="raster", columns="name", where="name like 'dry_%'", mapset="."
+        ).text
+    )
     ```
 
     ```text
@@ -271,28 +298,29 @@ the two maps.
 ### Datasets of relative time
 
 Maps of a dataset with relative time are unregistered in the same way. The
-dataset `model` holds three maps of one hour each, from hour 0 to hour 3.
-After the first map has left it, the dataset starts at hour 1.
+dataset `runoff` holds three maps of simulated runoff in mm, 1, 2 and 3 mm in
+every cell, of one model hour each, from hour 0 to hour 3. After the first map
+has left it, the dataset starts at hour 1.
 
 === "Command line"
 
     ```sh
-    for name in step_1 step_2 step_3; do
-        r.mapcalc expression="$name = 1"
+    for step in 1 2 3; do
+        r.mapcalc expression="runoff_$step = $step"
     done
-    t.create output=model temporaltype=relative title="Model" \
-        description="Model output per step"
-    t.register -i input=model maps=step_1,step_2,step_3 \
+    t.create output=runoff temporaltype=relative title="Runoff" \
+        description="Simulated runoff in mm per model hour"
+    t.register -i input=runoff maps=runoff_1,runoff_2,runoff_3 \
         start=0 increment=1 unit=hours
-    t.unregister input=model maps=step_1
-    t.rast.list input=model
-    t.info -g input=model | grep -E "^(start_time|end_time|number_of_maps)="
+    t.unregister input=runoff maps=runoff_1
+    t.rast.list input=runoff
+    t.info -g input=runoff | grep -E "^(start_time|end_time|number_of_maps)="
     ```
 
     ```text
     name|mapset|start_time|end_time
-    step_2|PERMANENT|1|2
-    step_3|PERMANENT|2|3
+    runoff_2|t_unregister|1|2
+    runoff_3|t_unregister|2|3
     start_time='1'
     end_time='3'
     number_of_maps=2
@@ -301,33 +329,33 @@ After the first map has left it, the dataset starts at hour 1.
 === "Python (grass.tools)"
 
     ```python
-    for name in ("step_1", "step_2", "step_3"):
-        tools.r_mapcalc(expression=f"{name} = 1")
+    for step in (1, 2, 3):
+        tools.r_mapcalc(expression=f"runoff_{step} = {step}")
     tools.t_create(
-        output="model",
+        output="runoff",
         temporaltype="relative",
-        title="Model",
-        description="Model output per step",
+        title="Runoff",
+        description="Simulated runoff in mm per model hour",
     )
     tools.t_register(
-        input="model",
-        maps="step_1,step_2,step_3",
+        input="runoff",
+        maps="runoff_1,runoff_2,runoff_3",
         start=0,
         increment=1,
         unit="hours",
         flags="i",
     )
-    tools.t_unregister(input="model", maps="step_1")
-    print(tools.t_rast_list(input="model").text)
-    info = tools.t_info(input="model", flags="g").keyval
+    tools.t_unregister(input="runoff", maps="runoff_1")
+    print(tools.t_rast_list(input="runoff").text)
+    info = tools.t_info(input="runoff", flags="g").keyval
     for key in ("start_time", "end_time", "number_of_maps"):
         print(f"{key}={info[key]}")
     ```
 
     ```text
     name|mapset|start_time|end_time
-    step_2|PERMANENT|1|2
-    step_3|PERMANENT|2|3
+    runoff_2|t_unregister|1|2
+    runoff_3|t_unregister|2|3
     start_time='1'
     end_time='3'
     number_of_maps=2
@@ -337,14 +365,16 @@ After the first map has left it, the dataset starts at hour 1.
 
 With **type**, the maps are 3D raster maps or vector maps, and **input** is a
 space time 3D raster dataset or a space time vector dataset. The 3D raster map
-`soil_1` leaves its dataset `soil` and keeps its time stamp. The vector map
-`gauges_1` is unregistered from the temporal database, so that it is no longer
-registered in `gauges` and has no time stamp.
+`soil_1` (soil temperature in degrees Celsius, 3 layers of 1 km) leaves its
+dataset `soil` and keeps its time stamp. The vector map `gauges_1`, two wind
+gauges with the speed in m/s, is unregistered from the temporal database, so
+that it is no longer registered in `gauges` and has no time stamp.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=2 w=0 t=3 b=0 res=1 res3=1 tbres=1
+    g.region raster=elev_state_500m res=1000 -a
+    g.region t=3 b=0 res3=1000 tbres=1
     r3.mapcalc expression="soil_1 = depth()"
     r3.mapcalc expression="soil_2 = depth() + 10"
     t.create type=str3ds output=soil title="Soil" description="Soil layers"
@@ -352,8 +382,8 @@ registered in `gauges` and has no time stamp.
         start=2026-03-01 increment="1 day"
     v.in.ascii input=- output=gauges_1 separator=comma \
         columns="x double precision, y double precision, speed double precision" <<EOF
-    0.5,0.5,3.0
-    2.5,1.5,5.0
+    400000,100000,3.0
+    700000,200000,5.0
     EOF
     g.copy vector=gauges_1,gauges_2
     t.create type=stvds output=gauges title="Gauges" description="Wind speed"
@@ -361,10 +391,10 @@ registered in `gauges` and has no time stamp.
         start=2026-03-01 increment="1 day"
     t.unregister type=raster_3d input=soil maps=soil_1
     t.unregister type=vector maps=gauges_1
-    t.list type=str3ds columns=name,number_of_maps
-    t.list type=raster_3d columns=name,start_time
-    t.list type=stvds columns=name,number_of_maps
-    t.list type=vector columns=name,start_time
+    t.list type=str3ds columns=name,number_of_maps mapset=.
+    t.list type=raster_3d columns=name,start_time mapset=.
+    t.list type=stvds columns=name,number_of_maps mapset=.
+    t.list type=vector columns=name,start_time mapset=.
     g.list type=vector pattern="gauges_*"
     ```
 
@@ -383,7 +413,8 @@ registered in `gauges` and has no time stamp.
     ```python
     from io import StringIO
 
-    tools.g_region(n=2, s=0, e=2, w=0, t=3, b=0, res=1, res3=1, tbres=1)
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_region(t=3, b=0, res3=1000, tbres=1)
     tools.r3_mapcalc(expression="soil_1 = depth()")
     tools.r3_mapcalc(expression="soil_2 = depth() + 10")
     tools.t_create(type="str3ds", output="soil", title="Soil", description="Soil layers")
@@ -396,7 +427,7 @@ registered in `gauges` and has no time stamp.
         flags="i",
     )
     tools.v_in_ascii(
-        input=StringIO("0.5,0.5,3.0\n2.5,1.5,5.0\n"),
+        input=StringIO("400000,100000,3.0\n700000,200000,5.0\n"),
         output="gauges_1",
         separator="comma",
         columns="x double precision, y double precision, speed double precision",
@@ -413,10 +444,10 @@ registered in `gauges` and has no time stamp.
     )
     tools.t_unregister(type="raster_3d", input="soil", maps="soil_1")
     tools.t_unregister(type="vector", maps="gauges_1")
-    print(tools.t_list(type="str3ds", columns="name,number_of_maps").text)
-    print(tools.t_list(type="raster_3d", columns="name,start_time").text)
-    print(tools.t_list(type="stvds", columns="name,number_of_maps").text)
-    print(tools.t_list(type="vector", columns="name,start_time").text)
+    print(tools.t_list(type="str3ds", columns="name,number_of_maps", mapset=".").text)
+    print(tools.t_list(type="raster_3d", columns="name,start_time", mapset=".").text)
+    print(tools.t_list(type="stvds", columns="name,number_of_maps", mapset=".").text)
+    print(tools.t_list(type="vector", columns="name,start_time", mapset=".").text)
     print(tools.g_list(type="vector", pattern="gauges_*").text)
     ```
 
