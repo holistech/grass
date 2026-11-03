@@ -97,57 +97,73 @@ dataset are always created in the current mapset, as the last example shows.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_contour` and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset
+and region, except the last, which creates a second mapset. The temperature
+maps are generated, not measured.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_contour -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Contour lines at a regular step
 
-The dataset `tmax` holds the daily maximum air temperature of three hot days
-in July over a city, on a region of 20 by 20 cells. In the countryside the
-temperature is 21 degrees; towards the centre of the city at (10, 10), it
-rises by 1 degree per cell. The expression
-`sqrt((x() - 10)^2 + (y() - 10)^2)` is the distance of a cell centre from the
-city centre. The peak at the centre grows from 24 degrees on the first day to
-27 and 30 degrees. No cell centre lies exactly at (10, 10); the nearest ones
-are 0.71 cells away, so the highest values of the maps are 23.29, 26.29 and
-29.29. A contour line of the level L is a circle around the city centre with
-the radius peak - L.
+The dataset `temperature_summer` holds three maps of the monthly mean air
+temperature in 2020, in degrees Celsius rounded to tenths: June, July and
+August. They are generated from the elevation model `elev_state_500m`: 16.5
+degrees at sea level and the northing 160 km, an annual cycle of plus and
+minus 10.5 degrees with its maximum in July, 6.5 degrees less for every 1000 m
+of elevation, and 1 degree more for every 100 km to the south. The first block
+creates the twelve monthly maps of the year, `temperature_monthly_2020_01` to
+`_12`, and registers the three summer maps in `temperature_summer`; the later
+examples use the other months as well. Outside North Carolina the maps have
+no values. The list shows that June reaches 12.0 to 26.5 degrees, July 13.9 to
+28.4 and August 13.1 to 27.6.
 
-With **step** `2`, the levels are the even numbers between the smallest and
-the largest value of each map:
-
-- the first day (21 to 23.29) has one line, at 22 degrees;
-- the second day (21 to 26.29) has three, at 22, 24 and 26 degrees;
-- the third day (21 to 29.29) has four, at 22, 24, 26 and 28 degrees.
-
-The first block computes the contour lines and lists the new vector maps with
-their number of lines. The default suffix `gran` names the maps after the day.
-The second block prints the levels from the attribute tables with
+With **step** `5`, the levels are the multiples of 5 within the smallest and
+the largest value of each map. All three maps hold the levels 15, 20 and 25;
+none reaches 30. The first block computes the contour lines and lists the new
+vector maps with their number of lines, which counts every separate line, the
+short ones too. The default suffix `gran` names the maps after the month. The
+second block prints the levels from the attribute tables with
 *t.vect.db.select*. The third block shows with *[t.info](t.info.md)* that the
-new dataset `isotherms` has the time, the semantic type `max`, the title and
-the description of the input dataset, and 1 + 3 + 4 = 8 lines. *r.contour*
-writes 3D lines at the height of their level, so the top and the bottom of
-the dataset are the highest and the lowest level, 28 and 22.
+new dataset `isotherms` has the time, the semantic type `mean`, the title and
+the description of the input dataset, and 228 + 342 + 239 = 809 lines.
+*r.contour* writes 3D lines at the height of their level, so the top and the
+bottom of the dataset are the highest and the lowest level, 25 and 15.
 
 === "Command line"
 
     ```sh
-    g.region n=20 s=0 e=20 w=0 res=1
-    r.mapcalc expression="tmax_1 = max(21, 24 - sqrt((x() - 10)^2 + (y() - 10)^2))"
-    r.mapcalc expression="tmax_2 = max(21, 27 - sqrt((x() - 10)^2 + (y() - 10)^2))"
-    r.mapcalc expression="tmax_3 = max(21, 30 - sqrt((x() - 10)^2 + (y() - 10)^2))"
-    t.create output=tmax semantictype=max title="Maximum temperature" \
-        description="Daily maximum air temperature in degrees Celsius"
-    t.register -i input=tmax maps=tmax_1,tmax_2,tmax_3 \
-        start=2026-07-01 increment="1 day"
-    t.rast.contour input=tmax output=isotherms basename=isotherm step=2
+    g.mapset -c mapset=t_rast_contour
+    g.region raster=elev_state_500m res=1000 -a
+    for month in $(seq 12); do
+        echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r.mapcalc file=-
+    t.create output=temperature_summer title="Summer air temperature" \
+        description="Monthly mean air temperature June to August 2020 in degree Celsius"
+    t.register -i input=temperature_summer \
+        maps=temperature_monthly_2020_06,temperature_monthly_2020_07,temperature_monthly_2020_08 \
+        start=2020-06-01 increment="1 month"
+    t.rast.list input=temperature_summer columns=name,start_time,min,max
+    t.rast.contour input=temperature_summer output=isotherms basename=isotherm \
+        step=5
     t.vect.list input=isotherms columns=name,start_time,end_time,lines
     ```
 
     ```text
+    name|start_time|min|max
+    temperature_monthly_2020_06|2020-06-01 00:00:00|12.0|26.5
+    temperature_monthly_2020_07|2020-07-01 00:00:00|13.9|28.4
+    temperature_monthly_2020_08|2020-08-01 00:00:00|13.1|27.6
     name|start_time|end_time|lines
-    isotherm_2026_07_01|2026-07-01 00:00:00|2026-07-02 00:00:00|1
-    isotherm_2026_07_02|2026-07-02 00:00:00|2026-07-03 00:00:00|3
-    isotherm_2026_07_03|2026-07-03 00:00:00|2026-07-04 00:00:00|4
+    isotherm_2020_06|2020-06-01 00:00:00|2020-07-01 00:00:00|228
+    isotherm_2020_07|2020-07-01 00:00:00|2020-08-01 00:00:00|342
+    isotherm_2020_08|2020-08-01 00:00:00|2020-09-01 00:00:00|239
     ```
 
     ```sh
@@ -156,70 +172,33 @@ the dataset are the highest and the lowest level, 28 and 22.
 
     ```text
     start_time|end_time|level
-    2026-07-01 00:00:00|2026-07-02 00:00:00|22
-    2026-07-02 00:00:00|2026-07-03 00:00:00|22
-    2026-07-02 00:00:00|2026-07-03 00:00:00|24
-    2026-07-02 00:00:00|2026-07-03 00:00:00|26
-    2026-07-03 00:00:00|2026-07-04 00:00:00|22
-    2026-07-03 00:00:00|2026-07-04 00:00:00|24
-    2026-07-03 00:00:00|2026-07-04 00:00:00|26
-    2026-07-03 00:00:00|2026-07-04 00:00:00|28
+    2020-06-01 00:00:00|2020-07-01 00:00:00|15
+    2020-06-01 00:00:00|2020-07-01 00:00:00|20
+    2020-06-01 00:00:00|2020-07-01 00:00:00|25
+    2020-07-01 00:00:00|2020-08-01 00:00:00|15
+    2020-07-01 00:00:00|2020-08-01 00:00:00|20
+    2020-07-01 00:00:00|2020-08-01 00:00:00|25
+    2020-08-01 00:00:00|2020-09-01 00:00:00|15
+    2020-08-01 00:00:00|2020-09-01 00:00:00|20
+    2020-08-01 00:00:00|2020-09-01 00:00:00|25
     ```
 
     ```sh
-    t.info type=stvds input=isotherms
+    t.info type=stvds input=isotherms | awk '/Semantic type|Start time|End time|Number of lines|Number of registered|Top|Bottom/ {print} /Title:|Description:/ {print; getline; print}'
     ```
 
     ```text
-     +-------------------- Space Time Vector Dataset -----------------------------+
-     |                                                                            |
-     +-------------------- Basic information -------------------------------------+
-     | Id: ........................ isotherms@PERMANENT
-     | Name: ...................... isotherms
-     | Mapset: .................... PERMANENT
-     | Creator: ................... user
-     | Temporal type: ............. absolute
-     | Creation time: ............. 2026-11-01 12:00:00
-     | Modification time:.......... 2026-11-01 12:00:00
-     | Semantic type:.............. max
-     +-------------------- Absolute time -----------------------------------------+
-     | Start time:................. 2026-07-01 00:00:00
-     | End time:................... 2026-07-04 00:00:00
-     | Granularity:................ 1 day
-     | Temporal type of maps:...... interval
-     +-------------------- Spatial extent ----------------------------------------+
-     | North:...................... 17.984298617624916
-     | South:...................... 2.0157013823750844
-     | East:.. .................... 17.984298617624916
-     | West:....................... 2.0157013823750844
-     | Top:........................ 28.0
-     | Bottom:..................... 22.0
-     +-------------------- Metadata information ----------------------------------+
-     | Vector register table:...... vector_map_register_00000000000000000000000000000000
-     | Number of points ........... 0
-     | Number of lines ............ 8
-     | Number of boundaries ....... 0
-     | Number of centroids ........ 0
-     | Number of faces ............ 0
-     | Number of kernels .......... 0
-     | Number of primitives ....... 8
-     | Number of nodes ............ 8
-     | Number of areas ............ 0
-     | Number of islands .......... 0
-     | Number of holes ............ 0
-     | Number of volumes .......... 0
+     | Semantic type:.............. mean
+     | Start time:................. 2020-06-01 00:00:00
+     | End time:................... 2020-09-01 00:00:00
+     | Top:........................ 25.0
+     | Bottom:..................... 15.0
+     | Number of lines ............ 809
      | Number of registered maps:.. 3
-     |
      | Title:
-     | Maximum temperature
+     | Summer air temperature
      | Description:
-     | Daily maximum air temperature in degrees Celsius
-     | Command history:
-     | # 2026-11-01 12:00:00 
-     | t.rast.contour input="tmax" output="isotherms"
-     |     basename="isotherm" step="2"
-     | 
-     +----------------------------------------------------------------------------+
+     | Monthly mean air temperature June to August 2020 in degree Celsius
     ```
 
 === "Python (grass.tools)"
@@ -228,34 +207,53 @@ the dataset are the highest and the lowest level, 28 and 22.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=20, s=0, e=20, w=0, res=1)
-    for day, peak in ((1, 24), (2, 27), (3, 30)):
-        tools.r_mapcalc(
-            expression=f"tmax_{day} = max(21, {peak} - sqrt((x() - 10)^2 + (y() - 10)^2))"
+    tools.g_mapset(flags="c", mapset="t_rast_contour")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    months = range(1, 13)
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"temperature_monthly_2020_{month:02d} = round((16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
         )
+    )
     tools.t_create(
-        output="tmax",
-        semantictype="max",
-        title="Maximum temperature",
-        description="Daily maximum air temperature in degrees Celsius",
+        output="temperature_summer",
+        title="Summer air temperature",
+        description="Monthly mean air temperature June to August 2020 in degree Celsius",
     )
     tools.t_register(
-        input="tmax",
-        maps="tmax_1,tmax_2,tmax_3",
-        start="2026-07-01",
-        increment="1 day",
+        input="temperature_summer",
+        maps="temperature_monthly_2020_06,temperature_monthly_2020_07,temperature_monthly_2020_08",
+        start="2020-06-01",
+        increment="1 month",
         flags="i",
     )
-    tools.t_rast_contour(input="tmax", output="isotherms", basename="isotherm", step=2)
+    print(
+        tools.t_rast_list(
+            input="temperature_summer", columns="name,start_time,min,max"
+        ).text
+    )
+    tools.t_rast_contour(
+        input="temperature_summer",
+        output="isotherms",
+        basename="isotherm",
+        step=5,
+    )
     result = tools.t_vect_list(input="isotherms", columns="name,start_time,end_time,lines")
     print(result.text)
     ```
 
     ```text
+    name|start_time|min|max
+    temperature_monthly_2020_06|2020-06-01 00:00:00|12.0|26.5
+    temperature_monthly_2020_07|2020-07-01 00:00:00|13.9|28.4
+    temperature_monthly_2020_08|2020-08-01 00:00:00|13.1|27.6
     name|start_time|end_time|lines
-    isotherm_2026_07_01|2026-07-01 00:00:00|2026-07-02 00:00:00|1
-    isotherm_2026_07_02|2026-07-02 00:00:00|2026-07-03 00:00:00|3
-    isotherm_2026_07_03|2026-07-03 00:00:00|2026-07-04 00:00:00|4
+    isotherm_2020_06|2020-06-01 00:00:00|2020-07-01 00:00:00|228
+    isotherm_2020_07|2020-07-01 00:00:00|2020-08-01 00:00:00|342
+    isotherm_2020_08|2020-08-01 00:00:00|2020-09-01 00:00:00|239
     ```
 
     ```python
@@ -264,169 +262,105 @@ the dataset are the highest and the lowest level, 28 and 22.
 
     ```text
     start_time|end_time|level
-    2026-07-01 00:00:00|2026-07-02 00:00:00|22
-    2026-07-02 00:00:00|2026-07-03 00:00:00|22
-    2026-07-02 00:00:00|2026-07-03 00:00:00|24
-    2026-07-02 00:00:00|2026-07-03 00:00:00|26
-    2026-07-03 00:00:00|2026-07-04 00:00:00|22
-    2026-07-03 00:00:00|2026-07-04 00:00:00|24
-    2026-07-03 00:00:00|2026-07-04 00:00:00|26
-    2026-07-03 00:00:00|2026-07-04 00:00:00|28
+    2020-06-01 00:00:00|2020-07-01 00:00:00|15
+    2020-06-01 00:00:00|2020-07-01 00:00:00|20
+    2020-06-01 00:00:00|2020-07-01 00:00:00|25
+    2020-07-01 00:00:00|2020-08-01 00:00:00|15
+    2020-07-01 00:00:00|2020-08-01 00:00:00|20
+    2020-07-01 00:00:00|2020-08-01 00:00:00|25
+    2020-08-01 00:00:00|2020-09-01 00:00:00|15
+    2020-08-01 00:00:00|2020-09-01 00:00:00|20
+    2020-08-01 00:00:00|2020-09-01 00:00:00|25
     ```
 
     ```python
-    print(tools.t_info(type="stvds", input="isotherms").stdout, end="")
+    info = tools.t_info(type="stvds", input="isotherms").stdout.splitlines()
+    keys = ("Semantic type", "Start time", "End time", "Number of lines")
+    keys += ("Number of registered", "Top", "Bottom")
+    for number, line in enumerate(info):
+        if any(key in line for key in keys):
+            print(line)
+        if "Title:" in line or "Description:" in line:
+            print(line)
+            print(info[number + 1])
     ```
 
     ```text
-     +-------------------- Space Time Vector Dataset -----------------------------+
-     |                                                                            |
-     +-------------------- Basic information -------------------------------------+
-     | Id: ........................ isotherms@PERMANENT
-     | Name: ...................... isotherms
-     | Mapset: .................... PERMANENT
-     | Creator: ................... user
-     | Temporal type: ............. absolute
-     | Creation time: ............. 2026-11-01 12:00:00
-     | Modification time:.......... 2026-11-01 12:00:00
-     | Semantic type:.............. max
-     +-------------------- Absolute time -----------------------------------------+
-     | Start time:................. 2026-07-01 00:00:00
-     | End time:................... 2026-07-04 00:00:00
-     | Granularity:................ 1 day
-     | Temporal type of maps:...... interval
-     +-------------------- Spatial extent ----------------------------------------+
-     | North:...................... 17.984298617624916
-     | South:...................... 2.0157013823750844
-     | East:.. .................... 17.984298617624916
-     | West:....................... 2.0157013823750844
-     | Top:........................ 28.0
-     | Bottom:..................... 22.0
-     +-------------------- Metadata information ----------------------------------+
-     | Vector register table:...... vector_map_register_00000000000000000000000000000000
-     | Number of points ........... 0
-     | Number of lines ............ 8
-     | Number of boundaries ....... 0
-     | Number of centroids ........ 0
-     | Number of faces ............ 0
-     | Number of kernels .......... 0
-     | Number of primitives ....... 8
-     | Number of nodes ............ 8
-     | Number of areas ............ 0
-     | Number of islands .......... 0
-     | Number of holes ............ 0
-     | Number of volumes .......... 0
+     | Semantic type:.............. mean
+     | Start time:................. 2020-06-01 00:00:00
+     | End time:................... 2020-09-01 00:00:00
+     | Top:........................ 25.0
+     | Bottom:..................... 15.0
+     | Number of lines ............ 809
      | Number of registered maps:.. 3
-     |
      | Title:
-     | Maximum temperature
+     | Summer air temperature
      | Description:
-     | Daily maximum air temperature in degrees Celsius
-     | Command history:
-     | # 2026-11-01 12:00:00 
-     | t.rast.contour input="tmax" output="isotherms"
-     |     basename="isotherm" step="2"
-     | 
-     +----------------------------------------------------------------------------+
+     | Monthly mean air temperature June to August 2020 in degree Celsius
     ```
-
-### Draw the contour lines over the raster map
-
-The figure shows the map of the third day with its contour lines and their
-levels as labels. *d.rast* draws the raster map, *d.vect* the contour lines
-with the column `level` of the attribute table as label, and *d.legend* the
-colour scale of the temperature, labelled every 2 degrees (**label_step**)
-without decimals (**digits**).
-
-=== "Command line"
-
-    ```sh
-    d.mon start=cairo output=t_rast_contour_lines.png width=600 height=400
-    d.rast map=tmax_3
-    d.vect map=isotherm_2026_07_03 color=white width=2 \
-        attribute_column=level label_color=white label_size=16
-    d.legend raster=tmax_3 at=10,90,86,90 label_step=2 digits=0
-    d.mon stop=cairo
-    ```
-
-=== "Python (grass.tools)"
-
-    ```python
-    tools.d_mon(start="cairo", output="t_rast_contour_lines.png", width=600, height=400)
-    tools.d_rast(map="tmax_3")
-    tools.d_vect(
-        map="isotherm_2026_07_03",
-        color="white",
-        width=2,
-        attribute_column="level",
-        label_color="white",
-        label_size=16,
-    )
-    tools.d_legend(raster="tmax_3", at=[10, 90, 86, 90], label_step=2, digits=0)
-    tools.d_mon(stop="cairo")
-    ```
-
-![Contour lines of the maximum temperature](t_rast_contour_lines.png)
-
-*Figure: Contour lines at 22, 24, 26 and 28 degrees, labelled with their
-level, over the maximum temperature of the third day, `tmax_3`.*
 
 ### Contour lines at chosen levels
 
-With **levels** `25,28`, the second day (up to 26.29 degrees) has one line, at
-25 degrees, and the third day two, at 25 and 28 degrees. The first day stays
-below 25 degrees, so its vector map has no line: *t.rast.contour* removes it
-and registers two maps.
+With **levels** `27,28`, July (up to 28.4 degrees) has lines at both levels and
+August (up to 27.6 degrees) only at 27 degrees. June stays below 26.5 degrees,
+so its vector map has no line: *t.rast.contour* removes it and registers two
+maps.
 
-In the second block, the flag **-n** keeps the empty map of the first day, and
+In the second block, the flag **-n** keeps the empty map of June, and
 **--overwrite** replaces the dataset `heat` of the first block together with
 its vector maps.
 
 === "Command line"
 
     ```sh
-    t.rast.contour input=tmax output=heat basename=heat levels=25,28
+    t.rast.contour input=temperature_summer output=heat basename=heat \
+        levels=27,28
     t.vect.list input=heat columns=name,start_time,lines
     ```
 
     ```text
     name|start_time|lines
-    heat_2026_07_02|2026-07-02 00:00:00|1
-    heat_2026_07_03|2026-07-03 00:00:00|2
+    heat_2020_07|2020-07-01 00:00:00|41
+    heat_2020_08|2020-08-01 00:00:00|12
     ```
 
     ```sh
-    t.rast.contour -n input=tmax output=heat basename=heat levels=25,28 \
-        --overwrite
+    t.rast.contour -n input=temperature_summer output=heat basename=heat \
+        levels=27,28 --overwrite
     t.vect.list input=heat columns=name,start_time,lines
     ```
 
     ```text
     name|start_time|lines
-    heat_2026_07_01|2026-07-01 00:00:00|0
-    heat_2026_07_02|2026-07-02 00:00:00|1
-    heat_2026_07_03|2026-07-03 00:00:00|2
+    heat_2020_06|2020-06-01 00:00:00|0
+    heat_2020_07|2020-07-01 00:00:00|41
+    heat_2020_08|2020-08-01 00:00:00|12
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.t_rast_contour(input="tmax", output="heat", basename="heat", levels=[25, 28])
+    tools.t_rast_contour(
+        input="temperature_summer",
+        output="heat",
+        basename="heat",
+        levels=[27, 28],
+    )
     print(tools.t_vect_list(input="heat", columns="name,start_time,lines").text)
     ```
 
     ```text
     name|start_time|lines
-    heat_2026_07_02|2026-07-02 00:00:00|1
-    heat_2026_07_03|2026-07-03 00:00:00|2
+    heat_2020_07|2020-07-01 00:00:00|41
+    heat_2020_08|2020-08-01 00:00:00|12
     ```
 
     ```python
     tools.t_rast_contour(
-        input="tmax",
+        input="temperature_summer",
         output="heat",
         basename="heat",
-        levels=[25, 28],
+        levels=[27, 28],
         flags="n",
         overwrite=True,
     )
@@ -435,102 +369,102 @@ its vector maps.
 
     ```text
     name|start_time|lines
-    heat_2026_07_01|2026-07-01 00:00:00|0
-    heat_2026_07_02|2026-07-02 00:00:00|1
-    heat_2026_07_03|2026-07-03 00:00:00|2
+    heat_2020_06|2020-06-01 00:00:00|0
+    heat_2020_07|2020-07-01 00:00:00|41
+    heat_2020_08|2020-08-01 00:00:00|12
     ```
 
 ### Contour lines in a range of levels
 
-**minlevel** and **maxlevel** limit the levels of a step. With **step** `1`,
-**minlevel** `22` and **maxlevel** `24`, the second and the third day have
-lines at 22, 23 and 24 degrees. The first day reaches only 23.29 degrees, so
-its levels end at 23.
+**minlevel** and **maxlevel** limit the levels of a step. With **step** `2`,
+**minlevel** `20` and **maxlevel** `24`, every month has lines at 20, 22 and
+24 degrees.
 
 The second block shows that **maxlevel** is a limit, not a level, when it does
-not lie on the grid of **minlevel** and **step**: with **maxlevel** `23.5`,
-the second and the third day have lines at 22 and 23 degrees. The condition
-in **where** leaves out the first day.
+not lie on the grid of **minlevel** and **step**: with **maxlevel** `23`, July
+and August have lines at 20 and 22 degrees. The condition in **where** leaves
+out June.
 
 The third and the fourth block show maps whose values lie outside the limits;
 such a map gets no level and so no line:
 
-- With **minlevel** `24` and **maxlevel** `26`, the values of the first day
-  (21 to 23.29) lie wholly below **minlevel**. Its vector map is empty and is
-  not registered; the second and the third day have three lines each, at 24,
-  25 and 26 degrees.
-- With **minlevel** `18` and **maxlevel** `20`, the values of every day lie
-  wholly above **maxlevel**, so no day has a line. With **-n**, the three
+- With **minlevel** `27` and **maxlevel** `28`, the values of June (12.0 to
+  26.5) lie wholly below **minlevel**. Its vector map is empty and is not
+  registered; July has lines at 27 and 28 degrees, August at 27 degrees only,
+  as in the previous example.
+- With **minlevel** `5` and **maxlevel** `10`, the values of every month lie
+  wholly above **maxlevel**, so no month has a line. With **-n**, the three
   empty vector maps are registered all the same.
 
 === "Command line"
 
     ```sh
-    t.rast.contour input=tmax output=degrees basename=degrees \
-        step=1 minlevel=22 maxlevel=24
+    t.rast.contour input=temperature_summer output=degrees basename=degrees \
+        step=2 minlevel=20 maxlevel=24
     t.vect.db.select input=degrees columns=level
     ```
 
     ```text
     start_time|end_time|level
-    2026-07-01 00:00:00|2026-07-02 00:00:00|22
-    2026-07-01 00:00:00|2026-07-02 00:00:00|23
-    2026-07-02 00:00:00|2026-07-03 00:00:00|22
-    2026-07-02 00:00:00|2026-07-03 00:00:00|23
-    2026-07-02 00:00:00|2026-07-03 00:00:00|24
-    2026-07-03 00:00:00|2026-07-04 00:00:00|22
-    2026-07-03 00:00:00|2026-07-04 00:00:00|23
-    2026-07-03 00:00:00|2026-07-04 00:00:00|24
+    2020-06-01 00:00:00|2020-07-01 00:00:00|20
+    2020-06-01 00:00:00|2020-07-01 00:00:00|22
+    2020-06-01 00:00:00|2020-07-01 00:00:00|24
+    2020-07-01 00:00:00|2020-08-01 00:00:00|20
+    2020-07-01 00:00:00|2020-08-01 00:00:00|22
+    2020-07-01 00:00:00|2020-08-01 00:00:00|24
+    2020-08-01 00:00:00|2020-09-01 00:00:00|20
+    2020-08-01 00:00:00|2020-09-01 00:00:00|22
+    2020-08-01 00:00:00|2020-09-01 00:00:00|24
     ```
 
     ```sh
-    t.rast.contour input=tmax output=half_top basename=half_top \
-        step=1 minlevel=22 maxlevel=23.5 where="start_time >= '2026-07-02'"
+    t.rast.contour input=temperature_summer output=half_top basename=half_top \
+        step=2 minlevel=20 maxlevel=23 where="start_time >= '2020-07-01'"
     t.vect.db.select input=half_top columns=level
     ```
 
     ```text
     start_time|end_time|level
-    2026-07-02 00:00:00|2026-07-03 00:00:00|22
-    2026-07-02 00:00:00|2026-07-03 00:00:00|23
-    2026-07-03 00:00:00|2026-07-04 00:00:00|22
-    2026-07-03 00:00:00|2026-07-04 00:00:00|23
+    2020-07-01 00:00:00|2020-08-01 00:00:00|20
+    2020-07-01 00:00:00|2020-08-01 00:00:00|22
+    2020-08-01 00:00:00|2020-09-01 00:00:00|20
+    2020-08-01 00:00:00|2020-09-01 00:00:00|22
     ```
 
     ```sh
-    t.rast.contour input=tmax output=below basename=below \
-        step=1 minlevel=24 maxlevel=26
+    t.rast.contour input=temperature_summer output=below basename=below \
+        step=1 minlevel=27 maxlevel=28
     t.vect.list input=below columns=name,lines
     ```
 
     ```text
     name|lines
-    below_2026_07_02|3
-    below_2026_07_03|3
+    below_2020_07|41
+    below_2020_08|12
     ```
 
     ```sh
-    t.rast.contour -n input=tmax output=above basename=above \
-        step=1 minlevel=18 maxlevel=20
+    t.rast.contour -n input=temperature_summer output=above basename=above \
+        step=1 minlevel=5 maxlevel=10
     t.vect.list input=above columns=name,lines
     ```
 
     ```text
     name|lines
-    above_2026_07_01|0
-    above_2026_07_02|0
-    above_2026_07_03|0
+    above_2020_06|0
+    above_2020_07|0
+    above_2020_08|0
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.t_rast_contour(
-        input="tmax",
+        input="temperature_summer",
         output="degrees",
         basename="degrees",
-        step=1,
-        minlevel=22,
+        step=2,
+        minlevel=20,
         maxlevel=24,
     )
     print(tools.t_vect_db_select(input="degrees", columns="level").text)
@@ -538,58 +472,64 @@ such a map gets no level and so no line:
 
     ```text
     start_time|end_time|level
-    2026-07-01 00:00:00|2026-07-02 00:00:00|22
-    2026-07-01 00:00:00|2026-07-02 00:00:00|23
-    2026-07-02 00:00:00|2026-07-03 00:00:00|22
-    2026-07-02 00:00:00|2026-07-03 00:00:00|23
-    2026-07-02 00:00:00|2026-07-03 00:00:00|24
-    2026-07-03 00:00:00|2026-07-04 00:00:00|22
-    2026-07-03 00:00:00|2026-07-04 00:00:00|23
-    2026-07-03 00:00:00|2026-07-04 00:00:00|24
+    2020-06-01 00:00:00|2020-07-01 00:00:00|20
+    2020-06-01 00:00:00|2020-07-01 00:00:00|22
+    2020-06-01 00:00:00|2020-07-01 00:00:00|24
+    2020-07-01 00:00:00|2020-08-01 00:00:00|20
+    2020-07-01 00:00:00|2020-08-01 00:00:00|22
+    2020-07-01 00:00:00|2020-08-01 00:00:00|24
+    2020-08-01 00:00:00|2020-09-01 00:00:00|20
+    2020-08-01 00:00:00|2020-09-01 00:00:00|22
+    2020-08-01 00:00:00|2020-09-01 00:00:00|24
     ```
 
     ```python
     tools.t_rast_contour(
-        input="tmax",
+        input="temperature_summer",
         output="half_top",
         basename="half_top",
-        step=1,
-        minlevel=22,
-        maxlevel=23.5,
-        where="start_time >= '2026-07-02'",
+        step=2,
+        minlevel=20,
+        maxlevel=23,
+        where="start_time >= '2020-07-01'",
     )
     print(tools.t_vect_db_select(input="half_top", columns="level").text)
     ```
 
     ```text
     start_time|end_time|level
-    2026-07-02 00:00:00|2026-07-03 00:00:00|22
-    2026-07-02 00:00:00|2026-07-03 00:00:00|23
-    2026-07-03 00:00:00|2026-07-04 00:00:00|22
-    2026-07-03 00:00:00|2026-07-04 00:00:00|23
+    2020-07-01 00:00:00|2020-08-01 00:00:00|20
+    2020-07-01 00:00:00|2020-08-01 00:00:00|22
+    2020-08-01 00:00:00|2020-09-01 00:00:00|20
+    2020-08-01 00:00:00|2020-09-01 00:00:00|22
     ```
 
     ```python
     tools.t_rast_contour(
-        input="tmax", output="below", basename="below", step=1, minlevel=24, maxlevel=26
+        input="temperature_summer",
+        output="below",
+        basename="below",
+        step=1,
+        minlevel=27,
+        maxlevel=28,
     )
     print(tools.t_vect_list(input="below", columns="name,lines").text)
     ```
 
     ```text
     name|lines
-    below_2026_07_02|3
-    below_2026_07_03|3
+    below_2020_07|41
+    below_2020_08|12
     ```
 
     ```python
     tools.t_rast_contour(
-        input="tmax",
+        input="temperature_summer",
         output="above",
         basename="above",
         step=1,
-        minlevel=18,
-        maxlevel=20,
+        minlevel=5,
+        maxlevel=10,
         flags="n",
     )
     print(tools.t_vect_list(input="above", columns="name,lines").text)
@@ -597,71 +537,94 @@ such a map gets no level and so no line:
 
     ```text
     name|lines
-    above_2026_07_01|0
-    above_2026_07_02|0
-    above_2026_07_03|0
+    above_2020_06|0
+    above_2020_07|0
+    above_2020_08|0
     ```
 
 ### Leave out short contour lines
 
-The first block prints the line at 26 degrees of the second day, from the
-dataset `isotherms` of the first example. *[v.out.ascii](v.out.ascii.md)*
-starts a line with `L`, the number of its points and the number of its
-categories: the small circle around the centre has only 9 points.
-
-With **cut** `10`, the lines with fewer than 10 points are left out. The second
-day keeps its two other lines, at 22 and 24 degrees; the first and the third
-day keep all their lines, because none of them has fewer than 10 points.
+With **cut** `10`, the short lines are left out. The block lists the number of
+lines: 97, 183 and 109 instead of 228, 342 and 239 with the default `0` in the
+first example.
 
 === "Command line"
 
     ```sh
-    v.out.ascii input=isotherm_2026_07_02 format=standard \
-        where="level = 26" | grep "^L"
-    ```
-
-    ```text
-    L  9 1
-    ```
-
-    ```sh
-    t.rast.contour input=tmax output=long basename=long step=2 cut=10
+    t.rast.contour input=temperature_summer output=long basename=long step=5 cut=10
     t.vect.list input=long columns=name,lines
     ```
 
     ```text
     name|lines
-    long_2026_07_01|1
-    long_2026_07_02|2
-    long_2026_07_03|4
+    long_2020_06|97
+    long_2020_07|183
+    long_2020_08|109
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    result = tools.v_out_ascii(
-        input="isotherm_2026_07_02", format="standard", where="level = 26"
+    tools.t_rast_contour(
+        input="temperature_summer", output="long", basename="long", step=5, cut=10
     )
-    for line in result.text.splitlines():
-        if line.startswith("L"):
-            print(line)
-    ```
-
-    ```text
-    L  9 1
-    ```
-
-    ```python
-    tools.t_rast_contour(input="tmax", output="long", basename="long", step=2, cut=10)
     print(tools.t_vect_list(input="long", columns="name,lines").text)
     ```
 
     ```text
     name|lines
-    long_2026_07_01|1
-    long_2026_07_02|2
-    long_2026_07_03|4
+    long_2020_06|97
+    long_2020_07|183
+    long_2020_08|109
     ```
+
+### Draw the contour lines over the raster map
+
+The figure shows the map of July with the contour lines of the map
+`long_2020_07` from the previous example, computed with **cut** `10`. *d.rast*
+draws the raster map and *d.vect* the state border, then each level of the
+contour lines in its own colour with the condition **where** on the column
+`level`; *d.legend* adds the colour scale of the temperature, labelled every
+5 degrees (**label_step**) without decimals (**digits**). *r.colors* sets the
+colour table `celsius` on the map of this mapset first.
+
+=== "Command line"
+
+    ```sh
+    r.colors map=temperature_monthly_2020_07 color=celsius
+    d.mon start=cairo output=t_rast_contour_lines.png width=800 height=360
+    d.rast map=temperature_monthly_2020_07
+    d.vect map=nc_state type=boundary color=gray
+    d.vect map=long_2020_07 where="level = 15" color=blue width=2
+    d.vect map=long_2020_07 where="level = 20" color=white width=2
+    d.vect map=long_2020_07 where="level = 25" color=black width=2
+    d.legend raster=temperature_monthly_2020_07 range=10,30 at=12,88,86,90 label_step=5 digits=0
+    d.mon stop=cairo
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.r_colors(map="temperature_monthly_2020_07", color="celsius")
+    tools.d_mon(start="cairo", output="t_rast_contour_lines.png", width=800, height=360)
+    tools.d_rast(map="temperature_monthly_2020_07")
+    tools.d_vect(map="nc_state", type="boundary", color="gray")
+    for level, color in ((15, "blue"), (20, "white"), (25, "black")):
+        tools.d_vect(map="long_2020_07", where=f"level = {level}", color=color, width=2)
+    tools.d_legend(
+        raster="temperature_monthly_2020_07",
+        range=[10, 30],
+        at=[12, 88, 86, 90],
+        label_step=5,
+        digits=0,
+    )
+    tools.d_mon(stop="cairo")
+    ```
+
+![Contour lines of the mean air temperature in July in North Carolina](t_rast_contour_lines.png)
+
+*Figure: Contour lines at 15, 20 and 25 degrees (blue, white, red) over the
+generated mean air temperature of July 2020, `temperature_monthly_2020_07`.*
 
 ### Choose the names of the new maps
 
@@ -669,113 +632,117 @@ The option **suffix** chooses how the new maps are named after **basename**:
 
 1. `time` takes the full start time of each raster map.
 2. `num%03` numbers the maps with three digits. The condition in **where**
-   selects the second and the third day, and the numbers count the selected
-   maps from 1.
+   selects July and August, and the numbers count the selected maps from 1.
 3. In a dataset with relative time, the suffix is always a number. The
-   dataset `forecast` holds a forecast of the second and the third day, as
-   days 1 and 2 after the start of a model run; the default suffix `gran`
+   dataset `forecast` holds a forecast of the July and the August map, as
+   months 1 and 2 after the start of a model run; the default suffix `gran`
    numbers the maps.
 
 === "Command line"
 
     ```sh
-    t.rast.contour input=tmax output=timed basename=timed step=2 suffix=time
+    t.rast.contour input=temperature_summer output=timed basename=timed step=5 \
+        suffix=time
     t.vect.list input=timed columns=name
     ```
 
     ```text
     name
-    timed_2026_07_01T00_00_00
-    timed_2026_07_02T00_00_00
-    timed_2026_07_03T00_00_00
+    timed_2020_06_01T00_00_00
+    timed_2020_07_01T00_00_00
+    timed_2020_08_01T00_00_00
     ```
 
     ```sh
-    t.rast.contour input=tmax output=hot_days basename=hot_day step=2 \
-        suffix=num%03 where="start_time >= '2026-07-02'"
-    t.vect.list input=hot_days columns=name,start_time
+    t.rast.contour input=temperature_summer output=hot_months basename=hot_month \
+        step=5 suffix=num%03 where="start_time >= '2020-07-01'"
+    t.vect.list input=hot_months columns=name,start_time
     ```
 
     ```text
     name|start_time
-    hot_day_001|2026-07-02 00:00:00
-    hot_day_002|2026-07-03 00:00:00
+    hot_month_001|2020-07-01 00:00:00
+    hot_month_002|2020-08-01 00:00:00
     ```
 
     ```sh
-    r.mapcalc expression="forecast_1 = tmax_2"
-    r.mapcalc expression="forecast_2 = tmax_3"
+    r.mapcalc expression="forecast_1 = temperature_monthly_2020_07"
+    r.mapcalc expression="forecast_2 = temperature_monthly_2020_08"
     t.create output=forecast temporaltype=relative title="Forecast" \
-        description="Forecast of the daily maximum air temperature"
+        description="Forecast of the monthly mean air temperature"
     t.register -i input=forecast maps=forecast_1,forecast_2 \
-        start=1 increment=1 unit=days
+        start=1 increment=1 unit=months
     t.rast.contour input=forecast output=forecast_isotherms \
-        basename=forecast_isotherm step=2
+        basename=forecast_isotherm step=5
     t.vect.list input=forecast_isotherms columns=name,start_time,end_time,lines
     ```
 
     ```text
     name|start_time|end_time|lines
-    forecast_isotherm_00001|1|2|3
-    forecast_isotherm_00002|2|3|4
+    forecast_isotherm_00001|1|2|342
+    forecast_isotherm_00002|2|3|239
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.t_rast_contour(
-        input="tmax", output="timed", basename="timed", step=2, suffix="time"
+        input="temperature_summer",
+        output="timed",
+        basename="timed",
+        step=5,
+        suffix="time",
     )
     print(tools.t_vect_list(input="timed", columns="name").text)
     ```
 
     ```text
     name
-    timed_2026_07_01T00_00_00
-    timed_2026_07_02T00_00_00
-    timed_2026_07_03T00_00_00
+    timed_2020_06_01T00_00_00
+    timed_2020_07_01T00_00_00
+    timed_2020_08_01T00_00_00
     ```
 
     ```python
     tools.t_rast_contour(
-        input="tmax",
-        output="hot_days",
-        basename="hot_day",
-        step=2,
+        input="temperature_summer",
+        output="hot_months",
+        basename="hot_month",
+        step=5,
         suffix="num%03",
-        where="start_time >= '2026-07-02'",
+        where="start_time >= '2020-07-01'",
     )
-    print(tools.t_vect_list(input="hot_days", columns="name,start_time").text)
+    print(tools.t_vect_list(input="hot_months", columns="name,start_time").text)
     ```
 
     ```text
     name|start_time
-    hot_day_001|2026-07-02 00:00:00
-    hot_day_002|2026-07-03 00:00:00
+    hot_month_001|2020-07-01 00:00:00
+    hot_month_002|2020-08-01 00:00:00
     ```
 
     ```python
-    tools.r_mapcalc(expression="forecast_1 = tmax_2")
-    tools.r_mapcalc(expression="forecast_2 = tmax_3")
+    tools.r_mapcalc(expression="forecast_1 = temperature_monthly_2020_07")
+    tools.r_mapcalc(expression="forecast_2 = temperature_monthly_2020_08")
     tools.t_create(
         output="forecast",
         temporaltype="relative",
         title="Forecast",
-        description="Forecast of the daily maximum air temperature",
+        description="Forecast of the monthly mean air temperature",
     )
     tools.t_register(
         input="forecast",
         maps="forecast_1,forecast_2",
         start=1,
         increment=1,
-        unit="days",
+        unit="months",
         flags="i",
     )
     tools.t_rast_contour(
         input="forecast",
         output="forecast_isotherms",
         basename="forecast_isotherm",
-        step=2,
+        step=5,
     )
     result = tools.t_vect_list(
         input="forecast_isotherms", columns="name,start_time,end_time,lines"
@@ -785,8 +752,8 @@ The option **suffix** chooses how the new maps are named after **basename**:
 
     ```text
     name|start_time|end_time|lines
-    forecast_isotherm_00001|1|2|3
-    forecast_isotherm_00002|2|3|4
+    forecast_isotherm_00001|1|2|342
+    forecast_isotherm_00002|2|3|239
     ```
 
 ### Compute the contour lines in parallel
@@ -794,21 +761,22 @@ The option **suffix** chooses how the new maps are named after **basename**:
 With the flag **-t**, the vector maps get no attribute table, and **nprocs**
 can run several *r.contour* processes at the same time; here three, one for
 each map. The lines are the same as in the first example. *v.info* shows that
-the map of the third day is linked to no attribute table.
+the map of July is linked to no attribute table.
 
 === "Command line"
 
     ```sh
-    t.rast.contour -t input=tmax output=quick basename=quick step=2 nprocs=3
+    t.rast.contour -t input=temperature_summer output=quick basename=quick step=5 \
+        nprocs=3
     t.vect.list input=quick columns=name,lines
-    v.info -e map=quick_2026_07_03 | grep num_dblinks
+    v.info -e map=quick_2020_07 | grep num_dblinks
     ```
 
     ```text
     name|lines
-    quick_2026_07_01|1
-    quick_2026_07_02|3
-    quick_2026_07_03|4
+    quick_2020_06|228
+    quick_2020_07|342
+    quick_2020_08|239
     num_dblinks=0
     ```
 
@@ -816,101 +784,120 @@ the map of the third day is linked to no attribute table.
 
     ```python
     tools.t_rast_contour(
-        input="tmax", output="quick", basename="quick", step=2, nprocs=3, flags="t"
+        input="temperature_summer",
+        output="quick",
+        basename="quick",
+        step=5,
+        nprocs=3,
+        flags="t",
     )
     print(tools.t_vect_list(input="quick", columns="name,lines").text)
-    info = tools.v_info(map="quick_2026_07_03", flags="e").keyval
+    info = tools.v_info(map="quick_2020_07", flags="e").keyval
     print(f"num_dblinks={info['num_dblinks']}")
     ```
 
     ```text
     name|lines
-    quick_2026_07_01|1
-    quick_2026_07_02|3
-    quick_2026_07_03|4
+    quick_2020_06|228
+    quick_2020_07|342
+    quick_2020_08|239
     num_dblinks=0
     ```
 
 ### Use a dataset of another mapset
 
-The example creates the mapset `analysis` and switches to it. The dataset
-`tmax` stays in the mapset `PERMANENT` and is named with its mapset; the new
-dataset `west` and its vector maps are created in `analysis`, as the column
-`id` shows.
+The example creates the mapset `t_rast_contour_2`, switches to it and adds the
+mapset `t_rast_contour` to the search path with *g.mapsets*. The dataset
+`temperature_summer` stays in `t_rast_contour` and is named with its mapset;
+the new dataset `west` and its vector maps are created in `t_rast_contour_2`,
+as the column `id` shows.
 
-The region of the new mapset is set to the western half of the maps, so the
-circles become half circles that end at x = 9.5, the centre of the eastern
-cells of the region. A closed circle has one node, as the 8 lines with 8
-nodes of the first example show; a half circle has two, one at each end, so
-the third day has four lines with eight nodes.
+The region of the new mapset is set to the western half of the maps, 420 cells
+wide, so the lines end at the centre of the eastern cells of the region, x =
+543500. The column `east` shows it for July and August. In June, the easternmost
+point of a line is 535500: no line of June reaches the border cell column.
 
 The second block restricts the area to the same western half with a raster
 mask instead, on the full region. The cells outside the mask are null cells,
-and the lines end at them as at the border of the region: the half circles
-have the same lines, nodes and eastern edge as with the region.
+and the lines end at them as at the border of the region: the lines, the
+nodes and the eastern edge are the same as with the region.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=analysis
-    g.region n=20 s=0 e=10 w=0 res=1
-    t.rast.contour input=tmax@PERMANENT output=west basename=west step=2
+    g.mapset -c mapset=t_rast_contour_2
+    g.region w=124000 e=544000 n=319000 s=-16000 res=1000
+    g.mapsets mapset=t_rast_contour operation=add
+    t.rast.contour input=temperature_summer@t_rast_contour output=west \
+        basename=west step=5
     t.vect.list input=west columns=id,lines,nodes,east
     ```
 
     ```text
     id|lines|nodes|east
-    west_2026_07_01@analysis|1|2|9.5
-    west_2026_07_02@analysis|3|6|9.5
-    west_2026_07_03@analysis|4|8|9.5
+    west_2020_06@t_rast_contour_2|176|205|535500.0
+    west_2020_07@t_rast_contour_2|262|256|543500.0
+    west_2020_08@t_rast_contour_2|150|182|543500.0
     ```
 
     ```sh
-    g.region n=20 s=0 e=20 w=0 res=1
-    r.mapcalc expression="west_half = if(x() < 10, 1, null())"
+    g.region raster=elev_state_500m res=1000 -a
+    r.mapcalc expression="west_half = if(x() < 544000, 1, null())"
     r.mask raster=west_half
-    t.rast.contour input=tmax@PERMANENT output=masked basename=masked step=2
+    t.rast.contour input=temperature_summer@t_rast_contour output=masked \
+        basename=masked step=5
     r.mask -r
     t.vect.list input=masked columns=id,lines,nodes,east
     ```
 
     ```text
     id|lines|nodes|east
-    masked_2026_07_01@analysis|1|2|9.5
-    masked_2026_07_02@analysis|3|6|9.5
-    masked_2026_07_03@analysis|4|8|9.5
+    masked_2020_06@t_rast_contour_2|176|205|535500.0
+    masked_2020_07@t_rast_contour_2|262|256|543500.0
+    masked_2020_08@t_rast_contour_2|150|182|543500.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(mapset="analysis", flags="c")
-    tools.g_region(n=20, s=0, e=10, w=0, res=1)
-    tools.t_rast_contour(input="tmax@PERMANENT", output="west", basename="west", step=2)
+    tools.g_mapset(mapset="t_rast_contour_2", flags="c")
+    tools.g_region(w=124000, e=544000, n=319000, s=-16000, res=1000)
+    tools.g_mapsets(mapset="t_rast_contour", operation="add")
+    tools.t_rast_contour(
+        input="temperature_summer@t_rast_contour",
+        output="west",
+        basename="west",
+        step=5,
+    )
     print(tools.t_vect_list(input="west", columns="id,lines,nodes,east").text)
     ```
 
     ```text
     id|lines|nodes|east
-    west_2026_07_01@analysis|1|2|9.5
-    west_2026_07_02@analysis|3|6|9.5
-    west_2026_07_03@analysis|4|8|9.5
+    west_2020_06@t_rast_contour_2|176|205|535500.0
+    west_2020_07@t_rast_contour_2|262|256|543500.0
+    west_2020_08@t_rast_contour_2|150|182|543500.0
     ```
 
     ```python
-    tools.g_region(n=20, s=0, e=20, w=0, res=1)
-    tools.r_mapcalc(expression="west_half = if(x() < 10, 1, null())")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.r_mapcalc(expression="west_half = if(x() < 544000, 1, null())")
     tools.r_mask(raster="west_half")
-    tools.t_rast_contour(input="tmax@PERMANENT", output="masked", basename="masked", step=2)
+    tools.t_rast_contour(
+        input="temperature_summer@t_rast_contour",
+        output="masked",
+        basename="masked",
+        step=5,
+    )
     tools.r_mask(flags="r")
     print(tools.t_vect_list(input="masked", columns="id,lines,nodes,east").text)
     ```
 
     ```text
     id|lines|nodes|east
-    masked_2026_07_01@analysis|1|2|9.5
-    masked_2026_07_02@analysis|3|6|9.5
-    masked_2026_07_03@analysis|4|8|9.5
+    masked_2020_06@t_rast_contour_2|176|205|535500.0
+    masked_2020_07@t_rast_contour_2|262|256|543500.0
+    masked_2020_08@t_rast_contour_2|150|182|543500.0
     ```
 
 <!-- markdownlint-enable MD046 -->
