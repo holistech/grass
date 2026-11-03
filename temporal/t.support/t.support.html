@@ -83,11 +83,21 @@ The command history of the dataset records each call of <em>t.support</em>, whic
 
 <h2>EXAMPLES</h2>
 
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_support</code> and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. The first two examples change metadata only, so their maps hold small
+constant values. The last two examples use a series of monthly air temperatures
+that they generate from the elevation model of the dataset. The values are made
+up and are not measurements. <em>t.support</em> with <b>-m</b> changes only datasets of
+the mapset in which it runs.
+
 <h3>Change title, description and types</h3>
 
-The dataset <code>temp</code> holds three maps, one per day from 2026-06-01. <em>t.info</em>
-shows its title and description, the semantic type <code>mean</code> and the aggregation
-type <code>None</code>.
+The dataset <code>rain</code> holds three maps, one per day from 2026-06-01, with 10, 20
+and 30 mm of rain. <em>t.info</em> shows its title and description, the semantic type
+<code>mean</code> and the aggregation type <code>None</code>.
 
 <p>
 The first call of <em>t.support</em> changes all four properties at once. The second
@@ -97,15 +107,17 @@ aggregation type stay.
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.region n=2 s=0 e=3 w=0 res=1
-for n in 1 2 3; do
-    r.mapcalc expression="m_$n = $n * 10"
+g.mapset -c mapset=t_support
+g.region raster=elev_state_500m res=1000 -a
+for day in 1 2 3; do
+    r.mapcalc expression="rain_2026_06_0$day = $day * 10"
 done
-t.create output=temp title="Old title" description="Old description"
-t.register -i input=temp maps=m_1,m_2,m_3 \
+t.create output=rain title="Old title" description="Old description"
+t.register -i input=rain \
+    maps=rain_2026_06_01,rain_2026_06_02,rain_2026_06_03 \
     start=2026-06-01 increment="1 day"
-t.info input=temp | grep -E "Semantic type|Aggregation type"
-t.info input=temp | grep -A3 "Title:"
+t.info input=rain | grep -E "Semantic type|Aggregation type"
+t.info input=rain | grep -A3 "Title:"
 </pre></div>
 
 <div class="code"><pre>
@@ -118,29 +130,29 @@ t.info input=temp | grep -A3 "Title:"
 </pre></div>
 
 <div class="code"><pre>
-t.support input=temp title="Daily mean" \
-    description="Mean temperature per day" \
-    semantictype=sum aggr_type=average
-t.info input=temp | grep -E "Semantic type|Aggregation type"
-t.info input=temp | grep -A3 "Title:"
-t.support input=temp title="Daily temperature"
-t.info input=temp | grep -E "Semantic type|Aggregation type"
-t.info input=temp | grep -A3 "Title:"
+t.support input=rain title="Daily rain" \
+    description="Rain per day in mm" \
+    semantictype=sum aggr_type=sum
+t.info input=rain | grep -E "Semantic type|Aggregation type"
+t.info input=rain | grep -A3 "Title:"
+t.support input=rain title="Rain per day"
+t.info input=rain | grep -E "Semantic type|Aggregation type"
+t.info input=rain | grep -A3 "Title:"
 </pre></div>
 
 <div class="code"><pre>
  | Semantic type:.............. sum
- | Aggregation type:........... average
+ | Aggregation type:........... sum
  | Title:
- | Daily mean
+ | Daily rain
  | Description:
- | Mean temperature per day
+ | Rain per day in mm
  | Semantic type:.............. sum
- | Aggregation type:........... average
+ | Aggregation type:........... sum
  | Title:
- | Daily temperature
+ | Rain per day
  | Description:
- | Mean temperature per day
+ | Rain per day in mm
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -160,18 +172,19 @@ def show_metadata(name):
     print("\n".join(lines[first : first + 4]))
 
 
-tools.g_region(n=2, s=0, e=3, w=0, res=1)
-for n in range(1, 4):
-    tools.r_mapcalc(expression=f"m_{n} = {n} * 10")
-tools.t_create(output="temp", title="Old title", description="Old description")
+tools.g_mapset(flags="c", mapset="t_support")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+for day in range(1, 4):
+    tools.r_mapcalc(expression=f"rain_2026_06_0{day} = {day} * 10")
+tools.t_create(output="rain", title="Old title", description="Old description")
 tools.t_register(
-    input="temp",
-    maps="m_1,m_2,m_3",
+    input="rain",
+    maps="rain_2026_06_01,rain_2026_06_02,rain_2026_06_03",
     start="2026-06-01",
     increment="1 day",
     flags="i",
 )
-show_metadata("temp")
+show_metadata("rain")
 </pre></div>
 
 <div class="code"><pre>
@@ -185,30 +198,30 @@ show_metadata("temp")
 
 <div class="code"><pre>
 tools.t_support(
-    input="temp",
-    title="Daily mean",
-    description="Mean temperature per day",
+    input="rain",
+    title="Daily rain",
+    description="Rain per day in mm",
     semantictype="sum",
-    aggr_type="average",
+    aggr_type="sum",
 )
-show_metadata("temp")
-tools.t_support(input="temp", title="Daily temperature")
-show_metadata("temp")
+show_metadata("rain")
+tools.t_support(input="rain", title="Rain per day")
+show_metadata("rain")
 </pre></div>
 
 <div class="code"><pre>
  | Semantic type:.............. sum
- | Aggregation type:........... average
+ | Aggregation type:........... sum
  | Title:
- | Daily mean
+ | Daily rain
  | Description:
- | Mean temperature per day
+ | Rain per day in mm
  | Semantic type:.............. sum
- | Aggregation type:........... average
+ | Aggregation type:........... sum
  | Title:
- | Daily temperature
+ | Rain per day
  | Description:
- | Mean temperature per day
+ | Rain per day in mm
 </pre></div>
 
 <h3>Change the metadata of a vector dataset</h3>
@@ -222,7 +235,7 @@ type. Datasets of type <code>str3ds</code> are handled like those of type <code>
 <p>Command line:</p>
 
 <div class="code"><pre>
-echo "1.5,0.5,3.0" | v.in.ascii input=- output=gauge_1 \
+echo "640000,220000,3.0" | v.in.ascii input=- output=gauge_1 \
     separator=comma \
     columns="x double precision, y double precision, speed double precision"
 t.create type=stvds output=gauges title="Gauges" description="Wind gauges"
@@ -245,7 +258,7 @@ semantic_type=mean
 from io import StringIO
 
 tools.v_in_ascii(
-    input=StringIO("1.5,0.5,3.0\n"),
+    input=StringIO("640000,220000,3.0\n"),
     output="gauge_1",
     separator="comma",
     columns="x double precision, y double precision, speed double precision",
@@ -277,41 +290,60 @@ semantic_type=mean
 
 <h3>Read maps that were made again</h3>
 
-The dataset <code>warm</code> holds the maps <code>m_2</code> and <code>m_3</code> of <code>temp</code>, with the times
-they have in the temporal database. Then <code>m_3</code> is made again with the value 90.
-The datasets still report the range of values from before: 10 to 30 for <code>temp</code>
-and 20 to 30 for <code>warm</code>.
+The dataset <code>temperature_monthly</code> holds twelve monthly mean air temperatures of
+2020 in degree Celsius, one map per month, generated from the elevation model
+(about -6.5 degree per 1000 m, with a yearly cycle that peaks in July). The
+dataset <code>temperature_summer</code> holds the maps of June, July and August with the
+times they have in the temporal database. Then the July map is made again with a
+correction of +2 degree Celsius. Both datasets still report the range of values
+from before.
 
 <p>
 A call with <b>-u</b> does not change that, because <b>-u</b> works on the entries of
-the temporal database and the entry of <code>m_3</code> still says 30. A call with <b>-m</b>
-reads <code>m_3</code> from the spatial database. The range of <code>temp</code> becomes 10 to 90,
-and <code>warm</code>, which was not named in the call but holds <code>m_3</code>, follows with 20 to
-90.
+the temporal database, and these still hold the old values of the July map. A
+call with <b>-m</b> reads the July map from the spatial database. The largest value
+of <code>temperature_monthly</code> and of <code>temperature_summer</code> rises from 28.4 to 30.4
+degree, and the smallest values stay, because the coldest map of each dataset is
+not the one of July. Only
+<code>temperature_monthly</code> was named in the call, but <code>temperature_summer</code> holds the
+July map and follows.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-t.create output=warm title="Warm days" description="Days 2 and 3"
-t.register input=warm maps=m_2,m_3
-r.mapcalc --overwrite expression="m_3 = 90"
-t.support -u input=temp
-t.info -g input=temp | grep -E "^(min_min|max_max)="
-t.info -g input=warm | grep -E "^(min_min|max_max)="
-t.support -m input=temp
-t.info -g input=temp | grep -E "^(min_min|max_max)="
-t.info -g input=warm | grep -E "^(min_min|max_max)="
+for month in $(seq 12); do
+    echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+        "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+        "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+done | r.mapcalc file=-
+t.create output=temperature_monthly title="Air temperature" \
+    description="Monthly mean air temperature 2020 in degree Celsius"
+t.register -i input=temperature_monthly \
+    maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+    start=2020-01-01 increment="1 month"
+t.create output=temperature_summer title="Summer air temperature" \
+    description="Monthly mean air temperature June to August 2020"
+t.register input=temperature_summer \
+    maps=temperature_monthly_2020_06,temperature_monthly_2020_07,temperature_monthly_2020_08
+r.mapcalc --overwrite \
+    expression="temperature_monthly_2020_07 = round((temperature_monthly_2020_07 + 2) * 10) / 10.0"
+t.support -u input=temperature_monthly
+t.info -g input=temperature_monthly | grep -E "^(min_min|max_max)="
+t.info -g input=temperature_summer | grep -E "^(min_min|max_max)="
+t.support -m input=temperature_monthly
+t.info -g input=temperature_monthly | grep -E "^(min_min|max_max)="
+t.info -g input=temperature_summer | grep -E "^(min_min|max_max)="
 </pre></div>
 
 <div class="code"><pre>
-min_min=10.0
-max_max=30.0
-min_min=20.0
-max_max=30.0
-min_min=10.0
-max_max=90.0
-min_min=20.0
-max_max=90.0
+min_min=-7.0
+max_max=28.4
+min_min=12.0
+max_max=28.4
+min_min=-7.0
+max_max=30.4
+min_min=12.0
+max_max=30.4
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -323,78 +355,102 @@ def show_range(name):
         print(f"{key}={info[key]}")
 
 
-tools.t_create(output="warm", title="Warm days", description="Days 2 and 3")
-tools.t_register(input="warm", maps="m_2,m_3")
-tools.r_mapcalc(expression="m_3 = 90", overwrite=True)
-tools.t_support(input="temp", flags="u")
-show_range("temp")
-show_range("warm")
-tools.t_support(input="temp", flags="m")
-show_range("temp")
-show_range("warm")
+months = range(1, 13)
+tools.r_mapcalc(
+    expression="\n".join(
+        f"temperature_monthly_2020_{month:02d} = round((16.5"
+        f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+        " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+        for month in months
+    )
+)
+tools.t_create(
+    output="temperature_monthly",
+    title="Air temperature",
+    description="Monthly mean air temperature 2020 in degree Celsius",
+)
+tools.t_register(
+    input="temperature_monthly",
+    maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months),
+    start="2020-01-01",
+    increment="1 month",
+    flags="i",
+)
+tools.t_create(
+    output="temperature_summer",
+    title="Summer air temperature",
+    description="Monthly mean air temperature June to August 2020",
+)
+tools.t_register(
+    input="temperature_summer",
+    maps="temperature_monthly_2020_06,temperature_monthly_2020_07,temperature_monthly_2020_08",
+)
+tools.r_mapcalc(
+    expression="temperature_monthly_2020_07 = round((temperature_monthly_2020_07 + 2) * 10) / 10.0",
+    overwrite=True,
+)
+tools.t_support(input="temperature_monthly", flags="u")
+show_range("temperature_monthly")
+show_range("temperature_summer")
+tools.t_support(input="temperature_monthly", flags="m")
+show_range("temperature_monthly")
+show_range("temperature_summer")
 </pre></div>
 
 <div class="code"><pre>
-min_min=10.0
-max_max=30.0
-min_min=20.0
-max_max=30.0
-min_min=10.0
-max_max=90.0
-min_min=20.0
-max_max=90.0
+min_min=-7.0
+max_max=28.4
+min_min=12.0
+max_max=28.4
+min_min=-7.0
+max_max=30.4
+min_min=12.0
+max_max=30.4
 </pre></div>
 
 <h3>Unregister maps that are gone</h3>
 
-The map <code>m_2</code> is removed from the spatial database with <em>g.remove</em>, which
-leaves it registered in <code>temp</code> and <code>warm</code>. The call with <b>-m</b> finds that it
-is gone, deletes it from the temporal database and updates both datasets: <code>temp</code>
-keeps <code>m_1</code> and <code>m_3</code>, <code>warm</code> keeps <code>m_3</code>. The dataset <code>warm</code> was not named in
-the call. The range of values of both follows the maps that are left.
+The map of August is removed from the spatial database with <em>g.remove</em>, which
+leaves it registered in <code>temperature_monthly</code> and <code>temperature_summer</code>. The call
+with <b>-m</b> finds that it is gone, deletes it from the temporal database and
+updates both datasets: <code>temperature_monthly</code> keeps eleven maps and
+<code>temperature_summer</code> keeps two. The dataset <code>temperature_summer</code> was not named
+in the call.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.remove -f type=raster name=m_2
-t.support -m input=temp
-t.list type=strds columns=name,number_of_maps
-t.list type=raster columns=name
-t.info -g input=temp | grep -E "^(min_min|max_max)="
-t.info -g input=warm | grep -E "^(min_min|max_max)="
+g.remove -f type=raster name=temperature_monthly_2020_08
+t.support -m input=temperature_monthly
+t.list type=strds mapset=. columns=name,number_of_maps
+t.rast.list input=temperature_summer columns=name,start_time
 </pre></div>
 
 <div class="code"><pre>
-temp|2
-warm|1
-m_1
-m_3
-min_min=10.0
-max_max=90.0
-min_min=90.0
-max_max=90.0
+rain|3
+temperature_monthly|11
+temperature_summer|2
+name|start_time
+temperature_monthly_2020_06|2020-06-01 00:00:00
+temperature_monthly_2020_07|2020-07-01 00:00:00
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-tools.g_remove(type="raster", name="m_2", flags="f")
-tools.t_support(input="temp", flags="m")
-print(tools.t_list(type="strds", columns="name,number_of_maps").text)
-print(tools.t_list(type="raster", columns="name").text)
-show_range("temp")
-show_range("warm")
+tools.g_remove(type="raster", name="temperature_monthly_2020_08", flags="f")
+tools.t_support(input="temperature_monthly", flags="m")
+print(tools.t_list(type="strds", mapset=".", columns="name,number_of_maps").text)
+print(tools.t_rast_list(input="temperature_summer", columns="name,start_time").text)
 </pre></div>
 
 <div class="code"><pre>
-temp|2
-warm|1
-m_1
-m_3
-min_min=10.0
-max_max=90.0
-min_min=90.0
-max_max=90.0
+rain|3
+temperature_monthly|11
+temperature_summer|2
+name|start_time
+temperature_monthly_2020_06|2020-06-01 00:00:00
+temperature_monthly_2020_07|2020-07-01 00:00:00
 </pre></div>
 
 <h2>SEE ALSO</h2>
