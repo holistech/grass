@@ -19,8 +19,8 @@ then it is replaced.
 ### Select the maps
 
 The option **where** takes an SQL condition on the columns of the registered
-maps, such as `start_time >= '2026-03-03'`, which selects the maps that start
-on 3 March or later. Without **where**, all maps are selected.
+maps, such as `start_time >= '2020-06-01'`, which selects the maps that start
+on 1 June 2020 or later. Without **where**, all maps are selected.
 
 ### Register or compute
 
@@ -71,8 +71,8 @@ same time. The default is `1`. The result does not depend on it.
 ## NOTES
 
 The expression is the right side of an *r.mapcalc* expression only. A call
-with `expression="if(tempmean_monthly < 0, null(), tempmean_monthly)"`, for
-instance, sets the negative values of a dataset `tempmean_monthly` to null.
+with `expression="if(temperature_monthly < 0, null(), temperature_monthly)"`, for
+instance, sets the negative values of a dataset `temperature_monthly` to null.
 
 If **where** selects no map, or the input dataset has none, *t.rast.extract*
 warns "Nothing found in the database for space time dataset" and makes no
@@ -99,66 +99,90 @@ input dataset to copy the maps instead.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_extract` and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset
+and region, except the last, which creates a second mapset with the same
+region. The examples that show how names and times work use maps with small
+constant values, so that the results can be checked by hand.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_extract -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Select maps by time
 
-The dataset `temperature` has four maps of daily mean air temperature for the
-days from 1 to 4 March 2026. The maps have three columns and two rows. Their
-values are the column number plus the offset 0, 6, 3 and 9, so the smallest
-and largest values of the maps are 1 to 3, 7 to 9, 4 to 6 and 10 to 12.
+The dataset `temperature_monthly` holds twelve maps of the monthly mean air
+temperature in 2020, in degrees Celsius rounded to tenths. They are generated
+from the elevation model `elev_state_500m`: 16.5 degrees at sea level and the
+northing 160 km, an annual cycle of plus and minus 10.5 degrees with its
+maximum in July, 6.5 degrees less for every 1000 m of elevation, and 1 degree
+more for every 100 km to the south. Each map is an interval of one month.
 
-The first block extracts the maps from 3 March on into the dataset `later`.
-There is no **expression**, so no map is made: the second block lists the
-raster maps of the mapset, and they are still the four maps of `temperature`.
-The dataset `later` lists two of them. The third block shows what the new
-dataset takes from the input: the temporal type and the semantic type, and
-the start and end time that follow from the maps it holds.
+The first block extracts the summer months, June to August, into the dataset
+`summer`. There is no **expression**, so no map is made: the second block lists
+the raster maps of the mapset, and they are still the twelve maps of
+`temperature_monthly`. The dataset `summer` lists three of them. The third
+block shows what the new dataset takes from the input: the temporal type and
+the semantic type, and the start and end time that follow from the maps it
+holds.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
-    r.mapcalc expression="temperature_1 = col()"
-    r.mapcalc expression="temperature_2 = col() + 6"
-    r.mapcalc expression="temperature_3 = col() + 3"
-    r.mapcalc expression="temperature_4 = col() + 9"
-    t.create output=temperature title="Air temperature" \
-        description="Daily mean air temperature"
-    t.register -i input=temperature \
-        maps=temperature_1,temperature_2,temperature_3,temperature_4 \
-        start=2026-03-01 increment="1 day"
-    t.rast.extract input=temperature output=later \
-        where="start_time >= '2026-03-03'"
-    t.rast.list input=later
+    g.mapset -c mapset=t_rast_extract
+    g.region raster=elev_state_500m res=1000 -a
+    for month in $(seq 12); do
+        echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r.mapcalc file=-
+    t.create output=temperature_monthly title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degree Celsius"
+    t.register -i input=temperature_monthly \
+        maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    t.rast.extract input=temperature_monthly output=summer \
+        where="start_time >= '2020-06-01' and start_time < '2020-09-01'"
+    t.rast.list input=summer columns=name,start_time,end_time,min,max
     ```
 
     ```text
-    name|mapset|start_time|end_time
-    temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    name|start_time|end_time|min|max
+    temperature_monthly_2020_06|2020-06-01 00:00:00|2020-07-01 00:00:00|12.0|26.5
+    temperature_monthly_2020_07|2020-07-01 00:00:00|2020-08-01 00:00:00|13.9|28.4
+    temperature_monthly_2020_08|2020-08-01 00:00:00|2020-09-01 00:00:00|13.1|27.6
     ```
 
     ```sh
-    g.list type=raster
+    g.list type=raster mapset=.
     ```
 
     ```text
-    temperature_1
-    temperature_2
-    temperature_3
-    temperature_4
+    temperature_monthly_2020_01
+    temperature_monthly_2020_02
+    temperature_monthly_2020_03
+    temperature_monthly_2020_04
+    temperature_monthly_2020_05
+    temperature_monthly_2020_06
+    temperature_monthly_2020_07
+    temperature_monthly_2020_08
+    temperature_monthly_2020_09
+    temperature_monthly_2020_10
+    temperature_monthly_2020_11
+    temperature_monthly_2020_12
     ```
 
     ```sh
-    t.info -g later | grep -E "^(temporal_type|semantic_type|start_time|end_time)="
+    t.info -g summer | grep -E "^(temporal_type|semantic_type|start_time|end_time)="
     ```
 
     ```text
     temporal_type=absolute
     semantic_type=mean
-    start_time='2026-03-03 00:00:00'
-    end_time='2026-03-05 00:00:00'
+    start_time='2020-06-01 00:00:00'
+    end_time='2020-09-01 00:00:00'
     ```
 
 === "Python (grass.tools)"
@@ -167,46 +191,66 @@ the start and end time that follow from the maps it holds.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    for number, offset in enumerate((0, 6, 3, 9), start=1):
-        tools.r_mapcalc(expression=f"temperature_{number} = col() + {offset}")
+    tools.g_mapset(flags="c", mapset="t_rast_extract")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    months = range(1, 13)
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"temperature_monthly_2020_{month:02d} = round((16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
     tools.t_create(
-        output="temperature",
+        output="temperature_monthly",
         title="Air temperature",
-        description="Daily mean air temperature",
+        description="Monthly mean air temperature 2020 in degree Celsius",
     )
     tools.t_register(
-        input="temperature",
-        maps="temperature_1,temperature_2,temperature_3,temperature_4",
-        start="2026-03-01",
-        increment="1 day",
+        input="temperature_monthly",
+        maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
     tools.t_rast_extract(
-        input="temperature", output="later", where="start_time >= '2026-03-03'"
+        input="temperature_monthly",
+        output="summer",
+        where="start_time >= '2020-06-01' and start_time < '2020-09-01'",
     )
-    print(tools.t_rast_list(input="later").text)
+    columns = "name,start_time,end_time,min,max"
+    print(tools.t_rast_list(input="summer", columns=columns).text)
     ```
 
     ```text
-    name|mapset|start_time|end_time
-    temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    name|start_time|end_time|min|max
+    temperature_monthly_2020_06|2020-06-01 00:00:00|2020-07-01 00:00:00|12.0|26.5
+    temperature_monthly_2020_07|2020-07-01 00:00:00|2020-08-01 00:00:00|13.9|28.4
+    temperature_monthly_2020_08|2020-08-01 00:00:00|2020-09-01 00:00:00|13.1|27.6
     ```
 
     ```python
-    print(tools.g_list(type="raster").text)
+    print(tools.g_list(type="raster", mapset=".").text)
     ```
 
     ```text
-    temperature_1
-    temperature_2
-    temperature_3
-    temperature_4
+    temperature_monthly_2020_01
+    temperature_monthly_2020_02
+    temperature_monthly_2020_03
+    temperature_monthly_2020_04
+    temperature_monthly_2020_05
+    temperature_monthly_2020_06
+    temperature_monthly_2020_07
+    temperature_monthly_2020_08
+    temperature_monthly_2020_09
+    temperature_monthly_2020_10
+    temperature_monthly_2020_11
+    temperature_monthly_2020_12
     ```
 
     ```python
-    info = tools.t_info(input="later", flags="g").keyval
+    info = tools.t_info(input="summer", flags="g").keyval
     for key in ("temporal_type", "semantic_type", "start_time", "end_time"):
         print(f"{key}={info[key]}")
     ```
@@ -214,230 +258,250 @@ the start and end time that follow from the maps it holds.
     ```text
     temporal_type=absolute
     semantic_type=mean
-    start_time='2026-03-03 00:00:00'
-    end_time='2026-03-05 00:00:00'
+    start_time='2020-06-01 00:00:00'
+    end_time='2020-09-01 00:00:00'
     ```
 
 ### Compute new maps from the selected maps
 
-The first block doubles the maps of `temperature`. The expression
-`2 * temperature` names the dataset, which stands for the map of each step.
-The new maps are named `doubled`, an underscore and the day of the map (the
-granularity of `temperature` is one day), and each has the time of its source
-map. **nprocs** lets two *r.mapcalc* processes run at the same time; the
-result is the same as with one process. The values are twice those of the
-source maps: 2 to 6 for the first day, 14 to 18 for the second.
+The first block converts the summer months to degrees Fahrenheit. The
+expression names the input dataset `temperature_monthly`, which stands for the
+map of each step, multiplies it by 1.8, adds 32 and rounds to tenths, as the
+input is. The new maps are named `fahrenheit`, an underscore and the month of
+the map (the granularity of `temperature_monthly` is one month), and each has
+the time of its source map. **nprocs** lets two *r.mapcalc* processes run at the
+same time; the result is the same as with one process. The values follow from
+the ones of the previous example: the coolest cell of June, 12.0 degrees, is
+53.6 degrees Fahrenheit, and the warmest cell of July, 28.4 degrees, is 83.1.
 
-The second block shows that the expression may use any raster map. The map
-`bias` is 10 everywhere; **where** selects the first two days, and the new
-maps hold the values of their source maps plus 10.
+The second block shows that the expression may use any raster map. The cells of
+the elevation model `elev_state_500m` that lie 600 m or higher are the
+mountains; **where** selects January and February, and the new maps hold the
+temperature of these cells and null elsewhere. The coldest cell of the whole
+year, -7.0 degrees in January, lies there.
 
 === "Command line"
 
     ```sh
-    t.rast.extract input=temperature output=doubled basename=doubled \
-        expression="2 * temperature" nprocs=2
-    t.rast.list input=doubled columns=name,start_time,min,max
+    t.rast.extract input=temperature_monthly output=temperature_fahrenheit \
+        basename=fahrenheit nprocs=2 \
+        where="start_time >= '2020-06-01' and start_time < '2020-09-01'" \
+        expression="round((temperature_monthly * 1.8 + 32) * 10) / 10.0"
+    t.rast.list input=temperature_fahrenheit columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    doubled_2026_03_01|2026-03-01 00:00:00|2.0|6.0
-    doubled_2026_03_02|2026-03-02 00:00:00|14.0|18.0
-    doubled_2026_03_03|2026-03-03 00:00:00|8.0|12.0
-    doubled_2026_03_04|2026-03-04 00:00:00|20.0|24.0
+    fahrenheit_2020_06|2020-06-01 00:00:00|53.6|79.7
+    fahrenheit_2020_07|2020-07-01 00:00:00|57.0|83.1
+    fahrenheit_2020_08|2020-08-01 00:00:00|55.6|81.7
     ```
 
     ```sh
-    r.mapcalc expression="bias = 10"
-    t.rast.extract input=temperature output=biased basename=biased \
-        where="start_time < '2026-03-03'" expression="temperature + bias"
-    t.rast.list input=biased columns=name,min,max
+    t.rast.extract input=temperature_monthly output=winter_mountains \
+        basename=winter_mountains where="start_time < '2020-03-01'" \
+        expression="if(elev_state_500m >= 600, temperature_monthly, null())"
+    t.rast.list input=winter_mountains columns=name,min,max
     ```
 
     ```text
     name|min|max
-    biased_2026_03_01|11.0|13.0
-    biased_2026_03_02|17.0|19.0
+    winter_mountains_2020_01|-7.0|2.2
+    winter_mountains_2020_02|-6.1|3.1
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.t_rast_extract(
-        input="temperature",
-        output="doubled",
-        basename="doubled",
-        expression="2 * temperature",
+        input="temperature_monthly",
+        output="temperature_fahrenheit",
+        basename="fahrenheit",
         nprocs=2,
+        where="start_time >= '2020-06-01' and start_time < '2020-09-01'",
+        expression="round((temperature_monthly * 1.8 + 32) * 10) / 10.0",
     )
-    print(tools.t_rast_list(input="doubled", columns="name,start_time,min,max").text)
+    columns = "name,start_time,min,max"
+    print(tools.t_rast_list(input="temperature_fahrenheit", columns=columns).text)
     ```
 
     ```text
     name|start_time|min|max
-    doubled_2026_03_01|2026-03-01 00:00:00|2.0|6.0
-    doubled_2026_03_02|2026-03-02 00:00:00|14.0|18.0
-    doubled_2026_03_03|2026-03-03 00:00:00|8.0|12.0
-    doubled_2026_03_04|2026-03-04 00:00:00|20.0|24.0
+    fahrenheit_2020_06|2020-06-01 00:00:00|53.6|79.7
+    fahrenheit_2020_07|2020-07-01 00:00:00|57.0|83.1
+    fahrenheit_2020_08|2020-08-01 00:00:00|55.6|81.7
     ```
 
     ```python
-    tools.r_mapcalc(expression="bias = 10")
     tools.t_rast_extract(
-        input="temperature",
-        output="biased",
-        basename="biased",
-        where="start_time < '2026-03-03'",
-        expression="temperature + bias",
+        input="temperature_monthly",
+        output="winter_mountains",
+        basename="winter_mountains",
+        where="start_time < '2020-03-01'",
+        expression="if(elev_state_500m >= 600, temperature_monthly, null())",
     )
-    print(tools.t_rast_list(input="biased", columns="name,min,max").text)
+    print(tools.t_rast_list(input="winter_mountains", columns="name,min,max").text)
     ```
 
     ```text
     name|min|max
-    biased_2026_03_01|11.0|13.0
-    biased_2026_03_02|17.0|19.0
+    winter_mountains_2020_01|-7.0|2.2
+    winter_mountains_2020_02|-6.1|3.1
     ```
 
 ### Select maps by their values
 
 An expression that sets cells to null selects maps. The first block takes the
-maps from 2 March on, three maps, and keeps the values above 6. Of the three,
-only the maps with values from 7 to 9 and from 10 to 12 keep cells; the map
-with the values 4 to 6 has none left, so it is empty. The empty map is not
-registered in `warm`, and the second block shows that it is removed: only two
-maps are left in the mapset.
+months from May to September, five maps, and keeps the cells with more than
+25 degrees. Of the five, the maps of June, July and August have such cells; May
+and September stay below 25 degrees everywhere, so their maps are empty. The
+empty maps are not registered in `hot`, and the second block shows that they are
+removed: only three maps are left in the mapset.
 
-The third block runs the same call with the flag **-n**. The dataset `warm_all`
-registers the empty map as well, with `None` as its smallest and largest value,
-and the mapset keeps all three maps.
+The third block runs the same call with the flag **-n**. The dataset `hot_all`
+registers the empty maps as well, with `None` as their smallest and largest
+value, and the mapset keeps all five maps.
 
 === "Command line"
 
     ```sh
-    t.rast.extract input=temperature output=warm basename=warm \
-        where="start_time >= '2026-03-02'" \
-        expression="if(temperature > 6, temperature, null())"
-    t.rast.list input=warm columns=name,start_time,min,max
+    t.rast.extract input=temperature_monthly output=hot basename=hot \
+        where="start_time >= '2020-05-01' and start_time < '2020-10-01'" \
+        expression="if(temperature_monthly > 25, temperature_monthly, null())"
+    t.rast.list input=hot columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    warm_2026_03_02|2026-03-02 00:00:00|7.0|9.0
-    warm_2026_03_04|2026-03-04 00:00:00|10.0|12.0
+    hot_2020_06|2020-06-01 00:00:00|25.1|26.5
+    hot_2020_07|2020-07-01 00:00:00|25.1|28.4
+    hot_2020_08|2020-08-01 00:00:00|25.1|27.6
     ```
 
     ```sh
-    g.list type=raster pattern="warm*"
+    g.list type=raster pattern="hot*" mapset=.
     ```
 
     ```text
-    warm_2026_03_02
-    warm_2026_03_04
+    hot_2020_06
+    hot_2020_07
+    hot_2020_08
     ```
 
     ```sh
-    t.rast.extract -n input=temperature output=warm_all basename=warm_all \
-        where="start_time >= '2026-03-02'" \
-        expression="if(temperature > 6, temperature, null())"
-    t.rast.list input=warm_all columns=name,start_time,min,max
-    g.list type=raster pattern="warm_all*"
+    t.rast.extract -n input=temperature_monthly output=hot_all basename=hot_all \
+        where="start_time >= '2020-05-01' and start_time < '2020-10-01'" \
+        expression="if(temperature_monthly > 25, temperature_monthly, null())"
+    t.rast.list input=hot_all columns=name,start_time,min,max
+    g.list type=raster pattern="hot_all*" mapset=.
     ```
 
     ```text
     name|start_time|min|max
-    warm_all_2026_03_02|2026-03-02 00:00:00|7.0|9.0
-    warm_all_2026_03_03|2026-03-03 00:00:00|None|None
-    warm_all_2026_03_04|2026-03-04 00:00:00|10.0|12.0
-    warm_all_2026_03_02
-    warm_all_2026_03_03
-    warm_all_2026_03_04
+    hot_all_2020_05|2020-05-01 00:00:00|None|None
+    hot_all_2020_06|2020-06-01 00:00:00|25.1|26.5
+    hot_all_2020_07|2020-07-01 00:00:00|25.1|28.4
+    hot_all_2020_08|2020-08-01 00:00:00|25.1|27.6
+    hot_all_2020_09|2020-09-01 00:00:00|None|None
+    hot_all_2020_05
+    hot_all_2020_06
+    hot_all_2020_07
+    hot_all_2020_08
+    hot_all_2020_09
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.t_rast_extract(
-        input="temperature",
-        output="warm",
-        basename="warm",
-        where="start_time >= '2026-03-02'",
-        expression="if(temperature > 6, temperature, null())",
+        input="temperature_monthly",
+        output="hot",
+        basename="hot",
+        where="start_time >= '2020-05-01' and start_time < '2020-10-01'",
+        expression="if(temperature_monthly > 25, temperature_monthly, null())",
     )
-    print(tools.t_rast_list(input="warm", columns="name,start_time,min,max").text)
+    print(tools.t_rast_list(input="hot", columns="name,start_time,min,max").text)
     ```
 
     ```text
     name|start_time|min|max
-    warm_2026_03_02|2026-03-02 00:00:00|7.0|9.0
-    warm_2026_03_04|2026-03-04 00:00:00|10.0|12.0
+    hot_2020_06|2020-06-01 00:00:00|25.1|26.5
+    hot_2020_07|2020-07-01 00:00:00|25.1|28.4
+    hot_2020_08|2020-08-01 00:00:00|25.1|27.6
     ```
 
     ```python
-    print(tools.g_list(type="raster", pattern="warm*").text)
+    print(tools.g_list(type="raster", pattern="hot*", mapset=".").text)
     ```
 
     ```text
-    warm_2026_03_02
-    warm_2026_03_04
+    hot_2020_06
+    hot_2020_07
+    hot_2020_08
     ```
 
     ```python
     tools.t_rast_extract(
-        input="temperature",
-        output="warm_all",
-        basename="warm_all",
-        where="start_time >= '2026-03-02'",
-        expression="if(temperature > 6, temperature, null())",
+        input="temperature_monthly",
+        output="hot_all",
+        basename="hot_all",
+        where="start_time >= '2020-05-01' and start_time < '2020-10-01'",
+        expression="if(temperature_monthly > 25, temperature_monthly, null())",
         flags="n",
     )
-    print(tools.t_rast_list(input="warm_all", columns="name,start_time,min,max").text)
-    print(tools.g_list(type="raster", pattern="warm_all*").text)
+    print(tools.t_rast_list(input="hot_all", columns="name,start_time,min,max").text)
+    print(tools.g_list(type="raster", pattern="hot_all*", mapset=".").text)
     ```
 
     ```text
     name|start_time|min|max
-    warm_all_2026_03_02|2026-03-02 00:00:00|7.0|9.0
-    warm_all_2026_03_03|2026-03-03 00:00:00|None|None
-    warm_all_2026_03_04|2026-03-04 00:00:00|10.0|12.0
-    warm_all_2026_03_02
-    warm_all_2026_03_03
-    warm_all_2026_03_04
+    hot_all_2020_05|2020-05-01 00:00:00|None|None
+    hot_all_2020_06|2020-06-01 00:00:00|25.1|26.5
+    hot_all_2020_07|2020-07-01 00:00:00|25.1|28.4
+    hot_all_2020_08|2020-08-01 00:00:00|25.1|27.6
+    hot_all_2020_09|2020-09-01 00:00:00|None|None
+    hot_all_2020_05
+    hot_all_2020_06
+    hot_all_2020_07
+    hot_all_2020_08
+    hot_all_2020_09
     ```
 
 ### Name the new maps
 
 The option **suffix** chooses the end of the names. Each of the first three
-blocks copies the four maps of `temperature` with the expression `temperature`
-and lists the names: `time` gives the full start time, `num` a number of five
-digits and `num%03` a number of three digits.
+blocks copies the first four maps of `temperature_monthly`, January to April,
+with the expression `temperature_monthly` and lists the names: `time` gives the
+full start time, `num` a number of five digits and `num%03` a number of three
+digits.
 
-The dataset `pair` in the fourth block has two maps of the same day, `pair_a`
-with the value 1 and `pair_b` with the value 2. Their names from the
+The dataset `gauge_pair` in the fourth block has two maps of the same day,
+`gauge_a` with the value 1 and `gauge_b` with the value 2. Their names from the
 default suffix would be the same. The first map in the order of start time and
-map id, `pair_a`, keeps `ten_2026_06_01`; the second one becomes
+map id, `gauge_a`, keeps `ten_2026_06_01`; the second one becomes
 `ten_2026_06_01_2`. The values are 10 and 20.
 
 === "Command line"
 
     ```sh
-    t.rast.extract input=temperature output=by_time basename=by_time \
-        expression="temperature" suffix=time
+    t.rast.extract input=temperature_monthly output=by_time basename=by_time \
+        where="start_time < '2020-05-01'" expression="temperature_monthly" \
+        suffix=time
     t.rast.list input=by_time columns=name
     ```
 
     ```text
     name
-    by_time_2026_03_01T00_00_00
-    by_time_2026_03_02T00_00_00
-    by_time_2026_03_03T00_00_00
-    by_time_2026_03_04T00_00_00
+    by_time_2020_01_01T00_00_00
+    by_time_2020_02_01T00_00_00
+    by_time_2020_03_01T00_00_00
+    by_time_2020_04_01T00_00_00
     ```
 
     ```sh
-    t.rast.extract input=temperature output=by_number basename=by_number \
-        expression="temperature" suffix=num
+    t.rast.extract input=temperature_monthly output=by_number \
+        basename=by_number where="start_time < '2020-05-01'" \
+        expression="temperature_monthly" suffix=num
     t.rast.list input=by_number columns=name
     ```
 
@@ -450,8 +514,9 @@ map id, `pair_a`, keeps `ten_2026_06_01`; the second one becomes
     ```
 
     ```sh
-    t.rast.extract input=temperature output=by_width basename=by_width \
-        expression="temperature" suffix=num%03
+    t.rast.extract input=temperature_monthly output=by_width \
+        basename=by_width where="start_time < '2020-05-01'" \
+        expression="temperature_monthly" suffix=num%03
     t.rast.list input=by_width columns=name
     ```
 
@@ -464,14 +529,15 @@ map id, `pair_a`, keeps `ten_2026_06_01`; the second one becomes
     ```
 
     ```sh
-    r.mapcalc expression="pair_a = 1"
-    r.mapcalc expression="pair_b = 2"
-    t.create output=pair title="Two maps of one day" \
+    r.mapcalc expression="gauge_a = 1"
+    r.mapcalc expression="gauge_b = 2"
+    t.create output=gauge_pair title="Two maps of one day" \
         description="Two maps with the same time"
-    t.register input=pair maps=pair_a,pair_b start=2026-06-01 end=2026-06-02
-    t.rast.extract input=pair output=pair_ten basename=ten \
-        expression="pair * 10"
-    t.rast.list input=pair_ten columns=name,start_time,min order=name
+    t.register input=gauge_pair maps=gauge_a,gauge_b start=2026-06-01 \
+        end=2026-06-02
+    t.rast.extract input=gauge_pair output=gauge_ten basename=ten \
+        expression="gauge_pair * 10"
+    t.rast.list input=gauge_ten columns=name,start_time,min order=name
     ```
 
     ```text
@@ -484,10 +550,11 @@ map id, `pair_a`, keeps `ten_2026_06_01`; the second one becomes
 
     ```python
     tools.t_rast_extract(
-        input="temperature",
+        input="temperature_monthly",
         output="by_time",
         basename="by_time",
-        expression="temperature",
+        where="start_time < '2020-05-01'",
+        expression="temperature_monthly",
         suffix="time",
     )
     print(tools.t_rast_list(input="by_time", columns="name").text)
@@ -495,18 +562,19 @@ map id, `pair_a`, keeps `ten_2026_06_01`; the second one becomes
 
     ```text
     name
-    by_time_2026_03_01T00_00_00
-    by_time_2026_03_02T00_00_00
-    by_time_2026_03_03T00_00_00
-    by_time_2026_03_04T00_00_00
+    by_time_2020_01_01T00_00_00
+    by_time_2020_02_01T00_00_00
+    by_time_2020_03_01T00_00_00
+    by_time_2020_04_01T00_00_00
     ```
 
     ```python
     tools.t_rast_extract(
-        input="temperature",
+        input="temperature_monthly",
         output="by_number",
         basename="by_number",
-        expression="temperature",
+        where="start_time < '2020-05-01'",
+        expression="temperature_monthly",
         suffix="num",
     )
     print(tools.t_rast_list(input="by_number", columns="name").text)
@@ -522,10 +590,11 @@ map id, `pair_a`, keeps `ten_2026_06_01`; the second one becomes
 
     ```python
     tools.t_rast_extract(
-        input="temperature",
+        input="temperature_monthly",
         output="by_width",
         basename="by_width",
-        expression="temperature",
+        where="start_time < '2020-05-01'",
+        expression="temperature_monthly",
         suffix="num%03",
     )
     print(tools.t_rast_list(input="by_width", columns="name").text)
@@ -540,21 +609,27 @@ map id, `pair_a`, keeps `ten_2026_06_01`; the second one becomes
     ```
 
     ```python
-    tools.r_mapcalc(expression="pair_a = 1")
-    tools.r_mapcalc(expression="pair_b = 2")
+    tools.r_mapcalc(expression="gauge_a = 1")
+    tools.r_mapcalc(expression="gauge_b = 2")
     tools.t_create(
-        output="pair",
+        output="gauge_pair",
         title="Two maps of one day",
         description="Two maps with the same time",
     )
     tools.t_register(
-        input="pair", maps="pair_a,pair_b", start="2026-06-01", end="2026-06-02"
+        input="gauge_pair",
+        maps="gauge_a,gauge_b",
+        start="2026-06-01",
+        end="2026-06-02",
     )
     tools.t_rast_extract(
-        input="pair", output="pair_ten", basename="ten", expression="pair * 10"
+        input="gauge_pair",
+        output="gauge_ten",
+        basename="ten",
+        expression="gauge_pair * 10",
     )
     result = tools.t_rast_list(
-        input="pair_ten", columns="name,start_time,min", order="name"
+        input="gauge_ten", columns="name,start_time,min", order="name"
     )
     print(result.text)
     ```
@@ -732,11 +807,13 @@ gives the number as well.
 
 ### Extract from a dataset of another mapset
 
-The dataset `model` stays in the mapset `PERMANENT`. The first block creates
-the mapset `other`, switches to it and extracts with an expression. The name
-`model` in the expression stands for the maps of the dataset, though it has no
-mapset, and the output dataset `model_copy` and its maps `copy_00001` and
-`copy_00002` belong to `other`. The `id` column shows the mapset.
+The dataset `model` stays in the mapset `t_rast_extract`. The first block
+creates the mapset `t_rast_extract_2`, sets the same region, adds the first
+mapset to the search path so that its datasets can be read, and extracts with
+an expression. The name `model` in the expression stands for the maps of the
+dataset, though it has no mapset, and the output dataset `model_copy` and its
+maps `copy_00001` and `copy_00002` belong to `t_rast_extract_2`. The `id`
+column shows the mapset.
 
 The second block shows what happens without an expression. The call is
 refused, so the block prints `refused`. The refusal leaves the empty dataset
@@ -746,20 +823,22 @@ and *t.remove* removes it.
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=other
-    t.rast.extract input=model@PERMANENT output=model_copy basename=copy \
+    g.mapset -c mapset=t_rast_extract_2
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapsets mapset=t_rast_extract operation=add
+    t.rast.extract input=model@t_rast_extract output=model_copy basename=copy \
         expression="model" suffix=num
     t.rast.list input=model_copy columns=id,start_time,min
     ```
 
     ```text
     id|start_time|min
-    copy_00001@other|0|1.0
-    copy_00002@other|6|2.0
+    copy_00001@t_rast_extract_2|0|1.0
+    copy_00002@t_rast_extract_2|6|2.0
     ```
 
     ```sh
-    if t.rast.extract input=model@PERMANENT output=model_copy_empty \
+    if t.rast.extract input=model@t_rast_extract output=model_copy_empty \
         2>/dev/null; then echo extracted; else echo refused; fi
     t.info -g model_copy_empty | grep -E "^(id|number_of_maps)="
     t.remove -f type=strds inputs=model_copy_empty
@@ -767,7 +846,7 @@ and *t.remove* removes it.
 
     ```text
     refused
-    id=model_copy_empty@other
+    id=model_copy_empty@t_rast_extract_2
     number_of_maps=None
     ```
 
@@ -776,9 +855,11 @@ and *t.remove* removes it.
     ```python
     from grass.tools import ToolError
 
-    tools.g_mapset(mapset="other", flags="c")
+    tools.g_mapset(mapset="t_rast_extract_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapsets(mapset="t_rast_extract", operation="add")
     tools.t_rast_extract(
-        input="model@PERMANENT",
+        input="model@t_rast_extract",
         output="model_copy",
         basename="copy",
         expression="model",
@@ -789,13 +870,13 @@ and *t.remove* removes it.
 
     ```text
     id|start_time|min
-    copy_00001@other|0|1.0
-    copy_00002@other|6|2.0
+    copy_00001@t_rast_extract_2|0|1.0
+    copy_00002@t_rast_extract_2|6|2.0
     ```
 
     ```python
     try:
-        tools.t_rast_extract(input="model@PERMANENT", output="model_copy_empty")
+        tools.t_rast_extract(input="model@t_rast_extract", output="model_copy_empty")
     except ToolError:
         print("refused")
     else:
@@ -808,7 +889,7 @@ and *t.remove* removes it.
 
     ```text
     refused
-    id=model_copy_empty@other
+    id=model_copy_empty@t_rast_extract_2
     number_of_maps=None
     ```
 
