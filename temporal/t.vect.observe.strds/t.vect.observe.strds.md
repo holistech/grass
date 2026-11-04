@@ -38,7 +38,8 @@ With one dataset, a granule is a map of the dataset. With several datasets, the
 granules are the maps of the first dataset, and the run observes a granule only
 if every other dataset has a map with the same time; a granule for which one
 dataset has no map is left out. If a dataset has several maps with that time,
-only one of them is used. The datasets must have the same temporal type,
+the module warns, naming the granule and the dataset, and uses the first of
+them. The datasets must have the same temporal type,
 and the first dataset needs maps with intervals. All datasets are sampled
 as they are, over their whole temporal extent.
 
@@ -63,35 +64,36 @@ with where`, again before anything is written.
 
 If a column named in **columns** exists in the table of a layer of the input
 map, the module stops with an error that names the column and advises the
-overwrite flag. With **--overwrite** it keeps the column and replaces its values
-with the sampled ones, but a point that is not sampled (a point outside the
-region) keeps its old value; a point on a cell without a value gets a NULL.
+overwrite flag. With **--overwrite** it keeps the column, sets it to NULL in
+every row of the output map first and then writes the sampled values, so a point
+that is not sampled, outside the region or on a cell without a value, gets a
+NULL as well. The input map keeps its values.
 A name that differs from such a column only in upper and lower case (`Altitude`
 for `altitude`) is refused, with and without **--overwrite**, before the output
 map is made, with a message that names both spellings.
 
 If a run fails with an error message, the module removes the vector map and the
-space time vector dataset that it made, so nothing is left behind. The
-exception is a **where** that selects no point, see below. With
+space time vector dataset that it made, so nothing is left behind. With
 **--overwrite** the previous output map and dataset of the same names have
 already been replaced when the run fails, so they are gone as well and are not
-restored. Without
-**--overwrite** an existing output is refused before anything is made and stays
-as it was. To keep a result, give the new run another name.
+restored. Without **--overwrite** an existing output is refused before anything
+is made and stays as it was. To keep a result, give the new run another name.
 
-If **where** selects no point, the module ends with a Python error
-(`KeyError: 1`) and leaves the empty output vector map behind; it makes no
-space time vector dataset. Remove the map with *[g.remove](g.remove.md)*, or
-check the condition on the table of the input with
-*[v.db.select](v.db.select.md)* first. The second block of the example
-"Observe a selection of the points" shows it.
+If **where** selects no point, the module stops with the message `The where
+option selects no point of vector map <name>`. It makes no output vector map and
+no space time vector dataset. The second block of the example "Observe a
+selection of the points" shows it.
 
 If several datasets are given and no map of the first dataset has a map with
-the same time in every other dataset, the module ends without a message and
-with the return code 0. It makes an empty space time vector dataset and a vector
-map that has only layer 1. Check the result with *[t.info](t.info.md)* if the
-datasets may not share a granule. The third block of the example "Observe
-several raster datasets" shows it.
+the same time in every other dataset, the module ends with the return code 0
+and a warning that no granule has a map in each of the datasets. It writes
+nothing: no space time vector dataset and no vector map are made, and an output
+of the same names that exists stays as it is. The third block of the example
+"Observe several raster datasets" shows it.
+
+The names in **columns** must differ, whatever the case of the letters. A name
+that is given twice stops the module with the message `The column names must be
+different` before anything is written.
 
 The module stops with an error, among others, for these reasons:
 
@@ -358,14 +360,14 @@ integer maps of `precipitation_monthly`.
 
 The third block adds the dataset `shifted` with one map from noon of 15
 January to noon of 15 February 2020. No map of `shifted` has the time of a map
-of `temperature_monthly`, so no granule is left: the module ends without a
-message and the new dataset `none` has no map (`number_of_maps=0`); the vector
-map `none_points` exists, with layer 1 only. The fourth block adds the dataset
-`twin` with the two maps `twin_a` (the value 1) and `twin_b` (the value 2) for
-January. The column `two` gets the value of one of them, here 1, for the points
-in the region, also for the fourth point on the Outer Banks, where the
-temperature is null: the constant maps have a value in every cell of the region.
-The other map is not used.
+of `temperature_monthly`, so no granule is left: the module warns and writes
+nothing, neither the dataset `none` nor the vector map `none_points`. The
+fourth block adds the dataset `twin` with the two maps `twin_a` (the value 1)
+and `twin_b` (the value 2) for January. The module warns that `twin` has two
+maps for the granule and uses the first one, `twin_a`. The column `two` gets
+its value 1 for the points in the region, also for the fourth point on the Outer
+Banks, where the temperature is null: the constant maps have a value in every
+cell of the region.
 
 === "Command line"
 
@@ -427,14 +429,15 @@ The other map is not used.
     t.register input=shifted maps=shifted_1 \
         start="2020-01-15 12:00:00" end="2020-02-15 12:00:00"
     t.vect.observe.strds input=stations strds=temperature_monthly,shifted \
-        output=none vector_output=none_points columns=temp,shifted
-    t.info -g type=stvds input=none | grep -E "^number_of_maps="
+        output=none vector_output=none_points columns=temp,shifted 2>&1 |
+        sed -n '/^WARNING/,$p'
     g.list type=vector pattern=none_points
     ```
 
     ```text
-    number_of_maps=0
-    none_points
+    WARNING: No granule of space time raster dataset
+             <temperature_monthly@t_vect_observe_strds> has a map in each of
+             the datasets, nothing is written
     ```
 
     ```sh
@@ -443,11 +446,15 @@ The other map is not used.
     t.create output=twin title="Twin" description="Two maps for one month"
     t.register input=twin maps=twin_a,twin_b start=2020-01-01 end=2020-02-01
     t.vect.observe.strds input=stations strds=temperature_monthly,twin \
-        output=obs_twin vector_output=obs_twin_points columns=temp,two
+        output=obs_twin vector_output=obs_twin_points columns=temp,two 2>&1 |
+        sed -n '/^WARNING: Granule/,/is used$/p'
     v.db.select map=obs_twin_points layer=1
     ```
 
     ```text
+    WARNING: Granule 2020-01-01 00:00:00 - 2020-02-01 00:00:00: space time
+             raster dataset <twin> has 2 maps, only
+             <twin_a@t_vect_observe_strds> is used
     cat|x|y|altitude|temp|two
     1|500657|183601|186|4.7|1
     2|169208|171737|533|2.4|1
@@ -532,21 +539,28 @@ The other map is not used.
         start="2020-01-15 12:00:00",
         end="2020-02-15 12:00:00",
     )
-    tools.t_vect_observe_strds(
+    import re
+
+    from grass.tools import Tools
+
+    # A tool without output returns None, unless the result object is requested.
+    with_result = Tools(consistent_return_value=True)
+    result = with_result.t_vect_observe_strds(
         input="stations",
         strds="temperature_monthly,shifted",
         output="none",
         vector_output="none_points",
         columns="temp,shifted",
     )
-    info = tools.t_info(type="stvds", input="none", flags="g").keyval
-    print(f"number_of_maps={info['number_of_maps']}")
-    print(tools.g_list(type="vector", pattern="none_points").text)
+    print(result.stderr.strip())
+    print(with_result.g_list(type="vector", pattern="none_points").stdout.split())
     ```
 
     ```text
-    number_of_maps=0
-    none_points
+    WARNING: No granule of space time raster dataset
+             <temperature_monthly@t_vect_observe_strds> has a map in each of
+             the datasets, nothing is written
+    []
     ```
 
     ```python
@@ -556,17 +570,21 @@ The other map is not used.
     tools.t_register(
         input="twin", maps="twin_a,twin_b", start="2020-01-01", end="2020-02-01"
     )
-    tools.t_vect_observe_strds(
+    result = with_result.t_vect_observe_strds(
         input="stations",
         strds="temperature_monthly,twin",
         output="obs_twin",
         vector_output="obs_twin_points",
         columns="temp,two",
     )
+    print(re.search(r"WARNING: Granule.*?is used", result.stderr, re.DOTALL).group())
     print(tools.v_db_select(map="obs_twin_points", layer=1).text)
     ```
 
     ```text
+    WARNING: Granule 2020-01-01 00:00:00 - 2020-02-01 00:00:00: space time
+             raster dataset <twin> has 2 maps, only
+             <twin_a@t_vect_observe_strds> is used
     cat|x|y|altitude|temp|two
     1|500657|183601|186|4.7|1
     2|169208|171737|533|2.4|1
@@ -583,8 +601,8 @@ points, in every layer, with the categories they have in the input. The values
 are those of the first example. The layer 1 of the output keeps the layer name
 `stations`.
 
-The second block uses a condition that selects no point. The module ends with a
-Python error, `KeyError: 1`, and the empty vector map `nowhere_points` stays.
+The second block uses a condition that selects no point. The module stops with
+an error and makes neither the vector map `nowhere_points` nor a dataset.
 
 === "Command line"
 
@@ -614,22 +632,21 @@ Python error, `KeyError: 1`, and the empty vector map `nowhere_points` stays.
     ```sh
     if ! (t.vect.observe.strds input=stations strds=temperature_monthly \
         output=nowhere vector_output=nowhere_points columns=temp \
-        where="altitude > 900" 2>&1 | grep -E "^KeyError"); then
+        where="altitude > 900" 2>&1 | sed -n '/^ERROR/,$p'); then
         echo "t.vect.observe.strds failed"
     fi
     g.list type=vector pattern=nowhere_points
     ```
 
     ```text
-    KeyError: 1
+    ERROR: The where option selects no point of vector map <stations>
     t.vect.observe.strds failed
-    nowhere_points
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    from grass.tools import ToolError
+    from grass.tools import Tools, ToolError
 
     tools.t_vect_observe_strds(
         input="stations",
@@ -670,15 +687,18 @@ Python error, `KeyError: 1`, and the empty vector map `nowhere_points` stays.
             where="altitude > 900",
         )
     except ToolError as error:
-        print(error.stderr.strip().splitlines()[-1])
+        lines = error.stderr.strip().splitlines()
+        first = [line.startswith("ERROR") for line in lines].index(True)
+        print("\n".join(lines[first:]))
         print("t.vect.observe.strds failed")
-    print(tools.g_list(type="vector", pattern="nowhere_points").text)
+    with_result = Tools(consistent_return_value=True)
+    print(with_result.g_list(type="vector", pattern="nowhere_points").stdout.split())
     ```
 
     ```text
-    KeyError: 1
+    ERROR: The where option selects no point of vector map <stations>
     t.vect.observe.strds failed
-    nowhere_points
+    []
     ```
 
 ### Use the name of a column that the input has
@@ -687,10 +707,10 @@ The column `altitude` exists in the table of `stations`. The first block shows
 that the module refuses it and prints the error. With **--overwrite** (second
 block) the module writes the sampled values into the existing column of layer 1
 and the layers 2 and 3 get a column with that name. The fifth point lies
-outside the region, is not sampled and keeps the altitude 50; the fourth point
-lies on a cell without a value and gets a NULL. The third block shows that
-`Altitude` is refused, with **--overwrite** too, because it differs from
-`altitude` only in the case of a letter.
+outside the region, and the fourth point lies on a cell without a value: both
+get a NULL, because the column is emptied before the values are written. The
+third block shows that `Altitude` is refused, with **--overwrite** too, because
+it differs from `altitude` only in the case of a letter.
 
 === "Command line"
 
@@ -723,7 +743,7 @@ lies on a cell without a value and gets a NULL. The third block shows that
     2|169208|171737|2.4
     3|701031|282371|4.2
     4|917005|169684|
-    5|100000|170000|50
+    5|100000|170000|
     cat|altitude
     1|9
     2|6.7
@@ -790,7 +810,7 @@ lies on a cell without a value and gets a NULL. The third block shows that
     2|169208|171737|2.4
     3|701031|282371|4.2
     4|917005|169684|
-    5|100000|170000|50
+    5|100000|170000|
     cat|altitude
     1|9
     2|6.7

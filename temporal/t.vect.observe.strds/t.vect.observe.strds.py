@@ -161,7 +161,10 @@ def granule_samples(strds_names, first_strds, dbif):
     for i in range(len(mapmatrizes[0])):
         isvalid = True
         mapname_list = []
-        for mapmatrix in mapmatrizes:
+        # Collected, because a granule that a later dataset lacks is dropped
+        # and must not warn.
+        several = []
+        for index, mapmatrix in enumerate(mapmatrizes):
             entry = mapmatrix[i]
 
             if entry["samples"]:
@@ -171,12 +174,23 @@ def granule_samples(strds_names, first_strds, dbif):
                     isvalid = False
                     break
                 mapname_list.append(name)
+                if len(entry["samples"]) > 1:
+                    several.append((strds_names[index], len(entry["samples"]), name))
 
         if isvalid:
             entry = mapmatrizes[0][i]
             map = entry["granule"]
 
             start, end = map.get_temporal_extent_as_tuple()
+            for dataset, count, used in several:
+                gs.warning(
+                    _(
+                        "Granule {start} - {end}: space time raster dataset "
+                        "<{dataset}> has {count} maps, only <{used}> is used"
+                    ).format(
+                        start=start, end=end, dataset=dataset, count=count, used=used
+                    )
+                )
             s = Sample(start, end, mapname_list)
             samples.append(s)
     return samples
@@ -209,6 +223,14 @@ def select_points(input, where, dbif):
         name=selected,
         quiet=True,
     )
+    # An empty selection has no layer 1, which the output needs; it would end
+    # in a KeyError after the output map was made.
+    topology = gs.vector_info_topo(selected)
+    if topology["points"] + topology["centroids"] == 0:
+        dbif.close()
+        gs.fatal(
+            _("The where option selects no point of vector map <{}>").format(input)
+        )
     return selected
 
 
@@ -327,6 +349,35 @@ def column_definitions(raster_names, column_names):
     return column_defs
 
 
+def set_to_null(vectmap, layer, columns):
+    """Set the columns of the table of layer to NULL in every row
+
+    v.what.rast leaves the value of a point alone that it does not sample
+    (outside the region or on a null cell). A column that the input table
+    had keeps its old value there, so it is emptied before the raster maps
+    are read.
+    """
+    if not columns:
+        return
+    connection = gs.vector.vector_db(vectmap)[layer]
+    assignments = ", ".join(f'"{column}" = NULL' for column in columns)
+    try:
+        gs.run_command(
+            "db.execute",
+            # The names are those the database reported, quoted; v.db.update
+            # would store the text NULL in a text column.
+            sql=f'UPDATE "{connection["table"]}" SET {assignments}',  # noqa: S608
+            database=connection["database"],
+            driver=connection["driver"],
+        )
+    except CalledModuleError:
+        gs.fatal(
+            _(
+                "Unable to set the columns {} of vector map <{}> with layer {} to NULL"
+            ).format(", ".join(columns), vectmap, layer)
+        )
+
+
 def add_columns(vectmap, layer, column_defs, vector_db, overwrite):
     """Add the columns to the table of layer, or add a table with them
 
@@ -337,7 +388,10 @@ def add_columns(vectmap, layer, column_defs, vector_db, overwrite):
     if vector_db and layer in vector_db and vector_db[layer]["table"]:
         # v.db.addcolumn only prints an error for a column that the
         # table has and the run would go on and replace its values
-        present = {column.lower() for column in gs.vector_columns(vectmap, layer=layer)}
+        present = {
+            column.lower(): column for column in gs.vector_columns(vectmap, layer=layer)
+        }
+        replaced = []
         for column in column_defs.copy():
             if column.lower() not in present:
                 continue
@@ -350,6 +404,8 @@ def add_columns(vectmap, layer, column_defs, vector_db, overwrite):
                     ).format(column=column, vector=vectmap, layer=layer)
                 )
             del column_defs[column]
+            replaced.append(present[column.lower()])
+        set_to_null(vectmap, layer, replaced)
         columns_string = ",".join(column_defs.values())
         if columns_string:
             try:
@@ -512,6 +568,17 @@ def main():
             )
         )
 
+    seen = set()
+    for column in column_names:
+        # The tables compare column names without regard to case.
+        if column.lower() in seen:
+            gs.fatal(
+                _("The column names must be different: <{}> is given twice").format(
+                    column
+                )
+            )
+        seen.add(column.lower())
+
     input_db = check_input(input, where)
 
     # Make sure the temporal database exists
@@ -530,6 +597,15 @@ def main():
         samples = single_samples(first_strds, dbif)
     else:
         samples = granule_samples(strds_names, first_strds, dbif)
+        if not samples:
+            gs.warning(
+                _(
+                    "No granule of space time raster dataset <{}> has a map in "
+                    "each of the datasets, nothing is written"
+                ).format(first_strds.get_id())
+            )
+            dbif.close()
+            return
 
     points = select_points(input, where, dbif)
 
