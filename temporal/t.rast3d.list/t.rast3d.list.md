@@ -1195,18 +1195,19 @@ dataset, 6 hours.
 
 *t.rast3d.list* reads a dataset of another mapset. The new mapset
 `t_rast3d_list_2` starts with the default region of the dataset, cells of
-500 m, so the example sets the region of the first example again. *g.mapsets*
-adds the mapset `t_rast3d_list`, which holds the dataset `temperature_profile`,
-to the search path of the new mapset, and the dataset is named with its
-mapset. In the second block, *g.mapsets* shows the search path,
-and the name `temperature_profile` without a mapset finds the same dataset.
+500 m, so the example sets the region of the first example again. The mapset
+`t_rast3d_list` holds the dataset `temperature_profile`; it is not in the search
+path of the new mapset, and the dataset is named with its mapset. In the second
+block, *g.mapsets* adds `t_rast3d_list` to the search path and shows it, because
+a name without a mapset is searched only there (see
+[Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)); the name
+`temperature_profile` then finds the same dataset.
 
 === "Command line"
 
     ```sh
     g.mapset -c mapset=t_rast3d_list_2
     g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
-    g.mapsets mapset=t_rast3d_list operation=add
     t.rast3d.list input=temperature_profile@t_rast3d_list \
         columns=id,start_time where="start_time < '2020-03-01'"
     ```
@@ -1218,6 +1219,7 @@ and the name `temperature_profile` without a mapset finds the same dataset.
     ```
 
     ```sh
+    g.mapsets mapset=t_rast3d_list operation=add
     g.mapsets -p
     t.rast3d.list input=temperature_profile columns=id,start_time \
         where="start_time < '2020-03-01'"
@@ -1237,7 +1239,6 @@ and the name `temperature_profile` without a mapset finds the same dataset.
     tools.g_region(
         raster="elev_state_500m", res=1000, res3=1000, t=3000, b=0, tbres=1000, flags="a"
     )
-    tools.g_mapsets(mapset="t_rast3d_list", operation="add")
     result = tools.t_rast3d_list(
         input="temperature_profile@t_rast3d_list",
         columns="id,start_time",
@@ -1253,6 +1254,7 @@ and the name `temperature_profile` without a mapset finds the same dataset.
     ```
 
     ```python
+    tools.g_mapsets(mapset="t_rast3d_list", operation="add")
     print(tools.g_mapsets(flags="p").text)
     result = tools.t_rast3d_list(
         input="temperature_profile",

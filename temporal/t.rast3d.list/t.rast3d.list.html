@@ -1210,18 +1210,19 @@ runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|18|6|12
 
 <em>t.rast3d.list</em> reads a dataset of another mapset. The new mapset
 <code>t_rast3d_list_2</code> starts with the default region of the dataset, cells of
-500 m, so the example sets the region of the first example again. <em>g.mapsets</em>
-adds the mapset <code>t_rast3d_list</code>, which holds the dataset <code>temperature_profile</code>,
-to the search path of the new mapset, and the dataset is named with its
-mapset. In the second block, <em>g.mapsets</em> shows the search path,
-and the name <code>temperature_profile</code> without a mapset finds the same dataset.
+500 m, so the example sets the region of the first example again. The mapset
+<code>t_rast3d_list</code> holds the dataset <code>temperature_profile</code>; it is not in the search
+path of the new mapset, and the dataset is named with its mapset. In the second
+block, <em>g.mapsets</em> adds <code>t_rast3d_list</code> to the search path and shows it, because
+a name without a mapset is searched only there (see
+<a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other mapsets</a>); the name
+<code>temperature_profile</code> then finds the same dataset.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
 g.mapset -c mapset=t_rast3d_list_2
 g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
-g.mapsets mapset=t_rast3d_list operation=add
 t.rast3d.list input=temperature_profile@t_rast3d_list \
     columns=id,start_time where="start_time &lt; '2020-03-01'"
 </pre></div>
@@ -1233,6 +1234,7 @@ temperature_profile_2020_02@t_rast3d_list|2020-02-01 00:00:00
 </pre></div>
 
 <div class="code"><pre>
+g.mapsets mapset=t_rast3d_list operation=add
 g.mapsets -p
 t.rast3d.list input=temperature_profile columns=id,start_time \
     where="start_time &lt; '2020-03-01'"
@@ -1252,7 +1254,6 @@ tools.g_mapset(flags="c", mapset="t_rast3d_list_2")
 tools.g_region(
     raster="elev_state_500m", res=1000, res3=1000, t=3000, b=0, tbres=1000, flags="a"
 )
-tools.g_mapsets(mapset="t_rast3d_list", operation="add")
 result = tools.t_rast3d_list(
     input="temperature_profile@t_rast3d_list",
     columns="id,start_time",
@@ -1268,6 +1269,7 @@ temperature_profile_2020_02@t_rast3d_list|2020-02-01 00:00:00
 </pre></div>
 
 <div class="code"><pre>
+tools.g_mapsets(mapset="t_rast3d_list", operation="add")
 print(tools.g_mapsets(flags="p").text)
 result = tools.t_rast3d_list(
     input="temperature_profile",
