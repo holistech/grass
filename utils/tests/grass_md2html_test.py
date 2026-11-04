@@ -71,7 +71,7 @@ def test_bullet_list():
     html = convert(
         """
         - `strds`, raster
-          maps;
+            maps;
         - `stvds`, vector maps.
         """
     )
@@ -86,13 +86,13 @@ def test_ordered_list_with_paragraph_and_code_in_an_item():
         """
         1. **First.** Text:
 
-           ```sh
-           C = A
-           ```
+            ```sh
+            C = A
+            ```
 
         2. **Second.**
 
-           More text.
+            More text.
         """
     )
     assert html == (
@@ -112,13 +112,120 @@ def test_nested_list():
         """
         - outer
 
-          - inner
+            - inner
         - next
         """
     )
     assert html == (
         "<ul>\n<li>outer\n\n<ul>\n<li>inner</li>\n</ul>\n</li>\n<li>next</li>\n</ul>\n"
     )
+
+
+@pytest.mark.parametrize("marker", ["-", "1."])
+@pytest.mark.parametrize("blanks", [1, 2, 3, 5, 6, 7])
+def test_list_content_indented_wrongly_is_refused(marker, blanks):
+    """Python-Markdown (MkDocs) counts list content from four blanks on"""
+    error = refusal(f"{marker} item\n\n{' ' * blanks}more text\n")
+    assert (error.path, error.line) == ("manual.md", 3)
+    assert "list content must be indented by 4 spaces per level" in str(error)
+
+
+@pytest.mark.parametrize("marker", ["-", "1."])
+@pytest.mark.parametrize("blanks", [2, 3])
+def test_list_code_fence_indented_wrongly_is_refused(marker, blanks):
+    pad = " " * blanks
+    error = refusal(f"{marker} item:\n\n{pad}```sh\n{pad}C = A\n{pad}```\n")
+    assert (error.path, error.line) == ("manual.md", 3)
+    assert "list content must be indented by 4 spaces per level" in str(error)
+
+
+def test_list_closing_fence_indented_wrongly_is_refused():
+    error = refusal("- item:\n\n    ```sh\n    C = A\n  ```\n")
+    assert (error.path, error.line) == ("manual.md", 5)
+    assert "list content must be indented by 4 spaces per level" in str(error)
+
+
+@pytest.mark.parametrize("marker", ["-", "1."])
+def test_list_content_indented_by_four_spaces_is_accepted(marker):
+    html = convert(f"{marker} item:\n\n    ```sh\n    C = A\n    ```\n\n    More.\n")
+    assert '<div class="code"><pre>\nC = A\n</pre></div>' in html
+    assert html.count("<li>") == 1
+
+
+def test_code_lines_in_a_list_fence_are_not_checked():
+    """A code line may have any indentation; only the fences are checked"""
+    html = convert("- item:\n\n    ```sh\n    C = A\n      + B\n   odd\n    ```\n")
+    assert "C = A\n  + B\nodd\n" in html
+
+
+def test_nested_list_content_indented_by_eight_spaces_is_accepted():
+    html = convert(
+        "- outer\n\n    - inner\n\n        ```sh\n        C = A\n        ```\n"
+    )
+    assert html.count("<ul>") == 2
+    assert '<div class="code"><pre>\nC = A\n</pre></div>' in html
+
+
+def test_nested_list_content_indented_by_six_spaces_is_refused():
+    error = refusal("- outer\n\n    - inner\n\n      text\n")
+    assert (error.path, error.line) == ("manual.md", 5)
+    assert "list content must be indented by 4 spaces per level" in str(error)
+
+
+def test_tab_inside_list_item():
+    html = convert(
+        "1. Run:\n\n"
+        '    === "Command line"\n\n'
+        "        ```sh\n        t.info input=A\n        ```\n"
+    )
+    assert html == (
+        "<ol>\n<li>Run:\n\n<p>Command line:</p>\n\n"
+        '<div class="code"><pre>\nt.info input=A\n</pre></div>\n</li>\n</ol>\n'
+    )
+
+
+@pytest.mark.parametrize("first", ["2", "1900"])
+@pytest.mark.parametrize("blanks", [2, 3, 4])
+@pytest.mark.parametrize("marker", ["-", "1."])
+def test_wrapped_line_starting_with_number_and_dot_is_refused(marker, blanks, first):
+    """CommonMark joins it to the paragraph, Python-Markdown makes it a list item"""
+    error = refusal(f"{marker} year -\n{' ' * blanks}{first}. x\n")
+    assert (error.path, error.line) == ("manual.md", 2)
+    assert "must not start with a number and a dot" in str(error)
+
+
+def test_ordered_list_continues_its_numbers_after_a_code_block():
+    html = convert(
+        """
+        1. One:
+
+            ```sh
+            A
+            ```
+
+        2. Two:
+
+            ```sh
+            B
+            ```
+
+        3. Three.
+        """
+    )
+    assert html.startswith("<ol>\n")
+    assert html.count("<ol") == 1
+    assert html.count("<li>") == 3
+
+
+def test_wrapped_item_text_is_not_checked():
+    """A line that continues a paragraph is joined to it by both parsers"""
+    html = convert("- first line\n  second line\n   third line\n- next\n")
+    assert "<li>first line\nsecond line\nthird line</li>" in html
+
+
+def test_wrapped_item_text_starting_with_a_number_is_not_checked():
+    html = convert("- the year (year -\n  1900) * 12\n")
+    assert "<li>the year (year -\n1900) * 12</li>" in html
 
 
 def test_wrapped_number_with_dot_stays_text():

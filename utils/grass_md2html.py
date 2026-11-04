@@ -28,8 +28,9 @@ CommonMark does, with the tables of GitHub Flavored Markdown and the tabs of
 MkDocs Material. MkDocs reads Markdown with Python-Markdown, which differs
 from CommonMark: it counts the content of a list item only from an
 indentation of four blanks on, so a code block indented by two or three
-blanks under a list item is part of the item here and not in MkDocs. The
-subset:
+blanks under a list item is part of the item for CommonMark and not for
+MkDocs. Content of a list item is therefore indented by four blanks per
+level, and any other indentation is refused. The subset:
 
 - YAML front matter with ``description`` and ``index`` (introduction pages),
   written as the ``<!-- meta page ... -->`` comments of utils/mkhtml.py; the
@@ -314,6 +315,7 @@ class _BlockParser:
                     item_number, "more than four blanks after a list marker"
                 )
             content, end = _indented(lines, index + 1, width)
+            self._refuse_misindented_content(lines, index + 1, item_text)
             self._refuse_lazy_lines(lines, end)
             items.append(self.parse([(item_number, item.group(5)), *content]))
             index = end
@@ -323,6 +325,72 @@ class _BlockParser:
         start = 1 if bullet else int(first.group(2))
         blocks.append(("list", bullet is None, start, items, number))
         return index
+
+    def _refuse_misindented_content(self, lines, index, item_text):
+        """Refuse content of a list item that is not indented by a multiple
+        of four blanks right of the marker in *item_text*
+
+        The item reaches to the first line that is not blank and not indented
+        deeper than the marker, as only such lines can be read as its content
+        by one of the two parsers.
+
+        Python-Markdown (MkDocs) counts the content of a list item only from
+        four blanks on, CommonMark from the width of the marker; they read
+        any other indentation as different blocks. Lines inside a fenced
+        code block are code and not checked, only the fence lines are. A line
+        that continues the paragraph above it is not checked either: both
+        parsers join it to the paragraph whatever its indentation, and the
+        manuals wrap the text of an item at the width of its marker. The
+        exception is a continuation line that starts with a number other
+        than 1 and a dot: CommonMark joins it to the paragraph, Python-Markdown
+        starts a new list item, so it is refused.
+        """
+        base = len(item_text) - len(item_text.lstrip(" "))
+        in_fence = False
+        # The item text itself is the first line of a paragraph.
+        in_paragraph = True
+        for number, text in lines[index:]:
+            if not text.strip():
+                in_paragraph = False
+                continue
+            relative = len(text) - len(text.lstrip(" ")) - base
+            if relative <= 0:
+                break
+            stripped = text.lstrip(" ")
+            is_fence = stripped.startswith("```")
+            if in_fence and not is_fence:
+                continue
+            if is_fence:
+                in_fence = not in_fence
+            marker = LIST_ITEM.match(stripped)
+            if (
+                in_paragraph
+                and not is_fence
+                and marker
+                and marker.group(3) == "."
+                and marker.group(2) != "1"
+            ):
+                # CommonMark joins "2. x" to the paragraph above, as only the
+                # number 1 interrupts one; Python-Markdown starts a list item.
+                raise self.error(
+                    number,
+                    "a wrapped line must not start with a number and a dot "
+                    "(Python-Markdown reads it as a list item); reflow the text",
+                )
+            # As in _starts_block, only a bullet or the number 1 interrupts a
+            # paragraph; "1900) * 12" wrapped to a line start does not.
+            continues = (
+                in_paragraph
+                and not is_fence
+                and not (marker and marker.group(2) in {None, "1"})
+            )
+            in_paragraph = not is_fence
+            if relative % 4 and not continues:
+                raise self.error(
+                    number,
+                    f"list content must be indented by 4 spaces per level, "
+                    f"not by {relative} right of the list marker",
+                )
 
     def _refuse_lazy_lines(self, lines, end):
         """A line right after a list item that is less indented than its
