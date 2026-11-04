@@ -57,9 +57,9 @@ takes the maps of a window in the order of their start time.
 
 The relations apply only to a STRDS whose maps are all intervals. If the STRDS
 has time instants, or instants and intervals, **sampling** has no effect: the
-tool always takes the raster maps that start inside the window, as `start`
-does, even with `contain`, which no instant can satisfy. The fourth example
-shows it.
+tool takes the raster maps that start inside the window, as `start` does, even
+with `contain`, which no instant can satisfy. A **sampling** other than `start`
+is then ignored with a warning. The fourth example shows it.
 
 ### Choose the columns
 
@@ -118,8 +118,9 @@ the methods give:
 - `quart1` 236, `quart3` 286 and `perc90` 301: quantiles interpolated between
   the sorted values by the rule of Hyndman and Fan, type 7, at position
   `q * (n - 1)`;
-- `quantile` 211: the tool has no option for the quantile, so this is the
-  smallest value;
+- `quantile` 261, 236 for **quantile**`=0.25`: the quantile that the option
+  **quantile** names, interpolated as for `quart1`; the default is 0.5, the
+  median;
 - `skewness` 0 and `kurtosis` -2: the skewness and the excess kurtosis of the
   two values.
 
@@ -147,7 +148,8 @@ is refused, with and without **--overwrite**, before anything is written.
 The tool stops with an error if a required option is missing, if **method** or
 **sampling** has a value outside the lists above, if a dataset does not exist,
 if the two datasets differ in their temporal type ("Input and aggregation
-dataset must have the same temporal type"), if a map of the STVDS has a time
+dataset must have the same temporal type") or, with relative time, in their
+unit ("The unit ... differs from the unit ..."), if a map of the STVDS has a time
 instant ("All registered maps of the space time vector dataset must have time
 intervals"), and if the STVDS is empty or **t_where** selects no map ("is
 empty"). A **where** or **t_where** with a syntax error is reported as a
@@ -156,13 +158,17 @@ t_where condition <...>`), not as a traceback.
 
 Relative time works as absolute time does; the sixth example shows it. The
 relations of **sampling** then compare the start and end numbers of the maps.
-The tool neither converts nor checks the units: use the same unit in both
-datasets. With a STRDS in hours and a vector map from 0 to 2 days, the tool
-compares 0 to 2 with the hours and takes the maps of the first two hours only,
-not those of 48 hours; the last block of the sixth example shows it.
+The tool does not convert units: both datasets must have the same unit. With a
+STRDS in hours and a vector map from 0 to 2 days, the tool would compare 0 to 2
+with the hours and take the maps of the first two hours only, not those of 48
+hours, so it stops with an error that names both units before it writes
+anything; the last block of the sixth example shows it.
 
-With `method=quantile` the tool gives the smallest value, as it has no option
-for the quantile that *r.series* would need.
+The option **quantile** (0 to 1, default 0.5) names the quantile of
+`method=quantile` and is ignored by the other methods. The aggregate goes to the
+column `<strds>_quantile` whatever its value, so a second run with another
+quantile needs **--overwrite** or another **column**; the example "Aggregate the
+raster maps of an interval" runs it.
 
 ## EXAMPLES
 
@@ -258,6 +264,8 @@ and `stations_feb_mar`.
 === "Python (grass.tools)"
 
     ```python
+    import re
+
     from grass.tools import Tools
 
     tools = Tools()
@@ -433,6 +441,11 @@ for the station 1. `stations_jan` has one raster map in its interval, which is
 not aggregated: its column holds the values of the map of January, 133 for the
 station 1. The description lists the values of the other methods.
 
+The third call uses **method**`=quantile` with **quantile**`=0.75` for
+`stations_feb_mar` and the column `upper`. With the two values 110 and 157 of
+the station 1 the quantile lies three quarters of the way from the first to the
+second: 110 + 0.75 (157 - 110) = 145.25.
+
 === "Command line"
 
     ```sh
@@ -454,6 +467,9 @@ station 1. The description lists the values of the other methods.
         method=sum
     v.db.select map=stations_feb_mar columns=cat,station,total
     v.db.select map=stations_jan columns=cat,station,total
+    t.vect.what.strds input=stations strds=precipitation_monthly column=upper \
+        method=quantile quantile=0.75 t_where="name = 'stations_feb_mar'"
+    v.db.select map=stations_feb_mar columns=cat,station,upper
     ```
 
     ```text
@@ -467,6 +483,11 @@ station 1. The description lists the values of the other methods.
     2|310184|219
     3|310241|120
     4|310286|135
+    cat|station|upper
+    1|310090|145.25
+    2|310184|237
+    3|310241|137.25
+    4|310286|144.5
     ```
 
 === "Python (grass.tools)"
@@ -499,6 +520,15 @@ station 1. The description lists the values of the other methods.
     )
     print(tools.v_db_select(map="stations_feb_mar", columns="cat,station,total").text)
     print(tools.v_db_select(map="stations_jan", columns="cat,station,total").text)
+    tools.t_vect_what_strds(
+        input="stations",
+        strds="precipitation_monthly",
+        column="upper",
+        method="quantile",
+        quantile=0.75,
+        t_where="name = 'stations_feb_mar'",
+    )
+    print(tools.v_db_select(map="stations_feb_mar", columns="cat,station,upper").text)
     ```
 
     ```text
@@ -512,6 +542,11 @@ station 1. The description lists the values of the other methods.
     2|310184|219
     3|310241|120
     4|310286|135
+    cat|station|upper
+    1|310090|145.25
+    2|310184|237
+    3|310241|137.25
+    4|310286|144.5
     ```
 
 ### Choose the raster maps by their relation to the interval
@@ -542,7 +577,8 @@ Compare the rows of a window in the output:
 The last block uses a dataset `moisture` of two time instants, 5 and 25 March
 2026, with constant maps, and a window from 1 March to 1 April 2026. No instant
 can contain a window, but with **sampling**`=contain` the tool writes both
-columns: a STRDS with time instants is always sampled as with `start`.
+columns, and warns that it uses `start`: a STRDS with time instants is always
+sampled as with `start`.
 
 === "Command line"
 
@@ -612,11 +648,15 @@ columns: a STRDS with time instants is always sampled as with `start`.
         description="One window"
     t.register type=vector input=instant_windows maps=instant_window \
         start=2026-03-01 end=2026-04-01
-    t.vect.what.strds input=instant_windows strds=moisture sampling=contain
+    t.vect.what.strds input=instant_windows strds=moisture sampling=contain 2>&1 |
+        sed -n '/^WARNING/,/used$/p'
     db.columns table=instant_window | awk '/^moisture_/' | paste -sd, -
     ```
 
     ```text
+    WARNING: The maps of the space time raster dataset
+             <moisture@t_vect_what_strds> are not all time intervals, so the
+             sampling <contain> is ignored and <start> is used
     moisture_1,moisture_2
     ```
 
@@ -714,12 +754,18 @@ columns: a STRDS with time instants is always sampled as with `start`.
         start="2026-03-01",
         end="2026-04-01",
     )
-    tools.t_vect_what_strds(input="instant_windows", strds="moisture", sampling="contain")
+    result = Tools(consistent_return_value=True).t_vect_what_strds(
+        input="instant_windows", strds="moisture", sampling="contain"
+    )
+    print(re.search(r"WARNING:.*?is used", result.stderr, re.DOTALL).group())
     columns = tools.db_columns(table="instant_window").text.split()
     print(",".join(column for column in columns if column.startswith("moisture_")))
     ```
 
     ```text
+    WARNING: The maps of the space time raster dataset
+             <moisture@t_vect_what_strds> are not all time intervals, so the
+             sampling <contain> is ignored and <start> is used
     moisture_1,moisture_2
     ```
 
@@ -811,11 +857,12 @@ both in hours. Their points are two gauges of the Crabtree Creek, copied from
 column `flow_average`. `gauge_run_2` has only `flow_3`, which is stored under
 its own name, 311.
 
-The last block shows that the tool does not look at the unit. The vector map
-`gauge_run_days` has the interval 0 to 2 days, while `flow` counts hours. The
-tool compares the numbers: it takes `flow_1` and `flow_2`, which start at 0 and
+The last block shows that the tool refuses another unit. The vector map
+`gauge_run_days` has the interval 0 to 2 days, while `flow` counts hours. Read
+as numbers, the interval would take `flow_1` and `flow_2`, which start at 0 and
 1, but not `flow_3`, which starts at 2, although 2 days are 48 hours and cover
-all three maps. Use the same unit in both datasets.
+all three maps. The tool stops with an error before it writes a column. Use the
+same unit in both datasets.
 
 === "Command line"
 
@@ -855,12 +902,19 @@ all three maps. Use the same unit in both datasets.
         title="Gauge runs in days" description="One interval in days"
     t.register type=vector input=gauge_runs_days maps=gauge_run_days \
         start=0 end=2 unit=days
-    t.vect.what.strds input=gauge_runs_days strds=flow
-    db.columns table=gauge_run_days | awk '/^flow_/' | paste -sd, -
+    if ! (t.vect.what.strds input=gauge_runs_days strds=flow 2>&1 |
+        sed -n '/^ERROR/,$p'); then
+        echo "t.vect.what.strds failed"
+    fi
+    db.columns table=gauge_run_days | awk '/^flow_/ {n++} END {print n + 0}'
     ```
 
     ```text
-    flow_1,flow_2
+    ERROR: The unit <hours> of the space time raster dataset
+           <flow@t_vect_what_strds> differs from the unit <days> of the space
+           time vector dataset <gauge_runs_days@t_vect_what_strds>
+    t.vect.what.strds failed
+    0
     ```
 
 === "Python (grass.tools)"
@@ -936,13 +990,25 @@ all three maps. Use the same unit in both datasets.
         end=2,
         unit="days",
     )
-    tools.t_vect_what_strds(input="gauge_runs_days", strds="flow")
+    from grass.tools import ToolError
+
+    try:
+        tools.t_vect_what_strds(input="gauge_runs_days", strds="flow")
+    except ToolError as error:
+        lines = error.stderr.strip().splitlines()
+        first = [line.startswith("ERROR") for line in lines].index(True)
+        print("\n".join(lines[first:]))
+        print("t.vect.what.strds failed")
     columns = tools.db_columns(table="gauge_run_days").text.split()
-    print(",".join(column for column in columns if column.startswith("flow_")))
+    print(sum(column.startswith("flow_") for column in columns))
     ```
 
     ```text
-    flow_1,flow_2
+    ERROR: The unit <hours> of the space time raster dataset
+           <flow@t_vect_what_strds> differs from the unit <days> of the space
+           time vector dataset <gauge_runs_days@t_vect_what_strds>
+    t.vect.what.strds failed
+    0
     ```
 
 ### Datasets of another mapset

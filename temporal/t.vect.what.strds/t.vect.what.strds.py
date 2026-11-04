@@ -45,6 +45,16 @@
 # % answer: disabled
 # %end
 
+# %option
+# % key: quantile
+# % type: double
+# % description: Quantile to calculate for method=quantile
+# % options: 0.0-1.0
+# % answer: 0.5
+# % required: no
+# % multiple: no
+# %end
+
 # %option G_OPT_DB_WHERE
 # %end
 
@@ -164,8 +174,9 @@ def check_target_columns(targets, overwrite, dbif):
 def open_datasets(input, strds, dbif):
     """Open the vector and the raster dataset and check that they fit
 
-    Both must have the same temporal type, and the vector dataset must have
-    maps, all with time intervals. Returns both datasets.
+    Both must have the same temporal type, with relative time the same unit,
+    and the vector dataset must have maps, all with time intervals. Returns
+    both datasets.
     """
     sp = tgis.open_old_stds(input, "stvds", dbif)
     strds_sp = tgis.open_old_stds(strds, "strds", dbif)
@@ -173,6 +184,26 @@ def open_datasets(input, strds, dbif):
     if strds_sp.get_temporal_type() != sp.get_temporal_type():
         dbif.close()
         gs.fatal(_("Input and aggregation dataset must have the same temporal type"))
+
+    if (
+        sp.is_time_relative()
+        and strds_sp.get_relative_time_unit() != sp.get_relative_time_unit()
+    ):
+        # The numbers of the raster maps would be read in the unit of the
+        # vector maps and select other maps.
+        dbif.close()
+        gs.fatal(
+            _(
+                "The unit <{raster_unit}> of the space time raster dataset "
+                "<{strds}> differs from the unit <{unit}> of the space time "
+                "vector dataset <{input}>"
+            ).format(
+                raster_unit=strds_sp.get_relative_time_unit(),
+                strds=strds_sp.get_id(),
+                unit=sp.get_relative_time_unit(),
+                input=sp.get_id(),
+            )
+        )
 
     # An empty dataset has no map time either; say that it is empty
     if not sp.get_registered_maps("id", None, None, dbif):
@@ -194,6 +225,23 @@ def open_datasets(input, strds, dbif):
             )
         )
     return sp, strds_sp
+
+
+def warn_if_sampling_is_ignored(strds_sp, sampling):
+    """Warn that the sampling is replaced by start for maps that are no intervals
+
+    tgis.collect_map_names() takes only the maps that start in the interval of
+    a vector map if the maps of the raster dataset are not all intervals,
+    whatever the sampling says.
+    """
+    if strds_sp.get_map_time() != "interval" and sampling != "start":
+        gs.warning(
+            _(
+                "The maps of the space time raster dataset <{strds}> are not all "
+                "time intervals, so the sampling <{sampling}> is ignored and "
+                "<start> is used"
+            ).format(strds=strds_sp.get_id(), sampling=sampling)
+        )
 
 
 def selected_rows(sp, tempwhere, dbif):
@@ -300,7 +348,7 @@ def collect_targets(rows, strds_sp, column, method, sampling, dbif):
     return interval_maps, targets
 
 
-def aggregate_interval(raster_maps, start, end, method, dbif):
+def aggregate_interval(raster_maps, start, end, method, quantile, dbif):
     """Aggregate the raster maps of an interval into a temporary raster map
 
     Returns the id of the new map and its name, which the caller removes;
@@ -317,6 +365,7 @@ def aggregate_interval(raster_maps, start, end, method, dbif):
         method,
         False,
         dbif,
+        quantile=quantile if method == "quantile" else None,
     )
     aggreagated_map_name += "_0"
     if new_map is None:
@@ -373,7 +422,9 @@ def write_column(vectmap, layer, rastermap, col_name, where, existing, dbif):
         )
 
 
-def sample_interval(row, raster_maps, strds_sp, column, method, where, existing, dbif):
+def sample_interval(
+    row, raster_maps, strds_sp, column, method, quantile, where, existing, dbif
+):
     """Write the values of the raster maps of one interval into its vector map
 
     With a method and more than one raster map, their aggregate is written
@@ -392,7 +443,7 @@ def sample_interval(row, raster_maps, strds_sp, column, method, where, existing,
     # Aggregation
     if method != "disabled" and len(raster_maps) > 1:
         new_map_id, aggreagated_map_name = aggregate_interval(
-            raster_maps, start, end, method, dbif
+            raster_maps, start, end, method, quantile, dbif
         )
         if new_map_id is None:
             return
@@ -443,6 +494,7 @@ def main():
     where = options["where"]
     column = options["column"]
     method = options["method"]
+    quantile = float(options["quantile"])
     tempwhere = options["t_where"]
     sampling = options["sampling"]
 
@@ -456,6 +508,7 @@ def main():
     dbif.connect()
 
     sp, strds_sp = open_datasets(input, strds, dbif)
+    warn_if_sampling_is_ignored(strds_sp, sampling)
     rows = selected_rows(sp, tempwhere, dbif)
     if where:
         check_where(rows, where, dbif)
@@ -467,7 +520,7 @@ def main():
     # Sample the raster dataset with the vector dataset and run v.what.rast
     for row, raster_maps in zip(rows, interval_maps, strict=True):
         sample_interval(
-            row, raster_maps, strds_sp, column, method, where, existing, dbif
+            row, raster_maps, strds_sp, column, method, quantile, where, existing, dbif
         )
 
     dbif.close()

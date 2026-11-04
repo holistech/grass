@@ -110,6 +110,7 @@ def aggregate_raster_maps(
     offset: int = 0,
     *,
     nprocs: int = 0,
+    quantile: float | None = None,
 ):
     """Aggregate a list of raster input maps with r.series
 
@@ -132,6 +133,9 @@ def aggregate_raster_maps(
                   how many open files the maps need: r.series runs with flag
                   z when 2 x threads x maps + 64 exceeds the open files of
                   the process, or when there are more than 1000 maps
+    :param quantile: The quantile for the method quantile, from 0 to 1.
+                     Without it r.series takes the quantile 0, the smallest
+                     value
     """
 
     msgr = get_tgis_message_interface()
@@ -188,6 +192,7 @@ def aggregate_raster_maps(
             output=output,
             overwrite=gs.overwrite(),
             method=method,
+            quantile=quantile,
         )
 
     except CalledModuleError:

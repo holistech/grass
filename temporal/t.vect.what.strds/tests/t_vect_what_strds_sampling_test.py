@@ -159,10 +159,10 @@ METHODS = {
     "quart1": lambda cell: 325 + cell,
     "quart3": lambda cell: 375 + cell,
     "perc90": lambda cell: 390 + cell,
-    # The tool has no quantile option, so r.series uses the quantile 0
-    # (raster/r.series/main.c) and c_quant gives the smaller value, as in
-    # t.rast.aggregate.
-    "quantile": lambda cell: 300 + cell,
+    # The option quantile defaults to 0.5, the median of the two values. Before
+    # the option existed r.series used the quantile 0 and gave the smaller
+    # value (raster/r.series/main.c, as in t.rast.aggregate today).
+    "quantile": lambda cell: 350 + cell,
     # Two symmetric values: no skew; the fourth moment equals the squared
     # variance, so the excess kurtosis is 1 - 3.
     "skewness": lambda cell: 0,
