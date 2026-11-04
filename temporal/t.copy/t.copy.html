@@ -5,16 +5,18 @@ the <a href="temporalintro.html">introduction to temporal data processing</a>). 
 has the title, the description, the temporal type and the semantic type of the
 original and holds the same maps with the same time stamps. The original is
 not changed. The copy is a new dataset in the temporal database of the current
-mapset, whereas the original can be in another mapset, as long as this mapset
-is in the search path (see <em><a href="g.mapsets.html">g.mapsets</a></em>).
+mapset, whereas the original can be in another mapset of the project, named
+with its mapset (see
+<a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other mapsets</a>).
 
 <p>
 The option <b>input</b> names the dataset to copy, <b>output</b> the new dataset,
 and <b>type</b> their type: <code>strds</code> (the default), <code>str3ds</code> or <code>stvds</code>. A dataset
 is found by its type and name. An <b>input</b> without a mapset is searched in the
 mapsets of the search path; a mapset in the name (<code>rain@PERMANENT</code>) is needed
-only if datasets of that name exist in several mapsets. The mapset of <b>output</b>
-can be left out. If it is given, it must be the current mapset.
+if datasets of that name exist in several mapsets or if the mapset is not in
+the search path. The mapset of <b>output</b> can be left out. If it is given, it
+must be the current mapset.
 
 <p>
 By default, <em>t.copy</em> copies the entries of the dataset only. The maps
@@ -308,14 +310,17 @@ gauges_1|2026-03-01 00:00:00
 
 The example creates the mapset <code>t_copy_2</code>, sets the region again and adds the
 mapset <code>t_copy</code> to the search path with <em>g.mapsets</em>, so that <em>t.copy</em> finds the
-dataset <code>rain</code> without naming the mapset. The first command copies the dataset
-to <code>rain_linked</code> without <b>-c</b>: the maps of the copy are still the maps of
-<code>t_copy</code>, as the column <code>mapset</code> shows. The second command copies the dataset
-with <b>-c</b> to <code>rain_own</code>: the copy holds new maps with the same names in the
-mapset <code>t_copy_2</code>, and the maps of <code>rain</code> in <code>t_copy</code> are as they were. <em>g.list</em>
-shows the new maps in <code>t_copy_2</code>. The third command repeats the call with
-<b>--overwrite</b>: it fails, because the maps <code>rain_1</code> to <code>rain_3</code> exist in
-<code>t_copy_2</code> now. After <em>g.remove</em> has removed them, the call with
+dataset <code>rain</code> without naming the mapset: a name without a mapset is searched
+in the current mapset and then in the search path (see
+<a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other mapsets</a>). The
+later commands name <code>rain@t_copy</code> and would work without it. The first command
+copies the dataset to <code>rain_linked</code> without <b>-c</b>: the maps of the copy are
+still the maps of <code>t_copy</code>, as the column <code>mapset</code> shows. The second command
+copies the dataset with <b>-c</b> to <code>rain_own</code>: the copy holds new maps with the
+same names in the mapset <code>t_copy_2</code>, and the maps of <code>rain</code> in <code>t_copy</code> are as
+they were. <em>g.list</em> shows the new maps in <code>t_copy_2</code>. The third command repeats
+the call with <b>--overwrite</b>: it fails, because the maps <code>rain_1</code> to <code>rain_3</code>
+exist in <code>t_copy_2</code> now. After <em>g.remove</em> has removed them, the call with
 <b>--overwrite</b> replaces <code>rain_own</code> and copies the maps again.
 
 <p>

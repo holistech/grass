@@ -5,15 +5,17 @@ the [introduction to temporal data processing](temporalintro.md)). The copy
 has the title, the description, the temporal type and the semantic type of the
 original and holds the same maps with the same time stamps. The original is
 not changed. The copy is a new dataset in the temporal database of the current
-mapset, whereas the original can be in another mapset, as long as this mapset
-is in the search path (see *[g.mapsets](g.mapsets.md)*).
+mapset, whereas the original can be in another mapset of the project, named
+with its mapset (see
+[Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)).
 
 The option **input** names the dataset to copy, **output** the new dataset,
 and **type** their type: `strds` (the default), `str3ds` or `stvds`. A dataset
 is found by its type and name. An **input** without a mapset is searched in the
 mapsets of the search path; a mapset in the name (`rain@PERMANENT`) is needed
-only if datasets of that name exist in several mapsets. The mapset of **output**
-can be left out. If it is given, it must be the current mapset.
+if datasets of that name exist in several mapsets or if the mapset is not in
+the search path. The mapset of **output** can be left out. If it is given, it
+must be the current mapset.
 
 By default, *t.copy* copies the entries of the dataset only. The maps
 themselves are not copied, so that each map belongs to the original and to the
@@ -302,14 +304,17 @@ discharge in cubic meters per second, not a measurement.
 
 The example creates the mapset `t_copy_2`, sets the region again and adds the
 mapset `t_copy` to the search path with *g.mapsets*, so that *t.copy* finds the
-dataset `rain` without naming the mapset. The first command copies the dataset
-to `rain_linked` without **-c**: the maps of the copy are still the maps of
-`t_copy`, as the column `mapset` shows. The second command copies the dataset
-with **-c** to `rain_own`: the copy holds new maps with the same names in the
-mapset `t_copy_2`, and the maps of `rain` in `t_copy` are as they were. *g.list*
-shows the new maps in `t_copy_2`. The third command repeats the call with
-**--overwrite**: it fails, because the maps `rain_1` to `rain_3` exist in
-`t_copy_2` now. After *g.remove* has removed them, the call with
+dataset `rain` without naming the mapset: a name without a mapset is searched
+in the current mapset and then in the search path (see
+[Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)). The
+later commands name `rain@t_copy` and would work without it. The first command
+copies the dataset to `rain_linked` without **-c**: the maps of the copy are
+still the maps of `t_copy`, as the column `mapset` shows. The second command
+copies the dataset with **-c** to `rain_own`: the copy holds new maps with the
+same names in the mapset `t_copy_2`, and the maps of `rain` in `t_copy` are as
+they were. *g.list* shows the new maps in `t_copy_2`. The third command repeats
+the call with **--overwrite**: it fails, because the maps `rain_1` to `rain_3`
+exist in `t_copy_2` now. After *g.remove* has removed them, the call with
 **--overwrite** replaces `rain_own` and copies the maps again.
 
 This example continues with the data of the first one.
