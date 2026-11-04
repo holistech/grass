@@ -1676,20 +1676,18 @@ the mean of each is 1, so the sums are 1 and 2. The second cycle begins on
 The input and the limit datasets can lie in another mapset, but the output is
 created in the current one. The example creates the mapset
 `t_rast_accumulate_2` and switches to it; the datasets `warm`, `low` and `high`
-stay in `t_rast_accumulate` and are named with their mapset. A new mapset takes
-its region from the default region of the dataset, cells of 500 m, so the
-example sets the region of the first example again. *g.mapsets* adds the mapset
-`t_rast_accumulate` to the search path. The result is the same as in the sixth
-example with both limit datasets: the sums 4, 12, 18, 38, 50 and 52. The first
-block shows that the maps are in `t_rast_accumulate_2`, the second that the
-dataset is.
+stay in `t_rast_accumulate` and are named with their mapset, which does not have
+to be in the search path. A new mapset takes its region from the default region
+of the dataset, cells of 500 m, so the example sets the region of the first
+example again. The result is the same as in the sixth example with both limit
+datasets: the sums 4, 12, 18, 38, 50 and 52. The first block shows that the
+maps are in `t_rast_accumulate_2`, the second that the dataset is.
 
 === "Command line"
 
     ```sh
     g.mapset -c mapset=t_rast_accumulate_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_rast_accumulate operation=add
     t.rast.accumulate input=warm@t_rast_accumulate output=warm_other \
         basename=other lower=low@t_rast_accumulate \
         upper=high@t_rast_accumulate start=2026-03-01 cycle="6 days" \
@@ -1720,7 +1718,6 @@ dataset is.
     ```python
     tools.g_mapset(mapset="t_rast_accumulate_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_rast_accumulate", operation="add")
     tools.t_rast_accumulate(
         input="warm@t_rast_accumulate",
         output="warm_other",
