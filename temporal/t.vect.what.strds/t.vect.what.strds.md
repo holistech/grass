@@ -948,23 +948,21 @@ all three maps. Use the same unit in both datasets.
 ### Datasets of another mapset
 
 The example creates the mapset `t_vect_what_strds_2` and switches to it, where
-the region is its own and is set again. It adds the mapset `t_vect_what_strds`
-with *[g.mapsets](g.mapsets.md)*. The dataset `precipitation_monthly` stays in
-`t_vect_what_strds`, and
-**strds**`=precipitation_monthly@t_vect_what_strds` names it with its mapset.
-The vector map `remote` and its dataset belong to `t_vect_what_strds_2`, so the
-tool writes the columns for February and March into the table of `remote` in
-the current mapset. The second block asks for the dataset `stations` in
-`t_vect_what_strds` as **input**. The tool refuses it before it writes
-anything, because it would have to change the tables of
-vector maps of another mapset, and the block prints the message.
+the region is its own and is set again. The dataset `precipitation_monthly`
+stays in `t_vect_what_strds`, and
+**strds**`=precipitation_monthly@t_vect_what_strds` names it with its mapset,
+which does not have to be in the search path. The vector map `remote` and its
+dataset belong to `t_vect_what_strds_2`, so the tool writes the columns for
+February and March into the table of `remote` in the current mapset. The second
+block asks for the dataset `stations` in `t_vect_what_strds` as **input**. The
+tool refuses it before it writes anything, because it would have to change the
+tables of vector maps of another mapset, and the block prints the message.
 
 === "Command line"
 
     ```sh
     g.mapset -c mapset=t_vect_what_strds_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_vect_what_strds operation=add
     g.copy vector=station_points@t_vect_what_strds,remote
     t.create type=stvds output=remote_ds title="Remote" \
         description="One interval in the new mapset"
@@ -1005,7 +1003,6 @@ vector maps of another mapset, and the block prints the message.
     ```python
     tools.g_mapset(mapset="t_vect_what_strds_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_vect_what_strds", operation="add")
     tools.g_copy(vector="station_points@t_vect_what_strds,remote")
     tools.t_create(
         type="stvds",

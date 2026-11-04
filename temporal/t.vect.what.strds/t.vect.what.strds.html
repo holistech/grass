@@ -967,23 +967,21 @@ flow_1,flow_2
 <h3>Datasets of another mapset</h3>
 
 The example creates the mapset <code>t_vect_what_strds_2</code> and switches to it, where
-the region is its own and is set again. It adds the mapset <code>t_vect_what_strds</code>
-with <em><a href="g.mapsets.html">g.mapsets</a></em>. The dataset <code>precipitation_monthly</code> stays in
-<code>t_vect_what_strds</code>, and
-<b>strds</b><code>=precipitation_monthly@t_vect_what_strds</code> names it with its mapset.
-The vector map <code>remote</code> and its dataset belong to <code>t_vect_what_strds_2</code>, so the
-tool writes the columns for February and March into the table of <code>remote</code> in
-the current mapset. The second block asks for the dataset <code>stations</code> in
-<code>t_vect_what_strds</code> as <b>input</b>. The tool refuses it before it writes
-anything, because it would have to change the tables of
-vector maps of another mapset, and the block prints the message.
+the region is its own and is set again. The dataset <code>precipitation_monthly</code>
+stays in <code>t_vect_what_strds</code>, and
+<b>strds</b><code>=precipitation_monthly@t_vect_what_strds</code> names it with its mapset,
+which does not have to be in the search path. The vector map <code>remote</code> and its
+dataset belong to <code>t_vect_what_strds_2</code>, so the tool writes the columns for
+February and March into the table of <code>remote</code> in the current mapset. The second
+block asks for the dataset <code>stations</code> in <code>t_vect_what_strds</code> as <b>input</b>. The
+tool refuses it before it writes anything, because it would have to change the
+tables of vector maps of another mapset, and the block prints the message.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
 g.mapset -c mapset=t_vect_what_strds_2
 g.region raster=elev_state_500m res=1000 -a
-g.mapsets mapset=t_vect_what_strds operation=add
 g.copy vector=station_points@t_vect_what_strds,remote
 t.create type=stvds output=remote_ds title="Remote" \
     description="One interval in the new mapset"
@@ -1024,7 +1022,6 @@ t.vect.what.strds failed
 <div class="code"><pre>
 tools.g_mapset(mapset="t_vect_what_strds_2", flags="c")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-tools.g_mapsets(mapset="t_vect_what_strds", operation="add")
 tools.g_copy(vector="station_points@t_vect_what_strds,remote")
 tools.t_create(
     type="stvds",
