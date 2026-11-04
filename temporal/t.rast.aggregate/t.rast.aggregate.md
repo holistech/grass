@@ -119,9 +119,9 @@ A dot in the name of the new dataset is refused, for instance for
 space time dataset: a dot is not allowed".
 
 The input dataset can be in another mapset of the project; the name with the
-mapset (`input=temperature_monthly@t_rast_aggregate`) selects it; the last
-example adds that mapset to the search path with *g.mapsets* first. The new
-maps and the new dataset are always created in the current mapset.
+mapset (`input=temperature_monthly@t_rast_aggregate`) selects it, as the last
+example shows. The new maps and the new dataset are always created in the
+current mapset.
 
 If no map is related to any granule, the tool warns, names the granularity and
 the sampling, and creates no dataset; it ends without an error. With monthly
@@ -1100,11 +1100,10 @@ of each map are those of the third example.
 
 The new mapset `t_rast_aggregate_2` has no dataset of its own. A new mapset
 starts with the default region of the dataset, cells of 500 m, so the example
-sets the region of the first example again. *g.mapsets* adds the mapset
-`t_rast_aggregate` to the search path, and the input
+sets the region of the first example again. The input
 `temperature_monthly@t_rast_aggregate` names the dataset of the first example
-there; **granularity** `1 years` gives the annual mean of 2020. The new map
-and the new dataset are created in `t_rast_aggregate_2`, as the column
+in its mapset; **granularity** `1 years` gives the annual mean of 2020. The
+new map and the new dataset are created in `t_rast_aggregate_2`, as the column
 `mapset` shows.
 
 === "Command line"
@@ -1112,7 +1111,6 @@ and the new dataset are created in `t_rast_aggregate_2`, as the column
     ```sh
     g.mapset -c mapset=t_rast_aggregate_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_rast_aggregate operation=add
     t.rast.aggregate input=temperature_monthly@t_rast_aggregate \
         output=temperature_annual basename=temperature_annual \
         granularity="1 years" method=average
@@ -1129,7 +1127,6 @@ and the new dataset are created in `t_rast_aggregate_2`, as the column
     ```python
     tools.g_mapset(flags="c", mapset="t_rast_aggregate_2")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_rast_aggregate", operation="add")
     tools.t_rast_aggregate(
         input="temperature_monthly@t_rast_aggregate",
         output="temperature_annual",

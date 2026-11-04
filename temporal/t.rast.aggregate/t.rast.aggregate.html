@@ -131,9 +131,9 @@ space time dataset: a dot is not allowed".
 
 <p>
 The input dataset can be in another mapset of the project; the name with the
-mapset (<code>input=temperature_monthly@t_rast_aggregate</code>) selects it; the last
-example adds that mapset to the search path with <em>g.mapsets</em> first. The new
-maps and the new dataset are always created in the current mapset.
+mapset (<code>input=temperature_monthly@t_rast_aggregate</code>) selects it, as the last
+example shows. The new maps and the new dataset are always created in the
+current mapset.
 
 <p>
 If no map is related to any granule, the tool warns, names the granularity and
@@ -1121,11 +1121,10 @@ precipitation_parallel_2020_11@t_rast_aggregate|174|518|219.85562848896
 
 The new mapset <code>t_rast_aggregate_2</code> has no dataset of its own. A new mapset
 starts with the default region of the dataset, cells of 500 m, so the example
-sets the region of the first example again. <em>g.mapsets</em> adds the mapset
-<code>t_rast_aggregate</code> to the search path, and the input
+sets the region of the first example again. The input
 <code>temperature_monthly@t_rast_aggregate</code> names the dataset of the first example
-there; <b>granularity</b> <code>1 years</code> gives the annual mean of 2020. The new map
-and the new dataset are created in <code>t_rast_aggregate_2</code>, as the column
+in its mapset; <b>granularity</b> <code>1 years</code> gives the annual mean of 2020. The
+new map and the new dataset are created in <code>t_rast_aggregate_2</code>, as the column
 <code>mapset</code> shows.
 
 <p>Command line:</p>
@@ -1133,7 +1132,6 @@ and the new dataset are created in <code>t_rast_aggregate_2</code>, as the colum
 <div class="code"><pre>
 g.mapset -c mapset=t_rast_aggregate_2
 g.region raster=elev_state_500m res=1000 -a
-g.mapsets mapset=t_rast_aggregate operation=add
 t.rast.aggregate input=temperature_monthly@t_rast_aggregate \
     output=temperature_annual basename=temperature_annual \
     granularity="1 years" method=average
@@ -1150,7 +1148,6 @@ temperature_annual_2020|t_rast_aggregate_2|2020-01-01 00:00:00|2021-01-01 00:00:
 <div class="code"><pre>
 tools.g_mapset(flags="c", mapset="t_rast_aggregate_2")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-tools.g_mapsets(mapset="t_rast_aggregate", operation="add")
 tools.t_rast_aggregate(
     input="temperature_monthly@t_rast_aggregate",
     output="temperature_annual",
