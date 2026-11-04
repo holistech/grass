@@ -1145,10 +1145,9 @@ points. *v.info* shows that the map of January is linked to no attribute table.
 ### Use a dataset of another mapset
 
 The example creates the mapset `t_rast_to_vect_2`, sets the region of North
-Carolina as in the first example and adds the mapset `t_rast_to_vect` to the
-search path with *g.mapsets*, so that it can read the dataset. The dataset
-`precipitation_heavy` stays in the mapset `t_rast_to_vect` and is named with its
-mapset; the new dataset `west` and its vector maps are created in
+Carolina as in the first example. The dataset `precipitation_heavy` stays in the
+mapset `t_rast_to_vect` and is named with its mapset, which does not have to be
+in the search path; the new dataset `west` and its vector maps are created in
 `t_rast_to_vect_2`, as the column `id` shows.
 
 The region of the new mapset is then set to the western half of the window, so
@@ -1161,7 +1160,6 @@ of February has two, the classes 2 and 3.
     ```sh
     g.mapset -c mapset=t_rast_to_vect_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_rast_to_vect operation=add
     g.region n=158000 s=150000 e=229000 w=225000 res=1000
     t.rast.to.vect input=precipitation_heavy@t_rast_to_vect output=west basename=west \
         type=area where="start_time < '2020-03-01'"
@@ -1179,7 +1177,6 @@ of February has two, the classes 2 and 3.
     ```python
     tools.g_mapset(mapset="t_rast_to_vect_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_rast_to_vect", operation="add")
     tools.g_region(n=158000, s=150000, e=229000, w=225000, res=1000)
     tools.t_rast_to_vect(
         input="precipitation_heavy@t_rast_to_vect",
