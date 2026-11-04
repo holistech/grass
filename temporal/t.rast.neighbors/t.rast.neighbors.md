@@ -1355,10 +1355,10 @@ the same times. With the default **suffix** `gran` they are numbered,
 `num%03` gives three digits.
 
 The second block creates the mapset `t_rast_neighbors_2`, sets the region to
-North Carolina again and adds the first mapset to the search path with
-*[g.mapsets](g.mapsets.md)*. The input name `model@t_rast_neighbors` selects
-the dataset of the other mapset; the new maps and the new dataset are created in
-`t_rast_neighbors_2`, as their ids show.
+North Carolina again. The input name `model@t_rast_neighbors` selects the
+dataset of the other mapset, which does not have to be in the search path; the
+new maps and the new dataset are created in `t_rast_neighbors_2`, as their ids
+show.
 
 === "Command line"
 
@@ -1393,7 +1393,6 @@ the dataset of the other mapset; the new maps and the new dataset are created in
     ```sh
     g.mapset -c mapset=t_rast_neighbors_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_rast_neighbors operation=add
     t.rast.neighbors input=model@t_rast_neighbors output=m4 basename=m4
     t.rast.list input=m4 columns=id,mapset,start_time
     ```
@@ -1447,7 +1446,6 @@ the dataset of the other mapset; the new maps and the new dataset are created in
     ```python
     tools.g_mapset(mapset="t_rast_neighbors_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_rast_neighbors", operation="add")
     tools.t_rast_neighbors(input="model@t_rast_neighbors", output="m4", basename="m4")
     print(tools.t_rast_list(input="m4", columns="id,mapset,start_time").text)
     ```

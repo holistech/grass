@@ -1386,10 +1386,10 @@ the same times. With the default <b>suffix</b> <code>gran</code> they are number
 
 <p>
 The second block creates the mapset <code>t_rast_neighbors_2</code>, sets the region to
-North Carolina again and adds the first mapset to the search path with
-<em><a href="g.mapsets.html">g.mapsets</a></em>. The input name <code>model@t_rast_neighbors</code> selects
-the dataset of the other mapset; the new maps and the new dataset are created in
-<code>t_rast_neighbors_2</code>, as their ids show.
+North Carolina again. The input name <code>model@t_rast_neighbors</code> selects the
+dataset of the other mapset, which does not have to be in the search path; the
+new maps and the new dataset are created in <code>t_rast_neighbors_2</code>, as their ids
+show.
 
 <p>Command line:</p>
 
@@ -1424,7 +1424,6 @@ m3_002|6
 <div class="code"><pre>
 g.mapset -c mapset=t_rast_neighbors_2
 g.region raster=elev_state_500m res=1000 -a
-g.mapsets mapset=t_rast_neighbors operation=add
 t.rast.neighbors input=model@t_rast_neighbors output=m4 basename=m4
 t.rast.list input=m4 columns=id,mapset,start_time
 </pre></div>
@@ -1478,7 +1477,6 @@ m3_002|6
 <div class="code"><pre>
 tools.g_mapset(mapset="t_rast_neighbors_2", flags="c")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-tools.g_mapsets(mapset="t_rast_neighbors", operation="add")
 tools.t_rast_neighbors(input="model@t_rast_neighbors", output="m4", basename="m4")
 print(tools.t_rast_list(input="m4", columns="id,mapset,start_time").text)
 </pre></div>
