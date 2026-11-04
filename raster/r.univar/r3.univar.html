@@ -26,6 +26,16 @@ As with most GRASS raster3d modules, <em>r3.univar</em> operates on the voxel
 array defined by the current 3d region settings, not the original extent and
 resolution of the input map. See <em><a href="g.region.html">g.region</a></em>.
 <p>
+The 3D raster mask set with <em><a href="r3.mask.html">r3.mask</a></em> is respected: a cell
+that the mask excludes counts as a null cell. With <b>zones</b>, such a cell
+belongs to no zone, as a cell whose zone is null; a zone whose cells are all
+excluded gets no output.
+<p>
+The values of the <b>zones</b> map are the zone numbers, so they must be whole
+numbers. 3D raster maps are always of a floating point type, so the values
+in the current region are checked: a value such as 2.5 ends <em>r3.univar</em> with
+an error, and no output file is written.
+<p>
 This module can use large amounts of system memory when the <b>-e</b>
 extended statistics flag is used with a very large region setting. If the
 region is too large the module should exit gracefully with a memory allocation

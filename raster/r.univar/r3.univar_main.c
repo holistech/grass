@@ -20,6 +20,18 @@
 param_type param;
 zone_type zone_info;
 
+/* Refuse a zone value that is not a whole number. r.univar refuses a zoning
+ * map that is not of type CELL; 3D raster maps are always of a floating point
+ * type, so the values are checked instead of the type. Rounding them would
+ * put cells silently into a neighbouring zone. */
+static void check_zone_value(const char *zonemap, double value)
+{
+    if (value != rint(value))
+        G_fatal_error(_("3D raster map <%s> used for zoning holds the value "
+                        "%.15g; zones must be whole numbers"),
+                      zonemap, value);
+}
+
 /* ************************************************************************* */
 /* Set up the arguments we are expecting ********************************** */
 /* ************************************************************************* */
@@ -140,13 +152,6 @@ int main(int argc, char *argv[])
     rows = region.rows;
     depths = region.depths;
 
-    name = param.output_file->answer;
-    if (name != NULL && strcmp(name, "-") != 0) {
-        if (NULL == freopen(name, "w", stdout)) {
-            G_fatal_error(_("Unable to open file <%s> for writing"), name);
-        }
-    }
-
     /* For backward compatibility */
     if (!param.separator->answer) {
         if (strcmp(param.format->answer, "csv") == 0)
@@ -265,6 +270,7 @@ int main(int argc, char *argv[])
                         Rast3d_get_value(zmap, x, y, z, &val_f, FCELL_TYPE);
                         if (Rast3d_is_null_value_num(&val_f, FCELL_TYPE))
                             continue;
+                        check_zone_value(zonemap, val_f);
                         if (val_f < 0)
                             zone = val_f - 0.5;
                         else
@@ -274,12 +280,27 @@ int main(int argc, char *argv[])
                         Rast3d_get_value(zmap, x, y, z, &val_d, DCELL_TYPE);
                         if (Rast3d_is_null_value_num(&val_d, DCELL_TYPE))
                             continue;
+                        check_zone_value(zonemap, val_d);
                         if (val_d < 0)
                             zone = val_d - 0.5;
                         else
                             zone = val_d + 0.5;
                     }
                     zone -= zone_info.min;
+                }
+                /* As in r.univar, a cell outside the 3D raster mask is a null
+                 * cell of the map, and with zones it belongs to no zone,
+                 * like a cell whose zone is null. Rast3d_is_masked() takes
+                 * the cell coordinates of the current region, the same as
+                 * Rast3d_get_value(). Rast3d_mask_on() is not used: it masks
+                 * whole tiles in the cell coordinates of the map, which
+                 * misses masked cells when the region differs from the map
+                 * (04.11.2026: r3.out.ascii -m printed the masked upper
+                 * layer of a two layer map in a region with tbres=0.5). */
+                if (Rast3d_is_masked(map, x, y, z)) {
+                    if (!zone_info.n_zones)
+                        stats[zone].size++;
+                    continue;
                 }
                 if (map_type == FCELL_TYPE) {
                     Rast3d_get_value(map, x, y, z, &val_f, map_type);
@@ -359,6 +380,15 @@ int main(int argc, char *argv[])
     Rast3d_close(map);
     if (zone_info.n_zones)
         Rast3d_close(zmap);
+
+    /* The output file is opened only after the maps are read, so that a
+     * refused zoning map leaves no empty file behind. */
+    name = param.output_file->answer;
+    if (name != NULL && strcmp(name, "-") != 0) {
+        if (NULL == freopen(name, "w", stdout)) {
+            G_fatal_error(_("Unable to open file <%s> for writing"), name);
+        }
+    }
 
     /* create the output */
     if (format == CSV)
