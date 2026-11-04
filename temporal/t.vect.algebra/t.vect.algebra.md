@@ -15,43 +15,43 @@ every type.
 The tool has two required options and two flags:
 
 - **expression** holds the statement `result = expression`. The statement
-  structure is similar to *[r.mapcalc](r.mapcalc.md)*. **result** is the name
-  of the new space time vector dataset, which the tool creates in the current
-  mapset, and the right side of the equality sign is an expression of
-  datasets, operators and functions of the temporal vector algebra described
-  below. The tool needs the whole statement as one **quoted** value:
-  `expression="sel_equal = A : B"`. A dataset in another mapset is named with
-  its mapset (`A@t_vect_algebra`); a name without mapset is looked up in the
-  current mapset only. The tool does not overwrite an existing result dataset
-  unless the global flag **--overwrite** is given.
+    structure is similar to *[r.mapcalc](r.mapcalc.md)*. **result** is the name
+    of the new space time vector dataset, which the tool creates in the current
+    mapset, and the right side of the equality sign is an expression of
+    datasets, operators and functions of the temporal vector algebra described
+    below. The tool needs the whole statement as one **quoted** value:
+    `expression="sel_equal = A : B"`. A dataset in another mapset is named with
+    its mapset (`A@t_vect_algebra`); a name without mapset is looked up in the
+    current mapset only. The tool does not overwrite an existing result dataset
+    unless the global flag **--overwrite** is given.
 - **basename** is the prefix of the names of the vector maps that the tool
-  creates. A numerical suffix separated by an underscore makes the names
-  unique: `sel_during_0`, `sel_during_1`. In the algebra core the number
-  counts the maps that the expression computes, including a map that is left
-  out because it has no primitives (see the NOTES), so a left-out map leaves
-  a gap in the numbers; the classic algebra numbers the maps it registers
-  without a gap.
-  A map that an expression leaves unchanged is registered in the result
-  dataset as it is and gets no new name.
+    creates. A numerical suffix separated by an underscore makes the names
+    unique: `sel_during_0`, `sel_during_1`. In the algebra core the number
+    counts the maps that the expression computes, including a map that is left
+    out because it has no primitives (see the NOTES), so a left-out map leaves
+    a gap in the numbers; the classic algebra numbers the maps it registers
+    without a gap.
+    A map that an expression leaves unchanged is registered in the result
+    dataset as it is and gets no new name.
 - **-s** checks the spatial topology of temporally related maps: the algebra
-  then uses two temporally related maps together only if they are also related
-  in space. The default is a temporal evaluation only. The flag applies
-  wherever the algebra evaluates the topology of maps: in selections, in the
-  hash operator, in the conditions of if statements and in comparison
-  operators. The spatial relations of two maps are *equivalent* (equal
-  spatial extents), *cover* and *covered*, *overlap*, *in* and *contain*, and
-  *meet*. They can also be named in the curly brackets of an operator, for
-  example `{&,equal|overlap}`; the maps then need this spatial relation in
-  addition to the temporal one. Such a name builds the spatial topology for
-  its operator also without **-s**. The classic algebra does not read such
-  names and stops with an error. A spatial relation without a temporal one
-  (`{&,equivalent}`) is an error. The example "Check the spatial topology"
-  shows **-s**.
+    then uses two temporally related maps together only if they are also related
+    in space. The default is a temporal evaluation only. The flag applies
+    wherever the algebra evaluates the topology of maps: in selections, in the
+    hash operator, in the conditions of if statements and in comparison
+    operators. The spatial relations of two maps are *equivalent* (equal
+    spatial extents), *cover* and *covered*, *overlap*, *in* and *contain*, and
+    *meet*. They can also be named in the curly brackets of an operator, for
+    example `{&,equal|overlap}`; the maps then need this spatial relation in
+    addition to the temporal one. Such a name builds the spatial topology for
+    its operator also without **-s**. The classic algebra does not read such
+    names and stops with an error. A spatial relation without a temporal one
+    (`{&,equivalent}`) is an error. The example "Check the spatial topology"
+    shows **-s**.
 - **-c** computes the expression with the rules of the classic algebra, as the
-  releases before GRASS 8.6 did, instead of the rules of the algebra core. The
-  flag takes precedence over the environment variable
-  `GRASS_TEMPORAL_ALGEBRA=classic`; see "Core and classic algebra" in the
-  NOTES. The example "Use the classic algebra" shows **-c**.
+    releases before GRASS 8.6 did, instead of the rules of the algebra core. The
+    flag takes precedence over the environment variable
+    `GRASS_TEMPORAL_ALGEBRA=classic`; see "Core and classic algebra" in the
+    NOTES. The example "Use the classic algebra" shows **-c**.
 
 The result dataset has the temporal type of its input datasets. An expression
 can combine datasets of one temporal type only; the example "Relative time
@@ -532,118 +532,118 @@ start with A, each with one area that contains the areas of the two maps
 of A in its time, and time instances in I.
 
 1. **Right reference.** `A {:,R,r} B` and `A {op,R,r} B` give one map
-   per related pair, with the time stamp of the right map and, for an
-   overlay, the overlay of this pair. The classic algebra keeps only the
-   last pair of a selection, and an overlay combines the left map with
-   all of its related right maps into one map, with the time stamp of the
-   last of them. The first expression gives four maps, the maps of B with
-   the time stamps of A; the classic algebra gives one map per map of B.
-   If a map b1 contains the maps a1 and a2, the second expression gives
-   `b1 & a1` with the time stamp of a1 and `b1 & a2` with that of a2, the
-   classic algebra `b1 & a1 & a2` with the time stamp of a2:
+    per related pair, with the time stamp of the right map and, for an
+    overlay, the overlay of this pair. The classic algebra keeps only the
+    last pair of a selection, and an overlay combines the left map with
+    all of its related right maps into one map, with the time stamp of the
+    last of them. The first expression gives four maps, the maps of B with
+    the time stamps of A; the classic algebra gives one map per map of B.
+    If a map b1 contains the maps a1 and a2, the second expression gives
+    `b1 & a1` with the time stamp of a1 and `b1 & a2` with that of a2, the
+    classic algebra `b1 & a1 & a2` with the time stamp of a2:
 
-   ```sh
-   C = B {:,contains,r} A
-   C = B {&,contains,r} A
-   ```
+    ```sh
+    C = B {:,contains,r} A
+    C = B {&,contains,r} A
+    ```
 
-   The inverse selection `A {!:,R,t} B` takes only the temporal operator
-   `l`, because its maps have no related map to combine with; the classic
-   algebra accepts the other operators.
+    The inverse selection `A {!:,R,t} B` takes only the temporal operator
+    `l`, because its maps have no related map to combine with; the classic
+    algebra accepts the other operators.
 
 2. **Empty results.** An expression that gives no map creates an empty
-   space time dataset; the classic algebra creates none. No daily map of A
-   contains a map of B of two days, so this expression gives an empty
-   dataset:
+    space time dataset; the classic algebra creates none. No daily map of A
+    contains a map of B of two days, so this expression gives an empty
+    dataset:
 
-   ```sh
-   C = A {:,contains} B
-   ```
+    ```sh
+    C = A {:,contains} B
+    ```
 
 3. **Maps without primitives.** A computed map without primitives, such
-   as the intersection of two maps without common area, is not
-   registered. The classic algebra registers it, unless the extents of the
-   two maps do not intersect. If a map e1 has two areas, one left and one
-   right of the area of a1, this expression leaves out `a1 & e1`, where
-   the classic algebra registers it without areas:
+    as the intersection of two maps without common area, is not
+    registered. The classic algebra registers it, unless the extents of the
+    two maps do not intersect. If a map e1 has two areas, one left and one
+    right of the area of a1, this expression leaves out `a1 & e1`, where
+    the classic algebra registers it without areas:
 
-   ```sh
-   C = A & E
-   ```
+    ```sh
+    C = A & E
+    ```
 
 4. **Precedence.** `&&` binds stronger than `||`, and conditions can be
-   grouped with parentheses. The classic algebra evaluates conditions
-   from left to right and does not accept parentheses around conditions.
-   The first expression takes all maps of A, because `td(A) == 1` is true
-   for each of them; the classic algebra reads it as the second expression
-   and takes none:
+    grouped with parentheses. The classic algebra evaluates conditions
+    from left to right and does not accept parentheses around conditions.
+    The first expression takes all maps of A, because `td(A) == 1` is true
+    for each of them; the classic algebra reads it as the second expression
+    and takes none:
 
-   ```sh
-   C = if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)
-   C = if((td(A) == 1 || td(A) == 2) && td(A) == 3, A)
-   ```
+    ```sh
+    C = if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)
+    C = if((td(A) == 1 || td(A) == 2) && td(A) == 3, A)
+    ```
 
 5. **Conditions joined with or.** If a map of the conclusion of an `if`
-   has several related condition maps, both algebras join their
-   conditions with and; written as `{during,|}`, the relation joins them
-   with or, a form that the classic algebra does not read. The first
-   expression takes b2, whose maps of A both start after day 1, the second
-   also b1, which contains a map of A that starts on day 2:
+    has several related condition maps, both algebras join their
+    conditions with and; written as `{during,|}`, the relation joins them
+    with or, a form that the classic algebra does not read. The first
+    expression takes b2, whose maps of A both start after day 1, the second
+    also b1, which contains a map of A that starts on day 2:
 
-   ```sh
-   C = if({during}, start_day(A) > 1, B)
-   C = if({during,|}, start_day(A) > 1, B)
-   ```
+    ```sh
+    C = if({during}, start_day(A) > 1, B)
+    C = if({during,|}, start_day(A) > 1, B)
+    ```
 
 6. **td() of a time instance** is null instead of an error, so a condition
-   on it is neither true nor false. This expression gives no map; the
-   classic algebra stops with an error:
+    on it is neither true nor false. This expression gives no map; the
+    classic algebra stops with an error:
 
-   ```sh
-   C = if(td(I) > 0, I)
-   ```
+    ```sh
+    C = if(td(I) > 0, I)
+    ```
 
-   A temporal variable that a map does not have, such as `end_doy()` of a
-   time instance, is an error in both algebras.
+    A temporal variable that a map does not have, such as `end_doy()` of a
+    time instance, is an error in both algebras.
 
 7. **More syntax.** The temporal neighbourhood modifier of
-   *t.rast.algebra*, such as `A[1]` and `A[-1]`, applies to vector
-   datasets. Comparisons and temporal functions may stand anywhere in a
-   condition, also with the number on the left, in arithmetic and after a
-   minus sign, and a dataset may have the name of a function. The classic
-   algebra reports a syntax error for each of these expressions; the last
-   one intersects a dataset named `td` with B:
+    *t.rast.algebra*, such as `A[1]` and `A[-1]`, applies to vector
+    datasets. Comparisons and temporal functions may stand anywhere in a
+    condition, also with the number on the left, in arithmetic and after a
+    minus sign, and a dataset may have the name of a function. The classic
+    algebra reports a syntax error for each of these expressions; the last
+    one intersects a dataset named `td` with B:
 
-   ```sh
-   C = A[1]
-   C = A[-1]
-   C = if(2 < start_day(A), A)
-   C = if(start_day(A) + 1 > 3, A)
-   C = if(-start_day(A) < -2, A)
-   C = td {&,during} B
-   ```
+    ```sh
+    C = A[1]
+    C = A[-1]
+    C = if(2 < start_day(A), A)
+    C = if(start_day(A) + 1 > 3, A)
+    C = if(-start_day(A) < -2, A)
+    C = td {&,during} B
+    ```
 
-   The hash operator may also stand in arithmetic within a condition; the
-   classic algebra reads it only directly before a comparison:
+    The hash operator may also stand in arithmetic within a condition; the
+    classic algebra reads it only directly before a comparison:
 
-   ```sh
-   C = if(A {#,during} B + 1 > 1, A)
-   ```
+    ```sh
+    C = if(A {#,during} B + 1 > 1, A)
+    ```
 
 8. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
-   by that size at both ends. The new algebra stops with an error if a map
-   would keep no time, that is if its end would fall on or before its start,
-   and for a time instance, which has no duration to shrink. The classic
-   algebra goes on instead: for a map whose end would fall before its
-   start it prints an error message and keeps the old time stamp, and it
-   makes a time instance of a map whose end equals its start. For maps
-   of two days, the first expression shrinks them to one day and the
-   second is an error:
+    by that size at both ends. The new algebra stops with an error if a map
+    would keep no time, that is if its end would fall on or before its start,
+    and for a time instance, which has no duration to shrink. The classic
+    algebra goes on instead: for a map whose end would fall before its
+    start it prints an error message and keeps the old time stamp, and it
+    makes a time instance of a map whose end equals its start. For maps
+    of two days, the first expression shrinks them to one day and the
+    second is an error:
 
-   ```sh
-   C = buff_t(B, "-12 hours")
-   C = buff_t(B, "-1 day")
-   ```
+    ```sh
+    C = buff_t(B, "-12 hours")
+    C = buff_t(B, "-1 day")
+    ```
 
 9. **merge() of buffers.** The new algebra takes two maps with equal
     content and time stamps as one map. The classic algebra, as the
@@ -701,111 +701,111 @@ with it both algebras. Results of earlier GRASS versions that used one of
 these forms need a new run.
 
 1. **tsnap() and tshift() of no maps.** If the expression inside has no
-   maps, the result is empty like any other empty result: the classic
-   algebra creates no dataset, and an enclosing expression goes on with no
-   maps. Earlier versions ended in an error. No daily map of A contains a
-   map of B of two days, so both expressions give an empty result:
+    maps, the result is empty like any other empty result: the classic
+    algebra creates no dataset, and an enclosing expression goes on with no
+    maps. Earlier versions ended in an error. No daily map of A contains a
+    map of B of two days, so both expressions give an empty result:
 
-   ```sh
-   C = tsnap(A {:,contains} B)
-   C = tshift(A {:,contains} B, "1 day")
-   ```
+    ```sh
+    C = tsnap(A {:,contains} B)
+    C = tshift(A {:,contains} B, "1 day")
+    ```
 
 2. **Increments that the library refuses.** An increment of `tshift()` or
-   `buff_t()` that does not fit the temporal type, such as a text that is
-   not a time step or a number without unit on absolute time, is a syntax
-   error and leaves no result dataset. The new algebra refuses the same
-   increments with a `ValueError`:
+    `buff_t()` that does not fit the temporal type, such as a text that is
+    not a time step or a number without unit on absolute time, is a syntax
+    error and leaves no result dataset. The new algebra refuses the same
+    increments with a `ValueError`:
 
-   ```sh
-   C = tshift(A, "1 DAY")
-   C = buff_t(A, 3)
-   ```
+    ```sh
+    C = tshift(A, "1 DAY")
+    C = buff_t(A, 3)
+    ```
 
 3. **Overlay with an unknown number of areas.** An intermediate map that
-   `buff_p()` leaves empty, because the input has no points, has no known
-   number of areas. It counts as a map without areas: *v.overlay* is not
-   run, a warning says so, and the result is dropped. Earlier versions ran
-   *v.overlay* on the map, which failed. A has no points, so this
-   expression gives no map:
+    `buff_p()` leaves empty, because the input has no points, has no known
+    number of areas. It counts as a map without areas: *v.overlay* is not
+    run, a warning says so, and the result is dropped. Earlier versions ran
+    *v.overlay* on the map, which failed. A has no points, so this
+    expression gives no map:
 
-   ```sh
-   C = buff_p(A, 1) ^ B
-   ```
+    ```sh
+    C = buff_p(A, 1) ^ B
+    ```
 
 4. **Selection with a time instance on relative time.** With the temporal
-   operator `i`, the time stamp of the result is the time instance. Earlier
-   versions failed with a `TypeError` for a selection on relative time. If A
-   has maps of relative time that contain the time instances of I, this
-   expression gives maps with the instances as time:
+    operator `i`, the time stamp of the result is the time instance. Earlier
+    versions failed with a `TypeError` for a selection on relative time. If A
+    has maps of relative time that contain the time instances of I, this
+    expression gives maps with the instances as time:
 
-   ```sh
-   C = A {:,contains,i} I
-   ```
+    ```sh
+    C = A {:,contains,i} I
+    ```
 
 5. **A spatial relation without a temporal one.** An operator with spatial
-   relation names only, such as `A {&,equivalent,l} B`, related no map, because
-   maps are related by their temporal relations, and gave an empty result
-   without a message (corrected 17 October 2026). It stops now with the error
-   "equivalent is a spatial relation and needs a temporal one, as in
-   equal|overlap", as in the new algebra. A selection in braces, which refuses
-   spatial names with a syntax error, gives this error too when the names are
-   spatial only. Write a temporal relation beside the spatial one:
+    relation names only, such as `A {&,equivalent,l} B`, related no map, because
+    maps are related by their temporal relations, and gave an empty result
+    without a message (corrected 17 October 2026). It stops now with the error
+    "equivalent is a spatial relation and needs a temporal one, as in
+    equal|overlap", as in the new algebra. A selection in braces, which refuses
+    spatial names with a syntax error, gives this error too when the names are
+    spatial only. Write a temporal relation beside the spatial one:
 
-   ```sh
-   C = A {&,equal|equivalent,l} B
-   ```
+    ```sh
+    C = A {&,equal|equivalent,l} B
+    ```
 
 6. **Month and year steps from the end of a month.** `tshift()` and
-   `buff_t()` by months or years ended in an error ("day is out of range for
-   month") when a time stamp moved to a day that the target month lacks, in
-   both algebras. Such a step now ends on the last day of that month
-   (corrected 23 October 2026). With a dataset M whose map lasts from 31
-   January to 31 March 2001, the first expression gives a map from 28
-   February to 30 April 2001, the second one a map from 31 December 2000 to
-   30 April 2001. A year step from 29 February 2004 ends on 28 February 2005:
+    `buff_t()` by months or years ended in an error ("day is out of range for
+    month") when a time stamp moved to a day that the target month lacks, in
+    both algebras. Such a step now ends on the last day of that month
+    (corrected 23 October 2026). With a dataset M whose map lasts from 31
+    January to 31 March 2001, the first expression gives a map from 28
+    February to 30 April 2001, the second one a map from 31 December 2000 to
+    30 April 2001. A year step from 29 February 2004 ends on 28 February 2005:
 
-   ```sh
-   C = tshift(M, "1 months")
-   C = buff_t(M, "1 months")
-   ```
+    ```sh
+    C = tshift(M, "1 months")
+    C = buff_t(M, "1 months")
+    ```
 
-   A month step back that ends in December of the year before last or
-   earlier, for example `buff_t(A, "24 months")` on a map that starts on 1
-   December or `tshift(A, "-13 months")` on one that starts in January,
-   ended in the error "bad month number 0" and now gives a result
-   (corrected 23 October 2026). Years and months of one step count as one
-   step of 12 * years + months months, so `"1 years, 11 months"` and
-   `"23 months"` end on the same day.
+    A month step back that ends in December of the year before last or
+    earlier, for example `buff_t(A, "24 months")` on a map that starts on 1
+    December or `tshift(A, "-13 months")` on one that starts in January,
+    ended in the error "bad month number 0" and now gives a result
+    (corrected 23 October 2026). Years and months of one step count as one
+    step of 12 * years + months months, so `"1 years, 11 months"` and
+    `"23 months"` end on the same day.
 
 7. **A date beyond the year 9999.** A step that ends behind the year 9999
-   or before the year 1, for example `buff_t(A, "365 days")` on a map that ends
-   on 1 December 9999, ended with a traceback ("date value out of range")
-   in both algebras. It now ends with the error "... is beyond the year
-   9999" or "... is before the year 1" (corrected 23 October 2026); no map
-   and no dataset is created.
+    or before the year 1, for example `buff_t(A, "365 days")` on a map that ends
+    on 1 December 9999, ended with a traceback ("date value out of range")
+    in both algebras. It now ends with the error "... is beyond the year
+    9999" or "... is before the year 1" (corrected 23 October 2026); no map
+    and no dataset is created.
 
 8. **A selection with r or u under -s and maps whose boxes only touch.**
-   With **-s** two maps are related when they are related in time and in
-   space; boxes that meet at an edge or a corner only are not related in
-   space. A selection such as `A {:,precedes,r} B` took the time of every
-   map that was related in time, also of one whose box only touches the box
-   of the map of A, and the last such map won. An inverse selection such as
-   `A {!:,precedes,r} B` kept a map without a related partner, as it should,
-   but gave it the time of a partner that only touches it. The time is now
-   taken only from maps that are related in time and in space, and `!:`
-   keeps a map without such a partner with its own time (corrected 23
-   October 2026). For example, a map of A from 1 to 2 January whose box
-   meets at a corner the box of a map of B from 2 to 3 January keeps the
-   time 1 to 2 January in the inverse selection above, where it took 2 to 3
-   January. Without **-s** nothing changes.
+    With **-s** two maps are related when they are related in time and in
+    space; boxes that meet at an edge or a corner only are not related in
+    space. A selection such as `A {:,precedes,r} B` took the time of every
+    map that was related in time, also of one whose box only touches the box
+    of the map of A, and the last such map won. An inverse selection such as
+    `A {!:,precedes,r} B` kept a map without a related partner, as it should,
+    but gave it the time of a partner that only touches it. The time is now
+    taken only from maps that are related in time and in space, and `!:`
+    keeps a map without such a partner with its own time (corrected 23
+    October 2026). For example, a map of A from 1 to 2 January whose box
+    meets at a corner the box of a map of B from 2 to 3 January keeps the
+    time 1 to 2 January in the inverse selection above, where it took 2 to 3
+    January. Without **-s** nothing changes.
 
 9. **A failed module.** If a module fails while the maps are computed, for
-   example *v.patch*, both algebras ended with a Python traceback. They now end
-   with an error that names the module and its return code, such as
-   `Module <v.patch> failed with return code 1, see the error output above`
-   (corrected 24 October 2026); the cause is in the error output of the module
-   above it. No dataset is created.
+    example *v.patch*, both algebras ended with a Python traceback. They now end
+    with an error that names the module and its return code, such as
+    `Module <v.patch> failed with return code 1, see the error output above`
+    (corrected 24 October 2026); the cause is in the error output of the module
+    above it. No dataset is created.
 
 10. **The relation equals.** The releases before GRASS 8.6 refused the
     spelling `equals` of the paper with a syntax error (corrected 17 October
@@ -844,24 +844,24 @@ x = 20 is 300020 in the map; the extent columns of
 is given by its west and south edge.
 
 - `A` holds the daily maps `a1`, `a2` and `a3` from 1 March 2026, squares at
-  x = 0, 20 and 40, y = 0 to 10.
+    x = 0, 20 and 40, y = 0 to 10.
 - `B` holds the daily maps `b1`, `b2` and `b3` of the same days, squares at
-  x = 5, 25 and 70, y = 5 to 15. So `b1` overlaps `a1` in a square of 5 by 5
-  meters, area 25, `b2` overlaps `a2` the same way, and `b3` is far from `a3`.
+    x = 5, 25 and 70, y = 5 to 15. So `b1` overlaps `a1` in a square of 5 by 5
+    meters, area 25, `b2` overlaps `a2` the same way, and `b3` is far from `a3`.
 - `W` holds two maps of two days, `w1` from 1 to 3 March at x = 5 and `w2`
-  from 3 to 5 March at x = 45, y = 0 to 10. In time, `w1` contains `a1` and
-  `a2` (`a1` starts together with it, `a2` finishes together with it), and
-  `w2` contains `a3`.
+    from 3 to 5 March at x = 45, y = 0 to 10. In time, `w1` contains `a1` and
+    `a2` (`a1` starts together with it, `a2` finishes together with it), and
+    `w2` contains `a3`.
 - `P` holds the daily maps `p1`, `p2` and `p3` with one, two and three points
-  at y = 5, ten meters apart, starting at x = 5.
+    at y = 5, ten meters apart, starting at x = 5.
 - `L` holds the daily maps `l1` and `l2`, each with one line of length 10 meters
-  at y = 5, from x = 0 and x = 20.
+    at y = 5, from x = 0 and x = 20.
 - `C` holds the maps `c1` and `c2`, copies of `w1` and `w2` with the same two
-  times. It is the else part of an expression of the paper in the
-  "Conditions" example.
+    times. It is the else part of an expression of the paper in the
+    "Conditions" example.
 - The map `ev` is a square at x = 20 with the time of one day, 2 to 3 March.
-  It is in no dataset; the "Temporal selection" example refers to it with
-  `tmap(ev)`.
+    It is in no dataset; the "Temporal selection" example refers to it with
+    `tmap(ev)`.
 
 The tool calls of the following examples use the datasets by name.
 
@@ -1376,26 +1376,26 @@ of the example "Create the datasets of the examples". The items follow the
 order of the blocks; item 7 has two blocks.
 
 1. `{:,starts}` takes the maps of `A` that start together with a map of `W`
-   and end before it: `a1` starts `w1` and `a3` starts `w2`, so `a1` and `a3`.
+    and end before it: `a1` starts `w1` and `a3` starts `w2`, so `a1` and `a3`.
 2. `{!:,starts}` is the complement: `a2`.
 3. **during** is inclusive. `a1` starts and `a2` finishes together with `w1`,
-   `a3` starts together with `w2`, and `{:,during}` takes all three.
+    `a3` starts together with `w2`, and `{:,during}` takes all three.
 4. `W {:,contains} A` takes the maps of `W` that contain a map of `A`,
-   `contains` including the maps that start or finish together: `w1` and `w2`.
+    `contains` including the maps that start or finish together: `w1` and `w2`.
 5. **precedes** needs maps that touch. `tshift(B, "2 days")` has the maps from
-   3 to 4, 4 to 5 and 5 to 6 March. `a1` (1 to 2 March) is separated from the
-   first by a gap and gets no partner; `a2` ends where the first map starts
-   and `a3` where the second starts. The result is `a2` and `a3`.
+    3 to 4, 4 to 5 and 5 to 6 March. `a1` (1 to 2 March) is separated from the
+    first by a gap and gets no partner; `a2` ends where the first map starts
+    and `a3` where the second starts. The result is `a2` and `a3`.
 6. `equals` is read as `equal`, the spelling of the paper.
 7. `{:,equal|overlap}` combines the temporal relation `equal` with the spatial
-   relation `overlap`. `a1` and `b1` overlap, and so do `a2` and `b2`, but not
-   `a3` and `b3`. The spatial relation is evaluated although the call has no
-   **-s**: the result has two maps, where `A : B` has three. The classic
-   algebra does not read spatial names in the braces; the second block, with
-   **-c**, stops with an error.
+    relation `overlap`. `a1` and `b1` overlap, and so do `a2` and `b2`, but not
+    `a3` and `b3`. The spatial relation is evaluated although the call has no
+    **-s**: the result has two maps, where `A : B` has three. The classic
+    algebra does not read spatial names in the braces; the second block, with
+    **-c**, stops with an error.
 8. Selections are applied from left to right: `A : B !: tmap(ev)` selects the
-   maps of `A` that are equal to a map of `B`, and from them the maps that
-   are not equal to `ev`, which has the time of `a2`: `a1` and `a3`.
+    maps of `A` that are equal to a map of `B`, and from them the maps that
+    are not equal to `ev`, which has the time of `a2`: `a1` and `a3`.
 
 === "Command line"
 
@@ -1517,39 +1517,39 @@ examples": `a1` (x = 0 to 10, y = 0 to 10) and `b1` (x = 5 to 15, y = 5 to
 follow the order of the blocks; item 6 has two blocks.
 
 1. `A & B` is the intersection. The pair `a1`, `b1` has the common area 25, the
-   pair `a2`, `b2` too, and `a3` and `b3` have none. A map without areas is not
-   registered, so the result has two maps. The second command prints the area
-   of the first result map in square meters.
+    pair `a2`, `b2` too, and `a3` and `b3` have none. A map without areas is not
+    registered, so the result has two maps. The second command prints the area
+    of the first result map in square meters.
 2. `A | B` is the union. The pair `a1`, `b1` gives three areas, 75 only in
-   `a1`, 25 in both and 75 only in `b1`; the pair `a3`, `b3` gives its two
-   squares, so the result has the areas 3, 3 and 2.
+    `a1`, 25 in both and 75 only in `b1`; the pair `a3`, `b3` gives its two
+    squares, so the result has the areas 3, 3 and 2.
 3. `A ^ B` is the symmetric difference: the 75 only in `a1` and the 75 only in
-   `b1`, two areas with a centroid for each overlapping pair. The common square
-   stays in the map as a third area without a centroid, so `areas` is 3 and
-   `centroids` is 2.
+    `b1`, two areas with a centroid for each overlapping pair. The common square
+    stays in the map as a third area without a centroid, so `areas` is 3 and
+    `centroids` is 2.
 4. `A ~ B` is the complement of `B` in `A`: the 75 of `a1` outside `b1`. One
-   area for each pair: `a3` does not overlap `b3` and stays whole, with the
-   area 100.
+    area for each pair: `a3` does not overlap `b3` and stays whole, with the
+    area 100.
 5. `P + L` patches the maps of two datasets with *v.patch*: `p1` and `l1`,
-   one point and one line, and `p2` and `l2`, two points and one line. `p3`
-   has no partner in `L`.
+    one point and one line, and `p2` and `l2`, two points and one line. `p3`
+    has no partner in `L`.
 6. `A {&,during} W` intersects each map of `A` with the maps of `W` that
-   contain it. `a2` does not touch `w1`, so its intersection has no areas and
-   the result has the maps 0 and 2, the number 1 is not used. The classic
-   algebra, in the second block with **-c**, numbers the two maps 0 and 1.
+    contain it. `a2` does not touch `w1`, so its intersection has no areas and
+    the result has the maps 0 and 2, the number 1 is not used. The classic
+    algebra, in the second block with **-c**, numbers the two maps 0 and 1.
 7. The temporal operator after the relation sets the time of the result maps.
-   **r** takes the time of the map of `W`, 1 to 3 and 3 to 5 March; **u** takes
-   the union of both times, the same here, as the maps of `A` lie in the maps of
-   `W`; without an operator the time is that of the left map.
+    **r** takes the time of the map of `W`, 1 to 3 and 3 to 5 March; **u** takes
+    the union of both times, the same here, as the maps of `A` lie in the maps of
+    `W`; without an operator the time is that of the left map.
 8. With several related maps the operators aggregate: `W {&,contains} A`
-   overlays `w1` with `a1` and `a2` into one map, and `w2` with `a3`. The first
-   has no area, as `a1` and `a2` do not touch, the second has the area 50, the
-   square x = 45 to 50.
+    overlays `w1` with `a1` and `a2` into one map, and `w2` with `a3`. The first
+    has no area, as `a1` and `a2` do not touch, the second has the area 50, the
+    square x = 45 to 50.
 9. The overlay operators have the same precedence and are evaluated from left
-   to right, so `A | B & A` is `(A | B) & A`: the union of each pair
-   intersected with the map of `A`, with the areas 2, 2 and 1. With parentheses,
-   `A | (B & A)` first intersects `B` and `A`. `a3 & b3` has no areas, so the
-   third map is left out and the result has the areas 2 and 2.
+    to right, so `A | B & A` is `(A | B) & A`: the union of each pair
+    intersected with the map of `A`, with the areas 2, 2 and 1. With parentheses,
+    `A | (B & A)` first intersects `B` and `A`. `a3 & b3` has no areas, so the
+    third map is left out and the result has the areas 2 and 2.
 10. `merge(A, B)` puts the maps of both datasets into one dataset. The maps of
     the same day are listed by the order of their names.
 
@@ -1722,18 +1722,18 @@ and keep its time. The size is in meters. The temporal functions change the
 time of the maps and copy the maps whose time changes.
 
 1. `buff_p(P, 1)` buffers the points of `p1`, `p2` and `p3`: one, two and three
-   circles, as the points are ten meters apart.
+    circles, as the points are ten meters apart.
 2. `buff_p(P, 6)` has a radius larger than half the distance of the points, so
-   the circles of one map merge into one area.
+    the circles of one map merge into one area.
 3. `buff_l(L, 2)` buffers the lines: one area for each map.
 4. `buff_a(A, 2)` buffers the areas: one area for each map.
 5. The result of a buffer is a vector dataset, so `buff_a(buff_p(P, 1), 1)`
-   buffers the circles again and keeps their number.
+    buffers the circles again and keeps their number.
 6. `buff_t(W, "1 day")` extends each map by one day at both ends: 28 February
-   to 4 March, and 2 to 6 March.
+    to 4 March, and 2 to 6 March.
 7. `tshift(A, "1 day")` moves the maps by one day.
 8. `tsnap(A)` snaps the maps to a valid topology. `A` has no gaps, so nothing
-   changes and the result registers the maps `a1`, `a2` and `a3` themselves.
+    changes and the result registers the maps `a1`, `a2` and `a3` themselves.
 9. `tshift(A, "1 day") : A` selects the shifted maps that are equal in time to
     a map of `A`: the shifted `a1` (2 to 3 March) and `a2` (3 to 4 March).
 
@@ -1856,34 +1856,34 @@ condition and the conclusion; without it the maps must be equal in time. The
 items follow the order of the blocks; item 1 has two blocks.
 
 1. The first form of the paper compares the start date with 1 January 2005.
-   All maps of `A` start in March 2026, so the condition is false for all of
-   them: the tool warns, and the result dataset `D` is empty
-   (`number_of_maps` 0). The second block moves the date to 3 March 2026, so
-   the maps of `A` before it, `a1` and `a2`, are intersected with the maps of
-   `B`.
+    All maps of `A` start in March 2026, so the condition is false for all of
+    them: the tool warns, and the result dataset `D` is empty
+    (`number_of_maps` 0). The second block moves the date to 3 March 2026, so
+    the maps of `A` before it, `a1` and `a2`, are intersected with the maps of
+    `B`.
 2. With an else part, the maps of `B` replace the maps for which the condition
-   is false: `b1`, as `a1` starts on day 1, and `a2` and `a3`.
+    is false: `b1`, as `a1` starts on day 1, and `a2` and `a3`.
 3. Conditions join with `&&` and `||`: `a1` and `a2` start in March before the
-   3rd.
+    3rd.
 4. `td(A)` is the length of each map in days, 1 for all maps of `A`.
 5. The form of the paper with `td()` and `buff_t()`, with the dataset `C` of
-   the first example as else part: the buffer of 1 day on both sides makes
-   each map of `A` 3 days long, so the condition is true and the result `E`
-   holds the maps of `B` that are within the buffered maps of `A`, here all
-   three.
+    the first example as else part: the buffer of 1 day on both sides makes
+    each map of `A` 3 days long, so the condition is true and the result `E`
+    holds the maps of `B` that are within the buffered maps of `A`, here all
+    three.
 6. With 4 days the condition is false and the else part, `C`, is the result:
-   `c1` and `c2`.
+    `c1` and `c2`.
 7. The relation names the maps of the condition and of the conclusion:
-   `{contains}` reads "condition contains conclusion". `w1` starts on day 1,
-   `w2` on day 3, so the condition is true for `w2`, and the maps of `A`
-   within `w2` are `a3`.
+    `{contains}` reads "condition contains conclusion". `w1` starts on day 1,
+    `w2` on day 3, so the condition is true for `w2`, and the maps of `A`
+    within `w2` are `a3`.
 8. The hash operator counts the maps of `A` that `W` contains: two for `w1`,
-   one for `w2`. The condition selects `w1`, and the conclusion is the same
-   selection with the maps of `W` that contain a map of `A`, so the result
-   is `w1`.
+    one for `w2`. The condition selects `w1`, and the conclusion is the same
+    selection with the maps of `W` that contain a map of `A`, so the result
+    is `w1`.
 9. The comparison operator joins two conditions on different datasets:
-   `start_day(A) > 1` is true for `a2` and `a3`, `start_day(B) < 3` for `b1`
-   and `b2`, and `&&` with the relation `equal` makes `a2` the only match.
+    `start_day(A) > 1` is true for `a2` and `a3`, `start_day(B) < 3` for `b1`
+    and `b2`, and `&&` with the relation `equal` makes `a2` the only match.
 10. The hash operator takes no temporal operator other than **l**. The block
     shows the error.
 11. When a map has several related condition maps, the conditions are joined
