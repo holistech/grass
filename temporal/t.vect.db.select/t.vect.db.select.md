@@ -28,9 +28,8 @@ if its map meets **t_where** and the row meets **where**.
 
 The option **layer** (default `1`) is the layer whose table is printed. A map
 that is registered in the dataset with a layer, as `name:2`, always uses that
-layer, and the option **layer** applies to the maps registered without one,
-unless an earlier map was registered with a layer; see the notes. The layer
-example shows both.
+layer, and the option **layer** applies to every map registered without one,
+whatever the maps before it were registered with. The layer example shows both.
 
 ### Select columns
 
@@ -93,12 +92,8 @@ A separator longer than one character with the format `csv`, and any separator
 with the format `json`, are refused.
 
 A map is read with the layer it is registered with. A map that is registered
-without a layer takes the layer of the last selected map before it, in the order
-of the start times, that is registered with one, and the option **layer** only
-if there is none. The order of registration does not matter, and a map that
-**t_where** leaves out passes on nothing. The layer example
-shows the case, which is easy to miss: register such maps with the layer they
-need, as `name:1`, or keep them in a dataset of their own.
+without a layer is read with the option **layer**, also if an earlier map in the
+dataset was registered with a layer: that layer belongs to its map only.
 
 ## EXAMPLES
 
@@ -667,10 +662,10 @@ The dataset `both` registers the two layers of `plots_1` as `plots_1:1` and
 `plots_1:2`. The third block prints both, and a **layer** option does not change
 this: the registered layer wins.
 
-The dataset `mixed` shows the case that the notes warn about. It registers
-`plots_1:2` for 1 March and `plots_2` without a layer for 2 March. The fourth
-block prints layer 2 for both maps: the second map takes the layer of the
-first and shows 101 and 102, not the values 1 and 2 of its layer 1.
+The dataset `mixed` registers `plots_1:2` for 1 March and `plots_2` without a
+layer for 2 March. The fourth block prints layer 2 for the first map, the layer
+it is registered with, and layer 1 for the second map, which takes the option
+**layer** with its default: 101 and 102, then 1 and 2.
 
 === "Command line"
 
@@ -752,8 +747,8 @@ first and shows 101 and 102, not the values 1 and 2 of its layer 1.
     start_time|end_time|cat|count
     2026-03-01 00:00:00|2026-03-02 00:00:00|1|101
     2026-03-01 00:00:00|2026-03-02 00:00:00|2|102
-    2026-03-02 00:00:00|2026-03-03 00:00:00|1|101
-    2026-03-02 00:00:00|2026-03-03 00:00:00|2|102
+    2026-03-02 00:00:00|2026-03-03 00:00:00|1|1
+    2026-03-02 00:00:00|2026-03-03 00:00:00|2|2
     ```
 
 === "Python (grass.tools)"
@@ -863,8 +858,8 @@ first and shows 101 and 102, not the values 1 and 2 of its layer 1.
     start_time|end_time|cat|count
     2026-03-01 00:00:00|2026-03-02 00:00:00|1|101
     2026-03-01 00:00:00|2026-03-02 00:00:00|2|102
-    2026-03-02 00:00:00|2026-03-03 00:00:00|1|101
-    2026-03-02 00:00:00|2026-03-03 00:00:00|2|102
+    2026-03-02 00:00:00|2026-03-03 00:00:00|1|1
+    2026-03-02 00:00:00|2026-03-03 00:00:00|2|2
     ```
 
 ### Print from a dataset of another mapset

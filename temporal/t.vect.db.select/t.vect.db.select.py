@@ -67,9 +67,8 @@ def _check_columns(tools, rows, layer, columns):
     if it has no table in its layer or lacks one of the requested columns.
     Only plain column names are checked; "*" and SQL expressions are left
     to v.db.select, which evaluates them in the table of each map.
-    The layer of each map is chosen as in the main loop: the layer of a
-    registered map replaces the layer option, and keeps doing so for the
-    maps after it.
+    The layer of each map is chosen as in the main loop: the layer a map is
+    registered with replaces the layer option for that map only.
     """
     wanted = []
     if columns:
@@ -83,11 +82,10 @@ def _check_columns(tools, rows, layer, columns):
     missing = {}
     for row in rows:
         vector_name = "%s@%s" % (row["name"], row["mapset"])
-        if row["layer"]:
-            layer = row["layer"]
-        label = "%s (layer %s)" % (vector_name, layer)
+        map_layer = row["layer"] or layer
+        label = "%s (layer %s)" % (vector_name, map_layer)
         try:
-            listing = tools.v_info(map=vector_name, layer=layer, flags="c").text
+            listing = tools.v_info(map=vector_name, layer=map_layer, flags="c").text
         except ToolError:
             without_table.append(label)
             continue
@@ -199,15 +197,14 @@ def select_from_maps(tools, rows, layer, columns, separator, where, output_forma
 
     for row in rows:
         vector_name = "%s@%s" % (row["name"], row["mapset"])
-        # In case a layer is defined in the vector dataset,
-        # we override the option layer
-        if row["layer"]:
-            layer = row["layer"]
+        # A layer the map is registered with overrides the option layer for
+        # this map; a variable shared by the loop would carry it to the next.
+        map_layer = row["layer"] or layer
 
         try:
             res = tools.v_db_select(
                 map=vector_name,
-                layer=layer,
+                layer=map_layer,
                 columns=columns,
                 separator=separator,
                 where=where,
