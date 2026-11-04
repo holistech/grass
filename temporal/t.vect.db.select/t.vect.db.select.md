@@ -10,10 +10,10 @@ all maps that meet one condition. See the
 datasets. *[t.vect.list](t.vect.list.md)* lists the maps themselves, and
 *[t.vect.univar](t.vect.univar.md)* calculates statistics of their attributes.
 
-The option **input** names the space time vector dataset. It is searched in the
-mapsets of the search path, so a dataset of another mapset can be named with or
-without its mapset; the last example shows both forms. The maps are read from
-their own mapsets.
+The option **input** names the space time vector dataset. A dataset of another
+mapset can be named with its mapset, `name@mapset`; a name without a mapset is
+searched in the current mapset and then in the mapsets of the search path. The
+last example shows both forms. The maps are read from their own mapsets.
 
 ### Select maps and rows
 
@@ -873,8 +873,11 @@ The dataset `normals` stays in the mapset `t_vect_db_select`. The example
 creates the mapset `t_vect_db_select_2` and switches to it, with the region of
 the first example. The first block adds the mapset `t_vect_db_select` to the
 search path of the new mapset with *g.mapsets* and prints the dataset by its
-name alone, which is found in the search path. The second block names the
-mapset. Both print the same rows.
+name alone, which is found in the search path. The mapset is added only for
+this block, because it names the dataset without its mapset; the second block
+names the mapset and works without it (see
+[Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)). Both
+print the same rows.
 
 === "Command line"
 

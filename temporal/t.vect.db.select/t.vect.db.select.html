@@ -11,10 +11,10 @@ datasets. <em><a href="t.vect.list.html">t.vect.list</a></em> lists the maps the
 <em><a href="t.vect.univar.html">t.vect.univar</a></em> calculates statistics of their attributes.
 
 <p>
-The option <b>input</b> names the space time vector dataset. It is searched in the
-mapsets of the search path, so a dataset of another mapset can be named with or
-without its mapset; the last example shows both forms. The maps are read from
-their own mapsets.
+The option <b>input</b> names the space time vector dataset. A dataset of another
+mapset can be named with its mapset, <code>name@mapset</code>; a name without a mapset is
+searched in the current mapset and then in the mapsets of the search path. The
+last example shows both forms. The maps are read from their own mapsets.
 
 <h3>Select maps and rows</h3>
 
@@ -881,8 +881,11 @@ The dataset <code>normals</code> stays in the mapset <code>t_vect_db_select</cod
 creates the mapset <code>t_vect_db_select_2</code> and switches to it, with the region of
 the first example. The first block adds the mapset <code>t_vect_db_select</code> to the
 search path of the new mapset with <em>g.mapsets</em> and prints the dataset by its
-name alone, which is found in the search path. The second block names the
-mapset. Both print the same rows.
+name alone, which is found in the search path. The mapset is added only for
+this block, because it names the dataset without its mapset; the second block
+names the mapset and works without it (see
+<a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other mapsets</a>). Both
+print the same rows.
 
 <p>Command line:</p>
 
