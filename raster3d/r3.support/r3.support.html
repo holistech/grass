@@ -2,6 +2,22 @@
 
 <b>r3.support</b> allows the user to create and/or edit raster3d map support
 information. Editing of raster3d map units, history, description and title is supported.
+<p>
+The option <b>raster</b> copies the category table of a 2D raster map to the
+3D raster map, which gives its values labels. The labels are, for instance,
+the zone labels printed by <em><a href="r3.univar.html">r3.univar</a></em> with <b>zones</b>. The
+category table of the 2D map can be written with
+<em><a href="r.category.html">r.category</a></em>:
+
+<div class="code"><pre>
+r3.mapcalc expression="layers = depth()"
+r.mapcalc expression="layer_names = 1"
+r.category map=layer_names separator=":" rules=- &lt;&lt;EOF
+1:lower layer
+2:upper layer
+EOF
+r3.support map=layers raster=layer_names
+</pre></div>
 
 <h2>NOTES</h2>
 
