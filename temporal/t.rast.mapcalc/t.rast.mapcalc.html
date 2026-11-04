@@ -1980,10 +1980,14 @@ sunny_1|2026-03-01 00:00:00|4.0|4.0
 The mapset <code>t_rast_mapcalc_2</code> is new and empty. A new mapset starts with the
 default region of the dataset, cells of 500 m, so the first block sets the
 region of the first example again. It adds the mapset <code>t_rast_mapcalc</code> to the
-search path with <em>g.mapsets</em> and converts <code>precipitation_monthly@t_rast_mapcalc</code>
-from millimeters to centimeters. The expression still uses the name
-<code>precipitation_monthly</code>. The dataset <code>precipitation_cm</code> and its maps belong to
-the current mapset; the listing shows the mapset of the maps.
+search path with <em>g.mapsets</em> and converts
+<code>precipitation_monthly@t_rast_mapcalc</code> from millimeters to centimeters. The
+expression still uses the name <code>precipitation_monthly</code>. The tool reads the
+maps of the input dataset through the search path, so the mapset of the input
+must be in the search path or be the current mapset. See <a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other
+mapsets</a>. The dataset
+<code>precipitation_cm</code> and its maps belong to the current mapset; the listing shows
+the mapset of the maps.
 
 <p>
 The second block repeats the call without <b>--overwrite</b>. The tool stops
