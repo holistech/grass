@@ -2053,13 +2053,13 @@ absolute time. The overlay `R & S` gives two maps with one area each, and
 `tshift(R, 1)` shifts the maps by one hour. The third block shows that an
 expression cannot mix the two temporal types.
 
-The last blocks switch to a new mapset `t_vect_algebra_2`, set the region
-again, add the mapset `t_vect_algebra` to the search path and use its
-datasets. A dataset name without mapset is looked up in the current mapset
-only, so `A` is not found, and `A@t_vect_algebra` names the dataset. The
-overlay creates its new maps in the current mapset, `t_vect_algebra_2`. The
-selection registers the maps of `t_vect_algebra` as they are, so the result
-dataset in `t_vect_algebra_2` holds maps from `t_vect_algebra`.
+The last blocks switch to a new mapset `t_vect_algebra_2`, set the region again
+and use the datasets of `t_vect_algebra`. A dataset name without mapset is
+looked up in the current mapset only, so `A` is not found, and
+`A@t_vect_algebra` names the dataset. The overlay creates its new maps in the
+current mapset, `t_vect_algebra_2`. The selection registers the maps of
+`t_vect_algebra` as they are, so the result dataset in `t_vect_algebra_2` holds
+maps from `t_vect_algebra`.
 
 === "Command line"
 
@@ -2103,7 +2103,6 @@ dataset in `t_vect_algebra_2` holds maps from `t_vect_algebra`.
     ```sh
     g.mapset -c mapset=t_vect_algebra_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_vect_algebra operation=add
     t.vect.algebra expression="far_and = A@t_vect_algebra & B@t_vect_algebra" \
         basename=far_and
     t.vect.list input=far_and columns=name,mapset,start_time,areas
@@ -2200,7 +2199,6 @@ dataset in `t_vect_algebra_2` holds maps from `t_vect_algebra`.
     ```python
     tools.g_mapset(mapset="t_vect_algebra_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_vect_algebra", operation="add")
     tools.t_vect_algebra(
         expression="far_and = A@t_vect_algebra & B@t_vect_algebra",
         basename="far_and",
@@ -2241,13 +2239,12 @@ dataset in `t_vect_algebra_2` holds maps from `t_vect_algebra`.
 
 The expression of the paper that buffers points needs datasets of points: the
 datasets `A` and `B` of the first example hold areas, and `buff_p()` of a map
-without points gives nothing, so the result would be empty. The example
-creates the mapset `t_vect_algebra_3`, sets its region and adds the mapset
-`t_vect_algebra` to the search path. There `A` and `B` are new datasets of
-points, copies of `p1`, `p2` and `p3`, each with the days 1 and 2 March. `A`
-has one and two points and `B` two and three, ten meters apart. The buffers
-have the radius 1, so every point has its own circle. The relations in the
-braces cover every case in which two maps overlap in time, and the temporal
+without points gives nothing, so the result would be empty. The example creates
+the mapset `t_vect_algebra_3` and sets its region. There `A` and `B` are new
+datasets of points, copies of `p1`, `p2` and `p3`, each with the days 1 and 2
+March. `A` has one and two points and `B` two and three, ten meters apart. The
+buffers have the radius 1, so every point has its own circle. The relations in
+the braces cover every case in which two maps overlap in time, and the temporal
 operator **i** gives the result the intersection of both times, here the day.
 The first day has one common circle, the second two.
 
@@ -2256,7 +2253,6 @@ The first day has one common circle, the second two.
     ```sh
     g.mapset -c mapset=t_vect_algebra_3
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_vect_algebra operation=add
     for k in 1 2; do
         g.copy vector=p$k@t_vect_algebra,pa$k
         g.copy vector=p$((k + 1))@t_vect_algebra,pb$k
@@ -2288,7 +2284,6 @@ The first day has one common circle, the second two.
     ```python
     tools.g_mapset(mapset="t_vect_algebra_3", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_vect_algebra", operation="add")
     for k in (1, 2):
         tools.g_copy(vector=f"p{k}@t_vect_algebra,pa{k}")
         tools.g_copy(vector=f"p{k + 1}@t_vect_algebra,pb{k}")

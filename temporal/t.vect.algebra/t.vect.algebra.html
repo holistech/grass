@@ -2101,13 +2101,13 @@ absolute time. The overlay <code>R &amp; S</code> gives two maps with one area e
 expression cannot mix the two temporal types.
 
 <p>
-The last blocks switch to a new mapset <code>t_vect_algebra_2</code>, set the region
-again, add the mapset <code>t_vect_algebra</code> to the search path and use its
-datasets. A dataset name without mapset is looked up in the current mapset
-only, so <code>A</code> is not found, and <code>A@t_vect_algebra</code> names the dataset. The
-overlay creates its new maps in the current mapset, <code>t_vect_algebra_2</code>. The
-selection registers the maps of <code>t_vect_algebra</code> as they are, so the result
-dataset in <code>t_vect_algebra_2</code> holds maps from <code>t_vect_algebra</code>.
+The last blocks switch to a new mapset <code>t_vect_algebra_2</code>, set the region again
+and use the datasets of <code>t_vect_algebra</code>. A dataset name without mapset is
+looked up in the current mapset only, so <code>A</code> is not found, and
+<code>A@t_vect_algebra</code> names the dataset. The overlay creates its new maps in the
+current mapset, <code>t_vect_algebra_2</code>. The selection registers the maps of
+<code>t_vect_algebra</code> as they are, so the result dataset in <code>t_vect_algebra_2</code> holds
+maps from <code>t_vect_algebra</code>.
 
 <p>Command line:</p>
 
@@ -2151,7 +2151,6 @@ t.vect.algebra failed
 <div class="code"><pre>
 g.mapset -c mapset=t_vect_algebra_2
 g.region raster=elev_state_500m res=1000 -a
-g.mapsets mapset=t_vect_algebra operation=add
 t.vect.algebra expression="far_and = A@t_vect_algebra &amp; B@t_vect_algebra" \
     basename=far_and
 t.vect.list input=far_and columns=name,mapset,start_time,areas
@@ -2248,7 +2247,6 @@ t.vect.algebra failed
 <div class="code"><pre>
 tools.g_mapset(mapset="t_vect_algebra_2", flags="c")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-tools.g_mapsets(mapset="t_vect_algebra", operation="add")
 tools.t_vect_algebra(
     expression="far_and = A@t_vect_algebra &amp; B@t_vect_algebra",
     basename="far_and",
@@ -2289,13 +2287,12 @@ t.vect.algebra failed
 
 The expression of the paper that buffers points needs datasets of points: the
 datasets <code>A</code> and <code>B</code> of the first example hold areas, and <code>buff_p()</code> of a map
-without points gives nothing, so the result would be empty. The example
-creates the mapset <code>t_vect_algebra_3</code>, sets its region and adds the mapset
-<code>t_vect_algebra</code> to the search path. There <code>A</code> and <code>B</code> are new datasets of
-points, copies of <code>p1</code>, <code>p2</code> and <code>p3</code>, each with the days 1 and 2 March. <code>A</code>
-has one and two points and <code>B</code> two and three, ten meters apart. The buffers
-have the radius 1, so every point has its own circle. The relations in the
-braces cover every case in which two maps overlap in time, and the temporal
+without points gives nothing, so the result would be empty. The example creates
+the mapset <code>t_vect_algebra_3</code> and sets its region. There <code>A</code> and <code>B</code> are new
+datasets of points, copies of <code>p1</code>, <code>p2</code> and <code>p3</code>, each with the days 1 and 2
+March. <code>A</code> has one and two points and <code>B</code> two and three, ten meters apart. The
+buffers have the radius 1, so every point has its own circle. The relations in
+the braces cover every case in which two maps overlap in time, and the temporal
 operator <b>i</b> gives the result the intersection of both times, here the day.
 The first day has one common circle, the second two.
 
@@ -2304,7 +2301,6 @@ The first day has one common circle, the second two.
 <div class="code"><pre>
 g.mapset -c mapset=t_vect_algebra_3
 g.region raster=elev_state_500m res=1000 -a
-g.mapsets mapset=t_vect_algebra operation=add
 for k in 1 2; do
     g.copy vector=p$k@t_vect_algebra,pa$k
     g.copy vector=p$((k + 1))@t_vect_algebra,pb$k
@@ -2336,7 +2332,6 @@ d_1|2026-03-02 00:00:00|2026-03-03 00:00:00|2
 <div class="code"><pre>
 tools.g_mapset(mapset="t_vect_algebra_3", flags="c")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-tools.g_mapsets(mapset="t_vect_algebra", operation="add")
 for k in (1, 2):
     tools.g_copy(vector=f"p{k}@t_vect_algebra,pa{k}")
     tools.g_copy(vector=f"p{k + 1}@t_vect_algebra,pb{k}")
