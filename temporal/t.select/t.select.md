@@ -472,86 +472,86 @@ selects no map creates an empty space time dataset in both algebras. These
 points differ:
 
 1. **Spatial relations.** A spatial relation in an operator, such as
-   `{:,equal|overlap}`, is read only by the new algebra, with and without
-   the flag **-s**, and needs a temporal relation to go with it. The
-   classic algebra reports a syntax error for the name of a spatial
-   relation, with and without **-s**.
+    `{:,equal|overlap}`, is read only by the new algebra, with and without
+    the flag **-s**, and needs a temporal relation to go with it. The
+    classic algebra reports a syntax error for the name of a spatial
+    relation, with and without **-s**.
 
 2. **Right reference.** `A {:,R,r} B` gives one map per related pair, with
-   the time stamp of the right map: a map of A that contains two maps of B
-   gives two maps. The classic algebra keeps only the last pair of each map
-   of A. `A {!:,R,t} B` with a temporal reference other than `l` is a
-   syntax error, because the inverse selection has no related map to
-   combine with; the classic algebra accepts it.
+    the time stamp of the right map: a map of A that contains two maps of B
+    gives two maps. The classic algebra keeps only the last pair of each map
+    of A. `A {!:,R,t} B` with a temporal reference other than `l` is a
+    syntax error, because the inverse selection has no related map to
+    combine with; the classic algebra accepts it.
 
 3. **More syntax.** The neighbourhood modifier `A[1]` and `A[-1]`, and
-   comparisons and temporal functions anywhere in a condition (also with
-   the number on the left, as in `20 < start_doy(A)`, and in arithmetic, as
-   in `start_doy(A) - 1 > 20`), and the hash operator in arithmetic within
-   a condition are read by the new algebra. So is an expression that is only
-   a dataset, `C = A`. The classic algebra reports a syntax error for each.
+    comparisons and temporal functions anywhere in a condition (also with
+    the number on the left, as in `20 < start_doy(A)`, and in arithmetic, as
+    in `start_doy(A) - 1 > 20`), and the hash operator in arithmetic within
+    a condition are read by the new algebra. So is an expression that is only
+    a dataset, `C = A`. The classic algebra reports a syntax error for each.
 
 4. **Arithmetic on datasets.** An expression such as `A + B` is read by the
-   new algebra, which stops with a message that names the tools that
-   compute maps, because it is no selection. The classic algebra cannot
-   read it and reports a syntax error.
+    new algebra, which stops with a message that names the tools that
+    compute maps, because it is no selection. The classic algebra cannot
+    read it and reports a syntax error.
 
 5. **Copy names in a mixed result.** When a result mixes maps registered
-   unchanged with retimed maps, the copied maps are named `<result>_1`,
-   `<result>_2`, ... in the time order of the result. The classic algebra
-   numbers them by their position among all result maps, so the suffixes can
-   differ; the maps and their time stamps are the same. If three maps are
-   registered unchanged before three copies, the copies are `C_1` to `C_3`
-   in the new algebra and `C_4` to `C_6` in the classic one:
+    unchanged with retimed maps, the copied maps are named `<result>_1`,
+    `<result>_2`, ... in the time order of the result. The classic algebra
+    numbers them by their position among all result maps, so the suffixes can
+    differ; the maps and their time stamps are the same. If three maps are
+    registered unchanged before three copies, the copies are `C_1` to `C_3`
+    in the new algebra and `C_4` to `C_6` in the classic one:
 
-   ```sh
-   C = merge(A {:,during,l} D, A {:,during,r} D)
-   ```
+    ```sh
+    C = merge(A {:,during,l} D, A {:,during,r} D)
+    ```
 
 6. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
-   by that size at both ends. The new algebra stops with an error if a map
-   would keep no time, that is if its end would fall on or before its start,
-   and for a time instance, which has no duration to shrink. The classic
-   algebra goes on instead: for a map whose end would fall before its
-   start it prints an error message and keeps the old time stamp, and it
-   makes a time instance of a map whose end equals its start. For maps
-   of two days, the first expression shrinks them to one day and the
-   second is an error:
+    by that size at both ends. The new algebra stops with an error if a map
+    would keep no time, that is if its end would fall on or before its start,
+    and for a time instance, which has no duration to shrink. The classic
+    algebra goes on instead: for a map whose end would fall before its
+    start it prints an error message and keeps the old time stamp, and it
+    makes a time instance of a map whose end equals its start. For maps
+    of two days, the first expression shrinks them to one day and the
+    second is an error:
 
-   ```sh
-   C = buff_t(B, "-12 hours")
-   C = buff_t(B, "-1 day")
-   ```
+    ```sh
+    C = buff_t(B, "-12 hours")
+    C = buff_t(B, "-1 day")
+    ```
 
 7. **tsnap() of maps that start together.** Of maps with the same start,
-   `tsnap()` snaps only one to the start of the next later map; the others
-   keep their own ends. The new algebra takes the map that ends last, so its
-   result does not depend on the order of the maps. The classic algebra
-   takes the map listed last, so that the order of the arguments of
-   `merge()` matters. If a map from day 2 to day 4 is in C and a map from
-   day 2 to day 3 in A, the new algebra gives both expressions the same
-   maps; the classic algebra lets the map of C keep its end in the second:
+    `tsnap()` snaps only one to the start of the next later map; the others
+    keep their own ends. The new algebra takes the map that ends last, so its
+    result does not depend on the order of the maps. The classic algebra
+    takes the map listed last, so that the order of the arguments of
+    `merge()` matters. If a map from day 2 to day 4 is in C and a map from
+    day 2 to day 3 in A, the new algebra gives both expressions the same
+    maps; the classic algebra lets the map of C keep its end in the second:
 
-   ```sh
-   D = tsnap(merge(A, C))
-   D = tsnap(merge(C, A))
-   ```
+    ```sh
+    D = tsnap(merge(A, C))
+    D = tsnap(merge(C, A))
+    ```
 
 8. **Time functions as the conclusion of if().** A time function such as
-   `start_doy()` gives numbers, not maps, so the new algebra stops with the
-   error "A time function such as start_doy() cannot be the result of a
-   selection" whenever it is the conclusion of `if()` beside maps. A time
-   function belongs in the condition. The classic algebra stops with this
-   error only where a value of the time function would be among the
-   selected maps (see the corrections below). If the first map of A starts
-   on 1 January, only that map meets the condition, and it has no
-   predecessor: the classic algebra selects the other maps of A with the
-   first expression and stops with the second:
+    `start_doy()` gives numbers, not maps, so the new algebra stops with the
+    error "A time function such as start_doy() cannot be the result of a
+    selection" whenever it is the conclusion of `if()` beside maps. A time
+    function belongs in the condition. The classic algebra stops with this
+    error only where a value of the time function would be among the
+    selected maps (see the corrections below). If the first map of A starts
+    on 1 January, only that map meets the condition, and it has no
+    predecessor: the classic algebra selects the other maps of A with the
+    first expression and stops with the second:
 
-   ```sh
-   C = if(start_doy(A) < 3, start_doy(A, -1), A)
-   C = if(start_doy(A) < 3, start_doy(A, 1), A)
-   ```
+    ```sh
+    C = if(start_doy(A) < 3, start_doy(A, -1), A)
+    C = if(start_doy(A) < 3, start_doy(A, 1), A)
+    ```
 
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read, and `FatalError` for a missing dataset and, without overwrite, for an
@@ -595,120 +595,120 @@ concerned the library and with it both algebras. Results of earlier GRASS
 versions that used one of these forms need a new run.
 
 1. **tsnap() and tshift() of no maps.** If the expression inside selects
-   no map, the result is an empty dataset, like any other selection of no
-   map, and an enclosing expression goes on with no maps. Earlier versions
-   ended in an error. No map of A is equal to a map of D, so both
-   expressions give an empty dataset:
+    no map, the result is an empty dataset, like any other selection of no
+    map, and an enclosing expression goes on with no maps. Earlier versions
+    ended in an error. No map of A is equal to a map of D, so both
+    expressions give an empty dataset:
 
-   ```sh
-   C = tsnap(A {:,equal} D)
-   C = tshift(A {:,equal} D, "1 day")
-   ```
+    ```sh
+    C = tsnap(A {:,equal} D)
+    C = tshift(A {:,equal} D, "1 day")
+    ```
 
 2. **Increments that the library refuses.** An increment of `tshift()` or
-   `buff_t()` that does not fit the temporal type, such as a text that is
-   not a time step or a number without unit on absolute time, is a syntax
-   error and leaves no result dataset. The new algebra refuses the same
-   increments with a `ValueError`:
+    `buff_t()` that does not fit the temporal type, such as a text that is
+    not a time step or a number without unit on absolute time, is a syntax
+    error and leaves no result dataset. The new algebra refuses the same
+    increments with a `ValueError`:
 
-   ```sh
-   C = tshift(A, "1 DAY")
-   C = buff_t(A, 3)
-   ```
+    ```sh
+    C = tshift(A, "1 DAY")
+    C = buff_t(A, 3)
+    ```
 
 3. **Selection with a time instance on relative time.** With the temporal
-   operator `i`, the time stamp of the result is the time instance. Earlier
-   versions failed with a `TypeError` for a selection on relative time. If A
-   has maps of relative time that contain the time instances of I, this
-   expression gives maps with the instances as time:
+    operator `i`, the time stamp of the result is the time instance. Earlier
+    versions failed with a `TypeError` for a selection on relative time. If A
+    has maps of relative time that contain the time instances of I, this
+    expression gives maps with the instances as time:
 
-   ```sh
-   C = A {:,contains,i} I
-   ```
+    ```sh
+    C = A {:,contains,i} I
+    ```
 
 4. **Spatial relation names alone.** A selection in braces refuses spatial
-   relation names with a syntax error. With spatial names only, such as
-   `A {:,equivalent} B`, it stops now with the error "equivalent is a spatial
-   relation and needs a temporal one, as in equal|overlap", as every operator
-   of the algebras and the new algebra do (17 October 2026). Selections read
-   temporal relations only:
+    relation names with a syntax error. With spatial names only, such as
+    `A {:,equivalent} B`, it stops now with the error "equivalent is a spatial
+    relation and needs a temporal one, as in equal|overlap", as every operator
+    of the algebras and the new algebra do (17 October 2026). Selections read
+    temporal relations only:
 
-   ```sh
-   C = A {:,equal} B
-   ```
+    ```sh
+    C = A {:,equal} B
+    ```
 
 5. **Empty selection of vector maps.** An expression that selects no map
-   creates an empty space time vector dataset, as it does for raster maps
-   and in the new algebra (19 October 2026). The reference implementation
-   created no dataset for vector maps and gave no warning. With
-   **type=stvds**, if no map of A is equal to a map of D, this expression
-   gives an empty dataset:
+    creates an empty space time vector dataset, as it does for raster maps
+    and in the new algebra (19 October 2026). The reference implementation
+    created no dataset for vector maps and gave no warning. With
+    **type=stvds**, if no map of A is equal to a map of D, this expression
+    gives an empty dataset:
 
-   ```sh
-   C = A {:,equal} D
-   ```
+    ```sh
+    C = A {:,equal} D
+    ```
 
 6. **Planned type of a mixed selection.** The dry run (**-d**) plans the
-   type of the dataset that the run creates (19 October 2026). If the maps
-   of the result come from a function of another type, the run creates a
-   dataset of that type: with **type=strds**, this expression creates a
-   space time 3D raster dataset, and the dry run plans one. The reference
-   implementation planned the type given by **type** and created the other:
+    type of the dataset that the run creates (19 October 2026). If the maps
+    of the result come from a function of another type, the run creates a
+    dataset of that type: with **type=strds**, this expression creates a
+    space time 3D raster dataset, and the dry run plans one. The reference
+    implementation planned the type given by **type** and created the other:
 
-   ```sh
-   C = if({contains}, (stvds(B) {#,contains} str3ds(A)) == 2, str3ds(A))
-   ```
+    ```sh
+    C = if({contains}, (stvds(B) {#,contains} str3ds(A)) == 2, str3ds(A))
+    ```
 
 7. **A map that starts with the next map in tsnap().** `tsnap()` sets the end
-   of each map to the start of the next map. A map that starts at the same
-   time as the next map keeps its own end instead (corrected 21 October 2026).
-   Earlier versions gave it the end of the next map, so the two maps swapped
-   their ends. If a map on days 2 to 3 and a map on days 2 to 4 start together,
-   the one listed first keeps its end in the classic algebra (**-c**,
-   `GRASS_TEMPORAL_ALGEBRA=classic` and the reference implementation). The new
-   algebra orders such maps by their end instead, see item 7 of the
-   differences above:
+    of each map to the start of the next map. A map that starts at the same
+    time as the next map keeps its own end instead (corrected 21 October 2026).
+    Earlier versions gave it the end of the next map, so the two maps swapped
+    their ends. If a map on days 2 to 3 and a map on days 2 to 4 start together,
+    the one listed first keeps its end in the classic algebra (**-c**,
+    `GRASS_TEMPORAL_ALGEBRA=classic` and the reference implementation). The new
+    algebra orders such maps by their end instead, see item 7 of the
+    differences above:
 
-   ```sh
-   D = tsnap(merge(A, C))
-   ```
+    ```sh
+    D = tsnap(merge(A, C))
+    ```
 
 8. **Month and year steps from the end of a month.** `tshift()` and
-   `buff_t()` by months or years ended in an error ("day is out of range for
-   month") when a time stamp moved to a day that the target month lacks, in
-   both algebras. Such a step now ends on the last day of that month
-   (corrected 23 October 2026). With a dataset M whose map lasts from 31
-   January to 31 March 2001, the first expression gives a map from 28
-   February to 30 April 2001, the second one a map from 31 December 2000 to
-   30 April 2001. A year step from 29 February 2004 ends on 28 February 2005:
+    `buff_t()` by months or years ended in an error ("day is out of range for
+    month") when a time stamp moved to a day that the target month lacks, in
+    both algebras. Such a step now ends on the last day of that month
+    (corrected 23 October 2026). With a dataset M whose map lasts from 31
+    January to 31 March 2001, the first expression gives a map from 28
+    February to 30 April 2001, the second one a map from 31 December 2000 to
+    30 April 2001. A year step from 29 February 2004 ends on 28 February 2005:
 
-   ```sh
-   C = tshift(M, "1 months")
-   C = buff_t(M, "1 months")
-   ```
+    ```sh
+    C = tshift(M, "1 months")
+    C = buff_t(M, "1 months")
+    ```
 
-   A month step back that ends in December of the year before last or
-   earlier, for example `buff_t(A, "24 months")` on a map that starts on 1
-   December or `tshift(A, "-13 months")` on one that starts in January,
-   ended in the error "bad month number 0" and now gives a result
-   (corrected 23 October 2026). Years and months of one step count as one
-   step of 12 * years + months months, so `"1 years, 11 months"` and
-   `"23 months"` end on the same day.
+    A month step back that ends in December of the year before last or
+    earlier, for example `buff_t(A, "24 months")` on a map that starts on 1
+    December or `tshift(A, "-13 months")` on one that starts in January,
+    ended in the error "bad month number 0" and now gives a result
+    (corrected 23 October 2026). Years and months of one step count as one
+    step of 12 * years + months months, so `"1 years, 11 months"` and
+    `"23 months"` end on the same day.
 
 9. **Time functions as the selected maps.** In a selection, a time function
-   at an offset such as `start_doy(A, 1)` stands for the map it reads, whose
-   value the reference implementation never computed. Where such a value was
-   among the selected maps, a dry run listed it and the real run failed when
-   it copied that map. The classic algebra now stops with the error "A time
-   function such as start_doy() cannot be the result of a selection" before
-   it creates a dataset or a map (corrected 23 October 2026); where no value
-   of the time function is selected, the result is the same as before. A
-   time function belongs in the condition:
+    at an offset such as `start_doy(A, 1)` stands for the map it reads, whose
+    value the reference implementation never computed. Where such a value was
+    among the selected maps, a dry run listed it and the real run failed when
+    it copied that map. The classic algebra now stops with the error "A time
+    function such as start_doy() cannot be the result of a selection" before
+    it creates a dataset or a map (corrected 23 October 2026); where no value
+    of the time function is selected, the result is the same as before. A
+    time function belongs in the condition:
 
-   ```sh
-   C = if(start_doy(A) < 3, start_doy(A, 1), A)
-   C = tshift(start_doy(A, 1), "1 day")
-   ```
+    ```sh
+    C = if(start_doy(A) < 3, start_doy(A, 1), A)
+    C = tshift(start_doy(A, 1), "1 day")
+    ```
 
 10. **A date beyond the year 9999.** A step that ends behind the year 9999
     or before the year 1, for example `buff_t(A, "365 days")` on a map that ends
