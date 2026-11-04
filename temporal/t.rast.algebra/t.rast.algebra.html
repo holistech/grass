@@ -2077,21 +2077,19 @@ ndvi_2|2026-06-11 00:00:00|0.522988498210907|0.7783810496330261
 
 A dataset of another mapset is named <code>name@mapset</code> in the expression; a name
 without mapset is searched only in the current mapset. The example creates the
-mapset <code>t_rast_algebra_2</code>, switches to it, sets the region of the first
-example and adds the mapset <code>t_rast_algebra</code> to its search path. The first
-call names <code>A</code> without mapset and fails, because <code>t_rast_algebra_2</code> has no
-dataset <code>A</code>, although <code>A</code> exists in <code>t_rast_algebra</code>. The second call names
-<code>A@t_rast_algebra</code>. The result dataset <code>halved</code> is always created in the
-current mapset: its maps are new maps in <code>t_rast_algebra_2</code>, as the column
-<code>mapset</code> shows, and the maps of <code>A</code> stay as they were. The last command
-returns to <code>t_rast_algebra</code> for the following examples.
+mapset <code>t_rast_algebra_2</code>, switches to it and sets the region of the first
+example. The first call names <code>A</code> without mapset and fails, because
+<code>t_rast_algebra_2</code> has no dataset <code>A</code>, although <code>A</code> exists in <code>t_rast_algebra</code>.
+The second call names <code>A@t_rast_algebra</code>. The result dataset <code>halved</code> is always
+created in the current mapset: its maps are new maps in <code>t_rast_algebra_2</code>, as
+the column <code>mapset</code> shows, and the maps of <code>A</code> stay as they were. The last
+command returns to <code>t_rast_algebra</code> for the following examples.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
 g.mapset -c mapset=t_rast_algebra_2
 g.region raster=elev_state_500m res=1000 -a
-g.mapsets mapset=t_rast_algebra operation=add
 if ! t.rast.algebra expression="halved = A * 0.5" basename=halved 2&gt;&amp;1; then
     echo "t.rast.algebra failed"
 fi
@@ -2117,7 +2115,6 @@ from grass.tools import ToolError
 
 tools.g_mapset(mapset="t_rast_algebra_2", flags="c")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-tools.g_mapsets(mapset="t_rast_algebra", operation="add")
 try:
     tools.t_rast_algebra(expression="halved = A * 0.5", basename="halved")
 except ToolError as error:

@@ -2008,21 +2008,19 @@ for the maps of the result.
 
 A dataset of another mapset is named `name@mapset` in the expression; a name
 without mapset is searched only in the current mapset. The example creates the
-mapset `t_rast_algebra_2`, switches to it, sets the region of the first
-example and adds the mapset `t_rast_algebra` to its search path. The first
-call names `A` without mapset and fails, because `t_rast_algebra_2` has no
-dataset `A`, although `A` exists in `t_rast_algebra`. The second call names
-`A@t_rast_algebra`. The result dataset `halved` is always created in the
-current mapset: its maps are new maps in `t_rast_algebra_2`, as the column
-`mapset` shows, and the maps of `A` stay as they were. The last command
-returns to `t_rast_algebra` for the following examples.
+mapset `t_rast_algebra_2`, switches to it and sets the region of the first
+example. The first call names `A` without mapset and fails, because
+`t_rast_algebra_2` has no dataset `A`, although `A` exists in `t_rast_algebra`.
+The second call names `A@t_rast_algebra`. The result dataset `halved` is always
+created in the current mapset: its maps are new maps in `t_rast_algebra_2`, as
+the column `mapset` shows, and the maps of `A` stay as they were. The last
+command returns to `t_rast_algebra` for the following examples.
 
 === "Command line"
 
     ```sh
     g.mapset -c mapset=t_rast_algebra_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_rast_algebra operation=add
     if ! t.rast.algebra expression="halved = A * 0.5" basename=halved 2>&1; then
         echo "t.rast.algebra failed"
     fi
@@ -2048,7 +2046,6 @@ returns to `t_rast_algebra` for the following examples.
 
     tools.g_mapset(mapset="t_rast_algebra_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_rast_algebra", operation="add")
     try:
         tools.t_rast_algebra(expression="halved = A * 0.5", basename="halved")
     except ToolError as error:
