@@ -626,9 +626,9 @@ The dataset `runoff` has relative time and two maps with the constant values 1
 and 2 in the mapset `t_rast_out_vtk`: the simulated runoff in millimeters in
 model hours 0 to 1 and 1 to 2. The example switches to the mapset
 `t_rast_out_vtk_2`, which starts with the default region of the sample
-dataset, so it sets the region again. The mapset `t_rast_out_vtk` is added to
-the search path, and the call names the dataset with its mapset. The files are
-numbered as for absolute time.
+dataset, so it sets the region again. The mapset `t_rast_out_vtk` is not in the
+search path of the new mapset; the call names the dataset with its mapset,
+which is enough to read it. The files are numbered as for absolute time.
 
 === "Command line"
 
@@ -641,7 +641,6 @@ numbered as for absolute time.
     t.register -i input=runoff maps=runoff_1,runoff_2 start=0 increment=1 unit=hours
     g.mapset -c mapset=t_rast_out_vtk_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_rast_out_vtk operation=add
     g.region n=210000 s=208000 w=600000 e=603000 res=1000
     mkdir model
     t.rast.out.vtk input=runoff@t_rast_out_vtk directory=model
@@ -674,7 +673,6 @@ numbered as for absolute time.
     )
     tools.g_mapset(flags="c", mapset="t_rast_out_vtk_2")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_rast_out_vtk", operation="add")
     tools.g_region(n=210000, s=208000, w=600000, e=603000, res=1000)
     Path("model").mkdir()
     tools.t_rast_out_vtk(input="runoff@t_rast_out_vtk", directory="model")
