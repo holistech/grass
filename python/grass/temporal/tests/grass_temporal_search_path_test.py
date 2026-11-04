@@ -23,8 +23,8 @@ from grass.temporal.testing.session import (
 from grass.tools import ToolError, Tools
 
 # What a tool prints when the mapset of a dataset has no accessible database
-# (db.py, _create_mapset_error_message()); the search path of the tests holds
-# the current mapset only.
+# (db.py, _create_mapset_error_message()); of the mapsets in the search path of
+# the tests only the current mapset has a temporal database.
 REFUSAL = "Accessible mapsets are: <second>"
 
 
@@ -164,6 +164,11 @@ CASES = {
         ),
         lambda t, r: True,
     ),
+    # The expression names the dataset with its mapset because the tool puts the
+    # names of the maps into the r.mapcalc expression without a mapset when it
+    # replaces a name without one; those maps are then searched in the search
+    # path, and the documented form "ds + 1" fails outside it ("Invalid map",
+    # measured 04.11.2026 with t.rast.mapcalc in a throwaway project).
     "t.rast.mapcalc": (
         lambda t, p, m: t.t_rast_mapcalc(
             inputs=f"ds@{m}",
