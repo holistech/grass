@@ -41,12 +41,18 @@ def test_a_percentile_that_is_no_number_is_refused(tools, values):
 
 
 def test_zones_from_a_double_map_are_rounded(tools, values):
-    # r3.univar (raster/r.univar/r3.univar_main.c) rounds the value of a double
-    # zones map to the nearest integer, halves away from zero, instead of
-    # refusing it. uv3_3 holds n / 2, so the zones 1 to 6 hold the voxels with
-    # n = 1 and 2, 3 and 4, and so on up to 11 and 12 of the first map.
+    # Every 3D raster map has a floating point type. A zones map whose values
+    # are whole numbers is used as it is; one with other values is refused
+    # (t_rast3d_univar_faults_test.py). uv3_ceil_half holds ceil(n / 2), so
+    # the zones 1 to 6 hold the voxels with n = 1 and 2, 3 and 4, and so on up
+    # to 11 and 12 of the first map.
+    tools.r3_mapcalc(
+        expression="uv3_ceil_half = ceil(((depth() - 1) * 6 + (row() - 1) * 3"
+        " + col()) / 2.0)",
+        overwrite=True,
+    )
     result = tools.t_rast3d_univar(
-        input=values, zones="uv3_3", where="start_time < '2001-01-02'"
+        input=values, zones="uv3_ceil_half", where="start_time < '2001-01-02'"
     )
 
     rows = [line.split("|") for line in result.stdout.splitlines()[1:]]

@@ -65,12 +65,15 @@ cells of the map outside the region are not counted, and cells of the region
 outside the map are null cells. Unlike *t.rast.univar*, *t.rast3d.univar* has
 no flag to take the statistics in the region of each map instead.
 
-The option **zones** names a 3D raster map whose integer values divide the
-region into zones. *t.rast3d.univar* then prints one line per map and zone,
-with the columns `zone` (the value) and `label` (the category label of the
-zone, empty in the example below, where the zone map has none) after the three
-columns of the map. **zones** takes a single 3D raster map, not a space time
-dataset; the same zones apply to every map.
+The option **zones** names a 3D raster map whose values, whole numbers,
+divide the region into zones. *t.rast3d.univar* then prints one line per map
+and zone, with the columns `zone` (the value) and `label` (the category label
+of the zone) after the three columns of the map. A 3D raster map gets its
+category labels from a 2D raster map with the option **raster** of
+*[r3.support](r3.support.md)*, as the example with the layers shows; without
+labels the column `label` is empty. A zone without any cell in the region gets
+no line. **zones** takes a single 3D raster map, not a space time dataset; the
+same zones apply to every map.
 
 The option **nprocs** sets the number of maps that are processed at the same
 time. Its default is the variable `NPROCS` of the session, if it is set with
@@ -121,21 +124,20 @@ well. The name with the mapset (`input=temperature_profile@t_rast3d_univar`)
 selects it; a name without a mapset is searched in the mapsets of the search
 path (see *[g.mapsets](g.mapsets.md)*). The last example shows this.
 
-The 3D raster mask set with *[r3.mask](r3.mask.md)* has no effect on the
-statistics: *r3.univar* does not read it and counts the cells that the mask
-would exclude. To leave cells out, set them to null in the maps themselves, for
-instance with *[r3.mapcalc](r3.mapcalc.md)* and `if(layers == 2, null(), temperature_profile_2020_07)`,
-or read the lines of the zones that are wanted (see **zones** and the example
-with the layers).
+The 3D raster mask set with *[r3.mask](r3.mask.md)* is respected, as
+*r3.univar* respects it: a cell that the mask excludes counts as a null cell,
+and with **zones** it belongs to no zone.
 
 If no map is selected, for instance because the condition in **where**
 matches none, *t.rast3d.univar* prints nothing in the formats `plain` and
 `csv`, not even the line with the column names. The format `json` prints an
 empty list `[]`.
 
-The option **zones** also takes a floating point map. *r3.univar* then rounds
-each value to the nearest integer, halves away from zero, instead of
-refusing the map, so the zone of the value 2.5 is 3.
+**zones** refuses a map with a value that is not a whole number, such as 2.5,
+as *t.rast.univar* refuses a zones map that is not of type CELL. 3D raster
+maps are always of a floating point type, so *t.rast3d.univar* checks the
+values in the current region before it computes the first map; it prints and
+writes nothing then.
 
 The format `csv` refuses a separator of more than one character, the format
 `json` refuses **separator** and **-s**. **percentile** without **-e** is
@@ -406,24 +408,33 @@ The 3D map `layers` holds the number of the layer: 1 in the lower layer
 map gets one line per zone. Every zone has 839 \* 335 = 281,065 cells. In July,
 the mean falls by about 6.5 degrees from layer to layer, as the assumed
 0.0065 degrees per meter say, and the layers do not overlap: the lower layer
-holds 22 to 25, the middle layer 16 to 19 and the upper layer 9 to 12. The zone
-map has no category labels, so `label` is empty. With **format** `json`, each
-zone is an object of its own, and the category label has the name
-`zone_label`; it is the empty text here, not `null`.
+holds 22 to 25, the middle layer 16 to 19 and the upper layer 9 to 12. The
+labels of the layers are written with *[r.category](r.category.md)* to the
+category table of the 2D raster map `layer_names`, whose cells play no part,
+and *r3.support* copies the table to `layers`; the column `label` shows the
+labels. With **format** `json`, each zone is an object of its own, and the
+category label has the name `zone_label`.
 
 === "Command line"
 
     ```sh
     r3.mapcalc expression="layers = depth()"
+    r.mapcalc expression="layer_names = 1"
+    r.category map=layer_names separator=":" rules=- <<EOF
+    1:0 to 1000 m
+    2:1000 to 2000 m
+    3:2000 to 3000 m
+    EOF
+    r3.support map=layers raster=layer_names
     t.rast3d.univar input=temperature_profile zones=layers \
         where="name = 'temperature_profile_2020_07'"
     ```
 
     ```text
     id|start|end|zone|label|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|1||281065|0|22|25|3|23.7462686567164|23.7462686567164|0.997658206989149|0.995321897972803|4.20132620165135|6674245|6674245
-    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|2||281065|0|16|19|3|17.2985074626866|17.2985074626866|1.00765614505185|1.01537090666075|5.82510454861724|4862005|4862005
-    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|3||281065|0|9|12|3|10.7462686567164|10.7462686567164|0.997658206989156|0.995321897972817|9.28376387059353|3020400|3020400
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|1|0 to 1000 m|281065|0|22|25|3|23.7462686567164|23.7462686567164|0.997658206989149|0.995321897972803|4.20132620165135|6674245|6674245
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|2|1000 to 2000 m|281065|0|16|19|3|17.2985074626866|17.2985074626866|1.00765614505185|1.01537090666075|5.82510454861724|4862005|4862005
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|3|2000 to 3000 m|281065|0|9|12|3|10.7462686567164|10.7462686567164|0.997658206989156|0.995321897972817|9.28376387059353|3020400|3020400
     ```
 
     ```sh
@@ -433,20 +444,29 @@ zone is an object of its own, and the category label has the name
 
     ```text
             "zone": 1,
-            "zone_label": "",
+            "zone_label": "0 to 1000 m",
             "mean": 23.746268656716417,
             "zone": 2,
-            "zone_label": "",
+            "zone_label": "1000 to 2000 m",
             "mean": 17.29850746268657,
             "zone": 3,
-            "zone_label": "",
+            "zone_label": "2000 to 3000 m",
             "mean": 10.746268656716419,
     ```
 
 === "Python (grass.tools)"
 
     ```python
+    from io import StringIO
+
     tools.r3_mapcalc(expression="layers = depth()")
+    tools.r_mapcalc(expression="layer_names = 1")
+    tools.r_category(
+        map="layer_names",
+        separator=":",
+        rules=StringIO("1:0 to 1000 m\n2:1000 to 2000 m\n3:2000 to 3000 m\n"),
+    )
+    tools.r3_support(map="layers", raster="layer_names")
     result = tools.t_rast3d_univar(
         input="temperature_profile",
         zones="layers",
@@ -457,9 +477,9 @@ zone is an object of its own, and the category label has the name
 
     ```text
     id|start|end|zone|label|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|1||281065|0|22|25|3|23.7462686567164|23.7462686567164|0.997658206989149|0.995321897972803|4.20132620165135|6674245|6674245
-    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|2||281065|0|16|19|3|17.2985074626866|17.2985074626866|1.00765614505185|1.01537090666075|5.82510454861724|4862005|4862005
-    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|3||281065|0|9|12|3|10.7462686567164|10.7462686567164|0.997658206989156|0.995321897972817|9.28376387059353|3020400|3020400
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|1|0 to 1000 m|281065|0|22|25|3|23.7462686567164|23.7462686567164|0.997658206989149|0.995321897972803|4.20132620165135|6674245|6674245
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|2|1000 to 2000 m|281065|0|16|19|3|17.2985074626866|17.2985074626866|1.00765614505185|1.01537090666075|5.82510454861724|4862005|4862005
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|3|2000 to 3000 m|281065|0|9|12|3|10.7462686567164|10.7462686567164|0.997658206989156|0.995321897972817|9.28376387059353|3020400|3020400
     ```
 
     ```python
@@ -474,9 +494,9 @@ zone is an object of its own, and the category label has the name
     ```
 
     ```text
-    zone 1 (''): mean 23.746268656716417
-    zone 2 (''): mean 17.29850746268657
-    zone 3 (''): mean 10.746268656716419
+    zone 1 ('0 to 1000 m'): mean 23.746268656716417
+    zone 2 ('1000 to 2000 m'): mean 17.29850746268657
+    zone 3 ('2000 to 3000 m'): mean 10.746268656716419
     ```
 
 ### Choose the output format
@@ -913,7 +933,8 @@ dataset without its mapset; the first block works without it (see
 ## SEE ALSO
 
 *[g.gisenv](g.gisenv.md), [g.mapsets](g.mapsets.md), [g.region](g.region.md),
-[r3.mapcalc](r3.mapcalc.md), [r3.mask](r3.mask.md),
+[r.category](r.category.md), [r3.mapcalc](r3.mapcalc.md),
+[r3.mask](r3.mask.md), [r3.support](r3.support.md),
 [r3.univar](r3.univar.md), [t.create](t.create.md), [t.info](t.info.md),
 [t.rast.univar](t.rast.univar.md), [t.register](t.register.md),
 [t.vect.univar](t.vect.univar.md),

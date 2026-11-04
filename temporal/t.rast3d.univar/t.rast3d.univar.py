@@ -91,9 +91,34 @@
 # % requires: percentile,-e
 # %end
 
+from subprocess import DEVNULL
+
 import grass.script as gs
+from grass.exceptions import CalledModuleError
 
 ############################################################################
+
+
+def check_zones(zones):
+    """Refuse a zones map with a value that is not a whole number
+
+    r3.univar refuses such a map, but only while it computes the first map;
+    by then the column names are printed and the output file is open. The
+    check runs r3.univar on the zones map itself, so it reads the same cells
+    of the current 3D region as the statistics do. r3.univar prints the
+    offending value.
+    """
+    try:
+        gs.run_command(
+            "r3.univar",
+            map=zones,
+            zones=zones,
+            format="json",
+            quiet=True,
+            stdout=DEVNULL,
+        )
+    except CalledModuleError:
+        gs.fatal(_("Zoning 3D raster map <{}> must hold whole numbers").format(zones))
 
 
 def main():
@@ -133,6 +158,9 @@ def main():
         output = None
     if output == "-":
         output = None
+
+    if zones:
+        check_zones(zones)
 
     tgis.print_gridded_dataset_univar_statistics(
         "str3ds",
