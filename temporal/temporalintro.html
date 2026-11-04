@@ -158,11 +158,11 @@ maps again and drops the maps that are gone.
 
 <p>
 SQLite3 or PostgreSQL are supported as temporal database backends.
-Temporal databases stored in other mapsets can be accessed as long as
-those other mapsets are in the user's current mapset search path
-(managed with <a href="g.mapsets.html">g.mapsets</a>). Datasets of other mapsets can
-be read with <code>name@mapset</code>, but a tool that changes a dataset, such as
-<em>t.register</em>, <em>t.rename</em> or <em>t.create</em>, works on the current mapset only.
+Temporal databases stored in other mapsets can be accessed, see
+<a href="#datasets-of-other-mapsets">Datasets of other mapsets</a>. Datasets of other
+mapsets can be read with <code>name@mapset</code>, but a tool that changes a dataset,
+such as <em>t.register</em>, <em>t.rename</em> or <em>t.create</em>, works on the current mapset
+only.
 <em>t.remove</em> stops with an error for a dataset of another mapset. For a
 dataset of the current mapset, the flag <b>-d</b> deletes only its maps of the
 current mapset and warns for each map of another mapset.
@@ -247,6 +247,20 @@ List of general management modules:
 <li><a href="t.unregister.html">t.unregister</a></li>
 <li><a href="t.upgrade.html">t.upgrade</a></li>
 </ul>
+
+<h3>Datasets of other mapsets</h3>
+
+A dataset named with its mapset, <code>name@mapset</code>, is read from any mapset of the
+project that has a temporal database. The mapset does not have to be in the
+search path. A name without a mapset is searched by <em>t.rast.list</em>, for
+example, in the current mapset first, then in the mapsets of the search path
+in their order, and is not found if the dataset lies in a mapset outside the
+search path. Some tools, such as <em>t.info</em>, look for a name without a mapset
+only in the current mapset; <code>name@mapset</code> is found by every tool. Add the
+mapset with <a href="g.mapsets.html">g.mapsets</a> <code>operation=add</code> only if datasets of that
+mapset should be found by their name alone. A mapset that does not exist or
+has no temporal database is refused with an error. The last example of the
+<a href="#examples">EXAMPLES</a> shows both ways.
 
 <h2>Modules to visualize space-time datasets and temporal data</h2>
 
@@ -414,10 +428,11 @@ The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</co
 the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
 example creates the mapset <code>temporalintro</code> and sets the computational region
 to North Carolina with cells of 1 km; the later examples work in this mapset
-and region. The temporal manuals use the same kind of data: series of maps for
-2020 that are generated from maps of the dataset, here the monthly air
-temperature and the monthly precipitation. The values are generated, not
-measured. Each example uses the result of the previous one.
+and region, except the last, which creates a second mapset. The temporal
+manuals use the same kind of data: series of maps for 2020 that are generated
+from maps of the dataset, here the monthly air temperature and the monthly
+precipitation. The values are generated, not measured. Each example uses the
+result of the previous one.
 
 <h3>Create a dataset and register maps</h3>
 
@@ -893,6 +908,82 @@ classic_08|2020-09-01 00:00:00|0.0|1.0
 classic_09|2020-10-01 00:00:00|0.0|1.0
 classic_10|2020-11-01 00:00:00|0.0|0.0
 classic_11|2020-12-01 00:00:00|0.0|0.0
+</pre></div>
+
+<h3>Datasets of another mapset</h3>
+
+The example creates the mapset <code>temporalintro_2</code> and switches to it, so it is
+the current mapset and <code>temporalintro</code> is not in its search path. A new
+mapset takes its region from the default region of the dataset, so the region
+of the first example is set again. <em><a href="t.rast.list.html">t.rast.list</a></em> reads the
+dataset <code>temperature_monthly</code> of the first example with its mapset,
+<code>temperature_monthly@temporalintro</code>, and lists the maps of the first two
+months. The name <code>temperature_monthly</code> alone is not found: the mapset
+<code>temporalintro</code> is neither the current mapset nor in the search path. After
+<em>g.mapsets</em> with <code>operation=add</code> has added it to the search path, the name
+alone finds the dataset too.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.mapset -c mapset=temporalintro_2
+g.region raster=elev_state_500m res=1000 -a
+t.rast.list input=temperature_monthly@temporalintro columns=name,mapset \
+    where="start_time &lt; '2020-03-01'"
+if ! t.rast.list input=temperature_monthly columns=name,mapset 2&gt;&amp;1; then
+    echo "t.rast.list failed"
+fi
+g.mapsets mapset=temporalintro operation=add
+t.rast.list input=temperature_monthly columns=name,mapset \
+    where="start_time &lt; '2020-03-01'"
+</pre></div>
+
+<div class="code"><pre>
+name|mapset
+temperature_monthly_2020_01|temporalintro
+temperature_monthly_2020_02|temporalintro
+ERROR: Space time dataset &lt;temperature_monthly&gt; of type &lt;strds&gt; not found
+t.rast.list failed
+name|mapset
+temperature_monthly_2020_01|temporalintro
+temperature_monthly_2020_02|temporalintro
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import ToolError
+
+tools.g_mapset(flags="c", mapset="temporalintro_2")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+first_months = "start_time &lt; '2020-03-01'"
+result = tools.t_rast_list(
+    input="temperature_monthly@temporalintro",
+    columns="name,mapset",
+    where=first_months,
+)
+print(result.text)
+try:
+    tools.t_rast_list(input="temperature_monthly", columns="name,mapset")
+except ToolError as error:
+    print(error.stderr.strip())
+    print("t.rast.list failed")
+tools.g_mapsets(mapset="temporalintro", operation="add")
+result = tools.t_rast_list(
+    input="temperature_monthly", columns="name,mapset", where=first_months
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|mapset
+temperature_monthly_2020_01|temporalintro
+temperature_monthly_2020_02|temporalintro
+ERROR: Space time dataset &lt;temperature_monthly&gt; of type &lt;strds&gt; not found
+t.rast.list failed
+name|mapset
+temperature_monthly_2020_01|temporalintro
+temperature_monthly_2020_02|temporalintro
 </pre></div>
 
 <h2>SEE ALSO</h2>

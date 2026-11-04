@@ -148,11 +148,11 @@ still lists it until [t.support](t.support.md) with the flag **-m** reads the
 maps again and drops the maps that are gone.
 
 SQLite3 or PostgreSQL are supported as temporal database backends.
-Temporal databases stored in other mapsets can be accessed as long as
-those other mapsets are in the user's current mapset search path
-(managed with [g.mapsets](g.mapsets.md)). Datasets of other mapsets can
-be read with `name@mapset`, but a tool that changes a dataset, such as
-*t.register*, *t.rename* or *t.create*, works on the current mapset only.
+Temporal databases stored in other mapsets can be accessed, see
+[Datasets of other mapsets](#datasets-of-other-mapsets). Datasets of other
+mapsets can be read with `name@mapset`, but a tool that changes a dataset,
+such as *t.register*, *t.rename* or *t.create*, works on the current mapset
+only.
 *t.remove* stops with an error for a dataset of another mapset. For a
 dataset of the current mapset, the flag **-d** deletes only its maps of the
 current mapset and warns for each map of another mapset.
@@ -227,6 +227,20 @@ List of general management modules:
 - [t.topology](t.topology.md)
 - [t.unregister](t.unregister.md)
 - [t.upgrade](t.upgrade.md)
+
+### Datasets of other mapsets
+
+A dataset named with its mapset, `name@mapset`, is read from any mapset of the
+project that has a temporal database. The mapset does not have to be in the
+search path. A name without a mapset is searched by *t.rast.list*, for
+example, in the current mapset first, then in the mapsets of the search path
+in their order, and is not found if the dataset lies in a mapset outside the
+search path. Some tools, such as *t.info*, look for a name without a mapset
+only in the current mapset; `name@mapset` is found by every tool. Add the
+mapset with [g.mapsets](g.mapsets.md) `operation=add` only if datasets of that
+mapset should be found by their name alone. A mapset that does not exist or
+has no temporal database is refused with an error. The last example of the
+[EXAMPLES](#examples) shows both ways.
 
 ## Modules to visualize space-time datasets and temporal data
 
@@ -371,10 +385,11 @@ The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
 the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
 example creates the mapset `temporalintro` and sets the computational region
 to North Carolina with cells of 1 km; the later examples work in this mapset
-and region. The temporal manuals use the same kind of data: series of maps for
-2020 that are generated from maps of the dataset, here the monthly air
-temperature and the monthly precipitation. The values are generated, not
-measured. Each example uses the result of the previous one.
+and region, except the last, which creates a second mapset. The temporal
+manuals use the same kind of data: series of maps for 2020 that are generated
+from maps of the dataset, here the monthly air temperature and the monthly
+precipitation. The values are generated, not measured. Each example uses the
+result of the previous one.
 
 <!-- example-project: dataset=nc_spm_08_grass7 mapset=temporalintro -->
 
@@ -849,6 +864,82 @@ the maps differ only in the basename.
     classic_09|2020-10-01 00:00:00|0.0|1.0
     classic_10|2020-11-01 00:00:00|0.0|0.0
     classic_11|2020-12-01 00:00:00|0.0|0.0
+    ```
+
+### Datasets of another mapset
+
+The example creates the mapset `temporalintro_2` and switches to it, so it is
+the current mapset and `temporalintro` is not in its search path. A new
+mapset takes its region from the default region of the dataset, so the region
+of the first example is set again. *[t.rast.list](t.rast.list.md)* reads the
+dataset `temperature_monthly` of the first example with its mapset,
+`temperature_monthly@temporalintro`, and lists the maps of the first two
+months. The name `temperature_monthly` alone is not found: the mapset
+`temporalintro` is neither the current mapset nor in the search path. After
+*g.mapsets* with `operation=add` has added it to the search path, the name
+alone finds the dataset too.
+
+=== "Command line"
+
+    ```sh
+    g.mapset -c mapset=temporalintro_2
+    g.region raster=elev_state_500m res=1000 -a
+    t.rast.list input=temperature_monthly@temporalintro columns=name,mapset \
+        where="start_time < '2020-03-01'"
+    if ! t.rast.list input=temperature_monthly columns=name,mapset 2>&1; then
+        echo "t.rast.list failed"
+    fi
+    g.mapsets mapset=temporalintro operation=add
+    t.rast.list input=temperature_monthly columns=name,mapset \
+        where="start_time < '2020-03-01'"
+    ```
+
+    ```text
+    name|mapset
+    temperature_monthly_2020_01|temporalintro
+    temperature_monthly_2020_02|temporalintro
+    ERROR: Space time dataset <temperature_monthly> of type <strds> not found
+    t.rast.list failed
+    name|mapset
+    temperature_monthly_2020_01|temporalintro
+    temperature_monthly_2020_02|temporalintro
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    from grass.tools import ToolError
+
+    tools.g_mapset(flags="c", mapset="temporalintro_2")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    first_months = "start_time < '2020-03-01'"
+    result = tools.t_rast_list(
+        input="temperature_monthly@temporalintro",
+        columns="name,mapset",
+        where=first_months,
+    )
+    print(result.text)
+    try:
+        tools.t_rast_list(input="temperature_monthly", columns="name,mapset")
+    except ToolError as error:
+        print(error.stderr.strip())
+        print("t.rast.list failed")
+    tools.g_mapsets(mapset="temporalintro", operation="add")
+    result = tools.t_rast_list(
+        input="temperature_monthly", columns="name,mapset", where=first_months
+    )
+    print(result.text)
+    ```
+
+    ```text
+    name|mapset
+    temperature_monthly_2020_01|temporalintro
+    temperature_monthly_2020_02|temporalintro
+    ERROR: Space time dataset <temperature_monthly> of type <strds> not found
+    t.rast.list failed
+    name|mapset
+    temperature_monthly_2020_01|temporalintro
+    temperature_monthly_2020_02|temporalintro
     ```
 
 <!-- markdownlint-enable MD046 -->
