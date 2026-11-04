@@ -117,8 +117,10 @@ The option **suffix** selects the suffix:
 ## NOTES
 
 The new datasets and maps are created in the current mapset. The last example
-reads an input dataset of another mapset by giving the name with the mapset,
-`input=gdd@t_rast_accdetect`.
+reads an input dataset of another mapset, `input=gdd@t_rast_accdetect`. The tool
+reads the maps of the input dataset through the search path, so the mapset of
+the input dataset must be in the search path or be the current mapset (see
+[Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)).
 
 An existing **occurrence** or **indicator** dataset stops the run before any
 computation, unless **--overwrite** is set. A name with a dot is refused for a
@@ -956,7 +958,9 @@ The new mapset `t_rast_accdetect_2` has no dataset of its own and starts with
 the default region of the sample dataset, so the second command sets the region
 as before. The example adds the mapset `t_rast_accdetect` to the search path of
 mapsets and names the input `gdd@t_rast_accdetect`; the new maps and the new
-dataset are created in `t_rast_accdetect_2`, as the column `mapset` shows.
+dataset are created in `t_rast_accdetect_2`, as the column `mapset` shows. The
+mapset is added because the tool reads the maps of the input dataset through the
+search path (see [Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)).
 
 === "Command line"
 

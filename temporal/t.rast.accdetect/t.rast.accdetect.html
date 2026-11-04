@@ -130,8 +130,10 @@ of the computation, over all cycles.</li>
 <h2>NOTES</h2>
 
 The new datasets and maps are created in the current mapset. The last example
-reads an input dataset of another mapset by giving the name with the mapset,
-<code>input=gdd@t_rast_accdetect</code>.
+reads an input dataset of another mapset, <code>input=gdd@t_rast_accdetect</code>. The tool
+reads the maps of the input dataset through the search path, so the mapset of
+the input dataset must be in the search path or be the current mapset (see
+<a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other mapsets</a>).
 
 <p>
 An existing <b>occurrence</b> or <b>indicator</b> dataset stops the run before any
@@ -975,7 +977,9 @@ The new mapset <code>t_rast_accdetect_2</code> has no dataset of its own and sta
 the default region of the sample dataset, so the second command sets the region
 as before. The example adds the mapset <code>t_rast_accdetect</code> to the search path of
 mapsets and names the input <code>gdd@t_rast_accdetect</code>; the new maps and the new
-dataset are created in <code>t_rast_accdetect_2</code>, as the column <code>mapset</code> shows.
+dataset are created in <code>t_rast_accdetect_2</code>, as the column <code>mapset</code> shows. The
+mapset is added because the tool reads the maps of the input dataset through the
+search path (see <a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other mapsets</a>).
 
 <p>Command line:</p>
 
