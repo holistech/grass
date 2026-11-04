@@ -88,10 +88,14 @@ class StubReference:
         self.granularity = None
         self.use_granularity = False
         self.calls = []
+        self.stored_granularity = []
         self.names = {"x": 1}
 
-    def setup_common_granularity(self, expression, stdstype, lexer):
+    def setup_common_granularity(
+        self, expression, stdstype, lexer, *, stored_granularity=False
+    ):
         self.calls.append((expression, stdstype, lexer))
+        self.stored_granularity.append(stored_granularity)
         self.granularity = "1 day"
         self.use_granularity = True
         return True
@@ -120,6 +124,15 @@ def test_the_granularity_mode_goes_to_one_engine_with_the_options_of_the_facade(
     # The same reference object answers later calls.
     parser.setup_common_granularity("R = A + B")
     assert parser._reference_object is reference_object
+
+
+@pytest.mark.parametrize(("classic", "stored"), [(False, True), (True, False)])
+def test_only_the_core_takes_the_stored_granularity(classic, stored):
+    """The classic algebra computes the granularity of a dataset with its own
+    copy of the function of the library, the core reads the stored one"""
+    parser = StubbedParser(classic=classic)
+    parser.setup_common_granularity("R = A + B")
+    assert parser._reference_object.stored_granularity == [stored]
 
 
 def test_options_set_after_the_construction_reach_the_engine():

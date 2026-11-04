@@ -71,18 +71,20 @@ def _granularity_parser_class(kind):
     }[kind]
 
 
-def _granularity_parser(kind, expression, options):
+def _granularity_parser(kind, expression, options, *, classic):
     """Take the option ``granularity`` from options; if true, return the parser
 
-    The parser is the public class of the kind with ``classic=False``, after
-    ``setup_granularity``: the granularity mode lives in its ``parse()``.
+    The parser is the public class of the kind after ``setup_granularity``:
+    the granularity mode lives in its ``parse()``. ``classic`` is handed to
+    it: the classic algebra computes the granularity of each dataset with its
+    own copy of the function of the library, the core reads the stored one.
     Returns None for a run without the mode.
     """
     if not options.pop("granularity", False):
         return None
     from .reference import setup_granularity
 
-    parser = _granularity_parser_class(kind)(classic=False, **options)
+    parser = _granularity_parser_class(kind)(classic=classic, **options)
     setup_granularity(parser, kind, expression)
     return parser
 
@@ -112,7 +114,7 @@ def core_runner(kind, expression, *, basename, overwrite=False, **options):
     ``setup_granularity``: the evaluation of the granularity mode lives in its
     ``parse()``.
     """
-    parser = _granularity_parser(kind, expression, options)
+    parser = _granularity_parser(kind, expression, options, classic=False)
     if parser is not None:
         return parser.parse(expression, basename=basename, overwrite=overwrite)
     from grass.temporal.algebra.parser import evaluate
@@ -134,13 +136,14 @@ def classic_runner(kind, expression, *, basename, overwrite=False, **options):
     The profile ``CLASSIC`` is what ``evaluate`` runs for the classic
     algebra. Takes the signature of ``run_reference``; ``stdstype`` of kind
     ``"select"`` is read like there. For ``granularity=True`` the datasets are
-    sampled by ``setup_granularity`` on a parser of the kind, whose
-    granularity then goes to ``evaluate``.
+    sampled by ``setup_granularity`` on a parser of the kind with
+    ``classic=True``, as ``t.rast.algebra -c -g`` does, whose granularity then
+    goes to ``evaluate``.
     """
     from grass.temporal.algebra.parser import evaluate
     from grass.temporal.algebra.parser.classic import CLASSIC
 
-    parser = _granularity_parser(kind, expression, options)
+    parser = _granularity_parser(kind, expression, options, classic=True)
     granularity = None if parser is None else parser.granularity
     kind, selection = _selection(kind, options)
     return evaluate(

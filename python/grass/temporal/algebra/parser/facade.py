@@ -144,6 +144,10 @@ class _AlgebraParser:
         granularity of their maps and samples all datasets with it in
         ``parse()``. The only meaningful temporal relation is then "equal".
 
+        The classic algebra computes the granularity of each dataset with its
+        own copy of the function of the library, the core takes the one that
+        the library stored with the maps.
+
         :param expression: The whole statement, ``"R = A + B"``
         :param stdstype: The dataset type of the datasets in the expression
         :param lexer: The lexer that finds the dataset names, the one of the
@@ -151,7 +155,10 @@ class _AlgebraParser:
         :return: True if successful, False otherwise (a message tells why)
         """
         return self._reference().setup_common_granularity(
-            expression=expression, stdstype=stdstype, lexer=lexer
+            expression=expression,
+            stdstype=stdstype,
+            lexer=lexer,
+            stored_granularity=not self._classic(),
         )
 
     def _classic(self) -> bool:

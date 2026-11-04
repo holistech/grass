@@ -467,9 +467,13 @@ from grass.temporal.topology import SpatioTemporalTopologyBuilder
 from grass.temporal.state import get_current_mapset, get_tgis_message_interface
 from grass.temporal.temporal_extent import TemporalExtent
 from grass.temporal.temporal_granularity import (
-    compute_absolute_time_granularity,
     compute_common_absolute_time_granularity,
     compute_common_relative_time_granularity,
+)
+from .granularity import (
+    compute_absolute_time_granularity,
+    dataset_granularity,
+    snap_map_list,
 )
 from .temporal_operator import TemporalOperatorParser
 
@@ -922,7 +926,7 @@ class TemporalAlgebraParser:
             self.dbif.close()
 
     def setup_common_granularity(
-        self, expression, stdstype="strds", lexer=None
+        self, expression, stdstype="strds", lexer=None, *, stored_granularity=False
     ) -> bool:
         """Configure the temporal algebra to use the common granularity of all
         space time datasets in the expression to generate the map lists.
@@ -940,6 +944,12 @@ class TemporalAlgebraParser:
         :param lexer: The temporal algebra lexer (select, raster, voxel, vector) that
                       should be used to parse the expression, default is
                       TemporalAlgebraLexer
+
+        :param stored_granularity: Take the granularity of each dataset from the
+            temporal database, as the algebra core does. By default the classic
+            algebra computes it from the maps with its own copy of the function
+            (``granularity.dataset_granularity``), so that a later rule of the
+            library for the stored value does not change its results.
 
         :return: True if successful, False otherwise
         """
@@ -971,7 +981,11 @@ class TemporalAlgebraParser:
                     )
                     return False
 
-                granularities.append(stds.get_granularity())
+                granularities.append(
+                    stds.get_granularity()
+                    if stored_granularity
+                    else dataset_granularity(stds, dbif)
+                )
                 start_times.append(stds.get_temporal_extent_as_tuple()[0])
                 temporal_types.add(stds.get_temporal_type())
 
@@ -3396,7 +3410,7 @@ class TemporalAlgebraParser:
             maplist = self.check_stds(t[3])
             # snap_map_list() returns None for an empty list, which would
             # reach the enclosing rule as a value that is no map list.
-            t[0] = AbstractSpaceTimeDataset.snap_map_list(maplist) if maplist else []
+            t[0] = snap_map_list(maplist) if maplist else []
         else:
             t[0] = self._placeholder(t[3])
         self._trace(str(t[3]) + "* = tsnap(", str(t[3]), ")")

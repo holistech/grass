@@ -153,7 +153,15 @@ def _check_given_names(series, names):
     reject_input_names(series, names)
 
 
-def _map_names(series, basename, time_suffix, names=None, slots=None, repeatable=False):
+def _map_names(
+    series,
+    basename,
+    time_suffix,
+    names=None,
+    slots=None,
+    repeatable=False,
+    absolute_granularity=compute_absolute_time_granularity,
+):
     """The names of the result maps
 
     slots are the slots of series in the order of the names, by default those
@@ -166,7 +174,8 @@ def _map_names(series, basename, time_suffix, names=None, slots=None, repeatable
     suffix from the start time.
 
     With repeatable the names that a time suffix gives to maps of equal time
-    may repeat; names given by the caller may not.
+    may repeat; names given by the caller may not. absolute_granularity
+    computes the granularity of the slots for the time suffix "gran".
 
     :raises ValueError: for an unknown time_suffix, a names length other than
         the number of slots, names that would collide, are illegal or equal an
@@ -193,9 +202,7 @@ def _map_names(series, basename, time_suffix, names=None, slots=None, repeatable
     absolute = series.temporal_type == "absolute"
     granularity = None
     if absolute and time_suffix == "gran":
-        granularity = compute_absolute_time_granularity(
-            [as_map(slot.extent) for slot in slots]
-        )
+        granularity = absolute_granularity([as_map(slot.extent) for slot in slots])
     digits = len(str(len(slots)))
     names = []
     for number, slot in enumerate(slots):
@@ -245,6 +252,7 @@ def plan(
     copies_by_position=False,
     temporal_type=None,
     last_of_equal_names=False,
+    absolute_granularity=compute_absolute_time_granularity,
 ):
     """Return the process chain of materialize() without running anything
 
@@ -282,6 +290,9 @@ def plan(
         time_suffix overwrite each other: only the last of them (in the order
         of the slots) is planned, with its content and time stamp. Without it
         equal names are an error.
+    :param absolute_granularity: the function that computes the granularity
+        of the result maps for the time suffix "gran"; the default is the one
+        of the library
     :raises ValueError: for a map without time stamp, a name or basename with
         "@" (or a name with "." for a raster dataset), an unknown time_suffix,
         maps that would get the same name, names that do not match the
@@ -326,6 +337,7 @@ def plan(
         names=names,
         slots=slots,
         repeatable=last_of_equal_names,
+        absolute_granularity=absolute_granularity,
     )
     last = {map_name: number for number, map_name in enumerate(map_names)}
     maps = []
@@ -813,6 +825,7 @@ def materialize(
     copies_by_position=False,
     temporal_type=None,
     last_of_equal_names=False,
+    absolute_granularity=compute_absolute_time_granularity,
     classic_absence_check=False,
     keep_empty_vector_maps=False,
     vector_dataset_if_empty=True,
@@ -838,9 +851,9 @@ def materialize(
 
     With names the result maps get the given names, one per slot (see plan()).
 
-    mapcalc, union_region, list_order, copies_by_position, temporal_type and
-    last_of_equal_names are options of plan(). The others change what is done
-    with the maps:
+    mapcalc, union_region, list_order, copies_by_position, temporal_type,
+    last_of_equal_names and absolute_granularity are options of plan(). The
+    others change what is done with the maps:
 
     - classic_absence_check looks for existing result maps before the dataset
       and reports in the words of the reference, see check_absent();
@@ -886,6 +899,7 @@ def materialize(
             "copies_by_position": copies_by_position,
             "temporal_type": temporal_type,
             "last_of_equal_names": last_of_equal_names,
+            "absolute_granularity": absolute_granularity,
         },
     )
     no_dataset = series.kind == "vector" and not vector_dataset_if_empty

@@ -152,7 +152,7 @@ def _checked_increment(series, increment):
     return increment
 
 
-def retime(series, *, shift=None, buffer=None, snap=False):
+def retime(series, *, shift=None, buffer=None, snap=False, snap_maps=None):
     """Shift, buffer or snap the time stamps; the contents stay
 
     :param shift: e.g. "1 day" for absolute time, a number of the time unit
@@ -161,6 +161,10 @@ def retime(series, *, shift=None, buffer=None, snap=False):
         negative buffer shrinks the maps and raises ValueError for a map
         that would keep no time (see _shrink())
     :param snap: set the end of each map to the start of the next one
+    :param snap_maps: the function that snaps the list of map objects, by
+        default snap_map_list() of the library; the classic profile gives the
+        copy of the classic algebra, whose last instant ends after the
+        granularity as the classic algebra computes it
     """
     check_series(series)
     if [shift is not None, buffer is not None, bool(snap)].count(True) != 1:
@@ -185,7 +189,7 @@ def retime(series, *, shift=None, buffer=None, snap=False):
         for map_ in maps:
             map_.temporal_buffer(buffer)
     else:
-        maps = AbstractSpaceTimeDataset.snap_map_list(maps)
+        maps = (snap_maps or AbstractSpaceTimeDataset.snap_map_list)(maps)
     slots = tuple(
         # Keep the origin where the new time stamp equals the old one, e.g.
         # tsnap of gapless maps: the slot is then still the registered map

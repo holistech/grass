@@ -22,9 +22,14 @@ SPDX-License-Identifier: GPL-2.0-or-later
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from grass.temporal.temporal_granularity import compute_absolute_time_granularity
 
 from .backends import MapcalcStyle
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass(frozen=True)
@@ -77,6 +82,9 @@ class Profile:
         expression (the relating operations)
     :param classic_errors: report ValueErrors of the core with the exception
         classes of the reference (evaluate())
+    :param absolute_granularity: the function that computes the granularity
+        of the result maps for the time suffix "gran" (plan()); the classic
+        profile gives the copy of the classic algebra
     """
 
     grammar: Any = None
@@ -95,6 +103,7 @@ class Profile:
     neighbour_space: str = "own"
     mixed_times: str = "error"
     classic_errors: bool = False
+    absolute_granularity: Callable = compute_absolute_time_granularity
 
 
 CORE = Profile()

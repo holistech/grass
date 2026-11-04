@@ -129,6 +129,7 @@ def evaluate(
             list_order=profile.list_order,
             copies_by_position=profile.copies_by_position,
             last_of_equal_names=profile.last_of_equal_names,
+            absolute_granularity=profile.absolute_granularity,
         )
         # A vector result without maps has no dataset, if the profile says so.
         # A selection always creates its dataset, as t.select.md promises for

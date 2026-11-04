@@ -53,6 +53,10 @@ from grass.temporal.algebra.relations import (
     related,
 )
 from grass.temporal.algebra.series import Series, Slot
+from grass.temporal.classic.granularity import (
+    compute_absolute_time_granularity,
+    snap_map_list,
+)
 
 from . import ast, classic_maps, classic_numbers, shared
 from .classic_grammar import classic_grammar
@@ -1337,6 +1341,11 @@ class ClassicTranslator(Translator):
         """
         return (slot.extent, self._written(slot.content), self._source(slot.content))
 
+    def _tsnap(self, series):
+        """Return series snapped with the copy of snap_map_list() that the
+        classic algebra keeps (grass.temporal.classic.granularity)"""
+        return time_functions.retime(series, snap=True, snap_maps=snap_map_list)
+
     def _tshift(self, series, increment):
         """Return series shifted by an increment
 
@@ -1621,4 +1630,5 @@ CLASSIC = Profile(
     neighbour_space="neighbour",
     mixed_times="unrelated",
     classic_errors=True,
+    absolute_granularity=compute_absolute_time_granularity,
 )
