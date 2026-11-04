@@ -234,7 +234,8 @@ def _import_vector_maps_from_ogr(
     impflags = ""
     if overr:
         impflags += "o"
-    if not link and (exp or location):
+    # A new project gets the region of the maps instead, see _import_maps().
+    if not link and exp and not location:
         impflags += "e"
     for row in maplist:
         name = row["name"]
@@ -255,7 +256,7 @@ def _import_vector_maps_from_ogr(
             )
 
 
-def _import_vector_maps(maplist: list[dict[str, str]], *, extend: bool = False) -> None:
+def _import_vector_maps(maplist: list[dict[str, str]]) -> None:
     # We need to disable the projection check because of its
     # simple implementation
     impflags = "o"
@@ -286,32 +287,44 @@ def _import_vector_maps(maplist: list[dict[str, str]], *, extend: bool = False) 
 
         unpacked.append(name)
 
-    # v.unpack has no flag to extend the region, unlike v.in.ogr with -e
-    if extend and unpacked:
-        _extend_region_to_vector_maps(unpacked)
+
+def _set_region_of_vector_maps(maplist: list[dict[str, str]], *, replace: bool) -> None:
+    """Extend the region to the imported vector maps, or replace it with them"""
+    names = []
+    for row in maplist:
+        # A vector map with several layers is listed once per layer
+        name = row["name"].split(":")[0]
+        if name not in names:
+            names.append(name)
+    _extend_region_to_vector_maps(names, replace=replace)
 
 
-def _extend_region_to_vector_maps(names: list[str]) -> None:
+def _extend_region_to_vector_maps(names: list[str], *, replace: bool = False) -> None:
     """Grow the region to cover the vector maps, as v.in.ogr -e does
 
     In the PERMANENT mapset the default region of the project is the base and
     is saved again; elsewhere the current region is the base. The new bounds
     are aligned to the resolution from the north and west edges.
+
+    With replace the region covers the maps and nothing else, keeping only the
+    resolution. A new project has a placeholder region at the origin, which
+    would otherwise stay part of the region of the maps.
     """
     in_permanent = get_current_mapset() == "PERMANENT"
     if in_permanent:
         gs.run_command("g.region", flags="d")
     region = gs.region()
-    north, south = region["n"], region["s"]
-    east, west = region["e"], region["w"]
+    north, south = (-math.inf, math.inf) if replace else (region["n"], region["s"])
+    east, west = (-math.inf, math.inf) if replace else (region["e"], region["w"])
     for name in names:
         info = gs.parse_command("v.info", map=name, flags="g")
         north = max(north, float(info["north"]))
         south = min(south, float(info["south"]))
         east = max(east, float(info["east"]))
         west = min(west, float(info["west"]))
-    rows = math.ceil((north - south) / region["nsres"])
-    cols = math.ceil((east - west) / region["ewres"])
+    # One cell at least: the maps may be a single point.
+    rows = max(1, math.ceil((north - south) / region["nsres"]))
+    cols = max(1, math.ceil((east - west) / region["ewres"]))
     gs.run_command(
         "g.region",
         n=north,
@@ -325,20 +338,26 @@ def _extend_region_to_vector_maps(names: list[str]) -> None:
 
 
 def _check_archive(
-    input: str | Path, create: bool, directory: str | Path | None
+    input: str | Path,
+    create: bool,
+    directory: str | Path | None,
+    stds_type: str = "strds",
 ) -> tuple[Path, str | Path | None]:
     """Stop with a message unless the archive and the extraction directory exist
 
     Return the path of the archive and the extraction directory, which is a
     temporary directory of the session if none was given. Creating a project
     extracts the archive as well, so it needs a directory too, but one that
-    does not exist is made by the extraction and not refused.
+    does not exist is made by the extraction and not refused. The message for a
+    missing archive names the kind of dataset that is imported.
     """
     input_path = Path(input)
     if not input_path.exists():
-        get_tgis_message_interface().fatal(
-            _("Space time raster dataset archive <%s> not found") % str(input)
-        )
+        if stds_type == "stvds":
+            message = _("Space time vector dataset archive <%s> not found")
+        else:
+            message = _("Space time raster dataset archive <%s> not found")
+        get_tgis_message_interface().fatal(message % str(input))
     if not tarfile.is_tarfile(input_path):
         get_tgis_message_interface().fatal(
             _("File <%s> is not a tar archive") % str(input)
@@ -493,6 +512,44 @@ def _gs_errors_raise() -> Iterator[None]:
         gs.set_raise_on_error(old_state)
 
 
+def _same_crs_after_reading(archive_proj: Path, current_proj: str) -> bool:
+    """Tell whether the CRS of the archive reads back as the one of the project
+
+    The PROJ string of the archive and the one of a project made from it can
+    differ in text (a datum is written out as its ellipsoid and a shift, or
+    the other way round) though both are one CRS. The project that this module
+    makes from the archive is such a project. So the CRS of the archive is
+    read into a project of its own and written again, the way the current
+    project writes its CRS, and that string is compared with the one of the
+    current project. Return False if the project cannot be made, as for the
+    unprojected placeholder text of an XY project.
+
+    :param archive_proj: the file with the PROJ string of the archive
+    :param current_proj: a file with the PROJ string of the current project
+    """
+    base = gs.tempdir()
+    name = "crs_of_archive"
+    try:
+        with _gs_errors_raise():
+            gs.create_location(
+                dbase=base,
+                location=name,
+                proj4=archive_proj.read_text(encoding="utf-8").strip(),
+            )
+            gisrc, env = gs.create_environment(base, name, "PERMANENT")
+            try:
+                read_back = gs.read_command(
+                    "g.proj", flags="p", format="proj4", env=env
+                )
+            finally:
+                Path(gisrc).unlink()
+    except (ScriptError, CalledModuleError, OSError, ValueError):
+        return False
+    read_back_file = gs.tempfile()
+    Path(read_back_file).write_text(read_back)
+    return gs.compare_key_value_text_files(read_back_file, current_proj, sep="=")
+
+
 def _check_projection(overr: bool) -> None:
     """Stop unless the projection of the archive is that of the current project
 
@@ -518,7 +575,9 @@ def _check_projection(overr: bool) -> None:
         p = gs.start_command("g.proj", flags="p", format="proj4", stdout=temp_file)
         p.communicate()
 
-    if not gs.compare_key_value_text_files(temp_name, proj_name_tmp, sep="="):
+    if not gs.compare_key_value_text_files(
+        temp_name, proj_name_tmp, sep="="
+    ) and not _same_crs_after_reading(proj_name, temp_name):
         if overr:
             gs.warning(_("Projection information does not match. Proceeding..."))
         else:
@@ -780,8 +839,12 @@ def _import_maps(
                 link=link,
                 format_=format_,
             )
+        # v.unpack has no flag to extend the region, unlike v.in.ogr with -e. A
+        # new project gets the region of the maps for both formats.
         if format_ == "pack":
-            _import_vector_maps(maplist, extend=bool(exp or location))
+            _import_vector_maps(maplist)
+        if location or (exp and format_ == "pack"):
+            _set_region_of_vector_maps(maplist, replace=bool(location))
 
 
 def _make_stds(
@@ -872,21 +935,12 @@ def import_stds(
     """
     # The refusals of the library are those of the messenger, which a tool
     # answers with the message and the exit code 1.
-    input_path, directory = _check_archive(input, create, directory)
+    input_path, directory = _check_archive(input, create, directory, stds_type)
 
     # The name check needs no database. It runs before anything is written, so
     # a refused name leaves neither an extracted archive nor a new project.
     if not create:
         check_new_stds_name(output)
-
-    if stds_type == "stvds" and not overr:
-        gs.warning(
-            _(
-                "Re-projection on import is currently not supported for "
-                "space time vector datasets. Ignoring projection information."
-            ),
-        )
-        overr = True
 
     _extract_archive(input_path, directory)
 
@@ -905,6 +959,13 @@ def import_stds(
             session.switch_to(dbase, location)
         else:
             _check_projection(overr)
+
+        if stds_type == "stvds":
+            # The CRS of the archive was compared with that of the project
+            # above, or the user overrode the comparison. v.unpack and v.in.ogr
+            # compare again with a simpler method and v.in.ogr finds no CRS in
+            # the GML file of an unprojected map, so they must not decide.
+            overr = True
 
         # Make sure the temporal database exists
         _reinitialize()

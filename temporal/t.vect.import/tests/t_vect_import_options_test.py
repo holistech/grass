@@ -123,7 +123,12 @@ def test_without_the_o_flag_the_projection_is_ignored_with_a_warning(
 ):
     text, rows = _run(archives["GML"], prefix, tmp_path)
 
-    assert "Re-projection on import is currently not supported" in text
+    # The archive and the new project are both unprojected, so their CRS match
+    # and there is nothing to ignore; the old warning about ignoring the CRS of
+    # the archive is gone (a different CRS ends the import without -o, see
+    # t_vect_import_faults_test.py).
+    assert "Re-projection on import" not in text
+    assert "does not match" not in text
     assert [row.name for row in rows] == ["vi_1", "vi_2"]
 
 

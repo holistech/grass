@@ -3,8 +3,8 @@
 <em>t.vect.import</em> imports an archive that <em><a href="t.vect.export.html">t.vect.export</a></em>
 wrote: it unpacks the archive, imports the vector maps and registers them in a
 new space time vector dataset with the times of the archive. The archive moves
-a dataset from another project or computer into the current project, if that
-project has a coordinate reference system (see the notes). See the
+a dataset from another project or computer into the current project (see
+the notes for archives of another coordinate reference system). See the
 <a href="temporalintro.html">introduction to temporal data processing</a> for space time
 datasets. The tool for space time raster datasets is
 <em><a href="t.rast.import.html">t.rast.import</a></em>; <em>t.vect.import</em> refuses the archive of a
@@ -40,15 +40,17 @@ its coordinate reference system from it.
 
 <p>
 The tool compares the coordinate reference system of the archive with that of
-the project, but unlike <em>t.rast.import</em> it never stops at a difference: it
-warns <code>Projection information does not match. Proceeding...</code>, with and without
-<b>-o</b>, and imports the maps without reprojecting them. They keep their
-coordinates (see the example "Import into a project with another coordinate
-reference system"). Without <b>-o</b>, the tool gives a second warning, that
-re-projection is not supported and that it ignores the projection information
-of the archive. The flag <b>-o</b> assumes that the archive has the coordinate
-reference system of the current project and leaves out only this second
-warning.
+the project, as <em>t.rast.import</em> does, and stops with the error <code>Projection
+information does not match. Aborting.</code> if they differ, before it imports a map.
+The names of the coordinate reference systems are not compared, and a
+coordinate reference system that a project made from the archive writes
+differently is the same one. The flag <b>-o</b> assumes that the archive has the
+coordinate reference system of the current project: the tool warns <code>Projection
+information does not match. Proceeding...</code> and imports the maps without
+reprojecting them. They keep their coordinates (see the example "Import into a
+project with another coordinate reference system"). The tool does not
+reproject, so <b>-o</b> is the only way to import the maps of another coordinate
+reference system, and it is for archives whose coordinates fit the project.
 
 <p>
 The flag <b>-e</b> extends the region to the imported maps: it grows the current
@@ -56,14 +58,18 @@ region until it covers them (see the example "Extend the region to the
 imported maps"). In the mapset <code>PERMANENT</code> it also extends the default region
 of the project, so use it with care in a project that you share. The maps of a
 <code>pack</code> archive extend the region as well as those of a <code>GML</code> or <code>GPKG</code>
-archive.
+archive. A project that <b>project</b> makes gets the region of the imported
+maps, not the region of the maps and the placeholder region of a new project
+(one cell at the origin), with and without <b>-e</b>; the cells keep the size of
+the placeholder.
 
 <h3>Files and layers</h3>
 
 The option <b>directory</b> names the directory that the archive is extracted to.
-It is required and must exist, and the extracted files stay in it. For a <code>GML</code>
-archive these are the files that <em>v.in.ogr</em> reads (see the example with the
-archive formats).
+Without it, the archive is extracted to a temporary directory of the session
+(<code>.tmp</code> in the current mapset). A directory that is given must exist, and the
+extracted files stay in it. For a <code>GML</code> archive these are the files that
+<em>v.in.ogr</em> reads (see the example with the archive formats).
 
 <p>
 A vector map of a <code>GML</code> archive has one layer, which is layer 1 of the imported
@@ -96,13 +102,11 @@ one name from several mapsets, is refused before the first map is imported; a
 new export of the dataset names the maps with their mapset.
 
 <p>
-A <code>pack</code> archive cannot be imported into a project without a coordinate
-reference system, the project <code>XY</code>: the project has no "PROJ_INFO" file, and
-<em>v.unpack</em> stops with a Python error, with and without <b>-o</b>; no dataset is
-made. The import works if the target has a coordinate reference system, if the
-dataset is exported as <code>GML</code> or <code>GPKG</code>, or with <b>project</b>, which makes a
-project from the archive. The last block of the example with another
-coordinate reference system shows the error and the GML way.
+A project without a coordinate reference system, the project <code>XY</code>, has none to
+match the archive's, so an archive of a project with one is imported there with
+<b>-o</b> only, in every format. The archive of a project without a coordinate
+reference system matches the project <code>XY</code>. The last blocks of the example with
+another coordinate reference system show it.
 
 <p>
 The dataset and the maps are made in the current mapset. A map of the same
@@ -117,6 +121,9 @@ so a refusal does not leave part of the maps behind:
 dataset;</li>
 <li><code>... exists. To overwrite, use the --overwrite flag</code> for an existing map of
 the current mapset;</li>
+<li><code>Space time vector dataset archive ... not found</code> for a missing <b>input</b>;</li>
+<li><code>Projection information does not match. Aborting.</code> for an archive of
+another coordinate reference system, without <b>-o</b>;</li>
 <li><code>Extraction directory ... not found</code> for a missing <b>directory</b>;</li>
 <li><code>The archive file is of wrong space time dataset type</code> for an archive of
 raster maps;</li>
@@ -463,8 +470,9 @@ lies next to the project <code>nc_spm_08_grass7</code>. The maps keep their name
 the new project has none of them. The first block imports the <code>pack</code> archive.
 It switches to the new project to look at it and back to the mapset of these
 examples. The commands print the dataset and the bounds of the first map,
-which are those of the stations in the project of the examples. The second
-block does the same for the GML archive of the previous example.
+which are those of the stations in the project of the examples, and the default
+region of the new project, which covers the maps. The second block does the
+same for the GML archive of the previous example.
 
 <p>Command line:</p>
 
@@ -474,6 +482,7 @@ t.vect.import input=stations.tar output=stations project=archive_copy \
 g.mapset project=archive_copy mapset=PERMANENT
 t.vect.list input=stations columns=name,start_time
 v.info format=shell map=stations_monthly_2020_01 | grep -E "^(north|south|east|west)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
+g.region -dg | grep -E "^(n|s|e|w)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
 g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
 v.info format=shell map=stations_monthly_2020_01 | grep -E "^(north|south|east|west)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
 </pre></div>
@@ -487,6 +496,10 @@ north=306222
 south=27607
 east=917005
 west=151769
+n=306222
+s=27607
+w=151769
+e=917006
 north=306222
 south=27607
 east=917005
@@ -517,12 +530,18 @@ def print_bounds(name):
     print("\n".join(f"{key}={info[key]:.0f}" for key in keys))
 
 
+def print_extent(flags):
+    region = tools.g_region(flags=flags).keyval
+    print("\n".join(f"{key}={region[key]:.0f}" for key in ("n", "s", "w", "e")))
+
+
 tools.t_vect_import(
     input="stations.tar", output="stations", project="archive_copy", directory="work"
 )
 tools.g_mapset(project="archive_copy", mapset="PERMANENT")
 print(tools.t_vect_list(input="stations", columns="name,start_time").text)
 print_bounds("stations_monthly_2020_01")
+print_extent("dg")
 tools.g_mapset(project="nc_spm_08_grass7", mapset="t_vect_import")
 print_bounds("stations_monthly_2020_01")
 </pre></div>
@@ -536,6 +555,10 @@ north=306222
 south=27607
 east=917005
 west=151769
+n=306222
+s=27607
+w=151769
+e=917006
 north=306222
 south=27607
 east=917005
@@ -591,11 +614,6 @@ e=1
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-def print_extent(flags):
-    region = tools.g_region(flags=flags).keyval
-    print("\n".join(f"{key}={region[key]:.0f}" for key in ("n", "s", "w", "e")))
-
-
 tools.t_vect_import(
     input="stations.tar",
     output="stations",
@@ -680,27 +698,28 @@ e=917769
 
 The archive <code>stations.tar</code> has the coordinate reference system of the dataset,
 EPSG:3358. The project <code>utm</code> made here has EPSG:32632. The first block imports
-the archive into it without <b>-o</b>, the second with <b>-o</b> and under other
-names. Neither import is refused, and neither reprojects: the maps keep their
-coordinates, and the bounds of <code>stations_monthly_2020_01</code> are those printed in
-the example with the new project. Both warn that the projections differ; <b>-o</b>
-only leaves out the warning that re-projection is not supported.
+the archive into it without <b>-o</b>: the tool stops with the error before it
+imports a map. The second block imports it with <b>-o</b> under other names. The
+maps are not reprojected: they keep their coordinates, and the bounds of
+<code>again_1</code> are those printed in the example with the new project.
 
 <p>
 The project <code>flat</code> is made with <code>grass -c XY</code> and has no coordinate reference
-system. The <code>pack</code> archive
-cannot be imported into it: the next block prints that the error mentions the
-missing "PROJ_INFO" file. The GML archive of the second example can (the
-block needs the GML driver).
+system. The <code>pack</code> archive and the GML archive of the second example are
+refused there as well, and are imported with <b>-o</b>; the second import keeps
+the names of the maps, so the first one uses a <b>basename</b> (the block with the
+GML archive needs the GML driver).
 
 <p>Command line:</p>
 
 <div class="code"><pre>
 g.proj -c project=utm epsg=32632
 g.mapset project=utm mapset=PERMANENT
-t.vect.import input=stations.tar output=stations directory=work
-t.vect.list input=stations columns=name,start_time
-v.info format=shell map=stations_monthly_2020_01 | grep -E "^(north|south|east|west)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
+if ! (t.vect.import input=stations.tar output=stations directory=work 2&gt;&amp;1 |
+    sed -n '/^ERROR/,$p'); then
+    echo "t.vect.import failed"
+fi
+t.list type=stvds | wc -l
 t.vect.import -o input=stations.tar output=again basename=again \
     directory=work
 t.vect.list input=again columns=name,start_time
@@ -709,14 +728,9 @@ g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
 </pre></div>
 
 <div class="code"><pre>
-name|start_time
-stations_monthly_2020_01|2020-01-01 00:00:00
-stations_monthly_2020_02|2020-02-01 00:00:00
-stations_monthly_2020_03|2020-03-01 00:00:00
-north=306222
-south=27607
-east=917005
-west=151769
+ERROR: Projection information does not match. Aborting.
+t.vect.import failed
+0
 name|start_time
 again_1|2020-01-01 00:00:00
 again_2|2020-02-01 00:00:00
@@ -731,19 +745,27 @@ west=151769
 grass -c XY "$(g.gisenv get=GISDBASE)/flat" --exec true
 g.mapset project=flat mapset=PERMANENT
 mkdir flat_files
-if ! t.vect.import input=stations.tar output=stations directory=flat_files \
-    2&gt; flat_error.txt; then
-    grep -q PROJ_INFO flat_error.txt &amp;&amp; echo "PROJ_INFO is missing"
+if ! (t.vect.import input=stations.tar output=stations directory=flat_files 2&gt;&amp;1 |
+    sed -n '/^ERROR/,$p'); then
+    echo "t.vect.import failed"
 fi
+t.vect.import -o input=stations.tar output=stations basename=pack \
+    directory=flat_files
+t.vect.list input=stations columns=name,start_time
 </pre></div>
 
 <div class="code"><pre>
-PROJ_INFO is missing
+ERROR: Projection information does not match. Aborting.
+t.vect.import failed
+name|start_time
+pack_1|2020-01-01 00:00:00
+pack_2|2020-02-01 00:00:00
+pack_3|2020-03-01 00:00:00
 </pre></div>
 
 <div class="code"><pre>
 mkdir flat_gml_files
-t.vect.import input=stations_gml.tar.gz output=flat_stations \
+t.vect.import -o input=stations_gml.tar.gz output=flat_stations \
     directory=flat_gml_files
 t.vect.list input=flat_stations columns=name,layer,start_time
 g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
@@ -759,11 +781,19 @@ stations_monthly_2020_03|None|2020-03-01 00:00:00
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
+from grass.tools import ToolError
+
 tools.g_proj(flags="c", project="utm", epsg=32632)
 tools.g_mapset(project="utm", mapset="PERMANENT")
-tools.t_vect_import(input="stations.tar", output="stations", directory="work")
-print(tools.t_vect_list(input="stations", columns="name,start_time").text)
-print_bounds("stations_monthly_2020_01")
+try:
+    tools.t_vect_import(input="stations.tar", output="stations", directory="work")
+except ToolError as error:
+    lines = error.stderr.strip().splitlines()
+    first = [line.startswith("ERROR") for line in lines].index(True)
+    print("\n".join(lines[first:]))
+    print("t.vect.import failed")
+result = tools.t_list(type="stvds")
+print(len(result.text.splitlines()) if result else 0)
 tools.t_vect_import(
     input="stations.tar",
     output="again",
@@ -777,14 +807,9 @@ tools.g_mapset(project="nc_spm_08_grass7", mapset="t_vect_import")
 </pre></div>
 
 <div class="code"><pre>
-name|start_time
-stations_monthly_2020_01|2020-01-01 00:00:00
-stations_monthly_2020_02|2020-02-01 00:00:00
-stations_monthly_2020_03|2020-03-01 00:00:00
-north=306222
-south=27607
-east=917005
-west=151769
+ERROR: Projection information does not match. Aborting.
+t.vect.import failed
+0
 name|start_time
 again_1|2020-01-01 00:00:00
 again_2|2020-02-01 00:00:00
@@ -798,8 +823,6 @@ west=151769
 <div class="code"><pre>
 import subprocess
 
-from grass.tools import ToolError
-
 gisdbase = tools.g_gisenv(get="GISDBASE").stdout.strip()
 subprocess.run(["grass", "-c", "XY", f"{gisdbase}/flat", "--exec", "true"], check=True)
 tools.g_mapset(project="flat", mapset="PERMANENT")
@@ -807,18 +830,36 @@ Path("flat_files").mkdir()
 try:
     tools.t_vect_import(input="stations.tar", output="stations", directory="flat_files")
 except ToolError as error:
-    if "PROJ_INFO" in str(error):
-        print("PROJ_INFO is missing")
+    lines = error.stderr.strip().splitlines()
+    first = [line.startswith("ERROR") for line in lines].index(True)
+    print("\n".join(lines[first:]))
+    print("t.vect.import failed")
+tools.t_vect_import(
+    input="stations.tar",
+    output="stations",
+    basename="pack",
+    directory="flat_files",
+    flags="o",
+)
+print(tools.t_vect_list(input="stations", columns="name,start_time").text)
 </pre></div>
 
 <div class="code"><pre>
-PROJ_INFO is missing
+ERROR: Projection information does not match. Aborting.
+t.vect.import failed
+name|start_time
+pack_1|2020-01-01 00:00:00
+pack_2|2020-02-01 00:00:00
+pack_3|2020-03-01 00:00:00
 </pre></div>
 
 <div class="code"><pre>
 Path("flat_gml_files").mkdir()
 tools.t_vect_import(
-    input="stations_gml.tar.gz", output="flat_stations", directory="flat_gml_files"
+    input="stations_gml.tar.gz",
+    output="flat_stations",
+    directory="flat_gml_files",
+    flags="o",
 )
 print(tools.t_vect_list(input="flat_stations", columns="name,layer,start_time").text)
 tools.g_mapset(project="nc_spm_08_grass7", mapset="t_vect_import")

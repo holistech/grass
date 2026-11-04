@@ -49,6 +49,10 @@ GeoTIFF archives as well, because a GeoTIFF file made there holds none. An
 archive of AAIGrid files holds no coordinate reference system either and
 needs no **-o**, as the example with the ASCII grid shows, and neither does
 the `pack` format. An import with **project** needs no **-o**.
+A project that the tool made from an archive counts as having the coordinate
+reference system of that archive, though it may write the definition in other
+words (a datum as its ellipsoid and a shift): a second import of the archive
+into it passes the comparison and needs no **-o**.
 
 The flag **-e** extends the extent of the project to the maps of a `GTiff` or
 `AAIGrid` archive: it makes the default region and the current region of the

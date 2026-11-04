@@ -48,7 +48,9 @@ def _damaged(archive, target, *, drop=(), replace=None):
     return target
 
 
-@pytest.mark.parametrize("missing", ["input", "output", "directory"])
+# directory is optional: without it the archive is extracted into a temporary
+# directory of the session.
+@pytest.mark.parametrize("missing", ["input", "output"])
 def test_a_required_option_is_checked_by_the_parser(
     tools, archives, prefix, tmp_path, missing
 ):
@@ -67,7 +69,7 @@ def test_a_missing_archive_is_reported_as_a_message(tools, prefix, tmp_path):
         tools, input=str(tmp_path / "none.tar"), output=prefix, directory=str(tmp_path)
     )
 
-    assert "Space time raster dataset archive" in text
+    assert "Space time vector dataset archive" in text
     assert "not found" in text
     assert "Traceback" not in text
     assert f"{prefix}" not in tools.t_list(type="stvds", columns="name").stdout
