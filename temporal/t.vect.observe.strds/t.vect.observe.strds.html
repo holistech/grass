@@ -931,16 +931,14 @@ the mapset, <code>stations@t_vect_observe_strds</code> and
 <code>temperature_monthly@t_vect_observe_strds</code>, select them. The output map and
 dataset are made in the current mapset, here the new mapset
 <code>t_vect_observe_strds_2</code>. A new mapset has its own region, so the example sets
-the region again before the points are sampled. The example adds the mapset
-<code>t_vect_observe_strds</code> to the search path of the mapsets with
-<em><a href="g.mapsets.html">g.mapsets</a></em>.
+the region again before the points are sampled. The mapset
+<code>t_vect_observe_strds</code> does not have to be in the search path.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
 g.mapset -c mapset=t_vect_observe_strds_2
 g.region raster=elev_state_500m res=1000 -a
-g.mapsets mapset=t_vect_observe_strds operation=add
 t.vect.observe.strds input=stations@t_vect_observe_strds \
     strds=temperature_monthly@t_vect_observe_strds output=remote \
     vector_output=remote_points columns=temp
@@ -966,7 +964,6 @@ cat|temp
 <div class="code"><pre>
 tools.g_mapset(mapset="t_vect_observe_strds_2", flags="c")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-tools.g_mapsets(mapset="t_vect_observe_strds", operation="add")
 tools.t_vect_observe_strds(
     input="stations@t_vect_observe_strds",
     strds="temperature_monthly@t_vect_observe_strds",

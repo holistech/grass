@@ -916,16 +916,14 @@ the mapset, `stations@t_vect_observe_strds` and
 `temperature_monthly@t_vect_observe_strds`, select them. The output map and
 dataset are made in the current mapset, here the new mapset
 `t_vect_observe_strds_2`. A new mapset has its own region, so the example sets
-the region again before the points are sampled. The example adds the mapset
-`t_vect_observe_strds` to the search path of the mapsets with
-*[g.mapsets](g.mapsets.md)*.
+the region again before the points are sampled. The mapset
+`t_vect_observe_strds` does not have to be in the search path.
 
 === "Command line"
 
     ```sh
     g.mapset -c mapset=t_vect_observe_strds_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_vect_observe_strds operation=add
     t.vect.observe.strds input=stations@t_vect_observe_strds \
         strds=temperature_monthly@t_vect_observe_strds output=remote \
         vector_output=remote_points columns=temp
@@ -951,7 +949,6 @@ the region again before the points are sampled. The example adds the mapset
     ```python
     tools.g_mapset(mapset="t_vect_observe_strds_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_vect_observe_strds", operation="add")
     tools.t_vect_observe_strds(
         input="stations@t_vect_observe_strds",
         strds="temperature_monthly@t_vect_observe_strds",
