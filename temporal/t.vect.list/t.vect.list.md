@@ -1450,17 +1450,18 @@ shell block prints the message instead of failing.
 
 *t.vect.list* reads a dataset of another mapset. The example creates the mapset
 `t_vect_list_2` and switches to it, with the region of the first example; the
-dataset `survey` stays in the mapset `t_vect_list`. The first block adds that
-mapset to the search path of the new mapset with *g.mapsets* and names the
-dataset with its mapset. In the second block, *g.mapsets* shows the search
-path, so the name `survey` without a mapset finds the same dataset.
+dataset `survey` stays in the mapset `t_vect_list`, which is not in the search
+path of the new mapset, and is named with its mapset. In the second block,
+*g.mapsets* adds `t_vect_list` to the search path and shows it, because a name
+without a mapset is searched only there (see
+[Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)); the name
+`survey` then finds the same dataset.
 
 === "Command line"
 
     ```sh
     g.mapset -c mapset=t_vect_list_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_vect_list operation=add
     t.vect.list input=survey@t_vect_list columns=id,start_time
     ```
 
@@ -1473,6 +1474,7 @@ path, so the name `survey` without a mapset finds the same dataset.
     ```
 
     ```sh
+    g.mapsets mapset=t_vect_list operation=add
     g.mapsets -p
     t.vect.list input=survey columns=id,start_time
     ```
@@ -1491,7 +1493,6 @@ path, so the name `survey` without a mapset finds the same dataset.
     ```python
     tools.g_mapset(mapset="t_vect_list_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_vect_list", operation="add")
     result = tools.t_vect_list(input="survey@t_vect_list", columns="id,start_time")
     print(result.text)
     ```
@@ -1505,6 +1506,7 @@ path, so the name `survey` without a mapset finds the same dataset.
     ```
 
     ```python
+    tools.g_mapsets(mapset="t_vect_list", operation="add")
     print(tools.g_mapsets(flags="p").text)
     print(tools.t_vect_list(input="survey", columns="id,start_time").text)
     ```

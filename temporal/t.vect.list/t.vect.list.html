@@ -1469,17 +1469,18 @@ t.vect.list failed
 
 <em>t.vect.list</em> reads a dataset of another mapset. The example creates the mapset
 <code>t_vect_list_2</code> and switches to it, with the region of the first example; the
-dataset <code>survey</code> stays in the mapset <code>t_vect_list</code>. The first block adds that
-mapset to the search path of the new mapset with <em>g.mapsets</em> and names the
-dataset with its mapset. In the second block, <em>g.mapsets</em> shows the search
-path, so the name <code>survey</code> without a mapset finds the same dataset.
+dataset <code>survey</code> stays in the mapset <code>t_vect_list</code>, which is not in the search
+path of the new mapset, and is named with its mapset. In the second block,
+<em>g.mapsets</em> adds <code>t_vect_list</code> to the search path and shows it, because a name
+without a mapset is searched only there (see
+<a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other mapsets</a>); the name
+<code>survey</code> then finds the same dataset.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
 g.mapset -c mapset=t_vect_list_2
 g.region raster=elev_state_500m res=1000 -a
-g.mapsets mapset=t_vect_list operation=add
 t.vect.list input=survey@t_vect_list columns=id,start_time
 </pre></div>
 
@@ -1492,6 +1493,7 @@ survey_4@t_vect_list|2026-03-04 00:00:00
 </pre></div>
 
 <div class="code"><pre>
+g.mapsets mapset=t_vect_list operation=add
 g.mapsets -p
 t.vect.list input=survey columns=id,start_time
 </pre></div>
@@ -1510,7 +1512,6 @@ survey_4@t_vect_list|2026-03-04 00:00:00
 <div class="code"><pre>
 tools.g_mapset(mapset="t_vect_list_2", flags="c")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-tools.g_mapsets(mapset="t_vect_list", operation="add")
 result = tools.t_vect_list(input="survey@t_vect_list", columns="id,start_time")
 print(result.text)
 </pre></div>
@@ -1524,6 +1525,7 @@ survey_4@t_vect_list|2026-03-04 00:00:00
 </pre></div>
 
 <div class="code"><pre>
+tools.g_mapsets(mapset="t_vect_list", operation="add")
 print(tools.g_mapsets(flags="p").text)
 print(tools.t_vect_list(input="survey", columns="id,start_time").text)
 </pre></div>
