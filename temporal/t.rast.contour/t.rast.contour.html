@@ -829,11 +829,10 @@ num_dblinks=0
 
 <h3>Use a dataset of another mapset</h3>
 
-The example creates the mapset <code>t_rast_contour_2</code>, switches to it and adds the
-mapset <code>t_rast_contour</code> to the search path with <em>g.mapsets</em>. The dataset
-<code>temperature_summer</code> stays in <code>t_rast_contour</code> and is named with its mapset;
-the new dataset <code>west</code> and its vector maps are created in <code>t_rast_contour_2</code>,
-as the column <code>id</code> shows.
+The example creates the mapset <code>t_rast_contour_2</code> and switches to it. The
+dataset <code>temperature_summer</code> stays in <code>t_rast_contour</code> and is named with its
+mapset, which does not have to be in the search path; the new dataset <code>west</code> and
+its vector maps are created in <code>t_rast_contour_2</code>, as the column <code>id</code> shows.
 
 <p>
 The region of the new mapset is set to the western half of the maps, 420 cells
@@ -852,7 +851,6 @@ nodes and the eastern edge are the same as with the region.
 <div class="code"><pre>
 g.mapset -c mapset=t_rast_contour_2
 g.region w=124000 e=544000 n=319000 s=-16000 res=1000
-g.mapsets mapset=t_rast_contour operation=add
 t.rast.contour input=temperature_summer@t_rast_contour output=west \
     basename=west step=5
 t.vect.list input=west columns=id,lines,nodes,east
@@ -887,7 +885,6 @@ masked_2020_08@t_rast_contour_2|150|182|543500.0
 <div class="code"><pre>
 tools.g_mapset(mapset="t_rast_contour_2", flags="c")
 tools.g_region(w=124000, e=544000, n=319000, s=-16000, res=1000)
-tools.g_mapsets(mapset="t_rast_contour", operation="add")
 tools.t_rast_contour(
     input="temperature_summer@t_rast_contour",
     output="west",

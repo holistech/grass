@@ -806,11 +806,10 @@ the map of July is linked to no attribute table.
 
 ### Use a dataset of another mapset
 
-The example creates the mapset `t_rast_contour_2`, switches to it and adds the
-mapset `t_rast_contour` to the search path with *g.mapsets*. The dataset
-`temperature_summer` stays in `t_rast_contour` and is named with its mapset;
-the new dataset `west` and its vector maps are created in `t_rast_contour_2`,
-as the column `id` shows.
+The example creates the mapset `t_rast_contour_2` and switches to it. The
+dataset `temperature_summer` stays in `t_rast_contour` and is named with its
+mapset, which does not have to be in the search path; the new dataset `west` and
+its vector maps are created in `t_rast_contour_2`, as the column `id` shows.
 
 The region of the new mapset is set to the western half of the maps, 420 cells
 wide, so the lines end at the centre of the eastern cells of the region, x =
@@ -827,7 +826,6 @@ nodes and the eastern edge are the same as with the region.
     ```sh
     g.mapset -c mapset=t_rast_contour_2
     g.region w=124000 e=544000 n=319000 s=-16000 res=1000
-    g.mapsets mapset=t_rast_contour operation=add
     t.rast.contour input=temperature_summer@t_rast_contour output=west \
         basename=west step=5
     t.vect.list input=west columns=id,lines,nodes,east
@@ -862,7 +860,6 @@ nodes and the eastern edge are the same as with the region.
     ```python
     tools.g_mapset(mapset="t_rast_contour_2", flags="c")
     tools.g_region(w=124000, e=544000, n=319000, s=-16000, res=1000)
-    tools.g_mapsets(mapset="t_rast_contour", operation="add")
     tools.t_rast_contour(
         input="temperature_summer@t_rast_contour",
         output="west",
