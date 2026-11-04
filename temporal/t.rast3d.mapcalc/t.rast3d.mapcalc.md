@@ -1580,9 +1580,13 @@ The mapset `t_rast3d_mapcalc_2` is new and empty. The first block makes it the
 current mapset, sets the region of the first example there, adds the first
 mapset to the search path with *g.mapsets*, and halves
 `moisture@t_rast3d_mapcalc`. The expression still uses the name `moisture`.
-The maps of `moisture` hold values only in the square where they were made, so
-the new maps read null in the rest of the region. The dataset `halved` and its
-maps belong to the current mapset; the listing shows the mapset of the maps.
+The tool reads the maps of the input dataset
+through the search path, so the mapset of the input must be in the search path
+or be the current mapset. See [Datasets of other
+mapsets](temporalintro.md#datasets-of-other-mapsets). The maps of `moisture`
+hold values only in the square where they were made, so the new maps read null
+in the rest of the region. The dataset `halved` and its maps belong to the
+current mapset; the listing shows the mapset of the maps.
 
 The second block repeats the call without **--overwrite**. The tool stops
 because the dataset `halved` exists. The third block adds **--overwrite** and
