@@ -256,9 +256,12 @@ search path. A name without a mapset is searched by <em>t.rast.list</em>, for
 example, in the current mapset first, then in the mapsets of the search path
 in their order, and is not found if the dataset lies in a mapset outside the
 search path. Some tools, such as <em>t.info</em>, look for a name without a mapset
-only in the current mapset; <code>name@mapset</code> is found by every tool. Add the
-mapset with <a href="g.mapsets.html">g.mapsets</a> <code>operation=add</code> only if datasets of that
-mapset should be found by their name alone. A mapset that does not exist or
+only in the current mapset; give them <code>name@mapset</code>. <em>t.rast.accdetect</em>,
+<em>t.rast.mapcalc</em> and <em>t.rast3d.mapcalc</em> read the maps of their input dataset
+through the search path, so for them the mapset must be in the search path
+even if the dataset is named with it. Otherwise, add the mapset with
+<a href="g.mapsets.html">g.mapsets</a> <code>operation=add</code> only if datasets of that mapset
+should be found by their name alone. A mapset that does not exist or
 has no temporal database is refused with an error. The last example of the
 <a href="#examples">EXAMPLES</a> shows both ways.
 
