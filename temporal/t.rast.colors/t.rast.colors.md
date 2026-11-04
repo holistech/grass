@@ -854,10 +854,10 @@ and not the range of the dataset.
 
 The dataset `model` has relative time and lies in the mapset `t_rast_colors`.
 Its maps `step_1` and `step_2` have the values 1 to 3 and 2 to 6. The example
-creates the mapset `t_rast_colors_2` with the same region, adds
-`t_rast_colors` to the search path, so that its datasets can be read, and
-colors `model`; the dataset is named with its mapset. The tables are written
-to `t_rast_colors_2`: the first block prints the table of
+creates the mapset `t_rast_colors_2` with the same region and colors `model`.
+The mapset `t_rast_colors` is not in the search path of the new mapset; the
+dataset is named with its mapset, which is enough to read it. The tables are
+written to `t_rast_colors_2`: the first block prints the table of
 `step_1@t_rast_colors` there, the grey table for the range 1 to 6 of the
 dataset; the second block prints the rules for 1 and 3 after switching back to
 `t_rast_colors`, where the map has the default table for its own range, 1 to
@@ -873,7 +873,6 @@ dataset; the second block prints the rules for 1 and 3 after switching back to
     t.register -i input=model maps=step_1,step_2 start=0 increment=1 unit=hours
     g.mapset -c mapset=t_rast_colors_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_rast_colors operation=add
     t.rast.colors input=model@t_rast_colors color=grey
     r.colors.out map=step_1@t_rast_colors
     ```
@@ -911,7 +910,6 @@ dataset; the second block prints the rules for 1 and 3 after switching back to
     )
     tools.g_mapset(mapset="t_rast_colors_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_rast_colors", operation="add")
     tools.t_rast_colors(input="model@t_rast_colors", color="grey")
     print(tools.r_colors_out(map="step_1@t_rast_colors").text)
     ```
