@@ -734,8 +734,8 @@ one gauge each (the categories 149 and 153), and `t_vect_export_2` also holds
 the map `solo` (the gauge 151). The first block creates the second mapset, sets
 the region there again and returns to `t_vect_export`. The dataset `pair`
 registers `dup@t_vect_export` for 1 March and `dup@t_vect_export_2` and
-`solo@t_vect_export_2` for 2 March; the block adds `t_vect_export_2` to the
-search path with *g.mapsets* first.
+`solo@t_vect_export_2` for 2 March. The mapset `t_vect_export_2` is not in the
+search path of `t_vect_export`; naming the maps with their mapsets is enough.
 The archive names the two maps of the name `dup` with their mapsets, in the file
 names and in `list.txt`; `solo` keeps its name, since no other mapset of the
 selection has a map of that name. In the pack format `list.txt` writes
@@ -750,7 +750,6 @@ selection has a map of that name. In the pack format `list.txt` writes
     v.extract input=usgsgages output=dup where="cat = 153"
     v.extract input=usgsgages output=solo where="cat = 151"
     g.mapset mapset=t_vect_export
-    g.mapsets mapset=t_vect_export_2 operation=add
     t.create type=stvds output=pair title="Pair" description="Same name twice"
     t.register type=vector input=pair maps=dup@t_vect_export \
         start=2026-03-01 end=2026-03-02
@@ -809,7 +808,6 @@ selection has a map of that name. In the pack format `list.txt` writes
     tools.v_extract(input="usgsgages", output="dup", where="cat = 153")
     tools.v_extract(input="usgsgages", output="solo", where="cat = 151")
     tools.g_mapset(mapset="t_vect_export")
-    tools.g_mapsets(mapset="t_vect_export_2", operation="add")
     tools.t_create(type="stvds", output="pair", title="Pair", description="Same name twice")
     tools.t_register(
         type="vector",
