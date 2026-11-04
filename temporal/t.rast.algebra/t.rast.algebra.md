@@ -716,85 +716,85 @@ daily maps in A with the values 1 to 4, two maps of two days in B that
 start with A, and time instances in I.
 
 1. **One result per conclusion map.** If a map of the conclusion of an
-   `if` has several related condition maps, their conditions are joined
-   with and; written as `{during,|}`, the relation joins them with or. The
-   classic algebra gives one result for each pair of condition map and
-   conclusion map, so that a conclusion map can occur several times. The
-   first expression keeps the cells of B where both maps of A within the
-   map of B are greater than 1, the second where one of them is:
+    `if` has several related condition maps, their conditions are joined
+    with and; written as `{during,|}`, the relation joins them with or. The
+    classic algebra gives one result for each pair of condition map and
+    conclusion map, so that a conclusion map can occur several times. The
+    first expression keeps the cells of B where both maps of A within the
+    map of B are greater than 1, the second where one of them is:
 
-   ```sh
-   C = if({during}, A > 1, B, 0)
-   C = if({during,|}, A > 1, B, 0)
-   ```
+    ```sh
+    C = if({during}, A > 1, B, 0)
+    C = if({during,|}, A > 1, B, 0)
+    ```
 
 2. **Equal time stamps for then and else.** With a condition on map
-   values, the then and the else part need equal time stamps; otherwise the
-   algebra stops with an error. The classic algebra computes only the maps
-   whose time stamp occurs in both parts and leaves out the others without
-   notice. This expression is therefore an error, where the classic
-   algebra gives an empty result:
+    values, the then and the else part need equal time stamps; otherwise the
+    algebra stops with an error. The classic algebra computes only the maps
+    whose time stamp occurs in both parts and leaves out the others without
+    notice. This expression is therefore an error, where the classic
+    algebra gives an empty result:
 
-   ```sh
-   C = if(A > 2, A, B)
-   ```
+    ```sh
+    C = if(A > 2, A, B)
+    ```
 
 3. **Precedence.** `&&` binds stronger than `||`, and conditions can be
-   grouped with parentheses. The classic algebra evaluates conditions on
-   temporal variables from left to right and does not accept parentheses
-   around conditions. The first expression takes all maps of A, because
-   `td(A) == 1` is true for each of them; the classic algebra reads it as
-   the second expression and takes none:
+    grouped with parentheses. The classic algebra evaluates conditions on
+    temporal variables from left to right and does not accept parentheses
+    around conditions. The first expression takes all maps of A, because
+    `td(A) == 1` is true for each of them; the classic algebra reads it as
+    the second expression and takes none:
 
-   ```sh
-   C = if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)
-   C = if((td(A) == 1 || td(A) == 2) && td(A) == 3, A)
-   ```
+    ```sh
+    C = if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)
+    C = if((td(A) == 1 || td(A) == 2) && td(A) == 3, A)
+    ```
 
 4. **Right reference.** `A {:,R,r} B` and `A {op,R,r} B` give one map
-   per related pair, with the time stamp of the right map and, for an
-   operator, the value of this pair. The classic algebra keeps only the
-   last pair of a selection, and an operator combines the left map with
-   all of its related right maps in every result. The first expression gives
-   four maps, the time stamps of A with the values of B; the classic
-   algebra gives one map per map of B. If a map b1 contains the maps a1 and
-   a2, the second expression gives `b1 + a1` and `b1 + a2`, the classic
-   algebra `b1 + a1 + a2` for both:
+    per related pair, with the time stamp of the right map and, for an
+    operator, the value of this pair. The classic algebra keeps only the
+    last pair of a selection, and an operator combines the left map with
+    all of its related right maps in every result. The first expression gives
+    four maps, the time stamps of A with the values of B; the classic
+    algebra gives one map per map of B. If a map b1 contains the maps a1 and
+    a2, the second expression gives `b1 + a1` and `b1 + a2`, the classic
+    algebra `b1 + a1 + a2` for both:
 
-   ```sh
-   C = B {:,contains,r} A
-   C = B {+,contains,r} A
-   ```
+    ```sh
+    C = B {:,contains,r} A
+    C = B {+,contains,r} A
+    ```
 
-   The inverse selection `A {!:,R,t} B` takes only the temporal operator
-   `l`, because its maps have no related map to combine with; the classic
-   algebra accepts the other operators.
+    The inverse selection `A {!:,R,t} B` takes only the temporal operator
+    `l`, because its maps have no related map to combine with; the classic
+    algebra accepts the other operators.
 
 5. **td() of a time instance** is null instead of an error, so a condition
-   on it is neither true nor false. This expression gives no map; the
-   classic algebra stops with an error:
+    on it is neither true nor false. This expression gives no map; the
+    classic algebra stops with an error:
 
-   ```sh
-   C = if(td(I) > 0, I)
-   ```
+    ```sh
+    C = if(td(I) > 0, I)
+    ```
 
-   A temporal variable that a map does not have, such as `end_doy()` of a
-   time instance or the calendar values of relative time, is an error in
-   both algebras.
+    A temporal variable that a map does not have, such as `end_doy()` of a
+    time instance or the calendar values of relative time, is an error in
+    both algebras.
 
 6. **More syntax.** Comparisons, temporal functions and the minus sign may
-   stand anywhere in an expression, and a dataset may have the name of a
-   function. The classic algebra reports a syntax error for each of these
-   expressions; the last one adds 1 to a dataset named `td`:
+    stand anywhere in an expression, and a dataset may have the name of a
+    function. The classic algebra reports a syntax error for each of these
+    expressions; the last one adds 1 to a dataset named `td`:
 
-   ```sh
-   C = A
-   C = -A + 10
-   C = A > 2
-   C = A + start_doy(A)
-   C = isnull(A)
-   C = td + 1
-   ```
+    ```sh
+    C = A
+    C = -A + 10
+    C = A > 2
+    C = A + start_doy(A)
+    C = isnull(A)
+    C = td + 1
+    ```
 
 7. **Intersection with several related maps.** With the temporal
     operator `i`, a map whose related maps have no common intersection is
@@ -954,117 +954,117 @@ addition, N with daily maps of the values 11 to 14 and RT with maps of relative
 time.
 
 1. **td() of an expression** on the right of an operator used the value of
-   the expression instead of the duration of its maps. With daily maps in N
-   and A, the expression gave `N - A * 2` where it now gives `N - 1`:
+    the expression instead of the duration of its maps. With daily maps in N
+    and A, the expression gave `N - A * 2` where it now gives `N - 1`:
 
-   ```sh
-   C = N - td(A * 2)
-   ```
+    ```sh
+    C = N - td(A * 2)
+    ```
 
 2. **tsnap() and tshift() of no maps.** If the expression inside has no
-   maps, the result is empty, like any other empty result: an empty dataset
-   is created, and an enclosing expression goes on with no maps. Earlier
-   versions ended in an error. No map of A is equal to a map of B, so both
-   expressions give an empty dataset:
+    maps, the result is empty, like any other empty result: an empty dataset
+    is created, and an enclosing expression goes on with no maps. Earlier
+    versions ended in an error. No map of A is equal to a map of B, so both
+    expressions give an empty dataset:
 
-   ```sh
-   C = tsnap(A {:,equal} B)
-   C = A + tshift(A {:,equal} B, "1 day")
-   ```
+    ```sh
+    C = tsnap(A {:,equal} B)
+    C = A + tshift(A {:,equal} B, "1 day")
+    ```
 
 3. **Increments that the library refuses.** An increment of `tshift()` or
-   `buff_t()` that does not fit the temporal type is a syntax error and
-   leaves no result dataset: a text with a time unit on relative time, a
-   number without unit on absolute time, or a text that is not a time step.
-   Earlier versions raised a `TypeError` for `buff_t()` on relative time,
-   and for `tshift()` they did not report the increment as the cause: the
-   result was missing, or an enclosing operator complained about its input.
-   Each of these expressions is a syntax error. The new algebra refuses the
-   same increments with a `ValueError`. A number with a fraction, such as
-   `buff_t(RT, 1.5)`, stays valid on relative time in the classic algebra;
-   the new algebra reads whole numbers only and reports a syntax error:
+    `buff_t()` that does not fit the temporal type is a syntax error and
+    leaves no result dataset: a text with a time unit on relative time, a
+    number without unit on absolute time, or a text that is not a time step.
+    Earlier versions raised a `TypeError` for `buff_t()` on relative time,
+    and for `tshift()` they did not report the increment as the cause: the
+    result was missing, or an enclosing operator complained about its input.
+    Each of these expressions is a syntax error. The new algebra refuses the
+    same increments with a `ValueError`. A number with a fraction, such as
+    `buff_t(RT, 1.5)`, stays valid on relative time in the classic algebra;
+    the new algebra reads whole numbers only and reports a syntax error:
 
-   ```sh
-   C = tshift(A, "1 DAY")
-   C = tshift(RT, "1 month")
-   C = buff_t(RT, "3 hours")
-   C = buff_t(A, 3)
-   ```
+    ```sh
+    C = tshift(A, "1 DAY")
+    C = tshift(RT, "1 month")
+    C = buff_t(RT, "3 hours")
+    C = buff_t(A, 3)
+    ```
 
 4. **merge() and the data type.** The data types of the maps are not
-   compared, so a dataset may hold integer and floating point maps. Earlier
-   versions refused `merge()` of a dataset with a single map from `map()` or
-   `tmap()` with the error that the datasets must have the same data type.
-   The first expression gives the four maps of A and the single map, the
-   second the maps of A and the floating point maps computed from them:
+    compared, so a dataset may hold integer and floating point maps. Earlier
+    versions refused `merge()` of a dataset with a single map from `map()` or
+    `tmap()` with the error that the datasets must have the same data type.
+    The first expression gives the four maps of A and the single map, the
+    second the maps of A and the floating point maps computed from them:
 
-   ```sh
-   C = merge(A, tmap(singletmap))
-   C = merge(A, A * 1.5)
-   ```
+    ```sh
+    C = merge(A, tmap(singletmap))
+    C = merge(A, A * 1.5)
+    ```
 
 5. **Time constants with offset.** A temporal function with an offset
-   needs a map with the time value it returns. On a map without it, such as
-   `end_month()` of a time instance or `start_month()` of relative time, the
-   expression stops with an error that says the function requires absolute
-   time, as the same function in a condition does. Earlier versions wrote
-   `None` into the *r.mapcalc* expression, which failed when the maps were
-   computed:
+    needs a map with the time value it returns. On a map without it, such as
+    `end_month()` of a time instance or `start_month()` of relative time, the
+    expression stops with an error that says the function requires absolute
+    time, as the same function in a condition does. Earlier versions wrote
+    `None` into the *r.mapcalc* expression, which failed when the maps were
+    computed:
 
-   ```sh
-   C = A + end_month(I, 0)
-   C = A + start_month(RT, 1)
-   ```
+    ```sh
+    C = A + end_month(I, 0)
+    C = A + start_month(RT, 1)
+    ```
 
 6. **Intersection with a time instance.** With the temporal operator `i`, the
-   time stamp of the result is the time instance, for a selection and for
-   an operator, on absolute and on relative time. Earlier versions kept the
-   time stamp of the left map for an operator and failed with a `TypeError`
-   for a selection on relative time. If `sinst` is an instance on day 1,
-   both expressions give one map with the instance as time:
+    time stamp of the result is the time instance, for a selection and for
+    an operator, on absolute and on relative time. Earlier versions kept the
+    time stamp of the left map for an operator and failed with a `TypeError`
+    for a selection on relative time. If `sinst` is an instance on day 1,
+    both expressions give one map with the instance as time:
 
-   ```sh
-   C = A {:,contains,i} tmap(sinst)
-   C = A {+,contains,i} tmap(sinst)
-   ```
+    ```sh
+    C = A {:,contains,i} tmap(sinst)
+    C = A {+,contains,i} tmap(sinst)
+    ```
 
 7. **Infinite values.** A map with infinite values, such as the result of
-   `exp(A * 1000)`, is registered with null as its minimum and maximum.
-   Earlier versions failed when they wrote the map statistics ("no such
-   column: inf") and could leave the temporal database locked.
+    `exp(A * 1000)`, is registered with null as its minimum and maximum.
+    Earlier versions failed when they wrote the map statistics ("no such
+    column: inf") and could leave the temporal database locked.
 
-   ```sh
-   C = exp(A * 1000)
-   ```
+    ```sh
+    C = exp(A * 1000)
+    ```
 
 8. **td() of a counted map.** `td()` of a map counted by the hash operator
-   gave the count instead of the duration, as an operand and in a
-   comparison (corrected 17 October 2026). The datasets A and N have daily
-   maps and `A # merge(A, N)` counts 2 for each map of A. The expression
-   added 2 to the maps of N where it now adds the one day of their
-   duration; a condition such as `td(A # merge(A, N)) > 1.5` was true and
-   is false now. The duration of a map that is not counted did not change:
+    gave the count instead of the duration, as an operand and in a
+    comparison (corrected 17 October 2026). The datasets A and N have daily
+    maps and `A # merge(A, N)` counts 2 for each map of A. The expression
+    added 2 to the maps of N where it now adds the one day of their
+    duration; a condition such as `td(A # merge(A, N)) > 1.5` was true and
+    is false now. The duration of a map that is not counted did not change:
 
-   ```sh
-   C = N + td(A # merge(A, N))
-   ```
+    ```sh
+    C = N + td(A # merge(A, N))
+    ```
 
 9. **A map read at an offset as a truth value.** A time function of a
-   map read at an offset in time or in cells, such as `end_year(A[1])`,
-   joined with `&&` or `||` to a condition on cells is a truth value, like
-   the time function of any map (corrected 17 October 2026). The releases
-   before GRASS 8.6 wrote the map itself as the operand, so that a map with
-   a value other than 0 counted as true whatever the time function said. The
-   same holds where the time condition follows further time conditions, as in
-   `end_year(A[1]) == 1 && end_year(N) == 1 && A > 0`.
-   With the values 1 to 4 in A, the expression gave 1, 2 and 3 and now
-   gives 0, 0 and 3, because `end_year(A[1]) == 1` is false. The cell
-   value of a map read at an offset, as in `A[1] > 1 && A`, did not
-   change:
+    map read at an offset in time or in cells, such as `end_year(A[1])`,
+    joined with `&&` or `||` to a condition on cells is a truth value, like
+    the time function of any map (corrected 17 October 2026). The releases
+    before GRASS 8.6 wrote the map itself as the operand, so that a map with
+    a value other than 0 counted as true whatever the time function said. The
+    same holds where the time condition follows further time conditions, as in
+    `end_year(A[1]) == 1 && end_year(N) == 1 && A > 0`.
+    With the values 1 to 4 in A, the expression gave 1, 2 and 3 and now
+    gives 0, 0 and 3, because `end_year(A[1]) == 1` is false. The cell
+    value of a map read at an offset, as in `A[1] > 1 && A`, did not
+    change:
 
-   ```sh
-   C = if(end_year(A[1]) == 1 || A > 2, A)
-   ```
+    ```sh
+    C = if(end_year(A[1]) == 1 || A > 2, A)
+    ```
 
 10. **Chains that start with a number or map().** A chain of operators whose
     first operand is a number or a map without time stamp, such as
@@ -1199,49 +1199,49 @@ time changes the outcome of an expression; the others concern messages, output
 and the class of an error.
 
 - **Message texts.** The texts of warnings and errors are those of the
-  new algebra. A `merge()` that meets maps identical in content and time
-  warns "merge() dropped 4 duplicate map(s)" for `C = merge(A, A)` instead
-  of "merge() keeps 4 maps of both operands only once". A refused increment
-  of `tshift()` reports that the text cannot be read as a time step, for
-  `tshift(A, "1 DAY")` instead of "cannot shift absolute time by".
+    new algebra. A `merge()` that meets maps identical in content and time
+    warns "merge() dropped 4 duplicate map(s)" for `C = merge(A, A)` instead
+    of "merge() keeps 4 maps of both operands only once". A refused increment
+    of `tshift()` reports that the text cannot be read as a time step, for
+    `tshift(A, "1 DAY")` instead of "cannot shift absolute time by".
 - **Debug output.** In Python, with `debug=True`, the classic algebra
-  prints each module call as a command line like the new algebra, for
-  example `r.mapcalc expression=q_0=(a1@t_rast_algebra + 1) nprocs=1`. The
-  reference implementation printed the *r.mapcalc* commands and the
-  resulting statement.
+    prints each module call as a command line like the new algebra, for
+    example `r.mapcalc expression=q_0=(a1@t_rast_algebra + 1) nprocs=1`. The
+    reference implementation printed the *r.mapcalc* commands and the
+    resulting statement.
 - **Order of the errors.** Both implementations reject an invalid
-  expression, but they can report another class of error. The classic
-  algebra reads the whole expression before it computes. An expression with
-  a syntax error is therefore a syntax error, where the reference
-  implementation could stop with the error of a computation before it
-  reached the syntax error. The classic algebra also reads a dataset that is
-  an argument of a function before the arguments after it. A dataset of
-  another temporal type stops it there (`FatalError`), where the reference
-  implementation reads such a dataset last and can stop with an error of a
-  later argument, for example a `SyntaxError` of `buff_t()` in
-  `if(end_year(A) > 3, RT, buff_t(A, 2))`. In this expression the dataset
-  `nosuch` does not exist and a bracket is too many; the reference
-  implementation reported the missing dataset (`FatalError`):
+    expression, but they can report another class of error. The classic
+    algebra reads the whole expression before it computes. An expression with
+    a syntax error is therefore a syntax error, where the reference
+    implementation could stop with the error of a computation before it
+    reached the syntax error. The classic algebra also reads a dataset that is
+    an argument of a function before the arguments after it. A dataset of
+    another temporal type stops it there (`FatalError`), where the reference
+    implementation reads such a dataset last and can stop with an error of a
+    later argument, for example a `SyntaxError` of `buff_t()` in
+    `if(end_year(A) > 3, RT, buff_t(A, 2))`. In this expression the dataset
+    `nosuch` does not exist and a bracket is too many; the reference
+    implementation reported the missing dataset (`FatalError`):
 
-  ```sh
-  C = nosuch + A )
-  ```
+    ```sh
+    C = nosuch + A )
+    ```
 
 - **Existing result.** In Python, without `tgis.init(raise_fatal_error=True)`,
-  the reference implementation exits the process with `SystemExit` for an
-  existing result map. The classic algebra raises `FatalError`, as the new
-  algebra does. The tools are not affected, because they initialise the
-  library with `raise_fatal_error=True`.
+    the reference implementation exits the process with `SystemExit` for an
+    existing result map. The classic algebra raises `FatalError`, as the new
+    algebra does. The tools are not affected, because they initialise the
+    library with `raise_fatal_error=True`.
 - **Lists of absolute and relative time.** A relation over a list that
-  mixes maps of absolute and of relative time, made with `merge()` and
-  `tmap()`, stopped the reference implementation with a `TypeError` while it
-  related the maps. The classic algebra does not reproduce this crash: maps
-  of the two types relate to nothing, so this expression selects the maps
-  of `RT` as `RT : RT` does:
+    mixes maps of absolute and of relative time, made with `merge()` and
+    `tmap()`, stopped the reference implementation with a `TypeError` while it
+    related the maps. The classic algebra does not reproduce this crash: maps
+    of the two types relate to nothing, so this expression selects the maps
+    of `RT` as `RT : RT` does:
 
-  ```sh
-  C = merge(tmap(sinst), RT) : RT
-  ```
+    ```sh
+    C = merge(tmap(sinst), RT) : RT
+    ```
 
 ### Granularity algebra
 
@@ -1256,9 +1256,9 @@ one map of the dataset, with the time stamp of the granule:
 1. the first map that is equal to the granule;
 2. otherwise the first map that contains the granule;
 3. otherwise the first map that starts within the granule and ends after
-   it;
+    it;
 4. otherwise the first map that starts before the granule and ends within
-   it;
+    it;
 5. otherwise the first map that lies within the granule.
 
 A granule without such a map is left out. Then the expression is computed
@@ -3719,15 +3719,15 @@ python3-pip install ply
 Related publications:
 
 - Gebbert, S., Pebesma, E. 2014. *TGRASS: A temporal GIS for field based
-  environmental modeling*. Environmental Modelling & Software 53, 1-12
-  ([DOI](https://doi.org/10.1016/j.envsoft.2013.11.001)) - [preprint
-  PDF](http://ifgi.uni-muenster.de/~epebe_01/tgrass.pdf)
+    environmental modeling*. Environmental Modelling & Software 53, 1-12
+    ([DOI](https://doi.org/10.1016/j.envsoft.2013.11.001)) - [preprint
+    PDF](http://ifgi.uni-muenster.de/~epebe_01/tgrass.pdf)
 - Gebbert, S., Pebesma, E. 2017. *The GRASS GIS temporal framework*.
-  International Journal of Geographical Information Science 31,
-  1273-1292 ([DOI](https://doi.org/10.1080/13658816.2017.1306862))
+    International Journal of Geographical Information Science 31,
+    1273-1292 ([DOI](https://doi.org/10.1080/13658816.2017.1306862))
 - Gebbert, S., Leppelt, T., Pebesma, E., 2019. *A topology based
-  spatio-temporal map algebra for big data analysis*. Data 4, 86.
-  ([DOI](https://doi.org/10.3390/data4020086))
+    spatio-temporal map algebra for big data analysis*. Data 4, 86.
+    ([DOI](https://doi.org/10.3390/data4020086))
 
 ## AUTHORS
 
