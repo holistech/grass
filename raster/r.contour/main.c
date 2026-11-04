@@ -48,6 +48,8 @@
 #include <grass/glocale.h>
 #include "local_proto.h"
 
+static void remove_short_lines(struct Map_info *, int);
+
 int main(int argc, char *argv[])
 {
     struct GModule *module;
@@ -72,6 +74,7 @@ int main(int argc, char *argv[])
     double snap;
     int nlevels;
     int n_cut;
+    struct extremes extreme;
 
     /* Attributes */
     struct field_info *Fi;
@@ -139,6 +142,15 @@ int main(int argc, char *argv[])
                       levels->key, step->key);
     }
 
+    /* The limits act only on a step; with a list of levels they are ignored
+       like the step. Before 2026-11-04 a minlevel above maxlevel gave an
+       empty map without a message. The check comes before the vector map
+       is opened, so nothing is left behind. */
+    if (!levels->answers && min->answer && max->answer &&
+        atof(min->answer) > atof(max->answer))
+        G_fatal_error(_("Option <%s> (%s) is greater than option <%s> (%s)"),
+                      min->key, min->answer, max->key, max->answer);
+
     name = map->answer;
 
     fd = Rast_open_old(name, "");
@@ -193,9 +205,14 @@ int main(int argc, char *argv[])
 
     z_array = get_z_array(fd, Wind.rows, Wind.cols);
     lev = getlevels(levels, max, min, step, &range, &nlevels);
-    displaceMatrix(z_array, Wind.rows, Wind.cols, lev, nlevels);
+    displaceMatrix(z_array, Wind.rows, Wind.cols, lev, nlevels, &extreme);
     n_cut = atoi(cut->answer);
-    contour(lev, nlevels, Map, z_array, Wind, n_cut);
+    contour(lev, nlevels, Map, z_array, Wind, n_cut, &extreme);
+    if (extreme.cells) {
+        for (i = 0; i < Wind.rows; i++)
+            G_free(extreme.cells[i]);
+        G_free(extreme.cells);
+    }
 
     G_message(_("Writing attributes..."));
     /* Write levels */
@@ -236,12 +253,88 @@ int main(int argc, char *argv[])
     Vect_remove_duplicates(&Map, GV_LINE, NULL);
     G_message(_("Merge lines"));
     Vect_merge_lines(&Map, GV_LINE, NULL, NULL);
+    remove_short_lines(&Map, n_cut);
     Vect_build_partial(&Map, GV_BUILD_NONE);
     Vect_build(&Map);
 
     Vect_close(&Map);
 
     exit(EXIT_SUCCESS);
+}
+
+/*********************************************************************/
+/* Delete the connected groups of lines that have fewer points than cut. A
+   group is a set of lines joined at end nodes. Its points are the points of
+   its lines with each joint counted once: the sum of the points of its lines
+   minus one for every line after the first. For a single line, a closed one
+   too, that is its number of points, the count cont.c applies while tracing.
+
+   Before 2026-11-04 cut acted only while tracing (cont.c still leaves such
+   lines out there), and the cleanup in main() left shorter lines: snapping
+   joins vertices closer than the snapping distance, as on a line through
+   cells equal to its level (a closed line of 45 traced points kept 29 on a
+   dome of 20 by 20 cells), and a closed line that runs there and back along
+   such cells is broken into two equal halves, of which one is removed as a
+   duplicate. Breaking splits a line where snapping made it touch another
+   one. A whole group is kept or deleted, so no gap is cut into a longer
+   line: deleting every short line instead cut 22 gaps into the July map of
+   the manual of t.rast.contour (step=5, cut=10, measured 2026-11-04).
+   Deleting only short lines that share no end node with another line kept
+   groups of short pieces that touch each other, such as a closed line of 4
+   points with a spur of 2 at cut 6 (found in the review of 2026-11-05: 94
+   such groups in 800 runs; 4 on the July map above, 0 with this rule,
+   measured 2026-11-05); deleting the short lines right after snapping
+   left 182 lone short lines in 192 runs on rounded wave maps (2026-11-04). */
+static void remove_short_lines(struct Map_info *Map, int n_cut)
+{
+    struct line_pnts *Points;
+    char *seen;
+    int *group, *stack;
+    int line, nlines, size, top, current, nodes[2], i, k, other, points;
+
+    if (n_cut <= 2)
+        return; /* cont.c writes no line of fewer than two points */
+
+    Points = Vect_new_line_struct();
+    nlines = Vect_get_num_lines(Map);
+    seen = (char *)G_calloc(nlines + 1, sizeof(char));
+    group = (int *)G_malloc((nlines + 1) * sizeof(int));
+    stack = (int *)G_malloc((nlines + 1) * sizeof(int));
+    for (line = 1; line <= nlines; line++) {
+        if (seen[line] || !Vect_line_alive(Map, line))
+            continue;
+        /* Collect the group of the line, depth first over the end nodes. */
+        size = 0;
+        top = 0;
+        stack[top++] = line;
+        seen[line] = 1;
+        while (top > 0) {
+            current = stack[--top];
+            group[size++] = current;
+            Vect_get_line_nodes(Map, current, &nodes[0], &nodes[1]);
+            for (k = 0; k < 2; k++) {
+                for (i = 0; i < Vect_get_node_n_lines(Map, nodes[k]); i++) {
+                    other = abs(Vect_get_node_line(Map, nodes[k], i));
+                    if (!seen[other] && Vect_line_alive(Map, other)) {
+                        seen[other] = 1;
+                        stack[top++] = other;
+                    }
+                }
+            }
+        }
+        points = 0;
+        for (i = 0; i < size; i++) {
+            Vect_read_line(Map, Points, NULL, group[i]);
+            points += Points->n_points - (i > 0 ? 1 : 0);
+        }
+        if (points < n_cut)
+            for (i = 0; i < size; i++)
+                Vect_delete_line(Map, group[i]);
+    }
+    G_free(seen);
+    G_free(group);
+    G_free(stack);
+    Vect_destroy_line_struct(Points);
 }
 
 /*********************************************************************/
@@ -372,20 +465,86 @@ double *getlevels(struct Option *levels, struct Option *max, struct Option *min,
 /*      parse the matrix and offset values that exactly match a */
 /*      contour level. Contours values are added DBL_EPSILON*val, which */
 /*      is defined in K&R as the minimum double x such as 1.0+x != 1.0  */
+/*      and the extremes are filled, see below.                         */
 
 /********************************************************************/
-void displaceMatrix(DCELL **z, int nrow, int ncol, double *lev, int nlevels)
+void displaceMatrix(DCELL **z, int nrow, int ncol, double *lev, int nlevels,
+                    struct extremes *extreme)
 {
     int i, j, k;
     double *currRow;
     double currVal;
+    DCELL bound;
+    int found = 0;
 
     G_message(_("Displacing data..."));
+
+    /* The move above is up for a positive value, down for a negative one
+       and none for 0, and a cell equal to the level counts as below it
+       (checkedge in cont.c). For the lowest value read (in the current
+       region, null cells left out) that is a level, a move up leaves no
+       cell below the level, and for the highest value a move down or none
+       leaves no cell above it: the level gets no line. The cells of such a
+       value are marked here, and while the line of its level is traced they
+       are moved outwards (contour() in cont.c), by the same amount or, where
+       that is too small to change the value, as for 0, by one unit in the
+       last place. For all other levels they keep the move above, because
+       the lines of other levels interpolate on the edges from these cells,
+       and moving them for all levels would change those lines in the last
+       bits (computed 2026-11-04 for the map of test_inner_levels_unchanged
+       in tests/r_contour_extreme_levels_test.py: two of the four vertices
+       of the inner level). Before 2026-11-04 such a level got no line. */
+    extreme->used[0] = extreme->used[1] = 0;
+    extreme->cells = NULL;
+    for (i = 0; i < nrow; i++) {
+        for (j = 0; j < ncol; j++) {
+            currVal = z[i][j];
+            if (Rast_is_d_null_value(&currVal))
+                continue;
+            if (!found || currVal < extreme->value[0])
+                extreme->value[0] = currVal;
+            if (!found || currVal > extreme->value[1])
+                extreme->value[1] = currVal;
+            found = 1;
+        }
+    }
+    for (k = 0; found && k < 2; k++) {
+        currVal = extreme->value[k];
+        /* On a map of one value every direction leaves all cells on one
+           side, so there is no line either way and one mark is enough. */
+        if (k == 1 && extreme->value[1] == extreme->value[0])
+            break;
+        for (i = 0; i < nlevels; i++)
+            if (lev[i] == currVal)
+                break;
+        if (i == nlevels)
+            continue;
+        extreme->inward[k] = currVal + currVal * DBL_EPSILON;
+        if (k == 0 ? !(extreme->inward[k] > currVal)
+                   : extreme->inward[k] > currVal)
+            continue; /* the level has its line already */
+        bound = (k == 0) ? -HUGE_VAL : HUGE_VAL;
+        extreme->outward[k] = (k == 0) ? currVal - fabs(currVal) * DBL_EPSILON
+                                       : currVal + fabs(currVal) * DBL_EPSILON;
+        if (extreme->outward[k] == currVal)
+            extreme->outward[k] = nextafter(currVal, bound);
+        extreme->used[k] = 1;
+    }
+    if (extreme->used[0] || extreme->used[1]) {
+        extreme->cells =
+            (unsigned char **)G_malloc(nrow * sizeof(unsigned char *));
+        for (i = 0; i < nrow; i++)
+            extreme->cells[i] =
+                (unsigned char *)G_calloc(ncol, sizeof(unsigned char));
+    }
 
     for (i = 0; i < nrow; i++) {
         currRow = z[i];
         for (j = 0; j < ncol; j++) {
             currVal = currRow[j];
+            for (k = 0; k < 2; k++)
+                if (extreme->used[k] && currVal == extreme->value[k])
+                    extreme->cells[i][j] |= 1 << k;
             for (k = 0; k < nlevels; k++)
                 if (currVal == lev[k]) {
                     currRow[j] = currVal + currVal * DBL_EPSILON;

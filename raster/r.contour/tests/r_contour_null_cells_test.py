@@ -27,6 +27,9 @@ INSIDE = "row() >= 3 && row() <= 10 && col() >= 4 && col() <= 11"
 I = "(row() - 2)"
 J = "(col() - 3)"
 
+# Chessboard of 1 and 0: every cell is a saddle.
+CHESSBOARD = "if(({i} + {j}) % 2 == 0, 1.0, 0.0)"
+
 # name: (r.mapcalc expression in {i} and {j}, r.contour options)
 FIELDS = {
     # Plane, lines that end on two sides of the rectangle.
@@ -37,13 +40,11 @@ FIELDS = {
     "dome": ("100 - ({i} - 4.5)^2 - ({j} - 4.5)^2", {"levels": [90, 95, 99]}),
     # Saddles of unequal values and a slope.
     "waves": ("({i} * {j}) % 3 + 0.1 * {i}", {"levels": [0.75, 1.5]}),
+    # Closed lines through the cells at the border of the rectangle. Before
+    # 2026-11-04 the smaller region lost them, because its search for closed
+    # lines did not start in the cells at the border of the region.
+    "chessboard": (CHESSBOARD, {"levels": [0.5]}),
 }
-# The chessboard of 1 and 0 is not compared with the smaller region, because
-# the smaller region loses lines there: its search for closed lines starts
-# only at the top edge of a cell off the border, so a closed line around a
-# node next to the bottom border is not found. Within null cells it is found.
-# The tests below compare the chessboard with lines derived by hand.
-CHESSBOARD = "if(({i} + {j}) % 2 == 0, 1.0, 0.0)"
 
 
 @pytest.fixture
@@ -220,11 +221,10 @@ def test_a_mask_gives_the_lines_of_the_smaller_region(tools, field):
 
 @pytest.mark.parametrize("nulls", ["null cells", "mask"])
 def test_a_chessboard_within_null_cells_gives_the_derived_lines(tools, nulls):
-    # The smaller region of the rectangle loses three closed lines here (29
-    # lines instead of 32), see CHESSBOARD, so the comparison with it does
-    # not apply. Derived: the rectangle of 8 by 8 nodes has 32 nodes of
-    # value 1: 18 inside (closed lines), 12 on the sides and 2 in corners
-    # (lines with ends), 46 nodes in all.
+    # Derived: the rectangle of 8 by 8 nodes has 32 nodes of value 1: 18
+    # inside (closed lines), 12 on the sides and 2 in corners (lines with
+    # ends), 46 nodes in all. Before 2026-11-04 the smaller region of the
+    # rectangle lost three of the closed lines (29 lines instead of 32).
     tools.g_region(**PADDED, res=1)
     expression = in_rectangle(CHESSBOARD)
     if nulls == "mask":
@@ -250,11 +250,11 @@ FRAMED_DOME = (
 
 
 def test_a_closed_line_inside_a_frame_of_null_cells_is_kept(tools):
-    # The comparison with the smaller region does not apply: in the region
-    # of the rectangle the closed line runs only through cells on its
-    # border, where no closed line is searched, so that region gives no
-    # line. Before 2026-11-02 r.contour found this line within the null
-    # cells, and it still does.
+    # The closed line runs only through the cells at the border of the
+    # rectangle. Before 2026-11-02 r.contour found it within the null cells,
+    # and it still does; before 2026-11-04 the region of the rectangle did
+    # not, because no closed line was searched in the cells at the border of
+    # the region. Now it gives the same line.
     # Derived by hand: the inner 4 by 4 nodes have values of 45.5 and more,
     # the outer ring 43.5 and less, so the level 45 crosses each edge from
     # the outer ring inwards: 4 on each side. On the edge from 41.5 to 45.5
@@ -286,18 +286,21 @@ def test_a_closed_line_inside_a_frame_of_null_cells_is_kept(tools):
     assert canonical(result["vertices"]) == canonical([((1,), (*ring, ring[0]))])
     assert result["lines"] == 1
     assert result["nodes"] == 1
+    tools.g_region(n=8, s=2, w=2, e=8, res=1)
+    assert_same_lines(result, contour_lines(tools, levels=45))
 
 
 def test_a_line_lost_at_saddles_leaves_no_piece_within_null_cells(tools):
     # Nodes 0 0 1 / 0 2 0 / 1 0 0 inside two rows and columns of null cells,
     # level 0.5. The two saddle cells join the nodes above the level (cell
     # mean 0.75), so two lines with ends cut off the zeros at the top left
-    # and at the bottom right. The comparison with the region of 3 by 3 does
-    # not apply: the region draws only the first line, because the second
-    # starts and ends in the saddle cells, whose hit flag the first line set.
-    # Within null cells the border passes ask the start edge instead, so the
-    # second line is drawn whole; the search for closed lines, which meets
-    # it in the middle, must not add a piece of it that ends inside.
+    # and at the bottom right. The second line starts and ends in the saddle
+    # cells, whose hit flag the first line set. Within null cells the border
+    # passes asked the start edge before 2026-11-04 and drew the second line
+    # whole; the region of 3 by 3 asked the flag and lost it. Now every cell
+    # asks the edge, and the region gives the same lines. The search for
+    # closed lines, which meets the second line in the middle, must not add a
+    # piece of it that ends inside.
     # Derived by hand (node centres at x = col + 1.5, y = 5.5 - row for row
     # and column from 1): an edge from 0 to 1 is crossed in the middle, one
     # from 0 to 2 at a quarter of its length from the 0.
@@ -317,15 +320,18 @@ def test_a_line_lost_at_saddles_leaves_no_piece_within_null_cells(tools):
     assert canonical(result["vertices"]) == canonical(expected)
     assert result["lines"] == 2
     assert result["nodes"] == 4
+    tools.g_region(n=5, s=2, w=2, e=5, res=1)
+    assert_same_lines(result, contour_lines(tools, levels=0.5))
 
 
 def test_a_line_with_a_saddle_at_its_end_is_kept_at_null_cells(tools):
     # Nodes 0 0 0 / 1 1 0 / 1 0 1 inside two rows and columns of null cells,
-    # level 0.5. The comparison with the region of 3 by 3 does not apply:
-    # there the corner line at the bottom right is lost. Its only cell, a
-    # saddle, is marked hit by its other segment, and the border passes of
-    # the region ask that flag. Before 2026-11-02 r.contour drew this line
-    # within null cells. Derived by hand (nodes 0 and 1, every crossing in
+    # level 0.5. Before 2026-11-04 the region of 3 by 3 lost the corner line
+    # at the bottom right: its only cell, a saddle, is marked hit by its
+    # other segment, and the border passes of the region asked that flag.
+    # Now they ask the edge, as along null cells, and the region gives the
+    # same lines. Before 2026-11-02 r.contour drew this line within null
+    # cells. Derived by hand (nodes 0 and 1, every crossing in
     # the middle of its edge; node centres at x = col + 1.5 and
     # y = 5.5 - row for row and column from 1): the saddle cell at the bottom
     # right has the mean 0.5, which counts as below the level, so it cuts
@@ -348,6 +354,8 @@ def test_a_line_with_a_saddle_at_its_end_is_kept_at_null_cells(tools):
     assert canonical(result["vertices"]) == canonical(expected)
     assert result["lines"] == 2
     assert result["nodes"] == 4
+    tools.g_region(n=5, s=2, w=2, e=5, res=1)
+    assert_same_lines(result, contour_lines(tools, levels=0.5))
 
 
 def test_no_crossings_warning_at_null_cells(tools):
@@ -450,9 +458,8 @@ SADDLES = "if((row() + col()) % 2 == 0, 1.0, 0.0)"
 PAD = 2
 
 
-# The region of 3 by 3 loses the closed line of the chessboard around its
-# centre, so that case is compared with derived lines instead, see
-# test_a_padded_chessboard_of_three_by_three_keeps_its_centre.
+# Before 2026-11-04 the region of 3 by 3 lost the closed line of the
+# chessboard around its centre, and that case was left out here.
 NARROW_CASES = [
     (rows, columns, expression, level)
     for rows, columns in NARROW_REGIONS
@@ -464,7 +471,6 @@ NARROW_CASES = [
         ),
         (SADDLES, 0.5),
     ]
-    if (rows, columns, expression) != (3, 3, SADDLES)
 ]
 
 
@@ -493,11 +499,11 @@ def test_narrow_region_padded_with_nulls_gives_the_same_lines(
 
 
 def test_a_padded_chessboard_of_three_by_three_keeps_its_centre(tools):
-    # The comparison with the region of 3 by 3 does not apply: there every
-    # cell lies on the border, no closed line is searched and the line
-    # around the centre node is lost (4 lines instead of 5). Within null
-    # cells it is found. Derived: nodes of value 1 at the four corners
-    # (lines with two vertices) and at the centre (closed line), 9 nodes.
+    # Derived: nodes of value 1 at the four corners (lines with two
+    # vertices) and at the centre (closed line), 9 nodes. Before 2026-11-04
+    # the region of 3 by 3, where every cell lies on the border, searched
+    # no closed line and lost the line around the centre node (4 lines
+    # instead of 5); within null cells it was found.
     tools.g_region(n=3 + 2 * PAD, s=0, w=0, e=3 + 2 * PAD, res=1)
     shifted = SADDLES.replace("row()", f"(row() - {PAD})").replace(
         "col()", f"(col() - {PAD})"

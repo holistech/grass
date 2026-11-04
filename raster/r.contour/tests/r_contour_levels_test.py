@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import grass.script as gs
+from grass.exceptions import CalledModuleError
 from grass.tools import Tools
 
 TESTS = Path(__file__).parent
@@ -151,9 +152,8 @@ def test_a_level_beyond_the_range_by_rounding_is_clamped_to_the_limit(tools):
     # multiplication, where the maximum is 0.30000000000000004 itself (the
     # last line of that map has this level). The vertices are read with 17
     # digits, the two values differ in the 17th.
-    # A level at a limit does not always get a line: a cell equal to a level
-    # is shifted by value * DBL_EPSILON (displaceMatrix), up for a positive
-    # value, down for a negative one and not at all for 0.
+    # The first level, 0, lies on the minimum and has a line as well, see
+    # r_contour_extreme_levels_test.py.
     lines = lines_of_three_rows(tools, "double(col() - 1) / 10.0")
 
     product = lines_of_three_rows(tools, "(col() - 1) * 0.1")
@@ -174,13 +174,16 @@ def test_step_one_tenth_keeps_the_last_level_of_zero_to_one(tools):
 
 def test_minlevel_above_maxlevel_gives_an_empty_map(tools):
     # Values 1 to 9. Before 2026-11-02 the old code swapped the limits;
-    # it now gives no level, see the manual.
-    levels, lines = contour(
-        tools, "float(col())", 9, rows=3, step=1, minlevel=7, maxlevel=3
-    )
+    # from then to 2026-11-04 it gave an empty map without a message. It is
+    # now an error that leaves no map behind, see the manual and
+    # r_contour_bounds_test.py for the message.
+    tools.g_region(n=3, s=0, w=0, e=9, res=1)
+    tools.r_mapcalc(expression="m = float(col())")
 
-    assert levels == []
-    assert lines == 0
+    with pytest.raises(CalledModuleError, match="greater than"):
+        tools.r_contour(input="m", output="lines", step=1, minlevel=7, maxlevel=3)
+
+    assert tools.g_list(type="vector").text.split() == []
 
 
 @pytest.mark.parametrize("step", ["nan", "inf", "-inf"])

@@ -11,8 +11,15 @@ else 0. Only levels between **minlevel** and **maxlevel** (where given) and
 between the minimum and maximum cell value of the **input** raster map are
 created; both ends are included. A **maxlevel** that is not on the grid is
 not a level itself. If the values of the map lie wholly outside the limits,
-no level and no line is created. A **minlevel** above **maxlevel** gives no
-level either.
+no level and no line is created. A **minlevel** above **maxlevel** is an
+error. With a list of **levels**, **minlevel** and **maxlevel** are ignored,
+as is the step.
+
+A cell whose value equals a level is moved off the level by a tiny amount
+before the lines are traced, so that the lines do not run exactly through the
+cell centres. A level equal to the lowest or the highest value in the current
+region still gets a line through the cells of that value; a value held by a
+single cell gives a single point, which is not written (see **cut**).
 
 ## NOTES
 
@@ -26,11 +33,9 @@ values and no line can be traced. *r.contour* then warns once, also with
 Null cells, also the cells outside a raster mask, count as cells outside the
 region. A contour line ends between the last two cells with values, as at the
 border of the region, so a map whose null cells surround a rectangle gives the
-same lines as the same map in the region of that rectangle, with two
-exceptions for a line that stays within about one cell of the border. A closed
-line is not created at the border of the region, but along null cells it is.
-A line whose end cells are saddles is lost at the border of the region, but
-along null cells it is kept.
+same lines as the same map in the region of that rectangle. Closed lines
+are created also where they run only through the cells at the border of the
+region or along null cells.
 
 *r.contour* will either step through incremental contours or produce
 contours from a list of levels, not both. If both a list of levels and a
@@ -43,10 +48,16 @@ If a contour level exactly matches a category value in the raster map,
 the contour line may backtrack on itself, causing illegal arcs to be
 produced in the output vector map.
 
-The optional **cut** parameter allows the user to specify a minimum
-number of raster cells eligilble to be included in a contour line
-written to the **output** vector map. It acts like a filter, omitting
-spurs, single points, etc., making the output more generalized.
+The optional **cut** parameter sets the minimum number of points of a
+contour line in the **output** vector map; lines with fewer points are left
+out. It acts like a filter, omitting spurs, small closed lines, etc., making
+the output more generalized. The points are counted after the traced lines
+have been snapped, broken at intersections and merged; snapping joins points
+that lie very close together, as on a line through cells whose value equals
+the level. Lines joined at their end points, such as the pieces of a line
+broken where it touches another one, count as one group: the group is kept
+or left out whole, with each joint counted once, so that no line gets a gap.
+A single point is never written, whatever **cut** says.
 
 ## EXAMPLES
 

@@ -11,7 +11,11 @@ Run it inside a GRASS session of an XY project and give the output file::
         raster/r.contour/tests/data/lines_without_nulls.json
 
 The file ``data/lines_without_nulls.json`` was recorded on commit 6ce54e289e
-(2026-11-02), before any change to r.contour. For each case it holds the
+(2026-11-02), before any change to r.contour, and recorded again on
+2026-11-04, when cut began to apply to the lines of the output map: the case
+``cut_step_dome`` lost its closed line of level 225, which has 45 points as
+traced and 29 after snapping, fewer than cut 40. The other twelve cases were
+equal to the first recording. For each case it holds the
 r.contour arguments, the levels of the attribute table, the number of lines and
 nodes from ``v.info -t``, and the vertices of every line from
 ``v.out.ascii format=standard``, rounded to 1e-9. The lines are sorted by level

@@ -38,14 +38,14 @@ struct cell {
    the cell across it is not part of the surface, because it lies outside the
    region or has a null node. A null node counts as a node outside the region:
    lines end at the last edge between two nodes with values, as at the border
-   of the region. NEXT_TO_NULL marks a cell on the surface with a border edge
-   to a cell with a null node. */
-#define ON_SURFACE   16
-#define BORDER(e)    (1 << (e))
-#define NEXT_TO_NULL 32
+   of the region. */
+#define ON_SURFACE 16
+#define BORDER(e)  (1 << (e))
 
 static unsigned char **mark_squares(DCELL **, int, int, int *);
-static int counts_edges(unsigned char);
+static int starts_closed_lines(int, unsigned char, int, int, int, int);
+static void set_extreme_cells(DCELL **, int, int, const struct extremes *, int,
+                              DCELL);
 static int getnewcell(struct cell *, int, int, DCELL **, unsigned char **);
 static void newedge(struct cell *);
 static int findcrossing(struct cell *, double, struct Cell_head,
@@ -54,7 +54,7 @@ static void getpoint(struct cell *curr, double, struct Cell_head,
                      struct line_pnts *);
 
 void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
-             struct Cell_head Cell, int n_cut)
+             struct Cell_head Cell, int n_cut, const struct extremes *extreme)
 {
     /* Lines with an end are started from the border edges in this order:
        top, bottom, left, right. */
@@ -64,7 +64,7 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
     int n, i, j, k, pass;   /* loop counters */
     double level;           /* current contour level */
     char **hit;             /* array of flags--1 if Cell has been hit;  */
-    char **used;            /* edges a line has passed, see counts_edges */
+    char **used;            /* bit 1 << e: a line has passed edge e */
     unsigned char **square; /* ON_SURFACE and BORDER flags of each cell */
     int has_nulls;          /* 1 if a cell is not part of the surface */
     /* per edge and row: columns of the first and last cell with that
@@ -92,7 +92,8 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
        lies closer to it than the coordinates can tell apart, getpoint()
        adds the node once. This happens at a node whose neighbors all lie on
        one side of the level and whose value is the level (displaceMatrix()
-       moves the value 0 by nothing and other values by so little that the
+       moves the value 0 by nothing, or by the smallest double where 0 is
+       the highest value, and other values by so little that the
        points become one at large coordinates) or differs from it by a few
        units in the last place, also at small coordinates (seen 2026-11-03
        with tests/r_contour_single_point_test.py). Lines do not run through
@@ -151,6 +152,12 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
         level = levels[n];
         G_percent(n + 1, nlevels, 2); /* print progress */
 
+        /* see displaceMatrix() in main.c */
+        for (k = 0; k < 2; k++)
+            if (extreme->used[k] && level == extreme->value[k])
+                set_extreme_cells(z, nrow, ncol, extreme, k,
+                                  extreme->outward[k]);
+
         /* initialize hit array */
         for (i = 0; i < nrow - 1; i++) {
             for (j = 0; j < ncol - 1; j++) {
@@ -159,12 +166,23 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
             }
         }
 
-        /* Start a line at each crossed border edge. Without null cells these
-           are the edges on the border of the region, visited in the same
-           order as before: the top and the bottom row of cells from left to
-           right, then the left and the right column of cells from top to
-           bottom. A null cell counts as a cell outside the region, so the
-           edges along null cells are border edges too. */
+        /* Start a line at each crossed border edge that no line has passed
+           yet. Without null cells these are the edges on the border of the
+           region, visited in the same order as before: the top and the
+           bottom row of cells from left to right, then the left and the
+           right column of cells from top to bottom. A null cell counts as a
+           cell outside the region, so the edges along null cells are border
+           edges too.
+
+           The edge is asked, not the flag in hit: that flag marks a saddle
+           cell (four crossings) once a segment through its edge 0 is traced,
+           and if the other segment ends on a border edge of the cell, a pass
+           that asked the flag never started it. Before 2026-11-04 the cells
+           at the border of a region of three rows and columns or more asked
+           the flag, and such a line was lost there unless it was traced
+           from its other end; a line whose end cells are both saddles was
+           lost. For every other cell both questions give the same answer:
+           its crossed edges are passed together. */
         for (k = 0; k < 4; k++) {
             edge = border_order[k];
             for (startrow = 0; startrow <= nrow - 2; startrow++) {
@@ -173,9 +191,7 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                     if (!(square[startrow][startcol] & BORDER(edge)))
                         continue;
                     /* look for starting point of new line */
-                    if (counts_edges(square[startrow][startcol])
-                            ? used[startrow][startcol] & (1 << edge)
-                            : hit[startrow][startcol])
+                    if (used[startrow][startcol] & (1 << edge))
                         continue;
                     current.r = startrow;
                     current.c = startcol;
@@ -209,25 +225,21 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
             }
         }
 
-        /* Check each interior Cell for closed lines. The first pass takes
-           the cells without a border edge: without null cells these are the
-           cells off the border of the region, as before; within null cells
-           around a rectangle they are the cells the region of that rectangle
-           checks, in the same order, so a closed line starts at the same
-           point there. The second pass, only for a map with null cells,
-           takes the other interior cells, those along null cells (a cell on
-           the surface with a border edge has flags above ON_SURFACE). Before
-           2026-11-02 the search went over all interior cells and found a
-           closed line that runs only through cells along null cells; the
-           second pass keeps it. The region of the rectangle loses such a
-           line, because a closed line that runs only through the cells
-           along the border of the region is not searched, then as now. */
-        for (pass = 0; pass < (has_nulls ? 2 : 1); pass++) {
-            for (startrow = 1; startrow <= nrow - 3; startrow++) {
-                for (startcol = 1; startcol <= ncol - 3; startcol++) {
+        /* Search closed lines from the top edge of each cell, in three
+           passes; see starts_closed_lines for the cells of each pass. The
+           order keeps the start point of every closed line that was found
+           before 2026-11-04, and within null cells around a rectangle the
+           passes visit the cells in the order that the region of that
+           rectangle visits them, so a closed line starts at the same point
+           there. */
+        for (pass = 0; pass < 3; pass++) {
+            if (pass == 1 && !has_nulls)
+                continue;
+            for (startrow = 0; startrow <= nrow - 2; startrow++) {
+                for (startcol = 0; startcol <= ncol - 2; startcol++) {
                     /* look for starting point of new line */
-                    if (pass == 0 ? square[startrow][startcol] != ON_SURFACE
-                                  : square[startrow][startcol] <= ON_SURFACE)
+                    if (!starts_closed_lines(pass, square[startrow][startcol],
+                                             startrow, startcol, nrow, ncol))
                         continue;
                     if (hit[startrow][startcol])
                         continue;
@@ -257,15 +269,18 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                         newedge(&current);
                         outside = getnewcell(&current, nrow, ncol, z, square);
                     }
-                    /* A trace of the second pass that leaves the surface is
-                       a piece of a line with ends that the border passes
-                       lost: both ends lie in saddle cells on the border of
-                       the region whose hit flag the other segment set (at
-                       null cells the passes ask the edge, see
-                       counts_edges). The region of the rectangle loses that
-                       line as well, and the piece would end inside the
-                       surface, so it is not written. */
-                    if (pass == 1 && outside) {
+                    /* A trace that leaves the surface is a piece of a line
+                       with ends; it would end inside the surface, so it is
+                       not written. Before 2026-11-04 the border passes lost
+                       lines with saddles at both ends, and such pieces were
+                       traced here: the second pass dropped them (seen
+                       2026-11-02), the first wrote them (4 of 3,000 integer
+                       maps in the review of 2026-11-05). Now the border
+                       passes trace every line with ends and mark each cell
+                       it crosses by its top edge as hit, so no search
+                       starts on one (none in 6,096 maps, same review); the
+                       check stays as a guard for every pass. */
+                    if (outside) {
                         Vect_reset_line(Points);
                         continue;
                     }
@@ -278,6 +293,11 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                 }
             }
         }
+
+        for (k = 0; k < 2; k++)
+            if (extreme->used[k] && level == extreme->value[k])
+                set_extreme_cells(z, nrow, ncol, extreme, k,
+                                  extreme->inward[k]);
     } /* for levels */
 
     for (k = 0; k < 4; k++) {
@@ -327,51 +347,67 @@ static unsigned char **mark_squares(DCELL **z, int nrow, int ncol,
         for (c = 0; c < ncol - 1; c++) {
             if (!(square[r][c] & ON_SURFACE))
                 continue;
-            if (r == 0)
+            if (r == 0 || !(square[r - 1][c] & ON_SURFACE))
                 square[r][c] |= BORDER(0);
-            else if (!(square[r - 1][c] & ON_SURFACE))
-                square[r][c] |= BORDER(0) | NEXT_TO_NULL;
-            if (c == ncol - 2)
+            if (c == ncol - 2 || !(square[r][c + 1] & ON_SURFACE))
                 square[r][c] |= BORDER(1);
-            else if (!(square[r][c + 1] & ON_SURFACE))
-                square[r][c] |= BORDER(1) | NEXT_TO_NULL;
-            if (r == nrow - 2)
+            if (r == nrow - 2 || !(square[r + 1][c] & ON_SURFACE))
                 square[r][c] |= BORDER(2);
-            else if (!(square[r + 1][c] & ON_SURFACE))
-                square[r][c] |= BORDER(2) | NEXT_TO_NULL;
-            if (c == 0)
+            if (c == 0 || !(square[r][c - 1] & ON_SURFACE))
                 square[r][c] |= BORDER(3);
-            else if (!(square[r][c - 1] & ON_SURFACE))
-                square[r][c] |= BORDER(3) | NEXT_TO_NULL;
         }
     }
     return square;
 }
 
 /***************************************************************************
-counts_edges
-returns 1 if the border passes ask the cell whether the start edge was passed
-by a line (bit per edge in used), 0 if they ask whether the cell was hit
+starts_closed_lines
+returns 1 if the search for closed lines starts at the cell in this pass
 
-The flag in hit marks a saddle cell (four crossings) once a segment through
-its edge 0 is traced. If the other segment ends on a border edge of the cell,
-a border pass that asks hit never starts it, and the line is lost unless it
-is traced from its other end. The edge is asked instead
-- in a cell with border edges on two opposite sides, which lies in a strip
-  one cell wide (in a region of two rows or two columns every cell does):
-  both segments of a saddle there end on border edges;
-- in a cell next to a cell with a null node: before 2026-11-02 lines were
-  not started at null cells, so these lines were drawn from inside and must
-  not be lost now.
-Other cells, those at the border of a region of three rows and columns or
-more, ask hit as before, so the lines of maps without null cells stay the
-same, including the lines lost there.
+- Pass 0 takes the cells without a border edge. Without null cells these are
+  the cells off the border of the region; they were the only ones searched
+  before 2026-11-02.
+- Pass 1, only for a map with null cells, takes the other cells off the
+  border of the region, those along null cells (a cell on the surface with a
+  border edge has flags above ON_SURFACE). It keeps the closed lines that
+  the search found there before null cells ended the lines (2026-11-02).
+- Pass 2 takes the cells on the border of the region whose top edge is not a
+  border edge (a closed line crosses no border edge). Before 2026-11-04 they
+  were not searched, and a closed line whose crossings of top edges all lie
+  in such cells was lost, for example the closed line around the centre of
+  a region of 3 by 3 cells. Along null cells it was found, so the lines of
+  null cells around a rectangle differed from those of the region of the
+  rectangle.
 ***************************************************************************/
-static int counts_edges(unsigned char flags)
+static int starts_closed_lines(int pass, unsigned char flags, int r, int c,
+                               int nrow, int ncol)
 {
-    return (flags & NEXT_TO_NULL) ||
-           (flags & (BORDER(0) | BORDER(2))) == (BORDER(0) | BORDER(2)) ||
-           (flags & (BORDER(1) | BORDER(3))) == (BORDER(1) | BORDER(3));
+    int on_region_border = (r == 0 || r == nrow - 2 || c == 0 || c == ncol - 2);
+
+    switch (pass) {
+    case 0:
+        return !on_region_border && flags == ON_SURFACE;
+    case 1:
+        return !on_region_border && flags > ON_SURFACE;
+    default:
+        return on_region_border && (flags & ON_SURFACE) && !(flags & BORDER(0));
+    }
+}
+
+/***************************************************************************
+set_extreme_cells
+sets the cells of the lowest (k = 0) or the highest (k = 1) value to value
+***************************************************************************/
+static void set_extreme_cells(DCELL **z, int nrow, int ncol,
+                              const struct extremes *extreme, int k,
+                              DCELL value)
+{
+    int r, c;
+
+    for (r = 0; r < nrow; r++)
+        for (c = 0; c < ncol; c++)
+            if (extreme->cells[r][c] & (1 << k))
+                z[r][c] = value;
 }
 
 /***************************************************************************
