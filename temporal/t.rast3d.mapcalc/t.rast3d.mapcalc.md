@@ -24,7 +24,9 @@ for which one of the datasets has no related map is skipped. The order of the
 datasets in the expression does not matter, only their order in **inputs**. If
 the list names only one dataset, every map of it is a granule. The datasets may
 be in other mapsets (`moisture@t_rast3d_mapcalc`); the expression then still
-uses the name without the mapset.
+uses the name without the mapset. The tool reads the maps of such a dataset
+through the search path, so its mapset must be in the search path (see
+[Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)).
 
 The result dataset is the option **output**. It always belongs to the current
 mapset, and so do the new maps. It takes the temporal type and the semantic type
