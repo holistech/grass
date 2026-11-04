@@ -1075,10 +1075,12 @@ runoff_3@t_rast_list|runoff_3|t_rast_list|12|18|6|12
 
 <em>t.rast.list</em> reads a dataset of another mapset. The example creates the
 mapset <code>t_rast_list_2</code> and switches to it; the dataset <code>temperature</code> stays in
-the mapset <code>t_rast_list</code> and is named with its mapset. In the second block,
-<em>g.mapsets</em> adds <code>t_rast_list</code> to the search path of the new mapset and prints
-the search path, so the name <code>temperature</code> without a mapset finds the same
-dataset.
+the mapset <code>t_rast_list</code>, which is not in the search path of the new mapset,
+and is named with its mapset. In the second block, <em>g.mapsets</em> adds
+<code>t_rast_list</code> to the search path of the new mapset and prints the search path,
+because a name without a mapset is searched only there (see
+<a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other mapsets</a>); the name
+<code>temperature</code> then finds the same dataset.
 
 <p>Command line:</p>
 

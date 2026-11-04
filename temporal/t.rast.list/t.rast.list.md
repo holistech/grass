@@ -1059,10 +1059,12 @@ of the dataset, 6 hours.
 
 *t.rast.list* reads a dataset of another mapset. The example creates the
 mapset `t_rast_list_2` and switches to it; the dataset `temperature` stays in
-the mapset `t_rast_list` and is named with its mapset. In the second block,
-*g.mapsets* adds `t_rast_list` to the search path of the new mapset and prints
-the search path, so the name `temperature` without a mapset finds the same
-dataset.
+the mapset `t_rast_list`, which is not in the search path of the new mapset,
+and is named with its mapset. In the second block, *g.mapsets* adds
+`t_rast_list` to the search path of the new mapset and prints the search path,
+because a name without a mapset is searched only there (see
+[Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)); the name
+`temperature` then finds the same dataset.
 
 === "Command line"
 
