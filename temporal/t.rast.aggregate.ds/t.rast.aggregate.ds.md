@@ -1216,9 +1216,8 @@ The tool reads datasets of other mapsets and creates the new dataset and its
 maps in the current mapset. The example creates the mapset
 `t_rast_aggregate_ds_2` and switches to it. A new mapset starts with the
 default region of the dataset, cells of 500 m, so the example sets the region
-of the first example again. *g.mapsets* adds the mapset `t_rast_aggregate_ds`
-to the search path. The datasets `precipitation_daily` and `dekads` stay in
-that mapset and are named with it. The listing shows the new maps in
+of the first example again. The datasets `precipitation_daily` and `dekads`
+stay in that mapset and are named with it. The listing shows the new maps in
 `t_rast_aggregate_ds_2`.
 
 === "Command line"
@@ -1226,7 +1225,6 @@ that mapset and are named with it. The listing shows the new maps in
     ```sh
     g.mapset -c mapset=t_rast_aggregate_ds_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_rast_aggregate_ds operation=add
     t.rast.aggregate.ds input=precipitation_daily@t_rast_aggregate_ds \
         sample=dekads@t_rast_aggregate_ds output=precipitation_dekads_2 \
         basename=precipitation_dekad method=sum
@@ -1245,7 +1243,6 @@ that mapset and are named with it. The listing shows the new maps in
     ```python
     tools.g_mapset(mapset="t_rast_aggregate_ds_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_rast_aggregate_ds", operation="add")
     tools.t_rast_aggregate_ds(
         input="precipitation_daily@t_rast_aggregate_ds",
         sample="dekads@t_rast_aggregate_ds",
