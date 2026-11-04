@@ -808,9 +808,9 @@ gives the number as well.
 ### Extract from a dataset of another mapset
 
 The dataset `model` stays in the mapset `t_rast_extract`. The first block
-creates the mapset `t_rast_extract_2`, sets the same region, adds the first
-mapset to the search path so that its datasets can be read, and extracts with
-an expression. The name `model` in the expression stands for the maps of the
+creates the mapset `t_rast_extract_2`, sets the same region, and extracts with
+an expression from `model@t_rast_extract`, which the name with its mapset
+selects. The name `model` in the expression stands for the maps of the
 dataset, though it has no mapset, and the output dataset `model_copy` and its
 maps `copy_00001` and `copy_00002` belong to `t_rast_extract_2`. The `id`
 column shows the mapset.
@@ -825,7 +825,6 @@ and *t.remove* removes it.
     ```sh
     g.mapset -c mapset=t_rast_extract_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_rast_extract operation=add
     t.rast.extract input=model@t_rast_extract output=model_copy basename=copy \
         expression="model" suffix=num
     t.rast.list input=model_copy columns=id,start_time,min
@@ -857,7 +856,6 @@ and *t.remove* removes it.
 
     tools.g_mapset(mapset="t_rast_extract_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_rast_extract", operation="add")
     tools.t_rast_extract(
         input="model@t_rast_extract",
         output="model_copy",

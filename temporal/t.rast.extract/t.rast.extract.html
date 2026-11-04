@@ -819,9 +819,9 @@ t_00002
 <h3>Extract from a dataset of another mapset</h3>
 
 The dataset <code>model</code> stays in the mapset <code>t_rast_extract</code>. The first block
-creates the mapset <code>t_rast_extract_2</code>, sets the same region, adds the first
-mapset to the search path so that its datasets can be read, and extracts with
-an expression. The name <code>model</code> in the expression stands for the maps of the
+creates the mapset <code>t_rast_extract_2</code>, sets the same region, and extracts with
+an expression from <code>model@t_rast_extract</code>, which the name with its mapset
+selects. The name <code>model</code> in the expression stands for the maps of the
 dataset, though it has no mapset, and the output dataset <code>model_copy</code> and its
 maps <code>copy_00001</code> and <code>copy_00002</code> belong to <code>t_rast_extract_2</code>. The <code>id</code>
 column shows the mapset.
@@ -837,7 +837,6 @@ and <em>t.remove</em> removes it.
 <div class="code"><pre>
 g.mapset -c mapset=t_rast_extract_2
 g.region raster=elev_state_500m res=1000 -a
-g.mapsets mapset=t_rast_extract operation=add
 t.rast.extract input=model@t_rast_extract output=model_copy basename=copy \
     expression="model" suffix=num
 t.rast.list input=model_copy columns=id,start_time,min
@@ -869,7 +868,6 @@ from grass.tools import ToolError
 
 tools.g_mapset(mapset="t_rast_extract_2", flags="c")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-tools.g_mapsets(mapset="t_rast_extract", operation="add")
 tools.t_rast_extract(
     input="model@t_rast_extract",
     output="model_copy",
