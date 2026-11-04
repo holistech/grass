@@ -1047,9 +1047,9 @@ with relative time it gives the number as well.
 ### Extract from a dataset of another mapset
 
 The dataset `model` stays in the mapset `t_vect_extract`. The first block
-creates the mapset `t_vect_extract_2`, switches to it, sets the region, adds
-the mapset `t_vect_extract` to the search path with *g.mapsets* and extracts
-with an expression. The new dataset `model_copy` and its maps `copy_00001` and
+creates the mapset `t_vect_extract_2`, switches to it, sets the region and
+extracts with an expression from `model@t_vect_extract`, which the name with
+its mapset selects. The new dataset `model_copy` and its maps `copy_00001` and
 `copy_00002` belong to `t_vect_extract_2`. The `id` column shows the mapset.
 
 The second block shows what happens without an expression. The call is
@@ -1062,7 +1062,6 @@ refused, so the block prints `refused`. The refusal leaves the empty dataset
     ```sh
     g.mapset -c mapset=t_vect_extract_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_vect_extract operation=add
     t.vect.extract input=model@t_vect_extract output=model_copy basename=copy \
         expression="level > 0" suffix=num
     t.vect.list input=model_copy columns=id,start_time,points
@@ -1094,7 +1093,6 @@ refused, so the block prints `refused`. The refusal leaves the empty dataset
 
     tools.g_mapset(mapset="t_vect_extract_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_vect_extract", operation="add")
     tools.t_vect_extract(
         input="model@t_vect_extract",
         output="model_copy",

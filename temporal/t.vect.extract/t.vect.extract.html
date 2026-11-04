@@ -1059,9 +1059,9 @@ t_00002
 <h3>Extract from a dataset of another mapset</h3>
 
 The dataset <code>model</code> stays in the mapset <code>t_vect_extract</code>. The first block
-creates the mapset <code>t_vect_extract_2</code>, switches to it, sets the region, adds
-the mapset <code>t_vect_extract</code> to the search path with <em>g.mapsets</em> and extracts
-with an expression. The new dataset <code>model_copy</code> and its maps <code>copy_00001</code> and
+creates the mapset <code>t_vect_extract_2</code>, switches to it, sets the region and
+extracts with an expression from <code>model@t_vect_extract</code>, which the name with
+its mapset selects. The new dataset <code>model_copy</code> and its maps <code>copy_00001</code> and
 <code>copy_00002</code> belong to <code>t_vect_extract_2</code>. The <code>id</code> column shows the mapset.
 
 <p>
@@ -1075,7 +1075,6 @@ refused, so the block prints <code>refused</code>. The refusal leaves the empty 
 <div class="code"><pre>
 g.mapset -c mapset=t_vect_extract_2
 g.region raster=elev_state_500m res=1000 -a
-g.mapsets mapset=t_vect_extract operation=add
 t.vect.extract input=model@t_vect_extract output=model_copy basename=copy \
     expression="level &gt; 0" suffix=num
 t.vect.list input=model_copy columns=id,start_time,points
@@ -1107,7 +1106,6 @@ from grass.tools import ToolError
 
 tools.g_mapset(mapset="t_vect_extract_2", flags="c")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-tools.g_mapsets(mapset="t_vect_extract", operation="add")
 tools.t_vect_extract(
     input="model@t_vect_extract",
     output="model_copy",
