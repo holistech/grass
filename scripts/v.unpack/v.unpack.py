@@ -56,6 +56,50 @@ def cleanup():
     try_rmdir(tmp_dir)
 
 
+def with_neutral_name(filename):
+    """Return the name of a copy of the PROJ_INFO file with a fixed CRS name
+
+    The name of a CRS is a label: a project made from a PROJ string calls it
+    "unknown", the project the pack file comes from may use the name of the
+    EPSG entry. Both are the same CRS, so the name is not compared. The line
+    stays because the comparison needs a name.
+    """
+    copy = os.path.join(tmp_dir, os.path.basename(filename) + ".neutral")
+    lines = Path(filename).read_text().splitlines(keepends=True)
+    Path(copy).write_text(
+        "".join(
+            "name: unknown\n" if line.startswith("name:") else line for line in lines
+        )
+    )
+    return copy
+
+
+def differences(pack_file, project_file, **compare):
+    """Return the lines in which a projection file of the pack and the project differ
+
+    Return None if they match. A project without the file (an XY project) has
+    no CRS, so it differs from a pack file that has one: reading the missing
+    file would end in a traceback.
+    """
+    if not Path(project_file).exists():
+        return [
+            _("The current project has no file {}: it has no CRS\n").format(
+                os.path.basename(project_file)
+            )
+        ]
+    compared_a, compared_b = pack_file, project_file
+    if compare.get("proj"):
+        compared_a, compared_b = (
+            with_neutral_name(pack_file),
+            with_neutral_name(project_file),
+        )
+    if grass.compare_key_value_text_files(
+        filename_a=compared_a, filename_b=compared_b, **compare
+    ):
+        return None
+    return diff_files(pack_file, project_file)
+
+
 def main():
     infile = options["input"]
 
@@ -148,22 +192,12 @@ def main():
         skip_projection_check = True  # XY location
 
     if not skip_projection_check:
-        diff_result_1 = diff_result_2 = None
-        if not grass.compare_key_value_text_files(
-            filename_a=os.path.join(tmp_dir, "PROJ_INFO"),
-            filename_b=loc_proj,
-            proj=True,
-        ):
-            diff_result_1 = diff_files(os.path.join(tmp_dir, "PROJ_INFO"), loc_proj)
-
-        if not grass.compare_key_value_text_files(
-            filename_a=os.path.join(tmp_dir, "PROJ_UNITS"),
-            filename_b=loc_proj_units,
-            units=True,
-        ):
-            diff_result_2 = diff_files(
-                os.path.join(tmp_dir, "PROJ_UNITS"), loc_proj_units
-            )
+        diff_result_1 = differences(
+            os.path.join(tmp_dir, "PROJ_INFO"), loc_proj, proj=True
+        )
+        diff_result_2 = differences(
+            os.path.join(tmp_dir, "PROJ_UNITS"), loc_proj_units, units=True
+        )
 
         if diff_result_1 or diff_result_2:
             if flags["o"]:
