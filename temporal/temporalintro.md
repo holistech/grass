@@ -239,11 +239,11 @@ search path. Some tools, such as *t.info*, look for a name without a mapset
 only in the current mapset; give them `name@mapset`. *t.rast.accdetect*,
 *t.rast.mapcalc* and *t.rast3d.mapcalc* read the maps of their input dataset
 through the search path, so for them the mapset must be in the search path
-even if the dataset is named with it. Otherwise, add the mapset with
-[g.mapsets](g.mapsets.md) `operation=add` only if datasets of that mapset
-should be found by their name alone. A mapset that does not exist or
-has no temporal database is refused with an error. The last example of the
-[EXAMPLES](#examples) shows both ways.
+even if **input** or **inputs** names the dataset with it. For the other
+tools, add the mapset with *[g.mapsets](g.mapsets.md)* `operation=add`
+only if datasets of that mapset should be found by their name alone. A mapset
+that does not exist or has no temporal database is refused with an error. The
+last example of the [EXAMPLES](#examples) shows both ways.
 
 ## Modules to visualize space-time datasets and temporal data
 
