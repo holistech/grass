@@ -32,10 +32,16 @@ Either **levels** or **step** sets the contour levels:
   wholly below **minlevel** or wholly above **maxlevel** gets no level.
 
 If both **levels** and **step** are given, *r.contour* uses the list and
-ignores the step. A level equal to the smallest value of a map gives no line.
+ignores the step. A level equal to the smallest or the largest value of a map
+gets a line through the cells of that value; a value held by a single cell
+gives a single point, which is not written. A **minlevel** above **maxlevel**
+is an error, and no dataset is created.
 
 The option **cut** leaves out the contour lines with fewer points than the
-given number. The default `0` keeps all lines.
+given number, counted in the new vector map. A line that touches another line
+is split there into pieces; a piece is kept when the lines it meets have
+**cut** points or more together, so that no line gets a gap. The default `0`
+keeps all lines.
 
 Each new vector map has an attribute table with the column `level`, the
 contour level of its lines; *[t.vect.db.select](t.vect.db.select.md)* prints
@@ -74,8 +80,7 @@ region ends at the centre of the cell at its border, as the last example
 shows. Null cells, also the cells outside a raster mask, count as cells
 outside the region: a line ends at them in the same way. A raster mask on a
 rectangle therefore gives the same lines as the region of that rectangle, as
-the last example shows as well; only a closed line or a line with saddles at
-its ends within about one cell of the border can differ (see *r.contour*).
+the last example shows as well.
 
 If **where** selects no map, *t.rast.contour* warns that the space time raster
 dataset is empty and creates no output dataset.
@@ -545,7 +550,7 @@ such a map gets no level and so no line:
 ### Leave out short contour lines
 
 With **cut** `10`, the short lines are left out. The block lists the number of
-lines: 97, 183 and 109 instead of 228, 342 and 239 with the default `0` in the
+lines: 97, 166 and 101 instead of 228, 342 and 239 with the default `0` in the
 first example.
 
 === "Command line"
@@ -558,8 +563,8 @@ first example.
     ```text
     name|lines
     long_2020_06|97
-    long_2020_07|183
-    long_2020_08|109
+    long_2020_07|166
+    long_2020_08|101
     ```
 
 === "Python (grass.tools)"
@@ -574,8 +579,8 @@ first example.
     ```text
     name|lines
     long_2020_06|97
-    long_2020_07|183
-    long_2020_08|109
+    long_2020_07|166
+    long_2020_08|101
     ```
 
 ### Draw the contour lines over the raster map
@@ -623,7 +628,7 @@ colour table `celsius` on the map of this mapset first.
 
 ![Contour lines of the mean air temperature in July in North Carolina](t_rast_contour_lines.png)
 
-*Figure: Contour lines at 15, 20 and 25 degrees (blue, white, red) over the
+*Figure: Contour lines at 15, 20 and 25 degrees (blue, white, black) over the
 generated mean air temperature of July 2020, `temperature_monthly_2020_07`.*
 
 ### Choose the names of the new maps

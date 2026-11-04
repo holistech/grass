@@ -37,11 +37,17 @@ wholly below <b>minlevel</b> or wholly above <b>maxlevel</b> gets no level.</li>
 
 <p>
 If both <b>levels</b> and <b>step</b> are given, <em>r.contour</em> uses the list and
-ignores the step. A level equal to the smallest value of a map gives no line.
+ignores the step. A level equal to the smallest or the largest value of a map
+gets a line through the cells of that value; a value held by a single cell
+gives a single point, which is not written. A <b>minlevel</b> above <b>maxlevel</b>
+is an error, and no dataset is created.
 
 <p>
 The option <b>cut</b> leaves out the contour lines with fewer points than the
-given number. The default <code>0</code> keeps all lines.
+given number, counted in the new vector map. A line that touches another line
+is split there into pieces; a piece is kept when the lines it meets have
+<b>cut</b> points or more together, so that no line gets a gap. The default <code>0</code>
+keeps all lines.
 
 <p>
 Each new vector map has an attribute table with the column <code>level</code>, the
@@ -87,8 +93,7 @@ region ends at the centre of the cell at its border, as the last example
 shows. Null cells, also the cells outside a raster mask, count as cells
 outside the region: a line ends at them in the same way. A raster mask on a
 rectangle therefore gives the same lines as the region of that rectangle, as
-the last example shows as well; only a closed line or a line with saddles at
-its ends within about one cell of the border can differ (see <em>r.contour</em>).
+the last example shows as well.
 
 <p>
 If <b>where</b> selects no map, <em>t.rast.contour</em> warns that the space time raster
@@ -564,7 +569,7 @@ above_2020_08|0
 <h3>Leave out short contour lines</h3>
 
 With <b>cut</b> <code>10</code>, the short lines are left out. The block lists the number of
-lines: 97, 183 and 109 instead of 228, 342 and 239 with the default <code>0</code> in the
+lines: 97, 166 and 101 instead of 228, 342 and 239 with the default <code>0</code> in the
 first example.
 
 <p>Command line:</p>
@@ -577,8 +582,8 @@ t.vect.list input=long columns=name,lines
 <div class="code"><pre>
 name|lines
 long_2020_06|97
-long_2020_07|183
-long_2020_08|109
+long_2020_07|166
+long_2020_08|101
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -593,8 +598,8 @@ print(tools.t_vect_list(input="long", columns="name,lines").text)
 <div class="code"><pre>
 name|lines
 long_2020_06|97
-long_2020_07|183
-long_2020_08|109
+long_2020_07|166
+long_2020_08|101
 </pre></div>
 
 <h3>Draw the contour lines over the raster map</h3>
@@ -644,7 +649,7 @@ tools.d_mon(stop="cairo")
 <img src="t_rast_contour_lines.png" alt="Contour lines of the mean air temperature in July in North Carolina">
 
 <p>
-<em>Figure: Contour lines at 15, 20 and 25 degrees (blue, white, red) over the
+<em>Figure: Contour lines at 15, 20 and 25 degrees (blue, white, black) over the
 generated mean air temperature of July 2020, <code>temperature_monthly_2020_07</code>.</em>
 
 <h3>Choose the names of the new maps</h3>

@@ -2,10 +2,10 @@
 
 The maps are the column ramp (January), the row ramp (April), the column ramp
 (July) and a map without values (October); conftest.py has the geometry. With
-the levels 1, 2, 3, 4 the column ramp has the lines at 2, 3, 4 (three) and the
-row ramp (2, 4, 6, 8) the lines at 3 and 4 (two), so the dataset holds
-3 + 2 + 3 = 8 straight lines with two nodes each; the map without values has
-none.
+the levels 1, 2, 3, 4 the column ramp has the lines at 1, 2, 3, 4 (four) and
+the row ramp (2, 4, 6, 8) the lines at 2, 3 and 4 (three), so the dataset
+holds 4 + 3 + 4 = 11 straight lines with two nodes each; the map without
+values has none.
 """
 
 import pytest
@@ -45,9 +45,9 @@ def test_empty_maps_are_dropped(tools, quarterly, prefix):
         "granularity": "'3 months'",
         "map_time": "interval",
         "number_of_maps": 3,
-        "lines": 8,
-        "primitives": 8,
-        "nodes": 16,
+        "lines": 11,
+        "primitives": 11,
+        "nodes": 22,
     }
 
 
@@ -62,15 +62,15 @@ def test_the_n_flag_registers_the_empty_map(tools, quarterly, prefix):
         "granularity": "'3 months'",
         "map_time": "interval",
         "number_of_maps": 4,
-        "lines": 8,
-        "primitives": 8,
-        "nodes": 16,
+        "lines": 11,
+        "primitives": 11,
+        "nodes": 22,
     }
 
 
 def test_where_selects_the_maps(tools, quarterly, prefix):
     # The text comparison keeps a map that starts on 2001-04-01, then July and
-    # October: the row ramp (2 lines), the column ramp (3 lines) and the empty
+    # October: the row ramp (3 lines), the column ramp (4 lines) and the empty
     # map, which is dropped.
     tools.t_rast_contour(
         input=quarterly,
@@ -85,7 +85,7 @@ def test_where_selects_the_maps(tools, quarterly, prefix):
         "'2001-04-01 00:00:00'",
         "'2001-10-01 00:00:00'",
     )
-    assert (numbers["number_of_maps"], numbers["lines"], numbers["nodes"]) == (2, 5, 10)
+    assert (numbers["number_of_maps"], numbers["lines"], numbers["nodes"]) == (2, 7, 14)
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
@@ -104,7 +104,7 @@ def test_t_flag_makes_no_attribute_table_and_allows_nprocs(
     )
 
     assert "reduced to 1" not in message(result)
-    assert _numbers(tools, prefix)["lines"] == 8
+    assert _numbers(tools, prefix)["lines"] == 11
     for name in _names(tools, prefix):
         assert tools.v_db_connect(map=name, flags="p").stdout.strip() == ""
 
@@ -127,7 +127,7 @@ def test_nprocs_is_reduced_to_one_with_attribute_tables(tools, quarterly, prefix
         "The number of parallel r.contour processes was reduced to 1 because of "
         "the table attribute creation" in message(result)
     )
-    assert _numbers(tools, prefix)["lines"] == 8
+    assert _numbers(tools, prefix)["lines"] == 11
 
 
 @pytest.mark.parametrize(
@@ -155,7 +155,7 @@ def test_overwrite_replaces_the_dataset(tools, quarterly, prefix):
 
     tools.t_rast_contour(**options, levels="2", overwrite=True)
 
-    # Level 2 is a line of the two column ramps; it is the lowest value of the
-    # row ramp, which has none, and the empty maps are dropped.
-    assert _numbers(tools, prefix)["lines"] == 2
-    assert len(_names(tools, prefix)) == 2
+    # Level 2 is a line of the two column ramps and of the row ramp, whose
+    # lowest value it is; the empty map is dropped.
+    assert _numbers(tools, prefix)["lines"] == 3
+    assert len(_names(tools, prefix)) == 3

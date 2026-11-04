@@ -4,9 +4,9 @@ The region has four rows and four columns of size 1, so the cell centres lie at
 the coordinates 0.5 to 3.5. A contour of the level L of the column ramp
 (column c holds c) runs along x = L - 0.5 from y = 0.5 to y = 3.5, and a
 contour of the level L of the row ramp (row r holds 2 r) along y = 4.5 - L / 2
-from x = 0.5 to x = 3.5. r.contour draws no line at the lowest level of a map,
-because it lies on the border of the data (the centres of the first row or
-column), but one at the highest.
+from x = 0.5 to x = 3.5. r.contour draws a line at the lowest and at the
+highest level of a map as well, through the centres of the first or the last
+row or column; before 2026-11-04 it drew none at the lowest.
 """
 
 from datetime import datetime
