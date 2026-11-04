@@ -1038,7 +1038,10 @@ of the first example again. *g.mapsets* adds the mapset `t_rast_univar` to the
 search path, and the input `precipitation_monthly@t_rast_univar` names the
 dataset of the first example with its mapset. In the second block,
 *g.mapsets* shows the search path, now with `t_rast_univar`, so the name
-`precipitation_monthly` without a mapset finds the same dataset.
+`precipitation_monthly` without a mapset finds the same dataset. The mapset is
+added only for the second block, which names the dataset without its mapset; the
+first block works without it (see
+[Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)).
 
 === "Command line"
 
