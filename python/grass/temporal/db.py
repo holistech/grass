@@ -179,9 +179,10 @@ def get_available_temporal_mapsets(mapsets: str | None = None) -> dict:
 class SQLDatabaseInterfaceConnection:
     """The connections to the temporal databases of the mapsets in the search path
 
-    Mapsets that share a database share one connection. A connection is opened
-    by ``connect`` and used through the mapset name, the current mapset if none
-    is given.
+    A mapset outside the search path joins on the first query of a dataset or
+    map named with it. Mapsets that share a database share one connection. A
+    connection is opened by ``connect`` and used through the mapset name, the
+    current mapset if none is given.
     """
 
     def __init__(self, mapsets: str | None = None) -> None:
@@ -263,6 +264,8 @@ class SQLDatabaseInterfaceConnection:
         The method is idempotent: mapsets already known to the connection are
         left untouched. If the mapset has no accessible temporal database, it
         is not added and a later query against it fails with the usual error.
+        Every query already calls it for the mapset it names, so a caller
+        needs it only to add a mapset before the first query.
         """
         mapset = decode(mapset)
         if mapset in self.tgis_mapsets:
@@ -283,6 +286,12 @@ class SQLDatabaseInterfaceConnection:
     def _connection_of(self, mapset, refusal):
         """Return the connection of a mapset, the current one if none is given
 
+        A mapset outside the search path is added to this connection if it
+        has a temporal database, so that a dataset or map named name@mapset
+        is read from any mapset of the project, as raster and vector tools
+        read it. Every query goes through here, so no caller needs to add
+        the mapset itself.
+
         :param refusal: The message, with ``{reason}``, for a mapset that has
                         no accessible temporal database. Each caller passes
                         its own ``_()`` literal so that the message ids are
@@ -292,6 +301,8 @@ class SQLDatabaseInterfaceConnection:
             mapset = self.current_mapset
 
         mapset = decode(mapset)
+        if mapset not in self.tgis_mapsets:
+            self.add_mapset(mapset)
         if mapset not in self.tgis_mapsets:
             self.msgr.fatal(
                 refusal.format(reason=self._create_mapset_error_message(mapset))

@@ -113,7 +113,6 @@ def open_old_stds(name, type, dbif=None):
         # Check user given ID
         sp = None
         if mapset:
-            dbif.add_mapset(mapset)
             sp = try_get_stds(f"{name}@{mapset}", stds_type, semantic_label, dbif)
         else:
             # Check current mapset first

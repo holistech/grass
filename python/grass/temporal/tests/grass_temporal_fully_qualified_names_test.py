@@ -95,9 +95,9 @@ def test_add_mapset_includes_offpath_mapset(two_mapset_session):
 def test_open_old_stds_offpath(two_mapset_session):
     """open_old_stds resolves a fully qualified name off the search path.
 
-    Tools that go through open_old_stds are covered by this change. Tools that
-    build their own database interface (e.g. t.info) are handled separately and
-    are intentionally out of scope here.
+    The database interface adds the named mapset on its first query, so tools
+    that do not go through open_old_stds (e.g. t.info) read such a name as
+    well; grass_temporal_search_path_test.py covers them.
     """
     tgis.init()
     sp = tgis.open_old_stds(two_mapset_session.offpath_id, "strds")
