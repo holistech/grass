@@ -1300,9 +1300,9 @@ with <code>g_2</code>, and <code>soil_2</code> lies across both vector maps. The
 vector maps with <b>type=stvds</b>: <code>g_1</code> ends where <code>g_2</code> starts, so it precedes
 it. No vector map contains another, so the third selection is empty, and still
 creates an empty dataset with no map, with <b>-c</b> and without. The last one
-selects in the raster datasets of <code>t_select</code>, named with their mapset, which
-the example adds to the search path with <em>g.mapsets</em>; the result is in the
-current mapset and registers the map of <code>t_select</code> itself, not a copy.
+selects in the raster datasets of <code>t_select</code>, named with their mapset; the
+result is in the current mapset and registers the map of <code>t_select</code> itself,
+not a copy.
 
 <p>Command line:</p>
 
@@ -1357,7 +1357,6 @@ number_of_maps=0
 </pre></div>
 
 <div class="code"><pre>
-g.mapsets mapset=t_select operation=add
 t.select expression="main = A@t_select : B@t_select"
 t.rast.list input=main columns=id,start_time,end_time
 </pre></div>
@@ -1440,7 +1439,6 @@ number_of_maps=0
 </pre></div>
 
 <div class="code"><pre>
-tools.g_mapsets(mapset="t_select", operation="add")
 tools.t_select(expression="main = A@t_select : B@t_select")
 print(tools.t_rast_list(input="main", columns="id,start_time,end_time").text)
 </pre></div>

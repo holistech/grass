@@ -1262,9 +1262,9 @@ with `g_2`, and `soil_2` lies across both vector maps. The second selects
 vector maps with **type=stvds**: `g_1` ends where `g_2` starts, so it precedes
 it. No vector map contains another, so the third selection is empty, and still
 creates an empty dataset with no map, with **-c** and without. The last one
-selects in the raster datasets of `t_select`, named with their mapset, which
-the example adds to the search path with *g.mapsets*; the result is in the
-current mapset and registers the map of `t_select` itself, not a copy.
+selects in the raster datasets of `t_select`, named with their mapset; the
+result is in the current mapset and registers the map of `t_select` itself,
+not a copy.
 
 === "Command line"
 
@@ -1319,7 +1319,6 @@ current mapset and registers the map of `t_select` itself, not a copy.
     ```
 
     ```sh
-    g.mapsets mapset=t_select operation=add
     t.select expression="main = A@t_select : B@t_select"
     t.rast.list input=main columns=id,start_time,end_time
     ```
@@ -1402,7 +1401,6 @@ current mapset and registers the map of `t_select` itself, not a copy.
     ```
 
     ```python
-    tools.g_mapsets(mapset="t_select", operation="add")
     tools.t_select(expression="main = A@t_select : B@t_select")
     print(tools.t_rast_list(input="main", columns="id,start_time,end_time").text)
     ```
