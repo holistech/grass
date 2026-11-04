@@ -837,7 +837,9 @@ stays in the mapset `t_rast3d_univar` and is named with its mapset. The region
 of the new mapset is set like the one of the first example, and *g.mapsets* adds
 `t_rast3d_univar` to the search path. In the second block, *g.mapsets* shows
 the search path, and the name `temperature_profile` without a mapset finds the
-same dataset.
+same dataset. The mapset is added only for the second block, which names the
+dataset without its mapset; the first block works without it (see
+[Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)).
 
 === "Command line"
 
