@@ -113,6 +113,7 @@ def test_nested_list():
         - outer
 
             - inner
+
         - next
         """
     )
@@ -192,6 +193,50 @@ def test_wrapped_line_starting_with_number_and_dot_is_refused(marker, blanks, fi
     error = refusal(f"{marker} year -\n{' ' * blanks}{first}. x\n")
     assert (error.path, error.line) == ("manual.md", 2)
     assert "must not start with a number and a dot" in str(error)
+
+
+def test_number_with_dot_in_a_later_paragraph_stays_text():
+    """Python-Markdown splits only the first block of an item into items"""
+    html = convert("- a\n\n    para\n    2. x\n")
+    assert "<p>\npara\n2. x</li>" in html
+
+
+@pytest.mark.parametrize(
+    "markdown",
+    [
+        "1. a\n\n    text\n2. b\n",
+        "1. a:\n\n    ```sh\n    x\n    ```\n2. b\n",
+        "- a\n\n    - b\n- c\n",
+        '1. a\n\n    === "T"\n\n        ```sh\n        x\n        ```\n2. c\n',
+        "- a\n\n    | x |\n    | - |\n    | 1 |\n- c\n",
+    ],
+)
+def test_item_right_after_a_block_of_the_item_above_is_refused(markdown):
+    error = refusal(markdown)
+    assert error.path == "manual.md"
+    assert "needs a blank line before it" in str(error)
+
+
+def test_item_after_a_block_with_a_blank_line_is_accepted():
+    html = convert("1. a\n\n    text\n\n2. b\n")
+    assert html == "<ol>\n<li>a\n\n<p>\ntext</li>\n<li>b</li>\n</ol>\n"
+
+
+def test_tight_items_stay_accepted():
+    html = convert("- a\n  wrapped\n- c\n")
+    assert html == "<ul>\n<li>a\nwrapped</li>\n<li>c</li>\n</ul>\n"
+
+
+@pytest.mark.parametrize("marker", ["1.   a", "100. a", "-    a"])
+def test_list_marker_wider_than_four_columns_is_refused(marker):
+    error = refusal(f"{marker}\n\n        text\n")
+    assert (error.path, error.line) == ("manual.md", 1)
+    assert "at most 4 columns wide" in str(error)
+
+
+@pytest.mark.parametrize("marker", ["1. a", "10. a", "- a"])
+def test_list_marker_up_to_four_columns_is_accepted(marker):
+    assert "<li>a</li>" in convert(f"{marker}\n")
 
 
 def test_ordered_list_continues_its_numbers_after_a_code_block():

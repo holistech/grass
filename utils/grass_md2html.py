@@ -297,6 +297,7 @@ class _BlockParser:
         bullet = first.group(1)
         delimiter = first.group(3)
         items = []
+        after_block = False
         while index < len(lines):
             item_number, item_text = lines[index]
             item = LIST_ITEM.match(item_text.lstrip(" "))
@@ -310,14 +311,27 @@ class _BlockParser:
             if not item.group(5).strip():
                 raise self.error(item_number, "an empty list item")
             width = len(item_text) - len(item.group(5))
-            if len(item.group(4)) > 4:
+            marker_width = len(item.group(0)) - len(item.group(5))
+            if marker_width > 4:
                 raise self.error(
-                    item_number, "more than four blanks after a list marker"
+                    item_number,
+                    "a list marker with its blanks must be at most 4 columns "
+                    "wide; MkDocs counts the content from column 4",
+                )
+            if after_block and lines[index - 1][1].strip():
+                raise self.error(
+                    item_number,
+                    "a list item after a block of the item above needs a "
+                    "blank line before it",
                 )
             content, end = _indented(lines, index + 1, width)
             self._refuse_misindented_content(lines, index + 1, item_text)
             self._refuse_lazy_lines(lines, end)
             items.append(self.parse([(item_number, item.group(5)), *content]))
+            # Python-Markdown joins a marker line without a blank line before
+            # it to the last block of the item above when that block follows
+            # a blank line; the generator would start a new item.
+            after_block = any(not row.strip() for _, row in content)
             index = end
             # A blank line between two items keeps them in one list.
             while index < len(lines) and not lines[index][1].strip():
@@ -341,17 +355,21 @@ class _BlockParser:
         that continues the paragraph above it is not checked either: both
         parsers join it to the paragraph whatever its indentation, and the
         manuals wrap the text of an item at the width of its marker. The
-        exception is a continuation line that starts with a number other
-        than 1 and a dot: CommonMark joins it to the paragraph, Python-Markdown
-        starts a new list item, so it is refused.
+        exception is a continuation line of the first paragraph of the item
+        that starts with a number other than 1 and a dot: CommonMark joins it
+        to the paragraph, Python-Markdown starts a new list item, so it is
+        refused. Python-Markdown splits only the first block of an item into
+        items; in later paragraphs such a line stays text for both parsers.
         """
         base = len(item_text) - len(item_text.lstrip(" "))
         in_fence = False
         # The item text itself is the first line of a paragraph.
         in_paragraph = True
+        seen_blank = False
         for number, text in lines[index:]:
             if not text.strip():
                 in_paragraph = False
+                seen_blank = True
                 continue
             relative = len(text) - len(text.lstrip(" ")) - base
             if relative <= 0:
@@ -365,6 +383,7 @@ class _BlockParser:
             marker = LIST_ITEM.match(stripped)
             if (
                 in_paragraph
+                and not seen_blank
                 and not is_fence
                 and marker
                 and marker.group(3) == "."
@@ -374,8 +393,9 @@ class _BlockParser:
                 # number 1 interrupts one; Python-Markdown starts a list item.
                 raise self.error(
                     number,
-                    "a wrapped line must not start with a number and a dot "
-                    "(Python-Markdown reads it as a list item); reflow the text",
+                    "a wrapped line of the first paragraph of a list item must not "
+                    "start with a number and a dot (Python-Markdown reads it as "
+                    "a list item); reflow the text",
                 )
             # As in _starts_block, only a bullet or the number 1 interrupts a
             # paragraph; "1900) * 12" wrapped to a line start does not.
