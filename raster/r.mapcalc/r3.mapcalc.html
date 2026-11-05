@@ -180,6 +180,19 @@ refers to the cell one column to the right of the current cell. This syntax
 permits the development of neighborhood-type filters within a single 3D
 grid or across multiple 3D grids.
 
+<h3>3D grid values from the category file</h3>
+
+If a 3D grid name is preceded by the <b>@</b> operator, the number in the
+category label of each cell is used in the expression instead of the
+cell value, as in <em><a href="r.mapcalc.html">r.mapcalc</a></em>. A cell
+whose category has no label, or a label that does not start with a number,
+is NULL. A 3D grid gets the category labels of a 2D raster map with
+<em><a href="r3.support.html">r3.support</a></em>:
+<div class="code"><pre>
+r3.support map=volume raster=soils.ph
+r3.mapcalc "volume_ph = @volume"
+</pre></div>
+
 <h3>Functions</h3>
 
 The functions currently supported are listed in the table below.

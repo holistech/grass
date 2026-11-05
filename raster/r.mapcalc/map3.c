@@ -269,7 +269,7 @@ static void translate_from_cats(map *m, CELL *cell, DCELL *xcell, int ncols)
 {
     struct Categories *pcats;
     BTREE *btree;
-    int i = 0, idx = 0;
+    int i, idx;
     CELL cat, key;
     double vbuf[1 << SHIFT];
     double *values;
@@ -300,10 +300,13 @@ static void translate_from_cats(map *m, CELL *cell, DCELL *xcell, int ncols)
          */
         if (!btree_find(btree, &key, &ptr)) {
             values = vbuf;
-            int cat = i + key;
-
+            /* Each value comes from the label of its own category, as in
+             * map.c. A category set once before the loop gave the whole block
+             * the label of a single category, mostly none, so @map was null. */
             for (i = 0; i < NCATS; i++) {
-                if ((label = Rast_get_c_cat((CELL *)&cat, pcats)) == NULL ||
+                CELL cat = i + key;
+
+                if ((label = Rast_get_c_cat(&cat, pcats)) == NULL ||
                     sscanf(label, "%lf", values) != 1)
                     SET_NULL_D(values);
                 values++;
