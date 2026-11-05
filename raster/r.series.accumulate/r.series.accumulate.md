@@ -2,39 +2,35 @@
 
 *r.series.accumulate* calculates (accumulated) raster value using
 growing degree days (GDDs)/Winkler indices's, Biologically Effective
-Degree Days (BEDD), Huglin heliothermal indices or an average approach
-from several input maps for a given day. Accumulation of e.g.
-degree-days to growing degree days (GDDs) can be done by providing a
-*basemap* with GDDs of the previous day.
+Degree Days (BEDD), Huglin heliothermal indices or the mean from several
+input maps for a given day. Accumulation of e.g. degree-days to growing
+degree days (GDDs) can be done by providing a *basemap* with GDDs of the
+previous day.
 
-The flag **-a** determines the average computation of the input raster
-maps. In case the flag is not set, the average calculation is:
-
-```sh
-    average = (min + max) / 2
-```
-
-In case the flag was set, the calculation changes to arithmetic mean
+All methods use the same average of the input maps: the arithmetic mean
+of the values of a cell, which counts the input maps that have a value
+in the cell:
 
 ```sh
     average = sum(input maps) / (number of input maps)
 ```
 
-**GDD** Growing Degree Days are calculated as
+**GDD** Growing Degree Days, which are also the Winkler indices, are
+calculated as
 
 ```sh
     gdd = average - lower
 ```
 
-In case the **-a** is set, the Winkler indices are calculated instead of
-GDD, usually accumulated for the period April 1st to October
-31st (northern hemisphere) or the period October
-1st to April 30t (southern hemisphere).
+The method `gdd` is the default. The Winkler indices are usually
+accumulated for the period April 1st to October 31st (northern
+hemisphere) or the period October 1st to April 30th (southern
+hemisphere).
 
 **BEDDs** Biologically Effective Degree Days are calculated as
 
 ```sh
-    bedd = average - lower
+    bedd = min(average, upper) - lower
 ```
 
 with an optional upper *cutoff* applied to the average instead of the
@@ -56,9 +52,9 @@ usually accumulated for the period April 1st to September
     mean = average
 ```
 
-For all the formulas *min* is the minimum value, *max* the maximum value
-and *average* the average value. The *min*, *max* and *average* values
-are automatically calculated from the input maps.
+*lower* and *upper* are the lower and the upper limit. In the Huglin
+formula *max* is the maximum value of the input maps in the cell. The
+*average* and *max* values are automatically calculated from the input maps.
 
 The *shift* and *scale* values are applied directly to the input values.
 The *lower* and *upper* maps, as well as the *range* options are applied
@@ -81,9 +77,13 @@ With the *-n* flag, any cell for which any of the corresponding input
 cells are NULL is automatically set to NULL (NULL propagation) and the
 accumulated value is not calculated.
 
-Negative results are set to 0 (zero).
+Negative results of the methods `gdd`, `bedd` and `huglin` are set to 0
+(zero). The method `mean` does not subtract *lower* and keeps its value.
 
 Without the *-n* flag, all non-NULL cells are used for calculation.
+
+The flag *-f* writes the output as a map of type FCELL (floating point,
+single precision) instead of DCELL.
 
 If the *range=* option is given, any values which fall outside that
 range will be treated as if they were NULL. Note that the range is
