@@ -2,6 +2,7 @@
 
 import os
 import re
+from io import StringIO
 from pathlib import Path
 
 import pytest
@@ -779,3 +780,30 @@ def test_workflow_create_project_and_run_xy_crs(
         assert stats["max"] == 8
     assert raster.exists()
     assert raster.is_file()
+
+
+def test_v_pack_writes_the_archive_as_is(xy_dataset_session, tmp_path: Path):
+    """Check that v.pack gets the .pack file name instead of a raster import"""
+    tools = Tools(session=xy_dataset_session, use_cache=True)
+    tools.v_in_ascii(input=StringIO("1|1"), output="points", separator="pipe")
+    packed_file = tmp_path / "points.pack"
+    tools.v_pack(input="points", output=packed_file)
+    assert packed_file.exists()
+    # No raster may appear under the archive name.
+    assert not tools.g_findfile(element="raster", file=packed_file.stem, format="json")[
+        "name"
+    ]
+
+
+def test_v_unpack_takes_the_archive_as_is(xy_dataset_session, tmp_path: Path):
+    """Check that v.unpack reads a .pack file without r.unpack running first"""
+    tools = Tools(session=xy_dataset_session, use_cache=True)
+    tools.v_in_ascii(input=StringIO("1|1"), output="points", separator="pipe")
+    packed_file = tmp_path / "points.pack"
+    # Pack with the script API so that only the v.unpack call is under test.
+    gs.run_command(
+        "v.pack", input="points", output=packed_file, env=xy_dataset_session.env
+    )
+    tools.g_remove(type="vector", name="points", flags="f")
+    tools.v_unpack(input=packed_file)
+    assert tools.g_findfile(element="vector", file="points", format="json")["name"]

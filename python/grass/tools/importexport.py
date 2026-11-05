@@ -12,6 +12,12 @@ class ImporterExporter:
     """
 
     raster_pack_suffixes = (".grass_raster", ".pack", ".rpack", ".grr")
+    # These tools read (inputs) or write (outputs) the archive themselves. The
+    # suffix .pack is shared by raster and vector archives, so only the tool knows
+    # which it is. The other side of r.unpack and r.pack is still a data name, so
+    # a pack file there is handled as for any other tool.
+    archive_reading_tools = ("r.unpack", "v.unpack")
+    archive_writing_tools = ("r.pack", "v.pack")
 
     @classmethod
     def is_recognized_file(cls, value):
@@ -49,14 +55,18 @@ class ImporterExporter:
         # currently not included in --json. Consequently, we are only assuming that the
         # files are meant to be used as in-project data. So, we need to deal with cases
         # where that's not true one by one, such as r.unpack taking file,
-        # not raster (cell), so the file needs to be left as is.
+        # not raster (cell), so the file needs to be left as is (see the tuples
+        # archive_reading_tools and archive_writing_tools).
         parameters = self._process_parameters(command, **popen_options)
         tool_name = parameters["module"]
         args = command.copy()
         # We will deal with inputs right away
         if "inputs" in parameters:
             for item in parameters["inputs"]:
-                if tool_name != "r.unpack" and self.is_raster_pack_file(item["value"]):
+                if (
+                    tool_name not in self.archive_reading_tools
+                    and self.is_raster_pack_file(item["value"])
+                ):
                     in_project_name = self._to_name(item["value"])
                     record = (Path(item["value"]), in_project_name)
                     if (
@@ -71,7 +81,10 @@ class ImporterExporter:
                             args[i] = arg
         if "outputs" in parameters:
             for item in parameters["outputs"]:
-                if tool_name != "r.pack" and self.is_raster_pack_file(item["value"]):
+                if (
+                    tool_name not in self.archive_writing_tools
+                    and self.is_raster_pack_file(item["value"])
+                ):
                     in_project_name = self._to_name(item["value"])
                     record = (Path(item["value"]), in_project_name)
                     # Following the logic of r.slope.aspect, we don't deal with one output repeated
