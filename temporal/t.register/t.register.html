@@ -36,14 +36,16 @@ The option <b>input</b> names the space time dataset. Without it, <em>t.register
 only gives the maps their time and registers them in the temporal database.
 A map that is registered already can be entered into a further dataset by its
 name alone: <em>t.register</em> then reads its time from the temporal database, and
-<b>start</b>, <b>end</b> and <b>increment</b> are not needed.
+<b>start</b>, <b>end</b> and <b>increment</b> are not needed. <em>t.register</em> gives no
+warning then, because no time is to be changed.
 
 <p>
 A vector map can have several layers, and each layer is registered on its own.
 The notation <code>map:layer</code> selects a layer, such as <code>stations:2</code>, and a time step
 of a series can be a layer of one map. A name without a layer is a map of its
-own next to its layer 1. A layer has to be a number, and a layer that
-a vector map with a database link does not have is refused.
+own next to its layer 1. A layer has to be a number, and a layer that the
+vector map does not have is refused, with or without a database link: a layer
+is there if it is linked to a table or if the map has categories in it.
 
 <h3>Time of the maps</h3>
 
@@ -86,8 +88,9 @@ time then makes <em>t.register</em> stop with an error.
 <p>
 A map that is registered in the temporal database already keeps its time
 when it is registered again, even if <b>start</b> is given. <em>t.register</em> warns
-that the map is already registered and that the overwrite flag is not set. With
-<b>--overwrite</b>, the time of the map is replaced by the new one, in the
+that the map is already registered and that the overwrite flag is not set;
+without <b>start</b> it does not warn, because the time is not to be changed.
+With <b>--overwrite</b>, the time of the map is replaced by the new one, in the
 temporal database and in the metadata of the map.
 
 <p>
@@ -111,10 +114,11 @@ same series from <code>2001-01-01</code> has the granularity <code>1 month</code
 <h3>Input file</h3>
 
 The input file has one map per line, and a line can carry the time of its map.
-The columns of a line are separated by the character of the option
-<b>separator</b>, which is the pipe <code>|</code> by default. It takes a character or one of
-the names <code>comma</code>, <code>pipe</code> and <code>tab</code>. Empty lines are skipped. The forms of a
-line are:
+The name <code>-</code> for <b>file</b> reads the lines from the standard input, for example
+from a here document. The columns of a line are separated by the character of
+the option <b>separator</b>, which is the pipe <code>|</code> by default. It takes a
+character or one of the names <code>comma</code>, <code>pipe</code> and <code>tab</code>. Empty lines are
+skipped. The forms of a line are:
 
 <ul>
 <li><code>name</code>: a map without a time of its own, which gets its time from <b>start</b>,
@@ -132,8 +136,9 @@ it can be read as one, a date for absolute time and an integer for relative
 time, and a semantic label if it cannot. A line with a time keeps it; it needs
 no <b>start</b>. If every line has a time, <b>start</b>, <b>increment</b> and the flag
 <b>-i</b> have no effect, and <em>t.register</em> warns about <b>increment</b> and <b>-i</b>.
-The lines of a file with names only get their times in the same way as the
-maps of the option <b>maps</b>.
+In a file where only some lines have a time, <b>increment</b> and <b>-i</b> apply to
+the lines without one, and there is no warning. The lines of a file with names
+only get their times in the same way as the maps of the option <b>maps</b>.
 
 <p>
 A semantic label from the file is registered with the map. Without a label in

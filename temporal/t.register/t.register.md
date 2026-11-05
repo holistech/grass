@@ -33,13 +33,15 @@ The option **input** names the space time dataset. Without it, *t.register*
 only gives the maps their time and registers them in the temporal database.
 A map that is registered already can be entered into a further dataset by its
 name alone: *t.register* then reads its time from the temporal database, and
-**start**, **end** and **increment** are not needed.
+**start**, **end** and **increment** are not needed. *t.register* gives no
+warning then, because no time is to be changed.
 
 A vector map can have several layers, and each layer is registered on its own.
 The notation `map:layer` selects a layer, such as `stations:2`, and a time step
 of a series can be a layer of one map. A name without a layer is a map of its
-own next to its layer 1. A layer has to be a number, and a layer that
-a vector map with a database link does not have is refused.
+own next to its layer 1. A layer has to be a number, and a layer that the
+vector map does not have is refused, with or without a database link: a layer
+is there if it is linked to a table or if the map has categories in it.
 
 ### Time of the maps
 
@@ -78,8 +80,9 @@ time then makes *t.register* stop with an error.
 
 A map that is registered in the temporal database already keeps its time
 when it is registered again, even if **start** is given. *t.register* warns
-that the map is already registered and that the overwrite flag is not set. With
-**--overwrite**, the time of the map is replaced by the new one, in the
+that the map is already registered and that the overwrite flag is not set;
+without **start** it does not warn, because the time is not to be changed.
+With **--overwrite**, the time of the map is replaced by the new one, in the
 temporal database and in the metadata of the map.
 
 A month or year increment that ends behind the last day of a month ends on
@@ -101,10 +104,11 @@ same series from `2001-01-01` has the granularity `1 month`.
 ### Input file
 
 The input file has one map per line, and a line can carry the time of its map.
-The columns of a line are separated by the character of the option
-**separator**, which is the pipe `|` by default. It takes a character or one of
-the names `comma`, `pipe` and `tab`. Empty lines are skipped. The forms of a
-line are:
+The name `-` for **file** reads the lines from the standard input, for example
+from a here document. The columns of a line are separated by the character of
+the option **separator**, which is the pipe `|` by default. It takes a
+character or one of the names `comma`, `pipe` and `tab`. Empty lines are
+skipped. The forms of a line are:
 
 - `name`: a map without a time of its own, which gets its time from **start**,
   **end** and **increment**; the position of the line in the file counts, also
@@ -119,8 +123,9 @@ it can be read as one, a date for absolute time and an integer for relative
 time, and a semantic label if it cannot. A line with a time keeps it; it needs
 no **start**. If every line has a time, **start**, **increment** and the flag
 **-i** have no effect, and *t.register* warns about **increment** and **-i**.
-The lines of a file with names only get their times in the same way as the
-maps of the option **maps**.
+In a file where only some lines have a time, **increment** and **-i** apply to
+the lines without one, and there is no warning. The lines of a file with names
+only get their times in the same way as the maps of the option **maps**.
 
 A semantic label from the file is registered with the map. Without a label in
 the file, the label that the map has, set for instance with
