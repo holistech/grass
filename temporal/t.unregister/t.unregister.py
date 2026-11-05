@@ -159,6 +159,20 @@ def main():
     sp = None
     if input:
         sp = tgis.open_old_stds(input, type, dbif)
+        # The maps are unregistered in the database of the current mapset and
+        # the dataset is updated at the end, which only a dataset of the
+        # current mapset allows; refusing it here changes nothing.
+        if sp.get_mapset() != mapset:
+            dbif.close()
+            gs.fatal(
+                _(
+                    "Unable to update dataset <%(ds)s> of type "
+                    "%(type)s in the temporal database. The mapset "
+                    "of the database does not match the current "
+                    "mapset"
+                )
+                % {"ds": sp.get_id(), "type": sp.get_type()}
+            )
 
     maplist = map_ids(maps, file, mapset)
     dataset_ids = unregister_maps(maplist, type, sp, mapset, dbif)

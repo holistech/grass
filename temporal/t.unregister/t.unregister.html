@@ -75,6 +75,13 @@ The dataset types of the maps and of <b>input</b> must fit. A 3D raster map is
 not found as <code>raster</code>, and a call with <code>type=vector</code> does not find a space
 time raster dataset.
 
+<p>
+A dataset of another mapset named with <b>input</b> (<code>input=name@mapset</code>) is
+refused before the maps are read, with a message that starts <code>Unable to update
+dataset &lt;name@mapset&gt; of type strds</code> and says <code>The mapset of the database does
+not match the current mapset</code>. Nothing is changed. The maps of such a dataset
+are unregistered in the mapset that owns it.
+
 <h2>EXAMPLES</h2>
 
 The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
