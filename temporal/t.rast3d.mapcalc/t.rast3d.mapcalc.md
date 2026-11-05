@@ -23,9 +23,9 @@ is related to the granule in time, as the option **method** says. A granule
 for which one of the datasets has no related map is skipped. The order of the
 datasets in the expression does not matter, only their order in **inputs**. If
 the list names only one dataset, every map of it is a granule. The datasets may
-be in other mapsets (`moisture@t_rast3d_mapcalc`); the expression then still
-uses the name without the mapset, and the mapset does not have to be in the
-search path (see [Datasets of other
+be in other mapsets (`moisture@t_rast3d_mapcalc`); the expression then uses
+the name without the mapset or, as in **inputs**, with it, and the mapset does
+not have to be in the search path (see [Datasets of other
 mapsets](temporalintro.md#datasets-of-other-mapsets)).
 
 The result dataset is the option **output**. It always belongs to the current

@@ -60,7 +60,9 @@ _TIME_TOKENS = ("td", "start_time", "end_time", *_CALENDAR_TOKENS)
 # map name may hold dots and an "@" before the mapset. A dataset name is
 # replaced only where no word character or dot comes before it and no word
 # character or dot after it, so "day" stays in "start_day()" and "soil" stays
-# in "soil_deep". An "@" may follow, so "ds@mapset" names the dataset ds.
+# in "soil_deep". The mapset of the dataset that was found may follow, as in
+# "ds@first", and is replaced together with the name, because mapcalc_name()
+# writes a map of another mapset with its mapset already.
 # An "@" before the name is refused only when a name character precedes it,
 # as in the mapset of "map@ds": a leading "@" is the label operator of
 # r.mapcalc, so "@ds" reads the category labels of the map of ds.
@@ -111,14 +113,19 @@ def _substitute_time_tokens(expr, first_extent, extent, is_absolute, msgr):
 
 
 def _dataset_name_pattern(names):
-    """A pattern that matches each of names where it stands as a dataset name
+    """A pattern that matches each name where it stands as a dataset name
 
-    A name followed by "(" (blanks allowed) is the name of a function, such as
-    a dataset "td" in "td()", and stays. Longer names come first in the
-    alternation, so that "x.label" wins over "x" at the same place.
+    names holds pairs of a dataset name without the mapset and the mapset of
+    the dataset; a match is the name, optionally followed by "@" and that
+    mapset. A name followed by "(" (blanks allowed) is the name of a function,
+    such as a dataset "td" in "td()", and stays. Longer names come first in
+    the alternation, so that "x.label" wins over "x" at the same place.
     """
     alternatives = "|".join(
-        re.escape(name) for name in sorted(set(names), key=len, reverse=True)
+        f"{re.escape(name)}(?:@{re.escape(mapset)})?"
+        for name, mapset in sorted(
+            set(names), key=lambda pair: len(pair[0]), reverse=True
+        )
     )
     return re.compile(rf"{_NAME_BEFORE}(?:{alternatives}){_NAME_AFTER}(?!\s*\()")
 
@@ -228,6 +235,7 @@ def _plan_statements(
     id_list,
     columns,
     display_names,
+    mapsets,
     first_series,
     labels,
     map_kind,
@@ -237,13 +245,15 @@ def _plan_statements(
     """Make the result maps and the r.mapcalc statements of the granules
 
     A granule for which an input has no map is skipped. A result map that is
-    already registered is replaced only with overwrite.
+    already registered is replaced only with overwrite. mapsets holds the
+    mapset of the dataset of each name in inputs, which the expression may
+    write after the dataset name.
 
     :return: the new maps, with their time and label, and their statements
     """
     mapset = get_current_mapset()
     names_in_expression = _dataset_name_pattern(
-        display_names[dataset_name] for dataset_name in id_list
+        (display_names[dataset_name], mapsets[dataset_name]) for dataset_name in id_list
     )
     is_absolute = first_series.temporal_type == "absolute"
     first_extent = first_series.slots[0].extent
@@ -262,9 +272,11 @@ def _plan_statements(
         if None in maps_in_slot.values():
             continue
         # One pass over the expression, so that a map name that was put in
-        # is not read as a dataset name again.
+        # is not read as a dataset name again. A display name holds no "@",
+        # so the match without its mapset is the key.
         expr = names_in_expression.sub(
-            lambda match, maps=maps_in_slot: maps[match.group()], expression
+            lambda match, maps=maps_in_slot: maps[match.group().partition("@")[0]],
+            expression,
         )
         expr = _substitute_time_tokens(
             expr, first_extent, sample_extents[i], is_absolute, msgr
@@ -449,6 +461,7 @@ def dataset_mapcalculator(
             id_list,
             columns,
             display_names,
+            {name: datasets[name].get_mapset() for name in id_list},
             first_series,
             labels,
             map_kind,

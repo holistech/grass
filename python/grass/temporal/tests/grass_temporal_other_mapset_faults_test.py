@@ -462,6 +462,46 @@ def test_input_of_mapset_outside_search_path_mapcalc3d(tools):
     assert rows == ["name|min|max", "plus3_1|2.0|2.0", "plus3_2|3.0|3.0"]
 
 
+@pytest.mark.parametrize("in_search_path", [False, True])
+def test_qualified_name_in_expression_mapcalc(tools, in_search_path):
+    """The expression may name the input as ds@first, as before"""
+    if in_search_path:
+        add_first(tools)
+
+    tools.t_rast_mapcalc(
+        inputs="ds@first",
+        output="qualified",
+        basename="qual",
+        expression="ds@first + 1",
+        overwrite=True,
+    )
+
+    assert listing(tools, "qualified", columns="name,min,max") == [
+        "name|min|max",
+        "qual_1|2.0|2.0",
+        "qual_2|3.0|3.0",
+        "qual_3|4.0|4.0",
+        "qual_4|5.0|5.0",
+    ]
+
+
+@pytest.mark.parametrize("in_search_path", [False, True])
+def test_qualified_name_in_expression_mapcalc3d(tools, in_search_path):
+    if in_search_path:
+        add_first(tools)
+
+    tools.t_rast3d_mapcalc(
+        inputs="ds3@first",
+        output="qualified3",
+        basename="qual3",
+        expression="ds3@first + 1",
+        overwrite=True,
+    )
+
+    rows = lines(tools.t_rast3d_list(input="qualified3", columns="name,min,max"))
+    assert rows == ["name|min|max", "qual3_1|2.0|2.0", "qual3_2|3.0|3.0"]
+
+
 def test_name_without_mapset_is_not_found_in_a_mapset_added_by_a_qualified_name(
     tools, owner
 ):
@@ -626,6 +666,42 @@ def test_mapcalc3d_with_mapsets_that_r_mapcalc_splits(odd_sessions, source):
     )
 
     assert values(odd_sessions, f"calc_{name}", "t_rast3d_list") == [
+        ("2.0", "2.0"),
+        ("3.0", "3.0"),
+    ]
+
+
+@pytest.mark.parametrize("source", ["own@user-1", "other@2026"])
+def test_mapcalc_with_qualified_name_in_expression_that_r_mapcalc_splits(
+    odd_sessions, source
+):
+    """The expression names the input with a mapset that r.mapcalc splits"""
+    name = source.split("@")[0]
+
+    odd_sessions.t_rast_mapcalc(
+        inputs=source,
+        output=f"qcalc_{name}",
+        basename=f"qcalc_{name}",
+        expression=f"{source} + 1",
+    )
+
+    assert values(odd_sessions, f"qcalc_{name}") == [("2.0", "2.0"), ("3.0", "3.0")]
+
+
+@pytest.mark.parametrize("source", ["own3@user-1", "other3@2026"])
+def test_mapcalc3d_with_qualified_name_in_expression_that_r_mapcalc_splits(
+    odd_sessions, source
+):
+    name = source.split("@")[0]
+
+    odd_sessions.t_rast3d_mapcalc(
+        inputs=source,
+        output=f"qcalc_{name}",
+        basename=f"qcalc_{name}",
+        expression=f"{source} + 1",
+    )
+
+    assert values(odd_sessions, f"qcalc_{name}", "t_rast3d_list") == [
         ("2.0", "2.0"),
         ("3.0", "3.0"),
     ]

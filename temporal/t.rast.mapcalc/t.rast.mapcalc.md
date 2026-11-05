@@ -24,8 +24,8 @@ for which one of the datasets has no related map is skipped. The order of the
 datasets in the expression does not matter, only their order in **inputs**. If
 the list names only one dataset, every map of it is a granule. The datasets may
 be in other mapsets (`precipitation_monthly@t_rast_mapcalc`); the expression
-then still uses the name without the mapset, and the mapset does not have to
-be in the search path (see [Datasets of other
+then uses the name without the mapset or, as in **inputs**, with it, and the
+mapset does not have to be in the search path (see [Datasets of other
 mapsets](temporalintro.md#datasets-of-other-mapsets)).
 
 A name with a dot, such as `bands.S2_8`, is a dataset name and a semantic
