@@ -77,6 +77,14 @@ A dataset of an earlier release can have a dot in its name. It is found by its
 whole name and removed like any other dataset; only for a name that no
 dataset has, the text after the dot is read as a semantic label.
 
+<p>
+A dataset of another mapset is refused with <code>Unable to delete dataset
+&lt;name@mapset&gt; of type strds from the temporal database. The mapset of the
+database does not match the current mapset</code>. The refusal comes before the
+listing of a call without <b>-f</b> and before the first removal of a call with
+it, so the listing never names a dataset that the same call with <b>-f</b> would
+refuse.
+
 <h2>EXAMPLES</h2>
 
 The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
