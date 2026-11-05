@@ -29,8 +29,8 @@ as it does without **-c**.
 
 The standard flag **--overwrite** replaces an existing dataset of the name
 **output**; see the notes below for what happens to its maps. Without it, an
-existing **output** stops the call. It does not lift the refusal of **-c** when
-a map of the current mapset has the name of a map to copy; see the notes.
+existing **output** stops the call. With **-c**, it also replaces the maps of
+the current mapset that have the names of the maps to copy; see the notes.
 
 *[t.rast.extract](t.rast.extract.md)*, *[t.rast3d.extract](t.rast3d.extract.md)*
 and *[t.vect.extract](t.vect.extract.md)* copy a selection of the maps into a
@@ -43,11 +43,12 @@ dataset, an existing dataset of that name and, with **-c**, the maps that would
 be copied. A refused call leaves no copied maps behind. With **-c**, a map of
 the original that has the name of a map in the current mapset stops the call
 with an error such as `A raster map <rain_1> exists already in the current
-mapset <t_copy_2>`. **--overwrite** does not lift this refusal: it concerns the
-output dataset and the entries of the temporal database, not the maps of the
-mapset. The call with **--overwrite** fails in the same way, so that repeating
-a call with **-c** needs the maps removed first, as the last block of the
-fourth example shows (or a call without **-c**).
+mapset <t_copy_2>`. With **--overwrite**, the map of the current mapset is
+replaced by the copy, so that a call with **-c** can be repeated, as the last
+block of the fourth example shows. A map of the current mapset that is
+registered in a space time dataset other than **output** is not replaced: the
+call stops before the first map is copied, with an error that names the map
+and the dataset, because that dataset would lose a map it still lists.
 
 The name of the new dataset must not contain a dot; *t.copy* stops with an
 error before anything is copied. The mapset of **output** must be the current
@@ -313,9 +314,8 @@ still the maps of `t_copy`, as the column `mapset` shows. The second command
 copies the dataset with **-c** to `rain_own`: the copy holds new maps with the
 same names in the mapset `t_copy_2`, and the maps of `rain` in `t_copy` are as
 they were. *g.list* shows the new maps in `t_copy_2`. The third command repeats
-the call with **--overwrite**: it fails, because the maps `rain_1` to `rain_3`
-exist in `t_copy_2` now. After *g.remove* has removed them, the call with
-**--overwrite** replaces `rain_own` and copies the maps again.
+the call with **--overwrite**: it replaces `rain_own` and the maps `rain_1` to
+`rain_3` in `t_copy_2`, which exist there now, and copies the maps again.
 
 This example continues with the data of the first one.
 
@@ -358,19 +358,11 @@ This example continues with the data of the first one.
     ```
 
     ```sh
-    if ! t.copy -c --overwrite input=rain@t_copy output=rain_own 2>&1; then
-        echo "t.copy failed"
-    fi
-    g.remove -f type=raster name=rain_1,rain_2,rain_3
     t.copy -c --overwrite input=rain@t_copy output=rain_own
     t.rast.list input=rain_own columns=name,mapset
     ```
 
     ```text
-    Copying raster maps to the current mapset...
-    ERROR: A raster map <rain_1> exists already in the current mapset
-           <t_copy_2>.
-    t.copy failed
     name|mapset
     rain_1|t_copy_2
     rain_2|t_copy_2
@@ -416,23 +408,11 @@ This example continues with the data of the first one.
     ```
 
     ```python
-    from grass.tools import ToolError
-
-    try:
-        tools.t_copy(input="rain@t_copy", output="rain_own", flags="c", overwrite=True)
-    except ToolError as error:
-        print(error.stderr.strip())
-        print("t.copy failed")
-    tools.g_remove(flags="f", type="raster", name="rain_1,rain_2,rain_3")
     tools.t_copy(input="rain@t_copy", output="rain_own", flags="c", overwrite=True)
     print(tools.t_rast_list(input="rain_own", columns="name,mapset").text)
     ```
 
     ```text
-    Copying raster maps to the current mapset...
-    ERROR: A raster map <rain_1> exists already in the current mapset
-           <t_copy_2>.
-    t.copy failed
     name|mapset
     rain_1|t_copy_2
     rain_2|t_copy_2
@@ -445,7 +425,6 @@ This example continues with the data of the first one.
 
 *[g.copy](g.copy.md), [g.list](g.list.md), [g.mapset](g.mapset.md),
 [g.mapsets](g.mapsets.md), [g.region](g.region.md),
-[g.remove](g.remove.md),
 [t.create](t.create.md), [t.info](t.info.md), [t.list](t.list.md),
 [t.rast.extract](t.rast.extract.md), [t.rast.list](t.rast.list.md),
 [t.rast3d.extract](t.rast3d.extract.md), [t.rast3d.list](t.rast3d.list.md),

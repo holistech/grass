@@ -68,23 +68,52 @@ def check_output_mapset(output, mapset):
             )
 
 
-def check_maps_can_be_copied(old_maps, mapset, maptype, element, overwrite, dbif):
+def check_maps_can_be_copied(
+    old_maps, mapset, maptype, element, overwrite, dbif, output_id
+):
     """Stop if a map of another mapset cannot be copied into the current one
 
     Everything that can refuse the copy is checked before the first map is
-    copied, so that a refusal does not leave copied maps behind.
+    copied, so that a refusal does not leave copied maps behind. With
+    overwrite a map of the current mapset is replaced, unless it is registered
+    in a space time dataset other than the output: that dataset would lose a
+    map it still lists.
     """
     for map in old_maps:
         map_name, map_mapset = map.get_name(), map.get_mapset()
         if map_mapset != mapset:
             found = gs.find_file(name=map_name, element=element, mapset=mapset)
             if found["name"] is not None and len(found["name"]) > 0:
-                gs.fatal(
-                    _("A %s map <%s> exists already in the current mapset <%s>.")
-                    % (maptype, map_name, mapset)
-                )
+                if not overwrite:
+                    gs.fatal(
+                        _("A %s map <%s> exists already in the current mapset <%s>.")
+                        % (maptype, map_name, mapset)
+                    )
+                check_replaced_map(map, mapset, maptype, dbif, output_id)
         tgis.check_new_map_dataset(
             map_name, _layer(map, maptype), maptype, overwrite, dbif
+        )
+
+
+def check_replaced_map(map, mapset, maptype, dbif, output_id):
+    """Refuse to replace a map that a space time dataset other than the output holds"""
+    existing = tgis.dataset_factory(
+        maptype, map.build_id(map.get_name(), mapset, _layer(map, maptype))
+    )
+    if not existing.is_in_db(dbif, mapset):
+        return
+    others = [
+        stds
+        for stds in existing.get_registered_stds(dbif, mapset) or []
+        if stds != output_id
+    ]
+    if others:
+        gs.fatal(
+            _(
+                "The %s map <%s> exists in the current mapset and is registered "
+                "in the space time dataset <%s>, so it cannot be replaced."
+            )
+            % (maptype, map.get_name(), ",".join(others))
         )
 
 
@@ -197,7 +226,10 @@ def main():
 
     if copy_maps:
         gs.message(_("Copying %s maps to the current mapset...") % maptype)
-        check_maps_can_be_copied(old_maps, mapset, maptype, element, overwrite, dbif)
+        output_id = output if "@" in output else f"{output}@{mapset}"
+        check_maps_can_be_copied(
+            old_maps, mapset, maptype, element, overwrite, dbif, output_id
+        )
         new_maps = copy_maps_to_mapset(old_maps, mapset, maptype, overwrite, dbif)
     else:
         # don't copy maps, use old maps
