@@ -101,11 +101,11 @@ If a new map is already in the temporal database and **--overwrite** is not
 given, the tool stops before it extracts anything, with "Map ... is already in
 temporal database, use overwrite flag to overwrite", and makes no dataset.
 
-The last example shows that a dataset of another mapset works as input when an
-**expression** is given. Without an **expression**, such a dataset is refused,
-and the empty output dataset that the refusal leaves behind has to be removed
-with *[t.remove](t.remove.md)*. Add an **expression** that every feature
-meets, such as `level > 0` there, to copy the maps instead.
+A dataset of another mapset works as input. With an **expression** the new
+maps belong to the current mapset. Without one the new dataset registers the
+maps of the input, which stay in their mapset: the tool inserts them into the
+temporal database of the current mapset, as *[t.copy](t.copy.md)* does without
+**-c**. The last example shows both.
 
 ## EXAMPLES
 
@@ -1054,10 +1054,11 @@ extracts with an expression from `model@t_vect_extract`, which the name with
 its mapset selects. The new dataset `model_copy` and its maps `copy_00001` and
 `copy_00002` belong to `t_vect_extract_2`. The `id` column shows the mapset.
 
-The second block shows what happens without an expression. The call is
-refused, so the block prints `refused`. The refusal leaves the empty dataset
-`model_copy_empty` behind. `number_of_maps=None` shows that it has no maps, and
-*t.remove* removes it.
+The second block extracts without an expression. The new dataset
+`model_shared` belongs to `t_vect_extract_2` and registers the maps of
+`model@t_vect_extract` themselves. The `id` column shows that they stay in
+`t_vect_extract`, and `g.list` shows that `t_vect_extract_2` holds only the two
+copies of the first block.
 
 === "Command line"
 
@@ -1076,23 +1077,22 @@ refused, so the block prints `refused`. The refusal leaves the empty dataset
     ```
 
     ```sh
-    if t.vect.extract input=model@t_vect_extract output=model_copy_empty \
-        2>/dev/null; then echo extracted; else echo refused; fi
-    t.info -g type=stvds input=model_copy_empty | grep -E "^(id|number_of_maps)="
-    t.remove -f type=stvds inputs=model_copy_empty
+    t.vect.extract input=model@t_vect_extract output=model_shared
+    t.vect.list input=model_shared columns=id,start_time,points
+    g.list type=vector mapset=.
     ```
 
     ```text
-    refused
-    id=model_copy_empty@t_vect_extract_2
-    number_of_maps=None
+    id|start_time|points
+    run_1@t_vect_extract|0|2
+    run_2@t_vect_extract|6|2
+    copy_00001
+    copy_00002
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    from grass.tools import ToolError
-
     tools.g_mapset(mapset="t_vect_extract_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     tools.t_vect_extract(
@@ -1112,22 +1112,17 @@ refused, so the block prints `refused`. The refusal leaves the empty dataset
     ```
 
     ```python
-    try:
-        tools.t_vect_extract(input="model@t_vect_extract", output="model_copy_empty")
-    except ToolError:
-        print("refused")
-    else:
-        print("extracted")
-    info = tools.t_info(type="stvds", input="model_copy_empty", flags="g").keyval
-    for key in ("id", "number_of_maps"):
-        print(f"{key}={info[key]}")
-    tools.t_remove(type="stvds", inputs="model_copy_empty", flags="f")
+    tools.t_vect_extract(input="model@t_vect_extract", output="model_shared")
+    print(tools.t_vect_list(input="model_shared", columns="id,start_time,points").text)
+    print(tools.g_list(type="vector", mapset=".").text)
     ```
 
     ```text
-    refused
-    id=model_copy_empty@t_vect_extract_2
-    number_of_maps=None
+    id|start_time|points
+    run_1@t_vect_extract|0|2
+    run_2@t_vect_extract|6|2
+    copy_00001
+    copy_00002
     ```
 
 <!-- markdownlint-enable MD046 -->
@@ -1135,10 +1130,10 @@ refused, so the block prints `refused`. The refusal leaves the empty dataset
 ## SEE ALSO
 
 *[g.list](g.list.md), [g.mapset](g.mapset.md), [g.mapsets](g.mapsets.md),
-[t.create](t.create.md), [t.info](t.info.md),
+[t.copy](t.copy.md), [t.create](t.create.md), [t.info](t.info.md),
 [t.rast.extract](t.rast.extract.md), [t.register](t.register.md),
-[t.remove](t.remove.md), [t.vect.list](t.vect.list.md),
-[v.extract](v.extract.md), [temporal data processing](temporalintro.md)*
+[t.vect.list](t.vect.list.md), [v.extract](v.extract.md),
+[temporal data processing](temporalintro.md)*
 
 ## AUTHOR
 
