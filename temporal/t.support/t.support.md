@@ -76,6 +76,11 @@ without **-m** or **-u** leaves the dataset as it was (see the third example).
 The command history of the dataset records each call of *t.support*, which
 *t.info* shows under `Command history`.
 
+A dataset of another mapset is refused before anything is looked at or changed,
+also with **-m**, with a message that starts `Unable to update dataset
+<name@mapset> of type strds` and says `The mapset of the database does not
+match the current mapset`. Change such a dataset in its own mapset.
+
 ## EXAMPLES
 
 The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from

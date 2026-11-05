@@ -185,6 +185,19 @@ def main():
 
     stds = tgis.open_old_stds(name, type, dbif)
     mapset = tgis.get_current_mapset()
+    # Every change of the dataset needs its own mapset to be the current one;
+    # refusing it here stops before the maps are looked at.
+    if stds.get_mapset() != mapset:
+        dbif.close()
+        gs.fatal(
+            _(
+                "Unable to update dataset <%(ds)s> of type "
+                "%(type)s in the temporal database. The mapset"
+                " of the database does not match the current "
+                "mapset"
+            )
+            % {"ds": stds.get_id(), "type": stds.get_type()}
+        )
 
     changed = update_metadata(stds, type, aggr_type, title, description, semantic, dbif)
 

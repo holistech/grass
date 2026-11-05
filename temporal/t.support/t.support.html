@@ -85,6 +85,12 @@ without <b>-m</b> or <b>-u</b> leaves the dataset as it was (see the third examp
 The command history of the dataset records each call of <em>t.support</em>, which
 <em>t.info</em> shows under <code>Command history</code>.
 
+<p>
+A dataset of another mapset is refused before anything is looked at or changed,
+also with <b>-m</b>, with a message that starts <code>Unable to update dataset
+&lt;name@mapset&gt; of type strds</code> and says <code>The mapset of the database does not
+match the current mapset</code>. Change such a dataset in its own mapset.
+
 <h2>EXAMPLES</h2>
 
 The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
