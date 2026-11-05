@@ -168,6 +168,31 @@ def list_nothing(output_format, outpath):
             out_file.write(json.dumps([], indent=4) + "\n")
 
 
+def refuse_unknown_mapsets(mapsets):
+    """Stop at a named mapset that the project does not have
+
+    A mapset that exists but has no temporal database is no error, that
+    listing is empty; a name that is no mapset is a typing mistake that an
+    empty listing would hide.
+    """
+    named = [name for name in (mapsets or "").split(",") if name not in {"", ".", "*"}]
+    if not named:
+        return
+    known = set(gs.mapsets())
+    unknown = [name for name in named if name not in known]
+    if unknown:
+        gs.fatal(_("Mapset <{}> not found in the project.").format(", ".join(unknown)))
+
+
+def where_is_refused(dbif, stds_type, ttype, columns_for_db, where):
+    """Tell whether the database refuses the where condition without an order"""
+    try:
+        tgis.get_dataset_list(stds_type, ttype, columns_for_db, where, None, dbif=dbif)
+    except tgis.SQLStatementError:
+        return True
+    return False
+
+
 def query_datasets(dbif, stds_type, temporal_type, columns_for_db, where, order):
     """Query the datasets of each temporal type
 
@@ -183,8 +208,15 @@ def query_datasets(dbif, stds_type, temporal_type, columns_for_db, where, order)
                 stds_type, ttype, columns_for_db, where, order, dbif=dbif
             )
         except tgis.SQLStatementError as error:
+            refused = _("Invalid where condition <{}>: {}").format(where, error)
+            # The statement reports only the SQL error, not which of the two
+            # options holds the column, so the where condition alone decides.
+            if order and not where_is_refused(
+                dbif, stds_type, ttype, columns_for_db, where
+            ):
+                refused = _("Invalid order <{}>: {}").format(order, error)
             dbif.close()
-            gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+            gs.fatal(refused)
         queried.append((time, stds_list))
     return queried
 
@@ -307,6 +339,8 @@ def main():
         output_format, separator, colhead, stds_type, columns
     )
     stds_type, columns_for_db = query_types(stds_type, columns)
+
+    refuse_unknown_mapsets(mapsets)
 
     tgis.init(skip_db_init=True)
 

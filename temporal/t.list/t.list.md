@@ -45,6 +45,11 @@ Without it, these are the mapsets of the search path (see
 
 Quote `*` in the shell: `mapset='*'`.
 
+A name that is no mapset of the project stops *t.list* with the error
+`Mapset <name> not found in the project.` and a return code other than 0. A
+mapset that exists but has no temporal database is no error and lists
+nothing, as described under the output below.
+
 ### Columns
 
 The option **columns** chooses the columns that are printed for each dataset
@@ -106,6 +111,11 @@ separately to the datasets of each temporal type: with the default
 **temporaltype**, the datasets with absolute time are listed and sorted first,
 then those with relative time, each sorted on its own. The same holds for each
 mapset.
+
+A column that the listed type does not have, such as `number_of_maps` for
+`type=raster`, ends the run with the error `Invalid order <number_of_maps>:`
+followed by the message of the database; the same column in **where** is
+reported as `Invalid where condition`.
 
 ### Output
 

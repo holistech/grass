@@ -54,6 +54,12 @@ search path.</li>
 <p>
 Quote <code>*</code> in the shell: <code>mapset='*'</code>.
 
+<p>
+A name that is no mapset of the project stops <em>t.list</em> with the error
+<code>Mapset &lt;name&gt; not found in the project.</code> and a return code other than 0. A
+mapset that exists but has no temporal database is no error and lists
+nothing, as described under the output below.
+
 <h3>Columns</h3>
 
 The option <b>columns</b> chooses the columns that are printed for each dataset
@@ -120,6 +126,12 @@ separately to the datasets of each temporal type: with the default
 <b>temporaltype</b>, the datasets with absolute time are listed and sorted first,
 then those with relative time, each sorted on its own. The same holds for each
 mapset.
+
+<p>
+A column that the listed type does not have, such as <code>number_of_maps</code> for
+<code>type=raster</code>, ends the run with the error <code>Invalid order &lt;number_of_maps&gt;:</code>
+followed by the message of the database; the same column in <b>where</b> is
+reported as <code>Invalid where condition</code>.
 
 <h3>Output</h3>
 
