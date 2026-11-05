@@ -68,11 +68,17 @@ available.
 
 <p>
 The tool puts the names of the maps into the text of the expression and
-numbers the results, so a call with four granules runs four statements such as
-<code>doubled_1=soil_1*2</code>. Because the replacement works on the text, a dataset
-name must not occur anywhere else in the expression, neither in a function name
-(a dataset <code>day</code> breaks <code>start_day()</code>) nor in another dataset name (<code>soil</code>
-breaks <code>soil_deep</code>); see the ninth example.
+numbers the results, so with the expression <code>soil * 2</code> a call with four
+granules runs four statements such as <code>doubled_1=soil_1 * 2</code>. A dataset name
+is replaced only where it stands as a whole name: not inside a longer name
+(<code>soil</code> in <code>soil_deep</code>), and not before an opening parenthesis, where it is the
+name of a function (<code>day</code> in <code>start_day()</code>); see the ninth example. A modifier
+of <em>r.mapcalc</em> in front of the name applies to the map of the granule, so
+<code>@soil</code> reads the category labels of <code>soil_1</code>; after a map name, as in
+<code>elevation@soil</code>, the name is a mapset and stays. The rest of
+the expression goes to <em>r.mapcalc</em> as written, blanks included. Two inputs with
+the same name, such as <code>soil,soil</code>, are refused before any map is computed,
+because the expression could not tell them apart.
 
 <p>
 The option <b>basename</b> is required. The new maps are named after it, followed
@@ -140,9 +146,9 @@ before it and ends inside it.</li>
 <li><code>follows</code>: the map ends when the granule starts.</li>
 <li><code>precedes</code>: the map starts when the granule ends.</li>
 <li><code>start</code>: the maps that lie inside the granule, the maps that start before it
-and end inside it, and the maps that cover it while sharing its start or its
-end. It does not take the equal map, a map that covers the granule strictly
-and a map that starts inside it and ends after it.</li>
+and end inside it, the maps that cover it while sharing its start or its
+end, and the equal map. It does not take a map that covers the granule
+strictly and a map that starts inside it and ends after it.</li>
 </ul>
 
 <p>
@@ -150,7 +156,8 @@ If more than one map of a dataset is related to a granule, the tool warns on
 the standard error and uses only one of them. Which one, follows from the
 order in which it tries the relations. First come the methods <code>equal</code>,
 <code>during</code>, <code>follows</code> and <code>precedes</code>, in the order of the list <b>method</b>; then
-the group <code>start</code>, then <code>overlap</code> and then <code>contain</code>, if they are in the list.
+the group <code>start</code>, which tries the equal map last, then <code>overlap</code> and then
+<code>contain</code>, if they are in the list.
 Within one relation, the map with the earliest start time is taken, and for
 equal start times the map with the smaller id. So for the list
 <code>contain,during</code> a map found by <code>during</code> wins over a map found by <code>contain</code>.
@@ -210,22 +217,17 @@ on the standard error with "Starting temporal sampling..." (with <b>-s</b>:
 computation...".
 
 <p>
-Some inputs give no samples. If <b>inputs</b> names more than one dataset and the
-sampler has only time instants, or the datasets have different temporal types,
-the tool prints a message that names the reason and "No samples found for map
-calculation". It also prints that last message if <b>where</b> leaves no map in
-the sampler. A call with one dataset needs no sampling: time instants work as
-in the fifth example, and if <b>where</b> leaves no map, the tool prints "No maps
-registered in input dataset ...". In all these cases it makes no dataset
-<b>output</b> and ends with status 0. If <b>where</b> leaves no map in another
-dataset, no granule has a partner, and the tool makes an <b>output</b> without
-maps.
-
-<p>
-Because the tool replaces the names as text, two datasets whose names share a
-start, such as <code>soil</code> and <code>soil_deep</code>, cannot be used together in one call, in
-whatever order they are listed. Copy one of them with <em><a href="t.copy.html">t.copy</a></em>
-under another name, as the ninth example shows.
+If <b>inputs</b> names more than one dataset and the sampler has only time
+instants, or the datasets have different temporal types, the first dataset
+cannot sample the others: the tool stops before it computes any map, with "The
+temporal map type of the sample dataset must be interval" or "The space time
+datasets must be of the same temporal type". If <b>where</b> leaves no map in the
+sampler, the tool prints "No samples found for map calculation". A call with
+one dataset needs no sampling: time instants work as in the fifth example, and
+if <b>where</b> leaves no map, the tool prints "No maps registered in input
+dataset ...". In these two cases it makes no dataset <b>output</b> and ends with
+status 0. If <b>where</b> leaves no map in another dataset, no granule has a
+partner, and the tool makes an <b>output</b> without maps.
 
 <h2>EXAMPLES</h2>
 
@@ -663,7 +665,7 @@ The number at the end of a name is the number of the granule that found a
 related map: <code>equal</code> finds the map of granule 1, <code>during</code> the ones of the
 granules 3, 8 and 9, <code>contain</code> granule 2, <code>overlap</code> the granules 4 and 5,
 <code>follows</code> granule 6 and <code>precedes</code> granule 7. The method <code>start</code> finds the
-granules 2, 5, 8 and 9. The last two blocks show that <b>method</b> takes a
+granules 1, 2, 5, 8 and 9. The last two blocks show that <b>method</b> takes a
 list. Without <b>method</b> the default <code>equal</code> finds only the granule 1. With
 the list <code>during,overlap,contain,equal</code> the tool collects the granules 1 to 5,
 8 and 9, and the listing shows that the maps have the times of the granules.
@@ -723,7 +725,7 @@ contain: contain_2
 overlap: overlap_4,overlap_5
 follows: follows_6
 precedes: precedes_7
-start: start_2,start_5,start_8,start_9
+start: start_1,start_2,start_5,start_8,start_9
 </pre></div>
 
 <div class="code"><pre>
@@ -807,7 +809,7 @@ contain: contain_2
 overlap: overlap_4,overlap_5
 follows: follows_6
 precedes: precedes_7
-start: start_2,start_5,start_8,start_9
+start: start_1,start_2,start_5,start_8,start_9
 </pre></div>
 
 <div class="code"><pre>
@@ -1834,20 +1836,17 @@ late_1|2026-06-11 00:00:00|S2_8|0.75|0.75
 
 <h3>Names of datasets in the expression</h3>
 
-The tool replaces the name of a dataset in the text of the expression, so the
-name must not appear elsewhere in it. The dataset <code>day</code> has one map. In
-<code>day * start_day()</code> the replacement also changes <code>start_day()</code>, and
-<em>r.mapcalc</em> stops with the message that the function <code>start_day_1</code> is not
-defined.
+A dataset name in the expression is replaced only where it stands as a whole
+name. The dataset <code>day</code> has one map with the value 4 on March 1. In
+<code>day * start_day()</code> the name <code>day</code> inside <code>start_day()</code> stays, so the result is
+4 times the day of the month, 1. The dataset <code>soil_deep</code> has one map with the
+value 3 on March 1. In <code>soil + soil_deep</code> the name <code>soil</code> inside <code>soil_deep</code>
+stays, so the first granule of <code>soil</code>, whose map holds 2, gets 5; the other
+three granules of <code>soil</code> have no map of <code>soil_deep</code> and are skipped.
 
 <p>
-Two datasets whose names share a start have the same problem. The dataset
-<code>soil_deep</code> has one map; <code>soil + soil_deep</code> becomes <code>soil_1+soil_1_deep</code>, and
-<em>r.mapcalc</em> does not know the map <code>soil_1_deep</code>.
-
-<p>
-Copy a dataset under another name with <em>t.copy</em>, and use the new name. The copy
-holds the same maps, and the third block computes with it.
+Two inputs with the same name cannot be told apart in the expression. The
+third block names <code>day</code> twice, and the tool stops before it computes anything.
 
 <p>Command line:</p>
 
@@ -1856,20 +1855,14 @@ r.mapcalc expression="day_1 = 4"
 t.create output=day title="Day" description="One map"
 t.register input=day maps=day_1 \
     start=2026-03-01 end=2026-03-02
-if ! t.rast.mapcalc inputs=day output=bad basename=bad \
-    expression="day * start_day()" 2&gt;&amp;1; then
-    echo "t.rast.mapcalc failed"
-fi
+t.rast.mapcalc inputs=day output=day_of_month basename=day_of_month \
+    expression="day * start_day()"
+t.rast.list input=day_of_month columns=name,start_time,min,max
 </pre></div>
 
 <div class="code"><pre>
-Starting temporal sampling...
-Starting mapcalc computation...
-Undefined function 'start_day_1'
-Parse error
-ERROR: parse error
-ERROR: Error while mapcalc computation
-t.rast.mapcalc failed
+name|start_time|min|max
+day_of_month_1|2026-03-01 00:00:00|4.0|4.0
 </pre></div>
 
 <div class="code"><pre>
@@ -1878,32 +1871,27 @@ t.create output=soil_deep title="Deep soil" \
     description="One map"
 t.register input=soil_deep maps=soil_deep_1 \
     start=2026-03-01 end=2026-03-02
-if ! t.rast.mapcalc inputs=soil,soil_deep output=bad basename=bad \
-    expression="soil + soil_deep" 2&gt;&amp;1; then
+t.rast.mapcalc inputs=soil,soil_deep output=layers basename=layers \
+    expression="soil + soil_deep"
+t.rast.list input=layers columns=name,start_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|min|max
+layers_1|2026-03-01 00:00:00|5.0|5.0
+</pre></div>
+
+<div class="code"><pre>
+if ! t.rast.mapcalc inputs=day,day output=twice basename=twice \
+    expression="day + 1" 2&gt;&amp;1; then
     echo "t.rast.mapcalc failed"
 fi
 </pre></div>
 
 <div class="code"><pre>
-Starting temporal sampling...
-Starting mapcalc computation...
-Invalid map &lt;soil_1_deep&gt;
-Parse error
-ERROR: parse error
-ERROR: Error while mapcalc computation
+ERROR: The name &lt;day&gt; stands more than once in inputs, so the expression
+cannot tell the inputs apart
 t.rast.mapcalc failed
-</pre></div>
-
-<div class="code"><pre>
-t.copy input=day output=sunshine
-t.rast.mapcalc inputs=sunshine output=sunny basename=sunny \
-    expression="sunshine * start_day()"
-t.rast.list input=sunny columns=name,start_time,min,max
-</pre></div>
-
-<div class="code"><pre>
-name|start_time|min|max
-sunny_1|2026-03-01 00:00:00|4.0|4.0
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -1912,23 +1900,22 @@ sunny_1|2026-03-01 00:00:00|4.0|4.0
 tools.r_mapcalc(expression="day_1 = 4")
 tools.t_create(output="day", title="Day", description="One map")
 tools.t_register(input="day", maps="day_1", start="2026-03-01", end="2026-03-02")
-try:
-    tools.t_rast_mapcalc(
-        inputs="day", output="bad", basename="bad", expression="day * start_day()"
-    )
-except ToolError as error:
-    print(error.stderr.strip())
-    print("t.rast.mapcalc failed")
+tools.t_rast_mapcalc(
+    inputs="day",
+    output="day_of_month",
+    basename="day_of_month",
+    expression="day * start_day()",
+)
+print(
+    tools.t_rast_list(
+        input="day_of_month", columns="name,start_time,min,max"
+    ).text
+)
 </pre></div>
 
 <div class="code"><pre>
-Starting temporal sampling...
-Starting mapcalc computation...
-Undefined function 'start_day_1'
-Parse error
-ERROR: parse error
-ERROR: Error while mapcalc computation
-t.rast.mapcalc failed
+name|start_time|min|max
+day_of_month_1|2026-03-01 00:00:00|4.0|4.0
 </pre></div>
 
 <div class="code"><pre>
@@ -1940,12 +1927,24 @@ tools.t_register(
     start="2026-03-01",
     end="2026-03-02",
 )
+tools.t_rast_mapcalc(
+    inputs="soil,soil_deep",
+    output="layers",
+    basename="layers",
+    expression="soil + soil_deep",
+)
+print(tools.t_rast_list(input="layers", columns="name,start_time,min,max").text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|min|max
+layers_1|2026-03-01 00:00:00|5.0|5.0
+</pre></div>
+
+<div class="code"><pre>
 try:
     tools.t_rast_mapcalc(
-        inputs="soil,soil_deep",
-        output="bad",
-        basename="bad",
-        expression="soil + soil_deep",
+        inputs="day,day", output="twice", basename="twice", expression="day + 1"
     )
 except ToolError as error:
     print(error.stderr.strip())
@@ -1953,29 +1952,9 @@ except ToolError as error:
 </pre></div>
 
 <div class="code"><pre>
-Starting temporal sampling...
-Starting mapcalc computation...
-Invalid map &lt;soil_1_deep&gt;
-Parse error
-ERROR: parse error
-ERROR: Error while mapcalc computation
+ERROR: The name &lt;day&gt; stands more than once in inputs, so the expression
+cannot tell the inputs apart
 t.rast.mapcalc failed
-</pre></div>
-
-<div class="code"><pre>
-tools.t_copy(input="day", output="sunshine")
-tools.t_rast_mapcalc(
-    inputs="sunshine",
-    output="sunny",
-    basename="sunny",
-    expression="sunshine * start_day()",
-)
-print(tools.t_rast_list(input="sunny", columns="name,start_time,min,max").text)
-</pre></div>
-
-<div class="code"><pre>
-name|start_time|min|max
-sunny_1|2026-03-01 00:00:00|4.0|4.0
 </pre></div>
 
 <h3>Use a dataset of another mapset and replace a result</h3>
@@ -2188,7 +2167,7 @@ precipitation_cm_12
 
 <em><a href="g.list.html">g.list</a>, <a href="g.mapset.html">g.mapset</a>,
 <a href="i.band.library.html">i.band.library</a>, <a href="r.mapcalc.html">r.mapcalc</a>,
-<a href="r.support.html">r.support</a>, <a href="t.copy.html">t.copy</a>, <a href="t.info.html">t.info</a>,
+<a href="r.support.html">r.support</a>, <a href="t.info.html">t.info</a>,
 <a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a>,
 <a href="t.rast.algebra.html">t.rast.algebra</a>, <a href="t.rast.list.html">t.rast.list</a>,
 <a href="t.rast3d.mapcalc.html">t.rast3d.mapcalc</a>, <a href="t.register.html">t.register</a>,
