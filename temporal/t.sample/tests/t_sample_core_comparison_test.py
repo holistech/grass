@@ -8,6 +8,13 @@ with maps that share a start time, and checks for every method list, with and
 without the spatial check, that those functions list the same related maps in
 the same order per granule as sample_by_dataset() - gap granules and empty
 granules included.
+
+One difference is wanted: the method "start" lists a map of the same time as
+the granule, which sample_by_dataset() never did, because it ended "start"
+with the relation "EQUALS" that the topology builder never files. For a
+method list with "start" the routine gets the relation names of
+method_relations(), which it reads as plain names in that order, "equal" as
+the relation the builder files.
 """
 
 import random
@@ -135,7 +142,8 @@ def classic_grouping(sampler_name, input_name, method, spatial):
     """The same from sample_by_dataset(); its empty-granule map has id None"""
     sampler = tgis.open_old_stds(f"{sampler_name}@PERMANENT", "strds")
     inp = tgis.open_old_stds(f"{input_name}@PERMANENT", "strds")
-    matrix = reference.sample_by_dataset(inp, sampler, list(method), spatial, None)
+    names = method_relations(method) if "start" in method else list(method)
+    matrix = reference.sample_by_dataset(inp, sampler, names, spatial, None)
     granule_ids = [str(entry["granule"].get_id()) for entry in matrix]
     related = [
         [s.get_id() for s in entry["samples"] if s.get_id() is not None]

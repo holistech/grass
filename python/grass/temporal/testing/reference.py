@@ -252,7 +252,9 @@ def sample_by_dataset(stds, sampler, method, spatial=False, dbif=None, where=Non
     names of the topology builder in lower case. "start" appends the relation
     "equals", which the topology builder never files (it files "EQUAL"), so
     that "start" finds no map of the same time as a granule. That is the
-    measured behaviour, which related_maps keeps (see there).
+    measured classic behaviour; related_maps appends "equal" instead, so the
+    comparisons pass the relations of related_maps.method_relations() for a
+    method list with "start".
 
     :param stds: The space time dataset to sample
     :param sampler: The space time dataset whose maps are the granules

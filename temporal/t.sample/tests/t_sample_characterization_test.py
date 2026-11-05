@@ -47,13 +47,6 @@ None|None|2001-01-03 00:00:00|2001-01-05 00:00:00|2.0|2.0
 samp_2@PERMANENT|eq_2@PERMANENT|2001-01-05 00:00:00|2001-01-07 00:00:00|2.0|4.0
 samp_3@PERMANENT|None|2001-01-07 00:00:00|2001-01-09 00:00:00|2.0|6.0"""
 
-START_EQ = """\
-sampler@PERMANENT|input_eq@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-samp_1@PERMANENT|None|2001-01-01 00:00:00|2001-01-03 00:00:00|2.0|0.0
-None|None|2001-01-03 00:00:00|2001-01-05 00:00:00|2.0|2.0
-samp_2@PERMANENT|None|2001-01-05 00:00:00|2001-01-07 00:00:00|2.0|4.0
-samp_3@PERMANENT|None|2001-01-07 00:00:00|2001-01-09 00:00:00|2.0|6.0"""
-
 TWO_INPUTS = """\
 sampler@PERMANENT|input@PERMANENT|input2@PERMANENT|start_time|end_time|interval_length|distance_from_begin
 samp_1@PERMANENT|in_1@PERMANENT,in_2@PERMANENT|sec_1@PERMANENT|2001-01-01 00:00:00|2001-01-03 00:00:00|2.0|0.0
@@ -184,17 +177,6 @@ SPATIAL_3D_S = """\
 sp3samp@PERMANENT|sp3in@PERMANENT|start_time|end_time|interval_length|distance_from_begin
 sp3_g@PERMANENT|sp3_1@PERMANENT,sp3_3@PERMANENT|2001-01-01 00:00:00|2001-01-09 00:00:00|8.0|0.0"""
 
-# A header that names both inputs above a body that has the columns of one only
-MIXED_BODY = """\
-samp_1@PERMANENT|in_1@PERMANENT,in_2@PERMANENT|2001-01-01 00:00:00|2001-01-03 00:00:00|2.0|0.0
-None|in_3@PERMANENT,in_4@PERMANENT|2001-01-03 00:00:00|2001-01-05 00:00:00|2.0|2.0
-samp_2@PERMANENT|in_5@PERMANENT,in_6@PERMANENT|2001-01-05 00:00:00|2001-01-07 00:00:00|2.0|4.0
-samp_3@PERMANENT|None|2001-01-07 00:00:00|2001-01-09 00:00:00|2.0|6.0"""
-
-MIXED_HEADER = (
-    "sampler@PERMANENT|{}|start_time|end_time|interval_length|distance_from_begin"
-)
-
 
 def ord_table(stds, first, second):
     """The matrix of ordsamp (og_1 [d10,d20), og_2 [d20,d30)) from two map lists"""
@@ -225,8 +207,10 @@ def ord_table(stds, first, second):
 # The expected lists follow the relations in the order the method list names
 # them (after "start", "overlap" and "contain" are expanded), a map that is
 # in two requested relations once, at its first place. "start" expands to
-# OVERLAPPED STARTS STARTED FINISHES CONTAINS EQUALS; the last key is never
-# filed, which is why "start" drops equal maps.
+# OVERLAPPED STARTS STARTED FINISHES CONTAINS EQUAL, so ss_equal comes last.
+# The classic routine ended the group with EQUALS, a key that is never filed,
+# and dropped ss_equal; the cases with "start" got ss_equal on 05.11.2026,
+# derived from the relations above.
 ORDER_CASES = {
     "during,overlap,contain,equal": (
         [
@@ -255,11 +239,25 @@ ORDER_CASES = {
         ["yy_during", "uu_ovl_late", "pp_after", "qq_in_og2"],
     ),
     "start": (
-        ["vv_ovl_early", "xx_starts", "zz_early", "ww_finishes", "aa_late"],
+        [
+            "vv_ovl_early",
+            "xx_starts",
+            "zz_early",
+            "ww_finishes",
+            "aa_late",
+            "ss_equal",
+        ],
         ["yy_during", "uu_ovl_late", "pp_after", "qq_in_og2"],
     ),
     "contain,start": (
-        ["vv_ovl_early", "xx_starts", "zz_early", "ww_finishes", "aa_late"],
+        [
+            "vv_ovl_early",
+            "xx_starts",
+            "zz_early",
+            "ww_finishes",
+            "aa_late",
+            "ss_equal",
+        ],
         ["yy_during", "uu_ovl_late", "pp_after", "qq_in_og2"],
     ),
     "start,during": (
@@ -270,6 +268,7 @@ ORDER_CASES = {
             "zz_early",
             "ww_finishes",
             "aa_late",
+            "ss_equal",
         ],
         ["yy_during", "uu_ovl_late", "pp_after", "qq_in_og2"],
     ),
@@ -343,8 +342,8 @@ def test_default_method_with_header(sample_session):
 
 
 def test_method_start_equals_the_default_here(sample_session):
-    """The quirk (start drops equal) is pinned on input_eq; on this instant
-    input start and the default list select the same maps"""
+    """On this instant input start and the default list select the same
+    maps; input_eq shows that start selects equal maps"""
     assert (
         run(sample_session, input="input", sample="sampler", method="start", flags="c")
         == DEFAULT
@@ -396,8 +395,12 @@ def test_method_equal_lists_the_equal_maps(sample_session):
 
 
 def test_method_start_drops_the_equal_maps(sample_session):
-    """start appends "equals", which upper-cases to the key "EQUALS" that the
-    topology never files, so the equal maps are not listed"""
+    """start ends with the relation equal, so it lists the maps eq_1 and eq_2
+    of the same time as samp_1 and samp_2, as method=equal does
+
+    The classic routine appended "equals", which upper-cases to the key
+    "EQUALS" that the topology never files, and listed None for both.
+    """
     assert (
         run(
             sample_session,
@@ -406,7 +409,7 @@ def test_method_start_drops_the_equal_maps(sample_session):
             method="start",
             flags="c",
         )
-        == START_EQ
+        == EQUAL_EQ
     )
 
 
@@ -690,10 +693,11 @@ def test_spatial_flag_on_str3ds_ignores_bottom_and_top(sample_session):
 
 
 def test_sampler_of_instants_prints_nothing(sample_session):
-    result = sample_session.t_sample(input="input", sample="isamp", flags="c")
-    assert result.returncode == 0
-    assert result.stdout == ""
-    assert result.stderr == (
+    """The refusal ends the run with an error"""
+    with pytest.raises(ToolError) as error:
+        sample_session.t_sample(input="input", sample="isamp", flags="c")
+    assert error.value.returncode == 1
+    assert error.value.errors == (
         "ERROR: The temporal map type of the sample dataset must be interval\n"
     )
 
@@ -702,24 +706,26 @@ def test_sampler_of_instants_prints_nothing(sample_session):
     ("inputs", "sampler"), [("rinput", "sampler"), ("input", "rsampler")]
 )
 def test_mixed_temporal_types_print_nothing(sample_session, inputs, sampler):
-    result = sample_session.t_sample(input=inputs, sample=sampler, flags="c")
-    assert result.returncode == 0
-    assert result.stdout == ""
-    assert result.stderr == (
+    with pytest.raises(ToolError) as error:
+        sample_session.t_sample(input=inputs, sample=sampler, flags="c")
+    assert error.value.returncode == 1
+    assert error.value.errors == (
         "ERROR: The space time datasets must be of the same temporal type\n"
     )
 
 
 @pytest.mark.parametrize("inputs", ["input,rinput", "rinput,input"])
 def test_failed_input_stays_in_the_header_only(sample_session, inputs):
-    """The input of the wrong temporal type is dropped from the rows but not
-    from the header, so the header has one column more than the body"""
-    result = sample_session.t_sample(input=inputs, sample="sampler", flags="c")
-    header = MIXED_HEADER.format(
-        "|".join(f"{name}@PERMANENT" for name in inputs.split(","))
-    )
-    assert result.text == f"{header}\n{MIXED_BODY}"
-    assert result.stderr == (
+    """An input of the wrong temporal type ends the run with an error, in
+    whichever place of inputs it stands
+
+    The classic routine left the input out of the rows but not out of the
+    header and ended with 0.
+    """
+    with pytest.raises(ToolError) as error:
+        sample_session.t_sample(input=inputs, sample="sampler", flags="c")
+    assert error.value.returncode == 1
+    assert error.value.errors == (
         "ERROR: The space time datasets must be of the same temporal type\n"
     )
 

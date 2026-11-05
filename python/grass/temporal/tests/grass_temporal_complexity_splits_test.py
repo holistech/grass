@@ -7,7 +7,10 @@ time to a granularity, the delta between two times, the where statement for
 temporal relations and the serialization of vector statistics. The golden file
 holds what the functions returned before the split, for the inputs below, so
 that the split changed no result. The golden values were recorded from the code
-before the split on 26.10.2026.
+before the split on 26.10.2026. One value was changed on purpose on 05.11.2026:
+a week granule starts on the Monday on or before the time, so 1 January 2004, a
+Thursday, moves to 29 December 2003 with "3 week" (the old code moved it
+forward to Sunday, 4 January 2004).
 """
 
 import builtins

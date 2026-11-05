@@ -322,6 +322,7 @@ def adjust_datetime_to_granularity(mydate: datetime, granularity):
 
     - Years will start at the first of January
     - Months will start at the first day of the month
+    - Weeks will start on the Monday on or before the date
     - Days will start at the first Hour of the day
     - Hours will start at the first minute of an hour
     - Minutes will start at the first second of a minute
@@ -362,15 +363,12 @@ def adjust_datetime_to_granularity(mydate: datetime, granularity):
     }
     # Everything below the finest unit starts at its first value.
     fields.update(_START_VALUES[finest])
+    adjusted = copy.copy(mydate).replace(**fields)
     if finest == "week":
-        # Start at the first day of the week (Monday) at 00:00:00
-        weekday = mydate.weekday()
-        if fields["day"] > weekday:
-            fields["day"] -= weekday  # this needs to be fixed
-        else:
-            fields["day"] += weekday  # this needs to be fixed
-
-    return copy.copy(mydate).replace(**fields)
+        # The week starts on the Monday on or before the date, which may lie
+        # in the month or year before.
+        adjusted -= timedelta(days=mydate.weekday())
+    return adjusted
 
 
 class datetime_delta(TypedDict):

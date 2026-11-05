@@ -1,9 +1,9 @@
 """The classic per-relation sampling of maps by granules
 
 t.rast.mapcalc, t.rast3d.mapcalc and t.sample have no switch between the
-classic and the core algebra, so their results must stay those of
-the classic sample_by_dataset(), which grass.temporal.testing.reference keeps
-as the reference. This module is the one place
+classic and the core algebra, so their results are those of the classic
+sample_by_dataset(), which grass.temporal.testing.reference keeps as the
+reference, except for one fixed fault (below). This module is the one place
 that reproduces its rules on the temporal algebra core, so that the tools do
 not carry diverging copies:
 
@@ -12,6 +12,10 @@ not carry diverging copies:
 - the maps related to a granule are collected relation by relation in that
   order, without repetition, and
 - the sampler must pass the two guards at the top of sample_by_dataset().
+
+The fixed fault: the method "start" also selects a map of the same time as
+the granule, which sample_by_dataset() meant to select but never did (see
+_METHOD_GROUPS).
 
 It does not call gather(), which differs from the classic rules in two ways.
 A classic caller that takes one map takes the first map of the first relation
@@ -40,12 +44,7 @@ from .algebra.series import Extent, Series, Slot, Space
 # the granule: the topology builder files, under a relation name, the maps that
 # stand in that relation to the granule, and the method names are read the
 # same way ("during" selects the maps the granule lies during). So there is no
-# inversion. "start" appends "equals", which upper-cases to the key "EQUALS"
-# that the builder never files (it files "EQUAL"), so the classic "start" never
-# matches a map of equal time (measured 2026-10-14 in a temporary project:
-# method=equal lists an equal map, method=start prints None for it). The name
-# is left out here, which keeps that result, and the core would reject it as an
-# unknown relation.
+# inversion.
 # The names of the standard option G_OPT_T_SAMPLE, other than the groups below
 _OPTION_NAMES = ("equal", "during", "follows", "precedes")
 # sample_by_dataset() read every other name as a relation of the topology
@@ -69,8 +68,15 @@ _PLAIN_RELATIONS = {
 # These names stand for a group of relations that sample_by_dataset() appends
 # after the plain method names, in this order. They are read as written, not
 # upper-cased. "over" is an old short form of "overlap".
+# sample_by_dataset() ended "start" with "equals", which upper-cases to the key
+# "EQUALS" that the builder never files (it files "EQUAL"), so the classic
+# "start" never matched a map of equal time (measured 2026-10-14 in a
+# temporary project: method=equal listed an equal map, method=start printed
+# None for it). "start" here ends with "equal" instead, so that a map with the
+# same time as the granule is selected, as the name "equals" intended. The
+# reference in grass.temporal.testing.reference keeps the classic result.
 _METHOD_GROUPS = {
-    "start": ("overlapped", "starts", "started", "finishes", "contains"),
+    "start": ("overlapped", "starts", "started", "finishes", "contains", "equal"),
     "overlap": ("overlapped", "overlaps"),
     "over": ("overlapped", "overlaps"),
     "contain": ("contains",),
@@ -84,7 +90,8 @@ def method_relations(method, any_relation: bool = False):
     The plain names come first, in the order of the list, then the groups
     "start", "overlap" and "contain", each as far as not yet in the list. The
     order matters because the first relation with a map decides which map a
-    caller that takes only one uses.
+    caller that takes only one uses. "start" ends with "equal", which
+    sample_by_dataset() never matched (see _METHOD_GROUPS).
 
     :param method: names from "start", "during", "overlap", "contain",
         "equal", "follows" and "precedes", the values that the standard
@@ -226,20 +233,34 @@ def with_gaps(series):
     return Series(tuple(out), series.kind, series.sort, series.spatial)
 
 
-def sampler_refused(sampler, dataset, msgr):
-    """True, with the classic message, if sampler cannot sample dataset
+def sampler_refusal(sampler, dataset):
+    """The classic message why sampler cannot sample dataset, or None
 
     These are the two guards at the top of sample_by_dataset(): the temporal
-    types must be equal, and the sampler must have interval time. The
-    message goes to msgr.error() and the caller decides what refusing means.
+    types must be equal, and the sampler must have interval time.
 
     :param sampler: the sampler space time dataset object
     :param dataset: the space time dataset object to sample
     """
     if dataset.get_temporal_type() != sampler.get_temporal_type():
-        msgr.error(_("The space time datasets must be of the same temporal type"))
-        return True
+        return _("The space time datasets must be of the same temporal type")
     if sampler.get_map_time() != "interval":
-        msgr.error(_("The temporal map type of the sample dataset must be interval"))
-        return True
-    return False
+        return _("The temporal map type of the sample dataset must be interval")
+    return None
+
+
+def sampler_refused(sampler, dataset, msgr):
+    """True, with the classic message, if sampler cannot sample dataset
+
+    The message of sampler_refusal() goes to msgr.error() and the caller
+    decides what refusing means. A tool that ends on a refusal calls
+    sampler_refusal() and makes the message fatal instead.
+
+    :param sampler: the sampler space time dataset object
+    :param dataset: the space time dataset object to sample
+    """
+    refusal = sampler_refusal(sampler, dataset)
+    if refusal is None:
+        return False
+    msgr.error(refusal)
+    return True

@@ -18,7 +18,7 @@ import pytest
 
 import grass.exceptions
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.tools import Tools
+from grass.tools import ToolError, Tools
 
 
 def _maps(tools, strds):
@@ -435,15 +435,14 @@ def test_operand_order_does_not_matter(mapcalc_session, assert_tinfo):
 
 
 def test_substring_substitution_hazard(mapcalc_session):
-    """The first input is substituted first, the others in reverse sorted
-    order. If the first input's name is a prefix of a later one (pa and pa2),
-    pa is replaced inside pa2 and the expression names the nonexistent map
-    <first map>2 (here char_src_12), so the tool aborts. With the longer name
-    first it works. Measured 2026-10-14 on the unchanged tool in a temporary
-    XY project. This pins a defect; a rebuild that removes it changes this
-    test on purpose. The maps are the test's own, with the cell values of
-    prec_1..3 (same rand call and seed), so the shared fixture is not
-    re-registered."""
+    """The name of the first input is a prefix of a later one (pa and pa2).
+    The classic tool replaced pa inside pa2, so the expression named the
+    nonexistent map <first map>2 (char_src_12) and the tool aborted; with
+    the longer name first it worked (measured 2026-10-14 on the unchanged
+    tool in a temporary XY project). A name is now replaced only where it
+    stands as a whole name, so both orders give the maps of the second
+    order. The maps are the test's own, with the cell values of prec_1..3
+    (same rand call and seed), so the shared fixture is not re-registered."""
     tools = Tools(session=mapcalc_session, overwrite=True)
     for number, upper in [(1, 550), (2, 450), (3, 320)]:
         tools.r_mapcalc(expression=f"char_src_{number} = rand(0, {upper})", seed=1)
@@ -463,29 +462,20 @@ def test_substring_substitution_hazard(mapcalc_session):
             increment="3 months",
             flags="i",
         )
-    with pytest.raises(grass.exceptions.CalledModuleError) as excinfo:
+    for inputs in ("char_pa,char_pa2", "char_pa2,char_pa"):
         tools.t_rast_mapcalc(
             flags="n",
-            inputs="char_pa,char_pa2",
+            inputs=inputs,
             output="char_hz",
             expression="char_pa + char_pa2",
             basename="char_hz",
             method="equal",
         )
-    assert "Invalid map <char_src_12>" in str(excinfo.value)
-    tools.t_rast_mapcalc(
-        flags="n",
-        inputs="char_pa2,char_pa",
-        output="char_hz",
-        expression="char_pa + char_pa2",
-        basename="char_hz",
-        method="equal",
-    )
-    assert [row[3:] for row in _maps(tools, "char_hz")] == [
-        ("20.0", "1098.0"),
-        ("28.0", "894.0"),
-        ("4.0", "638.0"),
-    ]
+        assert [row[3:] for row in _maps(tools, "char_hz")] == [
+            ("20.0", "1098.0"),
+            ("28.0", "894.0"),
+            ("4.0", "638.0"),
+        ]
 
 
 def test_semantic_label_of_the_sampled_map_is_transferred(mapcalc_session):
@@ -788,16 +778,16 @@ def method_datasets(mapcalc_session):
         # Map 5 begins where granule 5 ends: "precedes" selects the map that
         # comes after the granule.
         ("precedes", [5]),
-        # Map 2 and map 7 lie in their granule, map 8 starts together with
-        # its granule and runs on. Granule 1 is missing although its map
-        # starts with it: the method asks the sampling for "equals" while the
-        # topology says "equal". Granule 4 is missing although its map starts
-        # inside it and runs on: seen from the granule that is "overlaps"
-        # (the granule starts first and ends inside the map), and the method
-        # "start" lists "overlapped" but not "overlaps" (_METHOD_GROUPS in
-        # related_maps.py). "overlapped" would need a map that starts before
-        # the granule and ends inside it.
-        ("start", [2, 7, 8]),
+        # Map 1 equals its granule, map 2 and map 7 lie in their granule, map
+        # 8 starts together with its granule and runs on. Granule 4 is
+        # missing although its map starts inside it and runs on: seen from
+        # the granule that is "overlaps" (the granule starts first and ends
+        # inside the map), and the method "start" lists "overlapped" but not
+        # "overlaps" (_METHOD_GROUPS in related_maps.py). "overlapped" would
+        # need a map that starts before the granule and ends inside it. The
+        # classic tool missed granule 1 as well: it asked the sampling for
+        # "equals" while the topology says "equal".
+        ("start", [1, 2, 7, 8]),
     ],
 )
 def test_sampling_methods_take_the_related_map(
@@ -807,7 +797,8 @@ def test_sampling_methods_take_the_related_map(
     one takes, told by the cell value N of the taken map. Result map numbers
     are the granule numbers, because the gaps between the granules consume no
     number. Measured 2026-10-14 on the unchanged tool; the geometry is in the
-    method_datasets fixture."""
+    method_datasets fixture. The case start was derived again on 05.11.2026,
+    see its comment."""
     tools = Tools(session=mapcalc_session, overwrite=True)
     tools.t_rast_mapcalc(
         inputs="char_ms,char_mi",
@@ -962,9 +953,9 @@ def test_spatial_sampling_keeps_partners_that_touch(spatial_datasets):
 
 def test_samplers_of_another_temporal_type_give_no_samples(mapcalc_session):
     """A partner of relative time cannot be sampled by a sampler of absolute
-    time: the tool says so, reports that it found no samples, ends without an
-    error and creates no output dataset. Measured 2026-10-14 on the unchanged
-    tool."""
+    time: the tool ends with this error and creates no output dataset. The
+    classic tool reported the error, then that it found no samples, and
+    ended with 0 (measured 2026-10-14)."""
     tools = Tools(session=mapcalc_session, overwrite=True, consistent_return_value=True)
     _make_strds(tools, "char_tt_s", [(1, "2001-01-01", "2001-02-01")])
     _make_strds(
@@ -974,35 +965,37 @@ def test_samplers_of_another_temporal_type_give_no_samples(mapcalc_session):
         temporaltype="relative",
         unit="days",
     )
-    result = tools.t_rast_mapcalc(
-        inputs="char_tt_s,char_tt_p",
-        output="char_tt_out",
-        expression="char_tt_s + char_tt_p",
-        basename="char_tt_out",
-        method="equal",
-    )
-    assert "must be of the same temporal type" in result.stderr
-    assert "No samples found for map calculation" in result.stderr
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_mapcalc(
+            inputs="char_tt_s,char_tt_p",
+            output="char_tt_out",
+            expression="char_tt_s + char_tt_p",
+            basename="char_tt_out",
+            method="equal",
+        )
+    assert "must be of the same temporal type" in error.value.errors
+    assert "No samples found for map calculation" not in error.value.errors
     assert not _exists(tools, "char_tt_out")
 
 
 def test_sampler_of_time_instants_gives_no_samples(mapcalc_session):
-    """A sampler of time instants has no granules to sample by: the tool says
-    that the sampler must be of interval time, reports that it found no
-    samples, ends without an error and creates no output dataset. Measured
-    2026-10-14 on the unchanged tool."""
+    """A sampler of time instants has no granules to sample by: the tool ends
+    with the error that the sampler must be of interval time and creates no
+    output dataset. The classic tool reported the error, then that it found
+    no samples, and ended with 0 (measured 2026-10-14)."""
     tools = Tools(session=mapcalc_session, overwrite=True, consistent_return_value=True)
     _make_strds(tools, "char_pt_s", [(1, "2001-01-01", None), (2, "2001-01-02", None)])
     _make_strds(tools, "char_pt_p", [(3, "2001-01-01", "2001-01-02")])
-    result = tools.t_rast_mapcalc(
-        inputs="char_pt_s,char_pt_p",
-        output="char_pt_out",
-        expression="char_pt_s + char_pt_p",
-        basename="char_pt_out",
-        method="equal",
-    )
-    assert "must be interval" in result.stderr
-    assert "No samples found for map calculation" in result.stderr
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_mapcalc(
+            inputs="char_pt_s,char_pt_p",
+            output="char_pt_out",
+            expression="char_pt_s + char_pt_p",
+            basename="char_pt_out",
+            method="equal",
+        )
+    assert "must be interval" in error.value.errors
+    assert "No samples found for map calculation" not in error.value.errors
     assert not _exists(tools, "char_pt_out")
 
 
@@ -1044,13 +1037,12 @@ def test_partner_without_maps_gives_an_empty_output(
 
 
 def test_same_dataset_twice_substitutes_its_name_twice(mapcalc_session):
-    """The inputs x,x name one dataset, so there is no sampling and the n-th
-    map of each input goes with the n-th granule. The name is substituted once
-    per input: the second pass replaces the dataset name inside the map name
-    the first pass put there (char_xx_1 becomes char_xx_1_1), so the tool
-    aborts. With the name once in the inputs it works. Measured 2026-10-14 on
-    the unchanged tool; like the prefix hazard above, this pins a defect that a
-    rebuild may remove on purpose."""
+    """The inputs x,x name one dataset twice, which the expression cannot tell
+    apart, so the tool refuses them before it computes anything. The classic
+    tool substituted the name once per input: the second pass replaced the
+    dataset name inside the map name the first pass put there (char_xx_1
+    became char_xx_1_1), and it aborted with "Invalid map <char_xx_1_1>"
+    (measured 2026-10-14). With the name once in the inputs it works."""
     tools = Tools(session=mapcalc_session, overwrite=True)
     _make_strds(
         tools,
@@ -1064,7 +1056,9 @@ def test_same_dataset_twice_substitutes_its_name_twice(mapcalc_session):
             expression="char_xx * char_xx",
             basename="char_xx_out",
         )
-    assert "Invalid map <char_xx_1_1>" in str(excinfo.value)
+    assert "The name <char_xx> stands more than once in inputs" in " ".join(
+        str(excinfo.value).split()
+    )
     tools.t_rast_mapcalc(
         inputs="char_xx",
         output="char_xx_out",

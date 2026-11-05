@@ -25,6 +25,7 @@ from grass.temporal.related_maps import (
     boxes_intersect,
     method_relations,
     related_per_granule,
+    sampler_refusal,
     sampler_refused,
     with_gaps,
 )
@@ -57,11 +58,22 @@ def test_method_names_map_to_relations_without_inverse():
 
 
 def test_start_method_omits_equal():
-    """The 'start' union leaves equal out, so the method never matches a map of
-    equal time, as sample_by_dataset() does not (its EQUALS key is never filed)"""
+    """The 'start' union holds equal, so the method matches a map of equal time
+
+    The name is historical: it stems from the time when the union omitted
+    equal, as sample_by_dataset() still does (its EQUALS key is never filed).
+    The test now checks that the union holds equal as its last relation.
+    """
     rel = union(["start"])
-    assert rel.temporal == {"overlapped", "starts", "started", "finishes", "contains"}
-    assert "equal" not in rel.temporal
+    assert rel.temporal == {
+        "overlapped",
+        "starts",
+        "started",
+        "finishes",
+        "contains",
+        "equal",
+    }
+    assert method_relations(["start"])[-1] == "equal"
 
 
 def test_relations_are_tried_in_the_order_of_sample_by_dataset():
@@ -90,6 +102,7 @@ def test_relations_are_tried_in_the_order_of_sample_by_dataset():
         "started",
         "finishes",
         "contains",
+        "equal",
         "overlaps",
     ]
 
@@ -255,3 +268,14 @@ def test_the_temporal_type_is_checked_before_the_map_time():
     msgr = _Messenger()
     sampler_refused(_Dataset("absolute", "point"), _Dataset("relative"), msgr)
     assert msgr.errors == ["The space time datasets must be of the same temporal type"]
+
+
+def test_sampler_refusal_gives_the_message_without_reporting_it():
+    """A tool that ends on a refusal makes the message fatal itself"""
+    assert sampler_refusal(_Dataset("absolute"), _Dataset("absolute")) is None
+    assert sampler_refusal(_Dataset("absolute"), _Dataset("relative")) == (
+        "The space time datasets must be of the same temporal type"
+    )
+    assert sampler_refusal(_Dataset("absolute", "point"), _Dataset("absolute")) == (
+        "The temporal map type of the sample dataset must be interval"
+    )

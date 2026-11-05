@@ -13,8 +13,10 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from datetime import datetime
 
+import pytest
+
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.tools import Tools
+from grass.tools import ToolError, Tools
 
 
 def _maps(tools, str3ds):
@@ -146,10 +148,11 @@ def test_spatial_sampling_ignores_the_vertical_extent(mapcalc3d_session):
 
 
 def test_sampler_of_time_instants_gives_no_samples(mapcalc3d_session):
-    """A sampler of time instants gives no samples and no output dataset
+    """A sampler of time instants gives no output dataset
 
-    The tool says that the sampler must be of interval time and that it found
-    no samples, but ends with status 0, as t.rast.mapcalc does.
+    The tool ends with the error that the sampler must be of interval time,
+    as t.rast.mapcalc does. The classic tool also reported that it found no
+    samples and ended with status 0.
     """
     tools = Tools(
         session=mapcalc3d_session, overwrite=True, consistent_return_value=True
@@ -164,15 +167,16 @@ def test_sampler_of_time_instants_gives_no_samples(mapcalc3d_session):
         ],
         title="t",
     )
-    result = tools.t_rast3d_mapcalc(
-        inputs="char3_pt_p,precip3d_1",
-        output="char3_pt_out",
-        expression="char3_pt_p + precip3d_1",
-        basename="char3_pt_out",
-        method="equal",
-    )
-    assert "must be interval" in result.stderr
-    assert "No samples found for map calculation" in result.stderr
-    assert result.returncode == 0
+    with pytest.raises(ToolError) as error:
+        tools.t_rast3d_mapcalc(
+            inputs="char3_pt_p,precip3d_1",
+            output="char3_pt_out",
+            expression="char3_pt_p + precip3d_1",
+            basename="char3_pt_out",
+            method="equal",
+        )
+    assert "must be interval" in error.value.errors
+    assert "No samples found for map calculation" not in error.value.errors
+    assert error.value.returncode == 1
     listed = tools.t_list(type="str3ds", columns="name", format="plain").text
     assert "char3_pt_out" not in listed

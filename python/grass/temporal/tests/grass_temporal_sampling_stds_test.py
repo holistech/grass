@@ -4,13 +4,20 @@ v.what.strds, t.vect.observe.strds and the addon v.strds.stats take the
 granules of a sampler dataset and the maps of the input datasets that are
 related to each granule from this function. The tests fix what it returns for
 every sampling method with and without the spatial check, for a sampler with a
-gap, and for inputs with a map of the same time as a granule (the case in which
-"start" lists nothing, because the classic function appends the relation
-"equals", which no map ever has), maps that start together with a granule,
-overlap it, lie in it, and an instant. The expected values are in
-data/sampling_stds_characterization.json; they were taken from the function
-before it was rebuilt on grass.temporal.related_maps, and checked against the
-rules in its docstring.
+gap, and for inputs with a map of the same time as a granule, maps that start
+together with a granule, overlap it, lie in it, and an instant. The expected
+values are in data/sampling_stds_characterization.json; they were taken from
+the function before it was rebuilt on grass.temporal.related_maps, and checked
+against the rules in its docstring.
+
+The classic function appended the relation "equals" to "start", which no map
+ever has, so "start" listed no map of the same time as a granule. "start" now
+ends with "equal". The expectations of the method lists with "start" (here and
+in data/sampling_stds_names.json) were derived again on 05.11.2026 from the
+classic sample_by_dataset() of grass.temporal.testing.reference, given the
+relation names of method_relations() as plain names, where "equal" is the
+relation the builder files; they differ from the old ones only by the maps
+a, e, p and q of equal time at the end of the granules s1 and s3.
 """
 
 import json
@@ -221,12 +228,18 @@ def test_the_methods_as_a_comma_separated_string(datasets):
 
 
 def test_equal_time_is_not_found_by_start(datasets):
-    # The granule s1 and the map a are equal. "equal" lists a, "start" does not.
+    """The method "start" finds the map of the same time as the granule
+
+    The name is historical: it stems from the time when "start" missed a map
+    of equal time. The granule s1 and the map a are equal. "equal" lists a,
+    and "start" lists it after b, which s1 contains, because equal is the
+    last relation of the group.
+    """
     equal = sample(["inp"], ["equal"], False)[0][0]["samples"]
     start = sample(["inp"], ["start"], False)[0][0]["samples"]
 
-    assert [s.get_id() for s in equal][0].startswith("inp_a@")
-    assert "inp_a" not in " ".join(str(s.get_id()) for s in start)
+    assert [s.get_id() for s in equal] == ["inp_a@PERMANENT"]
+    assert [s.get_id() for s in start] == ["inp_b@PERMANENT", "inp_a@PERMANENT"]
 
 
 def test_an_input_without_maps_gives_a_granule_without_samples(datasets):

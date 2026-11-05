@@ -6,6 +6,9 @@ which the classic dataset_mapcalculator used: gap granules skipped, and per
 granule the first sample. Both paths get the same random time stamps; the
 sampler is always an interval series (sample_by_dataset requires it).
 
+One difference is wanted: the method "start" selects a map of the same time
+as the granule, which the classic routine never did (see reference_method()).
+
 Every comparison runs twice, without and with the 2D spatial test. The maps
 get random boxes on a small grid, so that disjoint boxes, boxes that share only
 an edge or a corner, and overlapping boxes all occur.
@@ -153,6 +156,19 @@ def register(session, name, spans, prefix, box_generator):
     return tgis.open_old_stds(name, "strds")
 
 
+def reference_method(method):
+    """The method list to give the classic routine for the tool's method
+
+    The classic routine ended "start" with the relation "EQUALS", which the
+    topology builder never files, so "start" missed a map of the same time
+    as the granule; the tool ends it with "equal". For a list with "start"
+    the routine gets the relation names of method_relations() instead, which
+    it reads as plain names in that order, "equal" as the relation the
+    builder files. Every other list goes to it unchanged.
+    """
+    return method_relations(method) if "start" in method else method
+
+
 def classic_column(input_stds, sampler_stds, method, spatial):
     """The first sample per sampler granule, None where no map relates
 
@@ -160,7 +176,7 @@ def classic_column(input_stds, sampler_stds, method, spatial):
     loop did.
     """
     entries = reference.sample_by_dataset(
-        input_stds, sampler_stds, method, spatial=spatial
+        input_stds, sampler_stds, reference_method(method), spatial=spatial
     )
     column = []
     for entry in entries:
@@ -302,3 +318,37 @@ def test_the_comparison_detects_a_missing_spatial_test(sampling_session):
             if tool != classic:
                 return
     pytest.fail("the spatial test never changed a pick")
+
+
+def test_start_differs_from_the_classic_routine_only_by_equal_maps(sampling_session):
+    """The wanted difference occurs in the random cases, and only there
+
+    Where the unchanged classic "start" and the tool differ, the classic
+    routine found no map and the tool took one of the same time as the
+    granule; so reference_method() is not vacuous.
+    """
+    generator = random.Random(7)
+    differences = 0
+    for case in range(CASES):
+        sampler, inp = make_case(sampling_session, "q", case, generator, interval_spans)
+        entries = reference.sample_by_dataset(inp, sampler, ["equal"])
+        equal = [
+            entry["samples"][0].get_id()
+            for entry in entries
+            if entry["granule"].get_id() is not None
+        ]
+        classic = classic_column(inp, sampler, ["start"], False)
+        unchanged = [
+            None if first is None else first.split("@")[0]
+            for first in (
+                entry["samples"][0].get_id()
+                for entry in reference.sample_by_dataset(inp, sampler, ["start"])
+                if entry["granule"].get_id() is not None
+            )
+        ]
+        for old, new, same_time in zip(unchanged, classic, equal, strict=True):
+            if old != new:
+                differences += 1
+                assert old is None
+                assert new == same_time.split("@")[0]
+    assert differences

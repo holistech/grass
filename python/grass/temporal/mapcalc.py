@@ -4,12 +4,13 @@ t.rast.mapcalc samples its inputs by the first input and runs one r.mapcalc
 per sampler granule. The inputs and the temporal relations between their maps
 come from grass.temporal.algebra (source()), timevar() gives td() and the
 calendar functions, and the start_time()/end_time() offsets are computed from
-the slot extents. The expression itself stays a text, and the dataset names
-and function tokens are substituted textually, as before, so the result maps,
-their names and the warnings are unchanged. The tool has no switch between
-the classic and the core algebra, so the sampling follows the classic rules of
-the classic sample_by_dataset() exactly (kept as the reference in
-grass.temporal.testing.reference), through grass.temporal.related_maps.
+the slot extents. The expression itself stays a text: a dataset name is
+replaced by the map name where it stands as a whole name, not as a part of a
+longer name and not as the name of a function, and the function tokens by
+their values. The tool has no switch between the classic and the core
+algebra, so the sampling follows the rules of the classic sample_by_dataset()
+(kept as the reference in grass.temporal.testing.reference), through
+grass.temporal.related_maps, which explains the one deliberate difference.
 
 SPDX-FileCopyrightText: 2012-2013 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -17,6 +18,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
+import re
 from functools import partial
 
 import grass.script as gs
@@ -33,7 +35,7 @@ from .datetime_math import time_delta_to_relative_time
 from .factory import dataset_factory
 from .kinds import KINDS, stds_kind_of
 from .open_stds import check_new_stds, open_new_stds, open_old_stds
-from .related_maps import method_relations, related_per_granule, sampler_refused
+from .related_maps import method_relations, related_per_granule, sampler_refusal
 
 # The calendar tokens need absolute time, as in the classic tool.
 _CALENDAR_TOKENS = tuple(
@@ -52,6 +54,23 @@ _CALENDAR_TOKENS = tuple(
     )
 )
 _TIME_TOKENS = ("td", "start_time", "end_time", *_CALENDAR_TOKENS)
+
+# A name in an r.mapcalc expression is made of word characters, and a raster
+# map name may hold dots and an "@" before the mapset. A dataset name is
+# replaced only where no word character or dot comes before it and no word
+# character or dot after it, so "day" stays in "start_day()" and "soil" stays
+# in "soil_deep". An "@" may follow, so "ds@mapset" names the dataset ds.
+# An "@" before the name is refused only when a name character precedes it,
+# as in the mapset of "map@ds": a leading "@" is the label operator of
+# r.mapcalc, so "@ds" reads the category labels of the map of ds.
+_NAME_BEFORE = r"(?<![\w.])(?<![\w.]@)"
+_NAME_AFTER = r"(?![\w.])"
+# The tokens of the temporal functions, with blanks allowed around the
+# parentheses as r.mapcalc allows them
+_TIME_TOKEN_PATTERNS = {
+    name: re.compile(_NAME_BEFORE + re.escape(name) + r"\s*\(\s*\)")
+    for name in _TIME_TOKENS
+}
 
 
 def _time_token_value(name, first_extent, extent, is_absolute, msgr):
@@ -83,14 +102,24 @@ def _time_token_value(name, first_extent, extent, is_absolute, msgr):
 
 def _substitute_time_tokens(expr, first_extent, extent, is_absolute, msgr):
     """Replace every temporal-function token in expr by its value"""
-    for name in _TIME_TOKENS:
-        token = f"{name}()"
-        if token in expr:
-            expr = expr.replace(
-                token,
-                _time_token_value(name, first_extent, extent, is_absolute, msgr),
-            )
+    for name, pattern in _TIME_TOKEN_PATTERNS.items():
+        if pattern.search(expr):
+            value = _time_token_value(name, first_extent, extent, is_absolute, msgr)
+            expr = pattern.sub(lambda _match, value=value: value, expr)
     return expr
+
+
+def _dataset_name_pattern(names):
+    """A pattern that matches each of names where it stands as a dataset name
+
+    A name followed by "(" (blanks allowed) is the name of a function, such as
+    a dataset "td" in "td()", and stays. Longer names come first in the
+    alternation, so that "x.label" wins over "x" at the same place.
+    """
+    alternatives = "|".join(
+        re.escape(name) for name in sorted(set(names), key=len, reverse=True)
+    )
+    return re.compile(rf"{_NAME_BEFORE}(?:{alternatives}){_NAME_AFTER}(?!\s*\()")
 
 
 def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
@@ -131,16 +160,26 @@ def _open_inputs(names, stds_type):
     name without the semantic label, as in the classic tool. The expression
     refers to a dataset by the name it has without the mapset, which can
     differ from what was typed in inputs, so that name is what is substituted.
+    Two inputs with the same such name, as in "x,x" or "x,x@other", are
+    refused, because the expression cannot tell them apart.
 
     :return: the datasets and their display names by the name in inputs, and
         whether more than one dataset is left
     """
+    msgr = get_tgis_message_interface()
     uniq = []
     display_names = {}
     datasets = {}
     for name in names:
         # Opened as strds / str3ds because only that type reads "name.label".
         dataset = open_old_stds(name, stds_type)
+        if dataset.get_name() in display_names.values():
+            msgr.fatal(
+                _(
+                    "The name <{}> stands more than once in inputs, so the "
+                    "expression cannot tell the inputs apart"
+                ).format(dataset.get_name())
+            )
         datasets[name] = dataset
         display_names[name] = dataset.get_name()
         if dataset.get_name(semantic_label=False) not in uniq:
@@ -192,6 +231,9 @@ def _plan_statements(
     :return: the new maps, with their time and label, and their statements
     """
     mapset = get_current_mapset()
+    names_in_expression = _dataset_name_pattern(
+        display_names[dataset_name] for dataset_name in id_list
+    )
     is_absolute = first_series.temporal_type == "absolute"
     first_extent = first_series.slots[0].extent
     sample_extents = [slot.extent for slot in first_series.slots]
@@ -202,17 +244,17 @@ def _plan_statements(
     for i in range(num):
         count += 1
         map_name = f"{base}_{get_num_suffix(count, num)}"
-        expr = expression.replace(" ", "")
-        valid = True
-        for dataset_name in id_list:
-            column = columns[dataset_name]
-            map_in_slot = column[i] if i < len(column) else None
-            if map_in_slot is None:
-                valid = False
-                break
-            expr = expr.replace(display_names[dataset_name], map_in_slot)
-        if not valid:
+        maps_in_slot = {
+            display_names[name]: columns[name][i] if i < len(columns[name]) else None
+            for name in id_list
+        }
+        if None in maps_in_slot.values():
             continue
+        # One pass over the expression, so that a map name that was put in
+        # is not read as a dataset name again.
+        expr = names_in_expression.sub(
+            lambda match, maps=maps_in_slot: maps[match.group()], expression
+        )
         expr = _substitute_time_tokens(
             expr, first_extent, sample_extents[i], is_absolute, msgr
         )
@@ -296,8 +338,8 @@ def dataset_mapcalculator(
     # Fail before any computation if the output cannot be created.
     check_new_stds(output, type, None, gs.overwrite())
 
-    # The extra inputs in reverse sorted order, so that a longer dataset name is
-    # substituted before a name that is its prefix, as the classic tool does.
+    # The extra inputs in reverse sorted order, as in the classic tool: the
+    # order decides which refusal or warning comes first.
     others = sorted(names[1:])
     others.reverse()
 
@@ -318,7 +360,9 @@ def dataset_mapcalculator(
                 )
             )
             return 0
-        sampler_refused(first_dataset, datasets[others[0]], msgr)
+        refusal = sampler_refusal(first_dataset, datasets[others[0]])
+        if refusal is not None:
+            msgr.fatal(refusal)
         msgr.message(_("No samples found for map calculation"))
         return 0
 
@@ -340,15 +384,18 @@ def dataset_mapcalculator(
     if do_sampling:
         method_names = method_relations(method)
         for name in others:
-            if sampler_refused(first_dataset, datasets[name], msgr):
-                msgr.message(_("No samples found for map calculation"))
-                return 0
+            # A refusal ends the run with an error, so that a script sees
+            # that nothing was computed.
+            refusal = sampler_refusal(first_dataset, datasets[name])
+            if refusal is not None:
+                msgr.fatal(refusal)
             columns[name] = _sample_column(
                 first_series, name, method_names, spatial, where, stds_type, msgr
             )
     else:
-        # Inputs that name one dataset (x,x) are not sampled: the n-th map of
-        # each is used with the n-th map of the first, as in the classic tool.
+        # Inputs that name one dataset with different semantic labels
+        # (x.B4,x.B8) are not sampled: the n-th map of each is used with the
+        # n-th map of the first, as in the classic tool.
         for name in others:
             other_series = source(name, where=where, stds_type=stds_type)
             if len(other_series.slots) == 0:
