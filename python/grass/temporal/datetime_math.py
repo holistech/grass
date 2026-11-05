@@ -272,6 +272,39 @@ def datetime_after_steps(anchor: datetime, step: str, count: int) -> datetime | 
     return current
 
 
+def anchor_and_count(
+    anchor: datetime | None, moment: datetime, step: str
+) -> tuple[datetime, int]:
+    """Return the start of the series that moment belongs to and its steps
+
+    A series of month or year steps counts its time stamps from its first
+    one, with one cut to the end of a shorter month per time stamp (see
+    datetime_after_steps()). If moment is a time stamp of the series that
+    starts at anchor, the result is anchor and the number of steps from
+    anchor to moment, so that the next time stamp is
+    datetime_after_steps(anchor, step, count + 1): from 31 January the step
+    after 30 April ends on 31 May, not on 30 May.
+
+    Otherwise, and for steps of seconds to weeks, the result is moment and 0:
+    the series counts from moment. For steps of a fixed length this gives the
+    same time stamps as the anchor whenever moment lies whole steps after it.
+
+    :param anchor: The first time stamp of the series, or None
+    :param moment: A time stamp at or after the anchor
+    :param step: A step of the form "number unit"
+    """
+    if anchor is None or _months_of_step(step) is None:
+        return moment, 0
+    count = 0
+    current = anchor
+    while current is not None and current < moment:
+        count += 1
+        current = datetime_after_steps(anchor, step, count)
+    if current == moment:
+        return anchor, count
+    return moment, 0
+
+
 # The fields that restart when the finest unit of a granularity is given
 _START_VALUES = {
     "second": {},

@@ -341,22 +341,13 @@ def test_deltagaps_of_nested_intervals_finds_no_gap(tools, stds):
 
 
 def test_deltagaps_of_mixed_times_puts_gaps_after_instants(tools, stds):
-    # mix_4 (an instant on 2001-04-01) lies inside mix_3, so no gap comes
-    # before it; the next map starts a month later and a gap of 30 days
-    # follows. mix_5 (instant on 2001-05-01) is followed by a gap of 31 days.
+    # mix_4 and mix_5 (instants on 2001-04-01 and 2001-05-01) lie inside
+    # mix_3 (2001-03-01 to 2001-06-02), which reaches past the start of mix_6
+    # on 2001-06-01. A gap is time that no map covers, so the instants leave
+    # none behind them (before 04.11.2026 a gap followed each instant).
     maps = _maps("mixed")
-    entries = [
-        maps[0],
-        maps[1],
-        maps[2],
-        maps[3],
-        (None, D(2001, 4, 1), D(2001, 5, 1)),
-        maps[4],
-        (None, D(2001, 5, 1), D(2001, 6, 1)),
-        maps[5],
-    ]
 
-    assert _lines(tools, input="mixed", method="deltagaps") == _table(entries)
+    assert _lines(tools, input="mixed", method="deltagaps") == _table(maps)
     # Lengths 69 (to 03-11), 59, 93 (to 06-02), instants, 30 days.
     lines = _lines(tools, input="mixed", method="delta")
     assert [line.split("|")[-2:] for line in lines[1:]] == [

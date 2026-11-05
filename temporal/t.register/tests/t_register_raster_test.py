@@ -396,11 +396,13 @@ def test_interval_list_increment_from_a_month_end_leaves_no_gap(
 def test_granularity_of_a_monthly_series_counts_months_only_on_the_first(
     tools, make_maps, dataset
 ):
-    # The manual states that months are recognised only when starts and ends
-    # lie on the first of a month. From 2001-01-01 the intervals are
-    # [01-01, 02-01], [02-01, 03-01], [03-01, 04-01]: one month. From
-    # 2001-01-31 they are [01-31, 02-28], [02-28, 03-31], [03-31, 04-30] with
-    # 28, 31 and 30 days, whose greatest common divisor is 1 day.
+    # Despite the name, both series have one month: before 04.11.2026 months
+    # were recognised only when starts and ends lay on the first of a month.
+    # From 2001-01-01 the intervals are [01-01, 02-01], [02-01, 03-01],
+    # [03-01, 04-01]: one month. From 2001-01-31 they are [01-31, 02-28],
+    # [02-28, 03-31], [03-31, 04-30], 28, 31 and 30 days long, each a month
+    # step cut to the end of a shorter month, which counts as a month as well
+    # (the granularity was 1 day before).
     # Each dataset gets its own three maps, because a map has one time.
     all_maps = make_maps(6)
     granularities = {}
@@ -419,7 +421,7 @@ def test_granularity_of_a_monthly_series_counts_months_only_on_the_first(
 
     assert granularities == {
         "2001-01-01": "'1 month'",
-        "2001-01-31": "'1 day'",
+        "2001-01-31": "'1 month'",
     }
 
 

@@ -437,6 +437,9 @@ _MAP_SERIES = {
     "none": (),
     "duplicate": ((0, 1), (0, 1), (1, 2)),
     "unsorted": ((2, 3), (0, 1), (1, 2)),
+    # 31 January, 28 February, 31 March and 30 April 2001: month steps cut to
+    # the end of the shorter month
+    "month_ends": ((30, 58), (58, 89), (89, 119)),
 }
 
 

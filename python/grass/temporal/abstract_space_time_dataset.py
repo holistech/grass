@@ -20,13 +20,12 @@ from datetime import datetime
 from .abstract_dataset import AbstractDataset
 from .db import connection, sql_literal
 from .topology import (
-    _has_start,
     count_gaps,
     count_temporal_topology_relationships,
     count_temporal_types,
+    gap_starts,
     has_correct_temporal_topology,
     print_spatio_temporal_topology_relationships,
-    reversed_map_ids,
 )
 from .state import get_current_mapset
 from . import granule_sampling, stds_time_edit
@@ -544,7 +543,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         :param gran: The granularity string to be used, if None the
                     granularity of the space time dataset is used.
                     Absolute time has the format "number unit", relative
-                    time has the format "number".
+                    time has the format "number", as a number or a text;
+                    a text may name the unit of the dataset after the
+                    number ("12 hours").
                     The unit in case of absolute time can be one of "second,
                     seconds, minute, minutes, hour, hours, day, days, week,
                     weeks, month, months, year, years". The unit of the
@@ -561,7 +562,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         return granule_sampling.registered_maps_by_granularity(self, gran, where, dbif)
 
     @staticmethod
-    def resample_maplist_by_granularity(maps, start, end, gran):
+    def resample_maplist_by_granularity(maps, start, end, gran, anchor=None):
         """Resample a list of AbstractMapDatasets by a given granularity
 
         The provided map list must be sorted by start time.
@@ -575,10 +576,14 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         :param start: The start time of the provided map list
         :param end:   The end time of the provided map list
         :param gran: The granularity string
+        :param anchor: The start of the series the granules of months or
+                       years count from, see the function of granule_sampling
         :return: ordered list of map lists. Each list represents a single
             granule, or None in case nothing found
         """
-        return granule_sampling.resample_maplist_by_granularity(maps, start, end, gran)
+        return granule_sampling.resample_maplist_by_granularity(
+            maps, start, end, gran, anchor
+        )
 
     def get_registered_maps_as_objects_with_gaps(
         self, where=None, dbif=None, spatial_extent=None, spatial_relation=None
@@ -624,41 +629,28 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                 where, "start_time", dbif, spatial_extent, spatial_relation
             )
 
-            if maps is not None and len(maps) > 0:
-                # A map without start time stays where it is, but is passed
-                # over: a gap lies directly before the next map with a start
-                # time, measured from the last one before it, as the
-                # granularity does. No gap is inserted next to a map that
-                # ends before it starts. This matters for a reader that
-                # keeps the stored times (a subclass or an add-on); the own
-                # reader already drops such times, so the map arrives
+            if maps:
+                # A map without start time stays where it is. A gap is time
+                # that no map covers (see gap_starts()); it lies directly
+                # before the map that ends it. No gap is inserted next to a
+                # map that ends before it starts. This matters for a reader
+                # that keeps the stored times (a subclass or an add-on); the
+                # own reader already drops such times, so the map arrives
                 # without time.
-                reversed_ids = reversed_map_ids(maps)
-                previous = None
+                gaps = {id(map_): start for map_, start in gap_starts(maps)}
                 for current in maps:
-                    if _has_start(current):
-                        if (
-                            previous is not None
-                            and reversed_ids.isdisjoint(
-                                (previous.get_id(), current.get_id())
+                    if id(current) in gaps:
+                        map_ = self.get_new_map_instance(None)
+                        start = gaps[id(current)]
+                        end = current.get_temporal_extent_as_tuple()[0]
+                        if self.is_time_absolute():
+                            map_.set_absolute_time(start, end)
+                        elif self.is_time_relative():
+                            map_.set_relative_time(
+                                start, end, self.get_relative_time_unit()
                             )
-                            and current.temporal_relation(previous) == "after"
-                        ):
-                            start1, end1 = previous.get_temporal_extent_as_tuple()
-                            end = current.get_temporal_extent_as_tuple()[0]
-                            start = end1 if end1 is not None else start1
-
-                            map_ = self.get_new_map_instance(None)
-
-                            if self.is_time_absolute():
-                                map_.set_absolute_time(start, end)
-                            elif self.is_time_relative():
-                                map_.set_relative_time(
-                                    start, end, self.get_relative_time_unit()
-                                )
-                            map_.set_spatial_extent_from_values(0, 0, 0, 0, 0, 0)
-                            obj_list.append(copy.copy(map_))
-                        previous = current
+                        map_.set_spatial_extent_from_values(0, 0, 0, 0, 0, 0)
+                        obj_list.append(copy.copy(map_))
                     obj_list.append(current)
 
             return obj_list

@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import copy
 from datetime import datetime
-from itertools import pairwise
 
 from grass.lib import gis, rtree, vector
 
@@ -877,24 +876,50 @@ def count_temporal_types(maps) -> dict:
     return tcount
 
 
-def count_gaps(maps) -> int:
-    """Count the gaps between temporal neighbors
+def gap_starts(maps):
+    """Yield each map that a gap precedes, with the start of that gap
 
-    A map without start time is passed over: the maps with a start time
-    before and after it are compared, as the granularity does. A map that
-    ends before it starts gets a warning, and there is no gap next to it
-    (see reversed_map_ids()).
+    A gap is time that no map covers. It lies before a map that starts after
+    the latest end of the maps before it (the start, for an instant) and
+    begins at that end. A map that ends inside a longer one leaves no gap
+    behind it: of m_1 from 1 to 11 January, m_2 from 3 to 5 January and m_3
+    from 8 to 13 January no gap is left, m_1 covers 5 to 8 January.
+
+    A map without start time is passed over, as the granularity does. A map
+    that ends before it starts gets a warning, and there is no gap next to
+    it (see reversed_map_ids()).
 
     :param maps: A list of map objects sorted by start time
-    :return: The number of neighbors, among the maps with a start time, of
-             which the later one is "after" the earlier one
+    :return: An iterator of (map, start of the gap before it)
     """
     reversed_ids = reversed_map_ids(maps)
-    return sum(
-        later.temporal_relation(earlier) == "after"
-        for earlier, later in pairwise(map_ for map_ in maps if _has_start(map_))
-        if reversed_ids.isdisjoint((earlier.get_id(), later.get_id()))
-    )
+    covered_until = None
+    previous_id = None
+    for map_ in maps:
+        if not _has_start(map_):
+            continue
+        start, end = map_.get_temporal_extent_as_tuple()
+        if (
+            covered_until is not None
+            and start > covered_until
+            and reversed_ids.isdisjoint((previous_id, map_.get_id()))
+        ):
+            yield map_, covered_until
+        map_end = start if end is None else max(start, end)
+        if covered_until is None or map_end > covered_until:
+            covered_until = map_end
+        previous_id = map_.get_id()
+
+
+def count_gaps(maps) -> int:
+    """Count the gaps, the times between the maps that no map covers
+
+    See gap_starts(): a map that ends inside a longer one leaves no gap.
+
+    :param maps: A list of map objects sorted by start time
+    :return: The number of gaps
+    """
+    return sum(1 for _gap in gap_starts(maps))
 
 
 def count_temporal_topology_relationships(maps1, maps2=None, dbif=None):

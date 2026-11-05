@@ -510,7 +510,8 @@ def get_dataset_list(
 
 @contextmanager
 def _open_output_file(file, encoding="utf-8", **kwargs):
-    if not file:
+    # "-" is the standard output, as for t.list and the other GRASS tools
+    if not file or file == "-":
         yield sys.stdout
     elif not isinstance(file, (str, os.PathLike)):
         yield file
@@ -676,6 +677,16 @@ def _get_get_registered_maps_as_objects_delta_gran(
                 element_type=dataset.get_type(),
                 detail=_("Dataset is empty"),
             )
+        )
+    if method == "gran" and not gran and not dataset.get_granularity():
+        # The library names the missing granularity; only the list tools have
+        # a granule option to offer instead, so the hint is given here.
+        msgr.fatal(
+            _(
+                "Space time dataset <{}> has no granularity, for example "
+                "because it holds a single time instance. Give a granule or "
+                "use another method."
+            ).format(dataset.get_id())
         )
     maps = _get_get_registered_maps_as_objects_with_method(
         dataset=dataset, where=where, method=method, gran=gran, dbif=dbif
@@ -907,7 +918,8 @@ def list_maps_of_stds(
     :param gran: The user defined granule to be used if method=gran is
                  set, in case gran=None the granule of the space time
                  dataset is used
-    :param outpath: The path to file where to save output
+    :param outpath: The path to file where to save output; None, an empty
+                    text and "-" are the standard output
     """
     if gran == "":
         gran = None

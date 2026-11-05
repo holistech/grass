@@ -21,7 +21,7 @@ from collections import OrderedDict
 from functools import reduce
 
 from .abstract_map_dataset import AbstractMapDataset
-from .datetime_math import compute_datetime_delta
+from .datetime_math import compute_datetime_delta, modify_datetime
 
 SINGULAR_GRAN = ["second", "minute", "hour", "day", "week", "month", "year"]
 PLURAL_GRAN = ["seconds", "minutes", "hours", "days", "weeks", "months", "years"]
@@ -86,6 +86,55 @@ def _add_delta(granularity_units, delta):
             values.add(delta[time_unit])
             if time_unit != "max_days":
                 break
+
+
+def _month_grid(anchor):
+    """Return a test whether a time stamp lies whole months after the anchor
+
+    A series that is built from a start time counts its month steps from this
+    start, with one cut to the end of a shorter month per time stamp (see
+    datetime_after_steps()): from 31 January it runs 28 February, 31 March,
+    30 April. The time stamps of this grid are anchor + k months for a whole k,
+    and years are steps of twelve months. A step from 28 February to 28 March
+    of the same series is no month step: 28 March is not on the grid.
+
+    The time of the day is part of the time stamp. A step whose ends lie at
+    another time of the day than the anchor is not on the grid.
+    """
+
+    def on_grid(moment):
+        months = 12 * (moment.year - anchor.year) + moment.month - anchor.month
+        return modify_datetime(anchor, months=months) == moment
+
+    return on_grid
+
+
+def _calendar_delta(start, end, on_grid):
+    """Return compute_datetime_delta() with a month step counted in months
+
+    compute_datetime_delta() counts months only between two firsts of a
+    month and takes every other step in days, so a month series from
+    31 January has the granularity "1 day". A step whose two ends lie on the
+    month grid, on_grid from _month_grid(), has no days and counts all its
+    months, also over more than a year (31 January 2024 to 31 March 2025 is
+    14 months). From January to January it counts in years only, as
+    compute_datetime_delta() does between two firsts, so that a yearly series
+    from 31 January has the granularity "1 year" and one from 28 February
+    "12 months".
+
+    The step between two firsts keeps compute_datetime_delta(), which counts
+    the months of a step over more than a year wrongly when the later month
+    is the larger one (1 January 2024 to 1 March 2025 gives 2 months).
+    """
+    delta = compute_datetime_delta(start, end)
+    if (start.day == 1 and end.day == 1) or not (on_grid(start) and on_grid(end)):
+        return delta
+    if start.month == 1 and end.month == 1:
+        delta["month"] = 0
+    else:
+        delta["month"] = 12 * (end.year - start.year) + end.month - start.month
+    delta["day"] = 0
+    return delta
 
 
 def _gcd_in_unit(units, base_unit):
@@ -302,7 +351,15 @@ def compute_absolute_time_granularity(maps):
     Hence a correct temporal topology is required for computation.
 
     The computed granularity is returned as number of seconds or minutes
-    or hours or days or months or years.
+    or hours or days or months or years. A step counts in months also when
+    it is cut to the end of a shorter month, if both of its ends lie whole
+    months after the earliest start of the maps, counted with one cut per
+    time stamp as datetime_after_steps() counts a series: 31 January,
+    28 February, 31 March has the granularity "1 month", 31 January,
+    28 February, 28 March has not, because 28 March is no month step from
+    31 January. The anchor is the earliest start of the maps passed, not the
+    start of their dataset, because the function sees only these maps; the
+    callers that store a granularity pass all maps of the dataset.
 
     :param maps: a ordered by start_time list of map objects or database rows
     :return: The granularity as string "integer unit"; None for no maps and
@@ -345,8 +402,13 @@ def compute_absolute_time_granularity(maps):
         "year": set(),
     }
 
+    get_time_tuple = get_time_tuple_function(maps)
+    starts = [start for start, _end in map(get_time_tuple, maps) if start is not None]
+    if not starts:
+        return None
+    on_grid = _month_grid(min(starts))
     for start, end in _intervals_and_gaps(maps, lambda start, end: end):
-        _add_delta(granularity_units, compute_datetime_delta(start, end))
+        _add_delta(granularity_units, _calendar_delta(start, end, on_grid))
 
     # The smallest unit with a value is the unit of the granularity. max_days,
     # the days of a whole delta, never names it; its values join the others

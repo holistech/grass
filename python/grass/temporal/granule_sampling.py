@@ -15,7 +15,11 @@ from __future__ import annotations
 
 import copy
 
-from .datetime_math import datetime_after_steps, increment_datetime_by_string
+from .datetime_math import (
+    anchor_and_count,
+    datetime_after_steps,
+    increment_datetime_by_string,
+)
 from .db import connection
 from .temporal_granularity import check_granularity_string
 from .topology import SpatioTemporalTopologyBuilder
@@ -28,7 +32,7 @@ from .topology import SpatioTemporalTopologyBuilder
 _RELATION_ORDER = ("EQUAL", "DURING", "OVERLAPS", "OVERLAPPED", "CONTAINS")
 
 
-def resample_maplist_by_granularity(maps, start, end, gran):
+def resample_maplist_by_granularity(maps, start, end, gran, anchor=None):
     """Resample a list of AbstractMapDatasets by a given granularity
 
     The provided map list must be sorted by start time.
@@ -72,6 +76,13 @@ def resample_maplist_by_granularity(maps, start, end, gran):
             relative time granule is always the space time dataset
             unit and can not be changed.
 
+    :param anchor: The start of the series the granules belong to, for an
+            absolute granule of months or years: the granules count from it,
+            so that a cut to the end of a shorter month does not carry over
+            (from the anchor 31 January, the granule after 28 February ends
+            on 31 March, not on 28 March). start must lie a whole number of
+            granules after the anchor; otherwise, and without anchor, the
+            granules count from start.
     :return: ordered list of map lists. Each list represents a single
         granule, or None in case nothing found
 
@@ -182,13 +193,14 @@ def resample_maplist_by_granularity(maps, start, end, gran):
 
     first = maps[0]
 
-    # Build the gaplist. An absolute granule counts from the first one, so
-    # that a cut to the end of a shorter month does not carry over: from
-    # 31 January the granules start on 28 February and 31 March, not on
-    # 28 February and 28 March.
+    # Build the gaplist. An absolute granule counts from the first one, or
+    # from the anchor, so that a cut to the end of a shorter month does not
+    # carry over: from 31 January the granules start on 28 February and
+    # 31 March, not on 28 February and 28 March.
     gap_list = []
-    anchor = start
     count = 0
+    if first.is_time_absolute():
+        anchor, count = anchor_and_count(anchor, start, gran)
     while start < end:
         count += 1
         if first.is_time_absolute():
@@ -236,6 +248,33 @@ def resample_maplist_by_granularity(maps, start, end, gran):
     return gran_list or None
 
 
+def _relative_granule(granule, unit):
+    """Return a relative granule given as text as a number of units, or None
+
+    A relative granule is a whole number of at least 1 in the unit of the
+    dataset, optionally followed by that unit, singular or plural: "12",
+    "12 hours" and "12 hour" are the same granule of a dataset in hours.
+
+    :param granule: The granule as text, as a tool option gives it
+    :param unit: The relative time unit of the dataset, such as "hours"
+    :return: The number, None if the text is no such granule
+    """
+    words = granule.split()
+    if (
+        len(words) == 2
+        and unit
+        and words[1].removesuffix("s") == unit.removesuffix("s")
+    ):
+        words = words[:1]
+    if len(words) != 1:
+        return None
+    try:
+        number = int(words[0])
+    except ValueError:
+        return None
+    return number if number >= 1 else None
+
+
 def registered_maps_by_granularity(stds, gran=None, where=None, dbif=None):
     """Return the registered maps of the dataset as a list of granules
 
@@ -243,12 +282,14 @@ def registered_maps_by_granularity(stds, gran=None, where=None, dbif=None):
     :func:`resample_maplist_by_granularity`. A granule without a map is a
     list of one gap object (id None). Maps that overlap a granule only are
     ignored. A valid temporal topology (no overlapping or inclusion) is
-    needed to get correct results.
+    needed to get correct results. The granules start with the earliest map
+    and reach the latest end of the maps.
 
     :param stds: The space time dataset
     :param gran: The granularity string; absolute time has the format
-                 "number unit", relative time "number". The unit of a
-                 relative granule is the unit of the dataset. If None, the
+                 "number unit", relative time a whole number in the unit of
+                 the dataset, optionally followed by that unit ("12" or
+                 "12 hours" for a dataset in hours). If None, the
                  granularity of the dataset is used.
     :param where: The SQL where statement to select a subset of
                   the registered maps without "WHERE"
@@ -258,8 +299,34 @@ def registered_maps_by_granularity(stds, gran=None, where=None, dbif=None):
     with connection(dbif) as dbif:
         if gran is None:
             gran = stds.get_granularity()
+            # A dataset of a single time instance has no time difference to
+            # take a granularity from: absolute time stores None, relative
+            # time 0.
+            if not gran:
+                stds.msgr.fatal(
+                    _(
+                        "Space time dataset <{}> has no granularity, for example "
+                        "because it holds a single time instance."
+                    ).format(stds.get_id())
+                )
 
-        if not check_granularity_string(gran, stds.get_temporal_type()):
+        # A relative granule given as a number is taken as it is, as the
+        # granularity of the dataset and the classic algebra give it; only a
+        # text, as from a tool option, is read here.
+        if stds.is_time_relative() and isinstance(gran, str):
+            unit = stds.get_relative_time_unit()
+            granule = _relative_granule(gran, unit)
+            if granule is None:
+                stds.msgr.fatal(
+                    _(
+                        "Invalid granule <{granule}>: space time dataset <{name}> "
+                        "has relative time, its granule is a whole number of at "
+                        "least 1 in the unit <{unit}>, optionally followed by "
+                        "this unit"
+                    ).format(granule=gran, name=stds.get_id(), unit=unit)
+                )
+            gran = granule
+        elif not check_granularity_string(gran, stds.get_temporal_type()):
             stds.msgr.fatal(_('Wrong granularity: "%s"') % str(gran))
 
         maps = stds.get_registered_maps_as_objects(
@@ -270,11 +337,18 @@ def registered_maps_by_granularity(stds, gran=None, where=None, dbif=None):
             return None
 
         start = maps[0].get_temporal_extent_as_tuple()[0]
-        last_start, last_end = maps[-1].get_temporal_extent_as_tuple()
-        end = last_end if last_end is not None else last_start
-
-        if start is None or end is None:
+        # The maps are ordered by their start, so the last one may end before
+        # another one that starts earlier and lasts longer.
+        ends = [
+            map_end if map_end is not None else map_start
+            for map_start, map_end in (
+                map_.get_temporal_extent_as_tuple() for map_ in maps
+            )
+            if map_start is not None
+        ]
+        if start is None or not ends:
             return None
+        end = max(ends)
         # The end of a dataset without interval time moves on by one
         # granule, so that the instants at the end are caught
         if stds.get_map_time() != "interval":
@@ -283,4 +357,9 @@ def registered_maps_by_granularity(stds, gran=None, where=None, dbif=None):
             else:
                 end += gran
 
-        return resample_maplist_by_granularity(maps, start, end, gran)
+        # A selection by where may start inside a month series from a month
+        # end. Its granules count from the start of the dataset when the first
+        # selected map lies whole granules after it, otherwise from the first
+        # selected map.
+        anchor = stds.get_temporal_extent_as_tuple()[0]
+        return resample_maplist_by_granularity(maps, start, end, gran, anchor)

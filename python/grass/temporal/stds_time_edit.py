@@ -16,7 +16,11 @@ from __future__ import annotations
 from itertools import pairwise
 
 from .abstract_dataset import AbstractDatasetComparisonKeyStartTime
-from .datetime_math import increment_datetime_by_string
+from .datetime_math import (
+    anchor_and_count,
+    datetime_after_steps,
+    increment_datetime_by_string,
+)
 from .db import connection
 from .state import get_current_mapset
 from .temporal_granularity import (
@@ -24,6 +28,24 @@ from .temporal_granularity import (
     compute_absolute_time_granularity,
     compute_relative_time_granularity,
 )
+
+
+def _end_of_last_instant(anchor, start, gran):
+    """Return the end of the last time instance of a snapped dataset
+
+    The last instance gets one granule as length. A month or year granule
+    counts from the first start, as the granularity does (see
+    compute_absolute_time_granularity()): in a series from 31 January the
+    instance of 30 April ends on 31 May. One granule added to 30 April would
+    end on 30 May, off the series, and the snapped dataset would no longer
+    have the granularity of one month. A last start off the series gets one
+    granule added to it, as does a dataset without granularity (a single
+    time instance), whose last instance keeps its start as end.
+    """
+    anchor, count = anchor_and_count(anchor, start, gran) if gran else (start, 0)
+    if count == 0:
+        return increment_datetime_by_string(start, gran)
+    return datetime_after_steps(anchor, gran, count + 1)
 
 
 def _shifted(start, end, gran, absolute: bool):
@@ -235,7 +257,8 @@ def snap_map_list(maps):
     if end is None:
         if maps[-1].is_time_absolute():
             gran = compute_absolute_time_granularity(maps)
-            end = increment_datetime_by_string(start, gran)
+            first_start = maps[0].get_temporal_extent_as_tuple()[0]
+            end = _end_of_last_instant(first_start, start, gran)
             maps[-1].set_absolute_time(start, end)
         elif maps[-1].is_time_relative():
             gran = compute_relative_time_granularity(maps)
@@ -368,7 +391,7 @@ def snap(stds, dbif=None) -> None:
         start, end = extents[-1]
         if end is None:
             if stds.is_time_absolute():
-                end = increment_datetime_by_string(start, stds.get_granularity())
+                end = _end_of_last_instant(extents[0][0], start, stds.get_granularity())
             elif stds.is_time_relative():
                 end = start + stds.get_granularity()
 

@@ -52,13 +52,22 @@ of the lengths and gaps. With relative time it is a number of the unit.
 *[t.info](t.info.md)* and *[t.topology](t.topology.md)* print it. A dataset
 with a single map that is a time instant has no granularity.
 
-The granularity of a space-time dataset counts months and years only if
-the start and the end of every interval lie on the first day of a month.
-A monthly series that starts on another day, for example on January 31
-with intervals of 28, 31 and 30 days, has the granularity `1 day`; the
-same series from January 1 has the granularity `1 month`. Tools that work
-on the granularity (for example *t.rast.to.rast3* or the **-g** flag of
-the algebra tools) then use days.
+The granularity counts months and years when both times of a step (the start
+and the end of an interval or of a gap) lie a whole number of months after the
+earliest start of the maps, counted as a series counts its time stamps: the
+earliest start plus one, two, three months, each cut to the end of a shorter
+month. A monthly series from January 31, with intervals to February 28,
+March 31 and April 30, has the granularity `1 month`, as has the same series
+from January 1 or from January 15. The times January 31, February 28 and
+March 28 are no such series: March 28 is not two months after January 31, so
+the two steps count as 28 days each and the granularity is `28 days`. The
+releases before GRASS 8.6 counted months only between the first days of two
+months and gave the series from January 31 the granularity `1 day`. A dataset
+keeps the granularity it stored until it is updated from its maps, for example
+by *[t.support](t.support.md)* with **-u**.
+Tools that work on the granularity (for example *t.rast.to.rast3* or the
+**-g** flag of the algebra tools) use the stored granularity; the classic
+algebra (**-c**) computes the granularity of the releases before GRASS 8.6.
 
 Tools that cut a dataset into time steps, *t.rast.aggregate* with its option
 **granularity** and the method `gran` of *[t.rast.list](t.rast.list.md)* with
@@ -71,8 +80,9 @@ The temporal topology of a dataset describes how its maps lie in time to each
 other. *[t.topology](t.topology.md)* reports it. The topology is *valid* if no
 two maps are equal, overlap, or lie in each other. Maps that touch, where the
 end of one map is the start of the next, and maps with a gap between them are
-allowed, as are time instants. A *gap* lies between two neighbouring maps
-where the later one starts after the earlier one has ended.
+allowed, as are time instants. A *gap* is time that no map covers: it lies
+before a map that starts after the latest end of the maps before it. A map
+that ends inside a longer one leaves no gap behind it.
 *[t.snap](t.snap.md)* closes gaps, and *[t.rast.gapfill](t.rast.gapfill.md)*
 fills them with interpolated maps.
 

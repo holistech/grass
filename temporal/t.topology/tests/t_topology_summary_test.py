@@ -146,7 +146,8 @@ ABSOLUTE = [
         # Days: map 1 [0,69), 2 [31,90), 3 [59,152), points 4 at 90 and 5 at
         # 120, map 6 [151,181). Overlaps: 1/2, 1/3, 2/3, 3/6. Point 4 touches
         # the end of map 2 (follows) and lies in map 3, as does point 5
-        # (during). Gaps: 4 to 5 and 5 to 6.
+        # (during). Map 3 covers the time from point 4 to map 6, so there is
+        # no gap: a gap is time that no map covers.
         {},
         [
             (1, "2001-01-01", "2001-03-11"),
@@ -160,7 +161,7 @@ ABSOLUTE = [
             "Temporal topology is": "invalid",
             "Number of points": "2",
             "Number of intervals": "4",
-            "Number of gaps": "2",
+            "Number of gaps": "0",
             "Granularity": "1 day",
             **_counts(
                 Follows=1, Precedes=1, Overlaps=4, Overlapped=4, During=2, Contains=2
@@ -269,11 +270,12 @@ RELATIVE = [
             # Maps 4 and 5 have the same start and end: they are points (the
             # list shows no end). Overlaps 1/2 and 2/3. Follows: 1/3 (2003),
             # 2/4 (point at the end 2004), 3/6 (2006). During: points 4 and 5
-            # lie in map 3. Gaps: 4 to 5 and 5 to 6.
+            # lie in map 3, which reaches map 6: no gap, a gap is time that
+            # no map covers.
             "Temporal topology is": "invalid",
             "Number of points": "2",
             "Number of intervals": "4",
-            "Number of gaps": "2",
+            "Number of gaps": "0",
             "Granularity": "1",
             **_counts(
                 Follows=3, Precedes=3, Overlaps=2, Overlapped=2, During=2, Contains=2

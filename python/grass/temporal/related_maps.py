@@ -196,33 +196,33 @@ def related_per_granule(granules, names, inputs, *, spatial=False):
 
 
 def with_gaps(series):
-    """The slots of series with a gap slot (origin None) between granules
-    that have a hole between them
+    """The slots of series with a gap slot (origin None) where no granule lies
 
-    get_registered_maps_as_objects_with_gaps() puts a map with id None between
-    two consecutive maps if the later one is strictly after the earlier one.
-    The series must be an interval dataset, so a gap runs from the end of the
-    earlier granule to the start of the later one; touching granules give no
-    gap. A gap has the spatial extent (0, 0, 0, 0, 0, 0) as in the classic
+    A gap is time that no granule covers, as in
+    get_registered_maps_as_objects_with_gaps(): it lies before a granule that
+    starts after the latest end of the granules before it and runs from that
+    end to its start. A granule that ends inside a longer one leaves no gap;
+    touching granules give no gap. The series must be an interval dataset. A
+    gap has the spatial extent (0, 0, 0, 0, 0, 0) as in the classic
     function, which matters under spatial: the gap then relates only to maps
     whose box touches the origin.
     """
-    slots = list(series.slots)
     out = []
-    for i, slot in enumerate(slots):
-        out.append(slot)
-        if i < len(slots) - 1:
-            extent = slot.extent
-            following = slots[i + 1].extent
-            if extent.end < following.start:
-                out.append(
-                    Slot(
-                        Extent(extent.end, following.start, extent.unit),
-                        NULL,
-                        Space(0, 0, 0, 0, 0, 0),
-                        None,
-                    )
+    covered_until = None
+    for slot in series.slots:
+        extent = slot.extent
+        if covered_until is not None and covered_until < extent.start:
+            out.append(
+                Slot(
+                    Extent(covered_until, extent.start, extent.unit),
+                    NULL,
+                    Space(0, 0, 0, 0, 0, 0),
+                    None,
                 )
+            )
+        out.append(slot)
+        if covered_until is None or extent.end > covered_until:
+            covered_until = extent.end
     return Series(tuple(out), series.kind, series.sort, series.spatial)
 
 
