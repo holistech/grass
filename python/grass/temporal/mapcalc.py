@@ -134,10 +134,9 @@ def _dataset_name_pattern(names):
 def _qualified(name, dataset):
     """The name with the mapset of the dataset that open_old_stds() found for it
 
-    With the mapset source() looks in that mapset only. source() reads the
-    text after a dot as a semantic label, so for an old dataset with a dot in
-    its name it reads the dataset without the dot, or reports that one as
-    missing (see _read_series()).
+    With the mapset source() looks in that mapset only, where it tries a name
+    with a dot whole before it reads the text after the dot as a semantic
+    label, as open_old_stds() does, so both read the same dataset.
     """
     return name if "@" in name else f"{name}@{dataset.get_mapset()}"
 

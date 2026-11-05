@@ -32,7 +32,11 @@ A name with a dot, such as `bands.S2_8`, is a dataset name and a semantic
 label. It selects the maps of the dataset that have this label, and the
 expression uses the same name. The new maps take the semantic label of the map
 of the sampler. The eighth example shows it; see
-*[i.band.library](i.band.library.md)* for the concept of semantic labels.
+*[i.band.library](i.band.library.md)* for the concept of semantic labels. A
+dataset of an earlier release can have a dot in its name. It is found by its
+whole name: the mapsets are searched in turn, the current one first, and in
+each the whole name is tried before the text after the dot is read as a
+semantic label.
 
 The result dataset is the option **output**. It always belongs to the current
 mapset, and so do the new maps. It takes the temporal type and the semantic type

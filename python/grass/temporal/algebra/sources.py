@@ -8,8 +8,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 from grass.exceptions import FatalError
+from grass.temporal.db import connection
 from grass.temporal.factory import dataset_factory
-from grass.temporal.open_stds import _parse_id, find_stds_id, open_old_stds
+from grass.temporal.open_stds import _find_old_stds, _parse_id, open_old_stds
 from grass.temporal.state import get_current_mapset
 
 from .adapters import extent_of, space_of
@@ -67,19 +68,38 @@ def _slot_of(map_):
     return Slot(extent_of(map_), MapRef(map_.get_id()), space_of(map_), map_.get_id())
 
 
-def _in_search_path(name, stds_type):
-    """name@mapset of the dataset that a name without a mapset selects
+def _found_id(name, stds_type, search_path):
+    """The id of the dataset that the name selects, or None if there is none
 
-    The dataset is looked for in the current mapset and then in the search
-    path, as open_old_stds() does; for a strds the text after a dot is the
-    semantic label and stays. A dataset found nowhere gets the current
-    mapset, so that source() reports it as not found.
+    The mapsets are searched as open_old_stds() searches them: the one given
+    with the name, or the current mapset and, with search_path, then the
+    search path. In each mapset a raster dataset name with a dot is tried
+    whole first, so that a dataset of an older release with a dot in its name
+    is found, and then as name and semantic label. The id keeps the label
+    ("name.label@mapset"), which open_old_stds() reads the same way in that
+    mapset.
     """
-    base, _mapset, label = _parse_id(name, stds_type)
-    found = find_stds_id(base, stds_type)
-    if label is None:
-        return found
-    return f"{base}.{label}@{found.split('@', 1)[1]}"
+    bare, _at, mapset = name.partition("@")
+    if not mapset and not search_path:
+        mapset = get_current_mapset()
+    forms = [(bare, None)]
+    if stds_type == "strds" and bare.count(".") == 1:
+        base, _mapset, label = _parse_id(bare, stds_type)
+        forms.append((base, label))
+    with connection() as dbif:
+        if mapset:
+            # _find_old_stds() passes over a mapset without an accessible
+            # temporal database; is_in_db() raises the refusal that names it.
+            dataset_factory(stds_type, f"{bare}@{mapset}").is_in_db(dbif)
+        dataset = _find_old_stds(forms, mapset or None, stds_type, dbif)
+    if dataset is None:
+        if stds_type == "strds" and bare.count(".") > 1:
+            # _parse_id() refuses a label with a dot, so a name with two dots
+            # can only match whole; one that does not ends with that refusal,
+            # as in open_old_stds().
+            _parse_id(bare, stds_type)
+        return None
+    return f"{dataset.get_name()}@{dataset.get_mapset()}"
 
 
 def source(name, *, where=None, stds_type="strds", order="time", search_path=True):
@@ -88,7 +108,8 @@ def source(name, *, where=None, stds_type="strds", order="time", search_path=Tru
     Needs a GRASS session and a temporal database.
 
     :param name: the dataset, for "strds" optionally with a semantic label
-        ("name.label[@mapset]"), which keeps only the maps with that label
+        ("name.label[@mapset]"), which keeps only the maps with that label,
+        unless a dataset of the whole name is found first (see _found_id())
     :param where: an SQL condition on the registered maps, as in t.rast.list
     :param stds_type: "strds", "str3ds" or "stvds"
     :param order: how the series sorts the maps, "time" (start, then end) or
@@ -105,18 +126,12 @@ def source(name, *, where=None, stds_type="strds", order="time", search_path=Tru
     if stds_type not in KINDS_OF_STDS:
         msg = f"stds_type must be one of {', '.join(KINDS_OF_STDS)}, got {stds_type!r}"
         raise ValueError(msg)
-    if search_path and "@" not in name:
-        ident = _in_search_path(name, stds_type)
-    else:
-        ident = _qualified(name)
-    # "name.label" of a raster dataset names the dataset without the label;
-    # open_old_stds() below applies the label to the registered maps.
-    base, mapset, _label = _parse_id(ident, stds_type)
+    ident = _found_id(name, stds_type, search_path)
     # open_old_stds() reports a missing dataset with msgr.fatal(), which
     # exits the process unless the messenger raises on errors, which
     # tgis.init(raise_fatal_error=True) sets up (state.py).
-    if not dataset_factory(stds_type, f"{base}@{mapset}").is_in_db():
-        raise FatalError(_dataset_missing(stds_type).format(name=ident))
+    if ident is None:
+        raise FatalError(_dataset_missing(stds_type).format(name=_qualified(name)))
     dataset = open_old_stds(ident, stds_type)
     maps = dataset.get_registered_maps_as_objects(where=where, order="start_time")
     return Series(

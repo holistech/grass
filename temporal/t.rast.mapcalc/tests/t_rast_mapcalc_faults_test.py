@@ -5,8 +5,9 @@ selects a map of the same time as the granule. A dataset name in the
 expression is replaced only where it stands as a whole name, and not where
 it is followed by "(", also after the label operator "@" and the grey
 operator "#" of r.mapcalc. Two inputs of the same name are refused, and the
-expression reaches r.mapcalc with its blanks. An input that only an older
-dataset with a dot in its name matches ends the run with an error message.
+expression reaches r.mapcalc with its blanks. An older dataset with a dot in
+its name is read as an input; a dotted name that names no dataset ends the
+run with an error message.
 """
 
 from datetime import datetime
@@ -277,32 +278,55 @@ def test_expression_keeps_spaces(tools):
     assert values(tools, "sp_out")[0][3] == 6.0
 
 
-def test_old_dataset_with_dot_ends_with_an_error_message(tmp_path):
-    """Only the dataset a.b of an older release, no dataset a: no traceback
+def old_dotted_dataset_tools(session):
+    """Tools of session with the dataset a.b of an older release, no dataset a
 
-    The dataset is made with the dataset class, as the older release did.
+    The dataset is made with the dataset class, as the older release did, and
+    holds the maps m1 and m2 with the values 1 and 2.
+    """
+    tools = Tools(
+        session=session,
+        consistent_return_value=True,
+        capture_stderr=True,
+        errors="ignore",
+    )
+    tools.g_region(n=1, s=0, e=1, w=0, res=1)
+    for name, value in (("m1", 1), ("m2", 2)):
+        tools.r_mapcalc(expression=f"{name} = {value}")
+    dataset = tgis.dataset_factory("strds", f"a.b@{tgis.get_current_mapset()}")
+    dataset.set_initial_values("absolute", "mean", "t", "d")
+    dataset.insert()
+    tools.t_register(input="a.b", maps="m1,m2", start="2001-01-01", increment="1 day")
+    return tools
+
+
+def test_old_dataset_with_dot_ends_with_an_error_message(tmp_path):
+    """A dotted name that names no dataset, next to a.b of an older release
+
+    a.c is neither a dataset nor the dataset a with the label c: the run
+    ends with an error message, not a traceback. The dataset a.b itself is
+    read (test_dotted_input_is_read).
     """
     with temporal_session(tmp_path / "project") as session:
-        tools = Tools(
-            session=session,
-            consistent_return_value=True,
-            capture_stderr=True,
-            errors="ignore",
+        tools = old_dotted_dataset_tools(session)
+
+        result = tools.t_rast_mapcalc(
+            inputs="a.c", expression="a.c + 1", output="calc", basename="calc"
         )
-        tools.g_region(n=1, s=0, e=1, w=0, res=1)
-        for name, value in (("m1", 1), ("m2", 2)):
-            tools.r_mapcalc(expression=f"{name} = {value}")
-        dataset = tgis.dataset_factory("strds", f"a.b@{tgis.get_current_mapset()}")
-        dataset.set_initial_values("absolute", "mean", "t", "d")
-        dataset.insert()
-        tools.t_register(
-            input="a.b", maps="m1,m2", start="2001-01-01", increment="1 day"
-        )
+
+    assert result.returncode == 1
+    assert "Traceback" not in result.stderr
+    assert "ERROR: Space time dataset <a> of type <strds> not found" in result.stderr
+
+
+def test_dotted_input_is_read(tmp_path):
+    """Only the dataset a.b of an older release, no dataset a: 1 + 1, 2 + 1"""
+    with temporal_session(tmp_path / "project") as session:
+        tools = old_dotted_dataset_tools(session)
 
         result = tools.t_rast_mapcalc(
             inputs="a.b", expression="a.b + 1", output="calc", basename="calc"
         )
 
-    assert result.returncode == 1
-    assert "Traceback" not in result.stderr
-    assert "ERROR: Space time raster dataset <a.b@" in result.stderr
+        assert result.returncode == 0, result.stderr
+        assert [row.min for row in list_maps(tools, "strds", "calc")] == [2.0, 3.0]
