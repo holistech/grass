@@ -402,6 +402,14 @@ tsnap(A)                Snap time instances and intervals of STDS A
 A negative size shrinks the maps; the new algebra stops with an error where
 a map would keep no time, see "Core and classic algebra".
 
+`tsnap()` ends a last map that is a time instance one granularity of the
+maps after its start. A granularity of months counts from the first map, with
+the cut to the end of a shorter month: the time instances January 31,
+February 28 and March 31 have the granularity of one month, and the last one
+ends on April 30; after an instance on April 30 in the same series it ends on
+May 31. The classic algebra (**-c**) computes the granularity of the releases
+before GRASS 8.6, one day, and ends the instance of March 31 on April 1.
+
 #### Single map with temporal extent
 
 The temporal algebra can also handle single maps with time stamps in the

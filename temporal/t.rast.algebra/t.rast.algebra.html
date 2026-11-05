@@ -87,7 +87,12 @@ and the result is an empty dataset.
 The option <b>suffix</b> changes the part of the names after the basename. <code>num</code>,
 the default, is the number described above. For absolute time, <code>gran</code> takes
 the start time of the map cut to the granularity of the result and <code>time</code> the
-full start time, see the example "Name the result maps and plan a run". The
+full start time, see the example "Name the result maps and plan a run". A
+monthly result from the last day of a month (January 31, February 28) has the
+granularity of one month, so <code>gran</code> gives year and month (<code>2026_01</code>); the
+classic algebra (<b>-c</b>) computes the granularity of the releases before GRASS
+8.6, one day, and gives <code>2026_01_31</code> (see the
+<a href="temporalintro.html">introduction</a>). The
 text <code>num%NN</code> is accepted as <code>num</code>; see the NOTES.
 
 <p>
@@ -519,6 +524,15 @@ tsnap(A)                Snap time instances and intervals of STDS A
 <p>
 A negative size shrinks the maps; the new algebra stops with an error where
 a map would keep no time, see "Core and classic algebra".
+
+<p>
+<code>tsnap()</code> ends a last map that is a time instance one granularity of the
+maps after its start. A granularity of months counts from the first map, with
+the cut to the end of a shorter month: the time instances January 31,
+February 28 and March 31 have the granularity of one month, and the last one
+ends on April 30; after an instance on April 30 in the same series it ends on
+May 31. The classic algebra (<b>-c</b>) computes the granularity of the releases
+before GRASS 8.6, one day, and ends the instance of March 31 on April 1.
 
 <h4>Merge function</h4>
 
@@ -1310,9 +1324,13 @@ C = merge(tmap(sinst), RT) : RT
 <h3>Granularity algebra</h3>
 
 With the flag <b>-g</b>, each space time dataset of the expression is first
-sampled with the common granularity of all datasets of the expression. The
-granules of a dataset follow each other from the start of its first map
-until they cover the end of its last map, so the last granule may reach
+sampled with the common granularity of all datasets of the expression. A
+monthly series from the last day of a month (January 31, February 28 and
+March 31) has the granularity of one month and gets a granule per month; the
+classic algebra (<b>-c</b>) computes the granularity of the releases before GRASS
+8.6 from the maps, one day, and gets a granule per day. The granules of a
+dataset follow each other from the start of its first map until they cover the
+end of its last map, so the last granule may reach
 past it, for example a granule of two days over a map of three days. If the
 dataset has time instances, one more granule follows. Each granule takes
 one map of the dataset, with the time stamp of the granule:

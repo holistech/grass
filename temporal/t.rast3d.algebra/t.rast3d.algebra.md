@@ -512,9 +512,13 @@ of an expression.
 ### Granularity algebra
 
 With the flag **-g**, each space time dataset of the expression is first
-sampled with the common granularity of all datasets of the expression. The
-granules of a dataset follow each other from the start of its first map
-until they cover the end of its last map, so the last granule may reach
+sampled with the common granularity of all datasets of the expression. A
+monthly series from the last day of a month (January 31, February 28 and
+March 31) has the granularity of one month and gets a granule per month; the
+classic algebra (**-c**) computes the granularity of the releases before GRASS
+8.6 from the maps, one day, and gets a granule per day. The granules of a
+dataset follow each other from the start of its first map until they cover the
+end of its last map, so the last granule may reach
 past it, for example a granule of two days over a map of three days. If the
 dataset has time instances, one more granule follows. Each granule takes
 one map of the dataset, with the time stamp of the granule:
@@ -1312,6 +1316,14 @@ as a number. `start_day(A)` is the day of the month, 1 to 4, so the sum is 2,
 4, 6 and 8. `td(A)` is the duration of a map in days, here 1. The functions
 `tshift()`, `tsnap()` and `buff_t()` change the time of the maps and leave
 the cell values alone.
+
+`tsnap()` ends a last map that is a time instance one granularity of the
+maps after its start. A granularity of months counts from the first map, with
+the cut to the end of a shorter month: the time instances January 31,
+February 28 and March 31 have the granularity of one month, and the last one
+ends on April 30; after an instance on April 30 in the same series it ends on
+May 31. The classic algebra (**-c**) computes the granularity of the releases
+before GRASS 8.6, one day, and ends the instance of March 31 on April 1.
 
 === "Command line"
 
