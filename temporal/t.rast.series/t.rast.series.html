@@ -25,8 +25,8 @@ The option <b>input</b> names the space time raster dataset. The option
 maps, for instance by their <code>start_time</code>; without it, all maps are used. SQLite
 functions such as <code>strftime</code> are available, which selects a recurring period of
 a multi-year series. The fourth and the fifth example use <b>where</b>. If the
-condition selects no map, the tool ends without an error, prints no message and
-creates no map.
+condition selects no map, the tool warns "Space time raster dataset ... is
+empty", creates no map and ends without an error.
 
 <p>
 The option <b>order</b> sorts the selected maps before <em>r.series</em> reads them. It

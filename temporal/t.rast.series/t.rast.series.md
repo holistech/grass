@@ -24,8 +24,8 @@ The option **input** names the space time raster dataset. The option
 maps, for instance by their `start_time`; without it, all maps are used. SQLite
 functions such as `strftime` are available, which selects a recurring period of
 a multi-year series. The fourth and the fifth example use **where**. If the
-condition selects no map, the tool ends without an error, prints no message and
-creates no map.
+condition selects no map, the tool warns "Space time raster dataset ... is
+empty", creates no map and ends without an error.
 
 The option **order** sorts the selected maps before *r.series* reads them. It
 takes the columns `id`, `name`, `creator`, `mapset`, `creation_time`,
