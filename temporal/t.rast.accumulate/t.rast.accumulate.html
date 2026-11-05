@@ -51,7 +51,9 @@ before.
 <p>
 With absolute time, a <b>start</b> that does not lie on the beginning of the
 <b>granularity</b> is moved to it: with <code>granularity="1 months"</code>, the start
-<code>2026-03-02</code> becomes <code>2026-03-01</code>. The tool warns and names both times. The
+<code>2026-03-02</code> becomes <code>2026-03-01</code>, and with <code>granularity="1 weeks"</code> a start
+moves to the Monday on or before it, also into the month or year before, as
+<code>2026-01-03</code> becomes <code>2025-12-29</code>. The tool warns and names both times. The
 cycles count from the moved start. <em><a href="t.rast.accdetect.html">t.rast.accdetect</a></em>
 does not move its start; for the same cycles, give it the moved start.
 

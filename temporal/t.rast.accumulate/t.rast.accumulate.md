@@ -47,7 +47,9 @@ before.
 
 With absolute time, a **start** that does not lie on the beginning of the
 **granularity** is moved to it: with `granularity="1 months"`, the start
-`2026-03-02` becomes `2026-03-01`. The tool warns and names both times. The
+`2026-03-02` becomes `2026-03-01`, and with `granularity="1 weeks"` a start
+moves to the Monday on or before it, also into the month or year before, as
+`2026-01-03` becomes `2025-12-29`. The tool warns and names both times. The
 cycles count from the moved start. *[t.rast.accdetect](t.rast.accdetect.md)*
 does not move its start; for the same cycles, give it the moved start.
 
