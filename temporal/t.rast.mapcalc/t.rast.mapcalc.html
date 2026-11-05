@@ -24,9 +24,8 @@ for which one of the datasets has no related map is skipped. The order of the
 datasets in the expression does not matter, only their order in <b>inputs</b>. If
 the list names only one dataset, every map of it is a granule. The datasets may
 be in other mapsets (<code>precipitation_monthly@t_rast_mapcalc</code>); the expression
-then still uses the name without the mapset. The tool reads the maps of such a
-dataset through the search path, so its mapset must be in the search path
-(see <a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other
+then still uses the name without the mapset, and the mapset does not have to
+be in the search path (see <a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other
 mapsets</a>).
 
 <p>
@@ -1961,12 +1960,10 @@ t.rast.mapcalc failed
 
 The mapset <code>t_rast_mapcalc_2</code> is new and empty. A new mapset starts with the
 default region of the dataset, cells of 500 m, so the first block sets the
-region of the first example again. It adds the mapset <code>t_rast_mapcalc</code> to the
-search path with <em>g.mapsets</em> and converts
+region of the first example again. It converts
 <code>precipitation_monthly@t_rast_mapcalc</code> from millimeters to centimeters. The
-expression still uses the name <code>precipitation_monthly</code>. The tool reads the
-maps of the input dataset through the search path, so the mapset of the input
-must be in the search path or be the current mapset. See <a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other
+expression still uses the name <code>precipitation_monthly</code>, and the mapset of the
+input does not have to be in the search path. See <a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other
 mapsets</a>. The dataset
 <code>precipitation_cm</code> and its maps belong to the current mapset; the listing shows
 the mapset of the maps.
@@ -1989,7 +1986,6 @@ earlier run are no longer registered in it, but the tool does not remove them:
 <div class="code"><pre>
 g.mapset -c mapset=t_rast_mapcalc_2
 g.region raster=elev_state_500m res=1000 -a
-g.mapsets mapset=t_rast_mapcalc operation=add
 t.rast.mapcalc inputs=precipitation_monthly@t_rast_mapcalc \
     output=precipitation_cm basename=precipitation_cm \
     expression="precipitation_monthly / 10.0"
@@ -2070,7 +2066,6 @@ precipitation_cm_12
 <div class="code"><pre>
 tools.g_mapset(mapset="t_rast_mapcalc_2", flags="c")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-tools.g_mapsets(mapset="t_rast_mapcalc", operation="add")
 tools.t_rast_mapcalc(
     inputs="precipitation_monthly@t_rast_mapcalc",
     output="precipitation_cm",

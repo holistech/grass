@@ -24,9 +24,8 @@ for which one of the datasets has no related map is skipped. The order of the
 datasets in the expression does not matter, only their order in **inputs**. If
 the list names only one dataset, every map of it is a granule. The datasets may
 be in other mapsets (`precipitation_monthly@t_rast_mapcalc`); the expression
-then still uses the name without the mapset. The tool reads the maps of such a
-dataset through the search path, so its mapset must be in the search path
-(see [Datasets of other
+then still uses the name without the mapset, and the mapset does not have to
+be in the search path (see [Datasets of other
 mapsets](temporalintro.md#datasets-of-other-mapsets)).
 
 A name with a dot, such as `bands.S2_8`, is a dataset name and a semantic
@@ -1920,12 +1919,10 @@ third block names `day` twice, and the tool stops before it computes anything.
 
 The mapset `t_rast_mapcalc_2` is new and empty. A new mapset starts with the
 default region of the dataset, cells of 500 m, so the first block sets the
-region of the first example again. It adds the mapset `t_rast_mapcalc` to the
-search path with *g.mapsets* and converts
+region of the first example again. It converts
 `precipitation_monthly@t_rast_mapcalc` from millimeters to centimeters. The
-expression still uses the name `precipitation_monthly`. The tool reads the
-maps of the input dataset through the search path, so the mapset of the input
-must be in the search path or be the current mapset. See [Datasets of other
+expression still uses the name `precipitation_monthly`, and the mapset of the
+input does not have to be in the search path. See [Datasets of other
 mapsets](temporalintro.md#datasets-of-other-mapsets). The dataset
 `precipitation_cm` and its maps belong to the current mapset; the listing shows
 the mapset of the maps.
@@ -1946,7 +1943,6 @@ earlier run are no longer registered in it, but the tool does not remove them:
     ```sh
     g.mapset -c mapset=t_rast_mapcalc_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_rast_mapcalc operation=add
     t.rast.mapcalc inputs=precipitation_monthly@t_rast_mapcalc \
         output=precipitation_cm basename=precipitation_cm \
         expression="precipitation_monthly / 10.0"
@@ -2027,7 +2023,6 @@ earlier run are no longer registered in it, but the tool does not remove them:
     ```python
     tools.g_mapset(mapset="t_rast_mapcalc_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_rast_mapcalc", operation="add")
     tools.t_rast_mapcalc(
         inputs="precipitation_monthly@t_rast_mapcalc",
         output="precipitation_cm",
