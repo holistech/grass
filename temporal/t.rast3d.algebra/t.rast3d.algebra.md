@@ -83,8 +83,7 @@ and *meet*). The relations *equivalent*, *cover*, *overlap*, *in*,
 spatial operator, for example `{+,equal|overlap}`; the maps then need
 this spatial relation in addition to the temporal one. Such a name builds
 the spatial topology for its operator also without **-s**, as in the
-classic algebra (since 17 October 2026; before, the new algebra stopped
-with an error). The relation is
+classic algebra. The relation is
 evaluated in three dimensions: two maps with the same depth range are not
 related as *overlap*, even if they overlap in the horizontal plane.
 
@@ -96,8 +95,8 @@ A map that the result takes over unchanged, for example one that a
 selection stamps with a new time, is copied in the current 3D region as
 well, with or without **-s**. A copy of a map that lies outside the region
 has no data. Like any map without data it is not registered unless **-n**
-is given, and since 24 October 2026 a warning names it and the map it
-copies. Set the region with *g.region* so that it covers the maps.
+is given, and a warning names it and the map it copies. Set the region with
+*g.region* so that it covers the maps.
 
 ### Core and classic algebra
 
@@ -116,9 +115,7 @@ new algebra, and the flag takes precedence over the variable. In Python,
 purpose. Both algebras compute the granularity mode (**-g**), see below.
 
 An `if` without else gives 0 where a condition on map values is false, in
-both algebras, like the `if()` of *r3.mapcalc* with two arguments. The new
-algebra does so since 17 October 2026; before, it gave null there and
-registered a map that is false everywhere only with **-n**.
+both algebras, like the `if()` of *r3.mapcalc* with two arguments.
 
 The two algebras differ in the following points. The examples use four
 daily 3D raster maps in A with the values 1 to 4, two maps of two days in B
@@ -288,7 +285,8 @@ condition on temporal variables also takes the maps that no condition map
 is related to. Figure A3 of Gebbert, Leppelt and Pebesma (2019) needs both:
 A has maps from day 1 to 3, 3 to 5 and 5 to 7 of January 2001, B has daily
 maps from day 1 to 10, and this expression gives the first two maps of A
-and the maps of B from day 5 on, as the figure shows:
+and the maps of B from day 5 on, as the figure shows (see the example
+"Figure A3 of the publication"):
 
 ```sh
 C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)
@@ -1685,6 +1683,161 @@ four maps in total.
 
     ```text
     number_of_maps=8
+    ```
+
+### Figure A3 of the publication
+
+Figure A3 of Gebbert, Leppelt and Pebesma (2019) shows the expression of the
+NOTES (section "Core and classic algebra") on datasets of January 2001. The
+example creates the mapset `t_rast3d_algebra_2`, sets the region of the first
+example and creates new datasets `A` and `B` there, so that the expression can
+be written as it is printed: `A` has three maps of two days from 1 to 7
+January 2001 with the values 1 to 3, `B` ten daily maps from 1 to 10 January
+with the values 11 to 20. The result `C` holds the first two maps of `A`,
+whose start is not after 3 January, and the maps of `B` from day 5 on, which
+no such map of `A` contains or equals: the values 1, 2 and 15 to 20. The
+classic algebra (**-c**) gives the same maps.
+
+=== "Command line"
+
+    ```sh
+    g.mapset -c mapset=t_rast3d_algebra_2
+    g.region raster=elev_state_500m res=1000 res3=1000 t=2000 b=0 tbres=1000 -a
+    for i in 1 2 3; do
+        r3.mapcalc expression="fig_a_$i = $i"
+    done
+    for i in $(seq 1 10); do
+        r3.mapcalc expression="fig_b_$i = 10 + $i"
+    done
+    t.create type=str3ds output=A title="Figure A3, A" \
+        description="Three maps of two days in January 2001"
+    t.register -i type=raster_3d input=A maps=fig_a_1,fig_a_2,fig_a_3 \
+        start=2001-01-01 increment="2 days"
+    t.create type=str3ds output=B title="Figure A3, B" \
+        description="Ten daily maps in January 2001"
+    t.register -i type=raster_3d input=B \
+        maps=$(seq -s, -f "fig_b_%g" 1 10) start=2001-01-01 increment="1 day"
+    t.rast3d.algebra \
+        expression='C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)' \
+        basename=fig
+    t.rast3d.list input=C columns=name,start_time,end_time,min,max
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    fig_0|2001-01-01 00:00:00|2001-01-03 00:00:00|1.0|1.0
+    fig_1|2001-01-03 00:00:00|2001-01-05 00:00:00|2.0|2.0
+    fig_2|2001-01-05 00:00:00|2001-01-06 00:00:00|15.0|15.0
+    fig_3|2001-01-06 00:00:00|2001-01-07 00:00:00|16.0|16.0
+    fig_4|2001-01-07 00:00:00|2001-01-08 00:00:00|17.0|17.0
+    fig_5|2001-01-08 00:00:00|2001-01-09 00:00:00|18.0|18.0
+    fig_6|2001-01-09 00:00:00|2001-01-10 00:00:00|19.0|19.0
+    fig_7|2001-01-10 00:00:00|2001-01-11 00:00:00|20.0|20.0
+    ```
+
+    ```sh
+    t.rast3d.algebra -c --overwrite \
+        expression='C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)' \
+        basename=figc
+    t.rast3d.list input=C columns=name,start_time,end_time,min,max
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    figc_0|2001-01-01 00:00:00|2001-01-03 00:00:00|1.0|1.0
+    figc_1|2001-01-03 00:00:00|2001-01-05 00:00:00|2.0|2.0
+    figc_2|2001-01-05 00:00:00|2001-01-06 00:00:00|15.0|15.0
+    figc_3|2001-01-06 00:00:00|2001-01-07 00:00:00|16.0|16.0
+    figc_4|2001-01-07 00:00:00|2001-01-08 00:00:00|17.0|17.0
+    figc_5|2001-01-08 00:00:00|2001-01-09 00:00:00|18.0|18.0
+    figc_6|2001-01-09 00:00:00|2001-01-10 00:00:00|19.0|19.0
+    figc_7|2001-01-10 00:00:00|2001-01-11 00:00:00|20.0|20.0
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.g_mapset(mapset="t_rast3d_algebra_2", flags="c")
+    tools.g_region(
+        raster="elev_state_500m",
+        res=1000,
+        res3=1000,
+        t=2000,
+        b=0,
+        tbres=1000,
+        flags="a",
+    )
+    for i in range(1, 4):
+        tools.r3_mapcalc(expression=f"fig_a_{i} = {i}")
+    for i in range(1, 11):
+        tools.r3_mapcalc(expression=f"fig_b_{i} = {10 + i}")
+    tools.t_create(
+        type="str3ds",
+        output="A",
+        title="Figure A3, A",
+        description="Three maps of two days in January 2001",
+    )
+    tools.t_register(
+        type="raster_3d",
+        input="A",
+        maps="fig_a_1,fig_a_2,fig_a_3",
+        start="2001-01-01",
+        increment="2 days",
+        flags="i",
+    )
+    tools.t_create(
+        type="str3ds",
+        output="B",
+        title="Figure A3, B",
+        description="Ten daily maps in January 2001",
+    )
+    tools.t_register(
+        type="raster_3d",
+        input="B",
+        maps=",".join(f"fig_b_{i}" for i in range(1, 11)),
+        start="2001-01-01",
+        increment="1 day",
+        flags="i",
+    )
+    tools.t_rast3d_algebra(
+        expression='C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)',
+        basename="fig",
+    )
+    print(tools.t_rast3d_list(input="C", columns="name,start_time,end_time,min,max").text)
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    fig_0|2001-01-01 00:00:00|2001-01-03 00:00:00|1.0|1.0
+    fig_1|2001-01-03 00:00:00|2001-01-05 00:00:00|2.0|2.0
+    fig_2|2001-01-05 00:00:00|2001-01-06 00:00:00|15.0|15.0
+    fig_3|2001-01-06 00:00:00|2001-01-07 00:00:00|16.0|16.0
+    fig_4|2001-01-07 00:00:00|2001-01-08 00:00:00|17.0|17.0
+    fig_5|2001-01-08 00:00:00|2001-01-09 00:00:00|18.0|18.0
+    fig_6|2001-01-09 00:00:00|2001-01-10 00:00:00|19.0|19.0
+    fig_7|2001-01-10 00:00:00|2001-01-11 00:00:00|20.0|20.0
+    ```
+
+    ```python
+    tools.t_rast3d_algebra(
+        expression='C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)',
+        basename="figc",
+        flags="c",
+        overwrite=True,
+    )
+    print(tools.t_rast3d_list(input="C", columns="name,start_time,end_time,min,max").text)
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    figc_0|2001-01-01 00:00:00|2001-01-03 00:00:00|1.0|1.0
+    figc_1|2001-01-03 00:00:00|2001-01-05 00:00:00|2.0|2.0
+    figc_2|2001-01-05 00:00:00|2001-01-06 00:00:00|15.0|15.0
+    figc_3|2001-01-06 00:00:00|2001-01-07 00:00:00|16.0|16.0
+    figc_4|2001-01-07 00:00:00|2001-01-08 00:00:00|17.0|17.0
+    figc_5|2001-01-08 00:00:00|2001-01-09 00:00:00|18.0|18.0
+    figc_6|2001-01-09 00:00:00|2001-01-10 00:00:00|19.0|19.0
+    figc_7|2001-01-10 00:00:00|2001-01-11 00:00:00|20.0|20.0
     ```
 
 <!-- markdownlint-enable MD046 -->
