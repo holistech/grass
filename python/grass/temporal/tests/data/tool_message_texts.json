@@ -107,6 +107,7 @@
   "The gap after the time instant <{}> cannot be filled, only gaps after an interval can be filled",
   "The granularity must be longer than zero",
   "The granules starting at <{first}> and <{second}> get the same map name <{name}> from the suffix {suffix}. Use the suffix num, or change the cycle, the granularity or the offset so that no two granules start in the same unit of time.",
+  "The map <{map}> lies in overlapping cycles, but the tool writes one result for each input map. Use an offset that does not move the next cycle back into the one before.",
   "The maps <{first}> and <{second}> are given the same name <{name}> by the suffix {suffix}. Use the suffix num or select maps of different times.",
   "The maps of the space time raster dataset <{strds}> are not all time intervals, so the sampling <{sampling}> is ignored and <start> is used",
   "The maps of the space time raster dataset <{}> overlap, include each other or have the same time, so a layer cannot be assigned to one of them. See t.topology.",

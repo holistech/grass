@@ -138,6 +138,18 @@ def open_input(input_name, dbif):
     return input_strds
 
 
+def check_current_mapset(stds_id, mapset, dbif):
+    """Refuse the id of a dataset of another mapset
+
+    The result maps are made in the current mapset, so none of them can be
+    registered in a dataset of another one. Refusing it here leaves no map
+    behind that no dataset can register.
+    """
+    if stds_id.split("@", 1)[1] != mapset:
+        dbif.close()
+        gs.fatal(_("Space time datasets can only be created in the current mapset"))
+
+
 def open_occurrence(occurrence, minimum, maximum, range_, mapset, dbif):
     """Open the occurrence dataset, None without the option
 
@@ -162,6 +174,7 @@ def open_occurrence(occurrence, minimum, maximum, range_, mapset, dbif):
             occurrence_id = occurrence
         else:
             occurrence_id = occurrence + "@" + mapset
+        check_current_mapset(occurrence_id, mapset, dbif)
 
         occurrence_strds = tgis.SpaceTimeRasterDataset(occurrence_id)
         if occurrence_strds.is_in_db(dbif) and not gs.overwrite():
@@ -189,6 +202,7 @@ def open_indicator(indicator, staend, mapset, dbif):
 
     tgis.open_stds.check_new_stds_name(indicator)
     indicator_id = indicator if indicator.find("@") >= 0 else indicator + "@" + mapset
+    check_current_mapset(indicator_id, mapset, dbif)
 
     indicator_strds = tgis.SpaceTimeRasterDataset(indicator_id)
     if indicator_strds.is_in_db(dbif) and not gs.overwrite():
@@ -315,6 +329,117 @@ def first_cycle(input_strds, start, cycle, offset, dbif):
     return end, cycle, offset
 
 
+def result_name(map, base, tsuffix, granularity, number, *, indicator):
+    """The name of the occurrence or indicator map of map
+
+    number is the count of the map among the maps of its kind. The tool
+    names its maps by the granularity of the input dataset: it has no option
+    for another one and writes one map per input map.
+    """
+    suffix = tgis.map_name_suffix(map, tsuffix, granularity, number)
+    return f"{base}_indicator_{suffix}" if indicator else f"{base}_{suffix}"
+
+
+def cycle_maps(input_strds, start, end, *, stop, cycle, offset, dbif):
+    """The cycles of the run: start, end, the where of its maps and the maps
+
+    A cycle without a map is passed over.
+    """
+    cycles = []
+    try:
+        for cycle_start, cycle_end in tgis.dataset_cycles(
+            input_strds, start, end, stop=stop, cycle=cycle, offset=offset, dbif=dbif
+        ):
+            where = "start_time >= '%s' AND start_time < '%s'" % (
+                str(cycle_start),
+                str(cycle_end),
+            )
+            input_maps = input_strds.get_registered_maps_as_objects(
+                where=where, dbif=dbif
+            )
+            if input_maps:
+                cycles.append((cycle_start, cycle_end, where, input_maps))
+    except ValueError as error:
+        dbif.close()
+        gs.fatal(str(error))
+    return cycles
+
+
+def check_new_maps(cycles, input_strds, *, base, tsuffix, reverse, indicator, dbif):
+    """Refuse the names that the run cannot use, before it writes a map
+
+    cycles are those of cycle_maps(). The names are those of the occurrence
+    maps and, with indicator, of the indicator maps, counted as the
+    computation counts them. A name that two maps get is refused, and without
+    overwrite so is a map that exists as a raster or is registered in the
+    temporal database. The mapcalc of the computation writes over a raster
+    that no dataset holds, whether overwrite is set or not, and a registered
+    map would end the run only when its turn comes, after the earlier maps are
+    written. Checked here so that a refusal leaves nothing behind.
+    """
+    mapset = tgis.get_current_mapset()
+    granularity = input_strds.get_granularity()
+    planned = {}
+    counts = {False: 1, True: 1}
+    in_cycle = set()
+    for _start, _end, _where, input_maps in cycles:
+        for map in input_maps:
+            # The tool keeps one result per input map, so a map in two cycles
+            # would be computed twice and the first result stay behind in no
+            # dataset, whatever its name is.
+            if map.get_id() in in_cycle:
+                dbif.close()
+                gs.fatal(
+                    _(
+                        "The map <{map}> lies in overlapping cycles, but the "
+                        "tool writes one result for each input map. Use an "
+                        "offset that does not move the next cycle back into "
+                        "the one before."
+                    ).format(map=map.get_id())
+                )
+            in_cycle.add(map.get_id())
+    for _start, _end, _where, input_maps in cycles:
+        num_maps = len(input_maps)
+        for i in range(num_maps):
+            map = input_maps[num_maps - i - 1 if reverse else i]
+            for kind in (False, True) if indicator else (False,):
+                name = result_name(
+                    map, base, tsuffix, granularity, counts[kind], indicator=kind
+                )
+                counts[kind] += 1
+                new_id = map.build_id(name, mapset)
+                if new_id in planned:
+                    dbif.close()
+                    gs.fatal(
+                        _(
+                            "The maps <{first}> and <{second}> are given the same "
+                            "name <{name}> by the suffix {suffix}. Use the suffix "
+                            "num or select maps of different times."
+                        ).format(
+                            first=planned[new_id].get_id(),
+                            second=map.get_id(),
+                            name=new_id,
+                            suffix=tsuffix,
+                        )
+                    )
+                planned[new_id] = map
+    if gs.overwrite():
+        return
+    for new_id, map in planned.items():
+        try:
+            tgis.open_result_map(map, new_id.split("@")[0], overwrite=False, dbif=dbif)
+        except ValueError as error:
+            dbif.close()
+            gs.fatal(str(error))
+        if map.get_new_instance(new_id).map_exists():
+            dbif.close()
+            gs.fatal(
+                _(
+                    "Raster map <{}> exists. To overwrite, use the --overwrite flag."
+                ).format(new_id)
+            )
+
+
 def compute_occurrence(
     occurrence_maps,
     input_strds,
@@ -366,10 +491,9 @@ def compute_occurrence(
         td = input_start - start
         days = tgis.time_delta_to_relative_time(td) if map.is_time_absolute() else td
 
-        suffix = tgis.map_name_suffix(
-            map, tsuffix, input_strds.get_granularity(), count
+        occurrence_map_name = result_name(
+            map, base, tsuffix, input_strds.get_granularity(), count, indicator=False
         )
-        occurrence_map_name = f"{base}_{suffix}"
 
         try:
             occurrence_map = tgis.open_result_map(
@@ -441,10 +565,14 @@ def compute_indicator(
     for i in range(num_maps):
         map = input_maps[num_maps - i - 1] if reverse else input_maps[i]
 
-        suffix = tgis.map_name_suffix(
-            map, tsuffix, input_strds.get_granularity(), indi_count
+        indicator_map_name = result_name(
+            map,
+            base,
+            tsuffix,
+            input_strds.get_granularity(),
+            indi_count,
+            indicator=True,
         )
-        indicator_map_name = f"{base}_indicator_{suffix}"
         try:
             indicator_map = tgis.open_result_map(
                 map, indicator_map_name, overwrite=gs.overwrite(), dbif=dbif
@@ -559,22 +687,24 @@ def main():
     occurrence_maps = {}
     indicator_maps = {}
 
-    for cycle_start, cycle_end in tgis.dataset_cycles(
+    cycles = cycle_maps(
         input_strds, start, end, stop=stop, cycle=cycle, offset=offset, dbif=dbif
-    ):
-        where = "start_time >= '%s' AND start_time < '%s'" % (
-            str(cycle_start),
-            str(cycle_end),
-        )
-        input_maps = input_strds.get_registered_maps_as_objects(where=where, dbif=dbif)
+    )
+    check_new_maps(
+        cycles,
+        input_strds,
+        base=base,
+        tsuffix=time_suffix,
+        reverse=reverse,
+        indicator=bool(indicator),
+        dbif=dbif,
+    )
 
+    for cycle_start, cycle_end, where, input_maps in cycles:
         gs.debug(len(input_maps))
 
         input_topo = tgis.SpatioTemporalTopologyBuilder()
         input_topo.build(input_maps, input_maps)
-
-        if len(input_maps) == 0:
-            continue
 
         gs.message(_("Processing cycle %s - %s") % (str(cycle_start), str(cycle_end)))
 

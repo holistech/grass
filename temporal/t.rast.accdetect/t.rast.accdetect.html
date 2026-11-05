@@ -25,7 +25,9 @@ in the unit of the dataset.</li>
 required. With relative time it is an integer.</li>
 <li><b>offset</b> is a time that is skipped between the end of a cycle and the
 beginning of the next one. Maps that start in the skipped time are not used.
-Without <b>offset</b>, a cycle begins where the cycle before ended.</li>
+Without <b>offset</b>, a cycle begins where the cycle before ended. A negative
+<b>offset</b> is refused when a map would lie in two cycles, and when a cycle
+would not start after the one before it.</li>
 <li><b>stop</b> ends the last cycle. A cycle that reaches beyond <b>stop</b> ends at
 <b>stop</b>, and a map that starts at <b>stop</b> or later is not used. Without
 <b>stop</b>, the run ends with the input dataset; a map that is a time instant
@@ -141,11 +143,28 @@ in the current mapset first, then in the search path (see
 <p>
 An existing <b>occurrence</b> or <b>indicator</b> dataset stops the run before any
 computation, unless <b>--overwrite</b> is set. A name with a dot is refused for a
-new dataset before any map is made. A new map whose name is that of a map
-that is registered elsewhere is refused with the message "Map <code>&lt;name@mapset&gt;</code>
-is already registered in the temporal database, use overwrite flag to
-overwrite"; with <b>--overwrite</b> the new map replaces it and leaves the other
-dataset.
+new dataset before any map is made, and so is a dataset of another mapset:
+"Space time datasets can only be created in the current mapset". A new map
+whose name is that of a map that is registered elsewhere is refused with the
+message "Map <code>&lt;name@mapset&gt;</code> is already registered in the temporal database,
+use overwrite flag to overwrite"; with <b>--overwrite</b> the new map replaces it
+and leaves the other dataset. A new map whose name is that of an existing
+raster map that no dataset holds is refused with "Raster map <code>&lt;name@mapset&gt;</code>
+exists. To overwrite, use the --overwrite flag."; with <b>--overwrite</b> the new
+map replaces it. All new names are checked before the first map is computed, so
+a refused run leaves no map behind. The names follow the granularity of the
+input dataset, and the tool has no option to change it.
+A map that lies in two overlapping cycles (a negative <b>offset</b>) is refused
+whatever the suffix is, because the tool writes one result for each input map
+and the first result of that map would stay behind in no dataset. The message
+is "The map <code>&lt;map&gt;</code> lies in overlapping cycles, but the tool writes one result
+for each input map. Use an offset that does not move the next cycle back into
+the one before." An <b>offset</b> that would give the same cycle start twice, such
+as a month with an offset of -29 days, ends with "The offset must not move the
+next cycle back to or before the start of this one". Two input maps that get
+one name, such as two maps of the same time with the suffix <code>gran</code>, are refused
+with "The maps <code>&lt;map1&gt;</code> and <code>&lt;map2&gt;</code> are given the same name <code>&lt;name&gt;</code> by the
+suffix gran. Use the suffix num or select maps of different times."
 
 <p>
 If no map with values is computed for an output, the tool warns, for example
