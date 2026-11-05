@@ -24,9 +24,9 @@ for which one of the datasets has no related map is skipped. The order of the
 datasets in the expression does not matter, only their order in **inputs**. If
 the list names only one dataset, every map of it is a granule. The datasets may
 be in other mapsets (`moisture@t_rast3d_mapcalc`); the expression then still
-uses the name without the mapset. The tool reads the maps of such a dataset
-through the search path, so its mapset must be in the search path (see
-[Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)).
+uses the name without the mapset, and the mapset does not have to be in the
+search path (see [Datasets of other
+mapsets](temporalintro.md#datasets-of-other-mapsets)).
 
 The result dataset is the option **output**. It always belongs to the current
 mapset, and so do the new maps. It takes the temporal type and the semantic type
@@ -1558,16 +1558,13 @@ third block names `day` twice, and the tool stops before it computes anything.
 ### Use a dataset of another mapset and replace a result
 
 The mapset `t_rast3d_mapcalc_2` is new and empty. The first block makes it the
-current mapset, sets the region of the first example there, adds the first
-mapset to the search path with *g.mapsets*, and halves
-`moisture@t_rast3d_mapcalc`. The expression still uses the name `moisture`.
-The tool reads the maps of the input dataset
-through the search path, so the mapset of the input must be in the search path
-or be the current mapset. See [Datasets of other
-mapsets](temporalintro.md#datasets-of-other-mapsets). The maps of `moisture`
-hold values only in the square where they were made, so the new maps read null
-in the rest of the region. The dataset `halved` and its maps belong to the
-current mapset; the listing shows the mapset of the maps.
+current mapset, sets the region of the first example there, and halves
+`moisture@t_rast3d_mapcalc`. The expression still uses the name `moisture`,
+and the mapset of the input does not have to be in the search path. See
+[Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets). The
+maps of `moisture` hold values only in the square where they were made, so the
+new maps read null in the rest of the region. The dataset `halved` and its maps
+belong to the current mapset; the listing shows the mapset of the maps.
 
 The second block repeats the call without **--overwrite**. The tool stops
 because the dataset `halved` exists. The third block adds **--overwrite** and
@@ -1584,7 +1581,6 @@ in it, but the tool does not remove them: `g.list` still finds all four.
     ```sh
     g.mapset -c mapset=t_rast3d_mapcalc_2
     g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
-    g.mapsets mapset=t_rast3d_mapcalc operation=add
     t.rast3d.mapcalc inputs=moisture@t_rast3d_mapcalc output=halved basename=halved \
         expression="moisture / 2"
     t.rast3d.list input=halved columns=name,mapset,min,max
@@ -1649,7 +1645,6 @@ in it, but the tool does not remove them: `g.list` still finds all four.
     tools.g_region(
         raster="elev_state_500m", res=1000, res3=1000, t=3000, b=0, tbres=1000, flags="a"
     )
-    tools.g_mapsets(mapset="t_rast3d_mapcalc", operation="add")
     tools.t_rast3d_mapcalc(
         inputs="moisture@t_rast3d_mapcalc",
         output="halved",
