@@ -61,6 +61,12 @@ the end of the interval counts as well, but a map that has both is <code>equal</
 </ul>
 
 <p>
+An interval includes its start and excludes its end. A time instance at the
+start of an interval or inside it is selected by <code>contains</code>; a time instance at
+the end of an interval stands in none of these relations to it, and belongs to
+the interval that starts there, if there is one.
+
+<p>
 Several values are separated by commas. A map that stands in more than one of
 the listed relations goes into the result once: <code>contains,started</code> selects
 what <code>contains</code> selects, and <code>during,starts</code> what <code>during</code> selects. The
@@ -143,6 +149,9 @@ maps one name: <code>Several maps would get the same name</code>.</li>
 &lt;name&gt;, use gran, time, num or num%NN</code>.</li>
 <li>A dot in the name of the new dataset: <code>&lt;name&gt; is not a valid name for a new
 space time dataset: a dot is not allowed</code>.</li>
+<li>A new map that would get the name of a map of the input in the current
+mapset, also with <b>--overwrite</b>: <code>The result map &lt;name&gt; has the name of an
+input map</code>. The input map stays as it is.</li>
 <li>An existing output dataset without <b>--overwrite</b>: one error message that
 names the dataset.</li>
 </ul>

@@ -56,6 +56,11 @@ intervals. The values are:
 - `overlaps`: the interval starts before the map and ends inside it
 - `overlapped`: the map starts before the interval and ends inside it
 
+An interval includes its start and excludes its end. A time instance at the
+start of an interval or inside it is selected by `contains`; a time instance at
+the end of an interval stands in none of these relations to it, and belongs to
+the interval that starts there, if there is one.
+
 Several values are separated by commas. A map that stands in more than one of
 the listed relations goes into the result once: `contains,started` selects
 what `contains` selects, and `during,starts` what `during` selects. The
@@ -131,6 +136,9 @@ following with an error.
   <name>, use gran, time, num or num%NN`.
 - A dot in the name of the new dataset: `<name> is not a valid name for a new
   space time dataset: a dot is not allowed`.
+- A new map that would get the name of a map of the input in the current
+  mapset, also with **--overwrite**: `The result map <name> has the name of an
+  input map`. The input map stays as it is.
 - An existing output dataset without **--overwrite**: one error message that
   names the dataset.
 

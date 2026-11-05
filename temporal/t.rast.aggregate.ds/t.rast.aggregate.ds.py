@@ -28,7 +28,7 @@
 # %end
 
 # %option G_OPT_STDS_TYPE
-# % description: Type of the space time dataset from which aggregation will be copied
+# % description: Type of the space time dataset given in sample
 # %end
 
 # %option G_OPT_STRDS_OUTPUT
@@ -68,7 +68,7 @@
 # %option
 # % key: nprocs
 # % type: integer
-# % description: Number of r.mapcalc processes to run in parallel
+# % description: Number of r.series processes to run in parallel
 # % required: no
 # % multiple: no
 # % answer: 1
