@@ -22,6 +22,7 @@ import re
 from functools import partial
 
 import grass.script as gs
+from grass.exceptions import FatalError
 from grass.script.utils import _get_multiprocessing_context, get_num_suffix
 
 from .algebra.content import Const
@@ -131,13 +132,26 @@ def _dataset_name_pattern(names):
 
 
 def _qualified(name, dataset):
-    """The name with the mapset of the dataset that was found for it
+    """The name with the mapset of the dataset that open_old_stds() found for it
 
-    open_old_stds() found the dataset; with its mapset source() reads the same
-    one, also an old dataset with a dot in its name, which source() does not
-    look up whole.
+    With the mapset source() looks in that mapset only. source() reads the
+    text after a dot as a semantic label, so for an old dataset with a dot in
+    its name it reads the dataset without the dot, or reports that one as
+    missing (see _read_series()).
     """
     return name if "@" in name else f"{name}@{dataset.get_mapset()}"
+
+
+def _read_series(name, where, stds_type, msgr):
+    """source() of the name; a dataset that source() does not find ends the run
+
+    source() raises FatalError for a missing dataset, which a tool would show
+    as a traceback; the message goes to msgr.fatal() instead.
+    """
+    try:
+        return source(name, where=where, stds_type=stds_type)
+    except FatalError as error:
+        msgr.fatal(str(error))
 
 
 def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
@@ -154,7 +168,7 @@ def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
     Warns, as the classic tool does, once per granule that relates more than
     one map. An input without registered maps gives a column of None.
     """
-    inputs = source(name, where=where, stds_type=stds_type)
+    inputs = _read_series(name, where, stds_type, msgr)
     column = []
     for found in related_per_granule(first_series, names, inputs, spatial=spatial):
         if len(found) > 1:
@@ -372,8 +386,8 @@ def dataset_mapcalculator(
         msgr.message(_("Starting temporal sampling..."))
 
     try:
-        first_series = source(
-            _qualified(names[0], first_dataset), where=where, stds_type=stds_type
+        first_series = _read_series(
+            _qualified(names[0], first_dataset), where, stds_type, msgr
         )
     except SQLStatementError as error:
         msgr.fatal(_("Invalid where condition <{}>: {}").format(where, error))
@@ -428,8 +442,8 @@ def dataset_mapcalculator(
         # (x.B4,x.B8) are not sampled: the n-th map of each is used with the
         # n-th map of the first, as in the classic tool.
         for name in others:
-            other_series = source(
-                _qualified(name, datasets[name]), where=where, stds_type=stds_type
+            other_series = _read_series(
+                _qualified(name, datasets[name]), where, stds_type, msgr
             )
             if len(other_series.slots) == 0:
                 msgr.message(

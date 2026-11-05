@@ -5,7 +5,8 @@ selects a map of the same time as the granule. A dataset name in the
 expression is replaced only where it stands as a whole name, and not where
 it is followed by "(", also after the label operator "@" and the grey
 operator "#" of r.mapcalc. Two inputs of the same name are refused, and the
-expression reaches r.mapcalc with its blanks.
+expression reaches r.mapcalc with its blanks. An input that only an older
+dataset with a dot in its name matches ends the run with an error message.
 """
 
 from datetime import datetime
@@ -13,9 +14,14 @@ from io import StringIO
 
 import pytest
 
+import grass.temporal as tgis
 from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.readback import inventory, list_maps, message
-from grass.temporal.testing.session import mapset_session, project_session
+from grass.temporal.testing.session import (
+    mapset_session,
+    project_session,
+    temporal_session,
+)
 from grass.tools import ToolError, Tools
 
 D = datetime
@@ -269,3 +275,34 @@ def test_expression_keeps_spaces(tools):
     )
     assert 'Apply mapcalc expression: "sp_out_1=sp1 + 5"' in result.stderr
     assert values(tools, "sp_out")[0][3] == 6.0
+
+
+def test_old_dataset_with_dot_ends_with_an_error_message(tmp_path):
+    """Only the dataset a.b of an older release, no dataset a: no traceback
+
+    The dataset is made with the dataset class, as the older release did.
+    """
+    with temporal_session(tmp_path / "project") as session:
+        tools = Tools(
+            session=session,
+            consistent_return_value=True,
+            capture_stderr=True,
+            errors="ignore",
+        )
+        tools.g_region(n=1, s=0, e=1, w=0, res=1)
+        for name, value in (("m1", 1), ("m2", 2)):
+            tools.r_mapcalc(expression=f"{name} = {value}")
+        dataset = tgis.dataset_factory("strds", f"a.b@{tgis.get_current_mapset()}")
+        dataset.set_initial_values("absolute", "mean", "t", "d")
+        dataset.insert()
+        tools.t_register(
+            input="a.b", maps="m1,m2", start="2001-01-01", increment="1 day"
+        )
+
+        result = tools.t_rast_mapcalc(
+            inputs="a.b", expression="a.b + 1", output="calc", basename="calc"
+        )
+
+    assert result.returncode == 1
+    assert "Traceback" not in result.stderr
+    assert "ERROR: Space time raster dataset <a.b@" in result.stderr
