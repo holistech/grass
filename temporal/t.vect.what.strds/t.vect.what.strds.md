@@ -25,7 +25,11 @@ tool. The tool changes the tables of the vector maps, so the maps must be in the
 current mapset, and each registered layer must have an attribute table. The
 STRDS may be in another mapset (`strds=precipitation_monthly@t_vect_what_strds`),
 but the vector maps
-of **input** must be in the current mapset; the seventh example shows both.
+of **input** must be in the current mapset; the seventh example shows both. A
+name without a mapset is searched in the current mapset first, then in the
+search path; a mapset that another name of the same call gave, such as
+`strds=precipitation_monthly@t_vect_what_strds`, is not searched for the other
+names.
 Points outside the current region get no value, as *v.what.rast* skips them;
 the second example shows it.
 
