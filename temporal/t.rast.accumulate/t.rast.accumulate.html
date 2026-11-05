@@ -151,7 +151,10 @@ dataset; without it, they are removed.
 <b>upper</b> can be given with a mapset, <code>input=ones@t_rast_accumulate</code>, or
 without one, when the mapset is in the search path (see
 <em><a href="g.mapsets.html">g.mapsets</a></em>). The output dataset and its maps are always
-created in the current mapset. The last example shows this.
+created in the current mapset: an <b>output</b> that names another mapset
+(<code>output=name@mapset</code>) ends the run before any computation with "Space time
+datasets can only be created in the current mapset". The last example shows
+the datasets of other mapsets.
 
 <p>
 An existing output dataset stops the run before any computation, unless

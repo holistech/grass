@@ -164,7 +164,7 @@ def open_datasets(input_name, output_name, mapset, dbif):
     Nothing is written; an output that exists ends the run unless overwrite
     is set.
     """
-    id = input_name if input_name.find("@") >= 0 else input_name + "@" + mapset
+    id = tgis.open_stds.find_stds_id(input_name, "strds", dbif)
     input_strds = tgis.SpaceTimeRasterDataset(id)
 
     if not input_strds.is_in_db():
@@ -177,6 +177,12 @@ def open_datasets(input_name, output_name, mapset, dbif):
     # the name, so it is checked here before any map is computed.
     tgis.open_stds.check_new_stds_name(output_name)
     out_id = output_name if output_name.find("@") >= 0 else output_name + "@" + mapset
+    # The output is created in the current mapset only. Refusing another
+    # mapset here, before the computation, leaves no map behind that no
+    # dataset can register.
+    if out_id.split("@", 1)[1] != mapset:
+        dbif.close()
+        gs.fatal(_("Space time datasets can only be created in the current mapset"))
 
     output_strds = tgis.SpaceTimeRasterDataset(out_id)
     if output_strds.is_in_db(dbif) and not gs.overwrite():
@@ -211,7 +217,7 @@ def check_lengths(input_strds, granularity, cycle, offset, dbif):
         gs.fatal(_("Invalid offset"))
 
 
-def open_thresholds(input_strds, lower, upper, mapset, dbif):
+def open_thresholds(input_strds, lower, upper, dbif):
     """Open the threshold datasets of the options lower and upper
 
     Returns both, None for an option that is not given. A dataset that does
@@ -220,7 +226,7 @@ def open_thresholds(input_strds, lower, upper, mapset, dbif):
     """
     lower_strds = None
     if lower:
-        lower_id = lower if lower.find("@") >= 0 else lower + "@" + mapset
+        lower_id = tgis.open_stds.find_stds_id(lower, "strds", dbif)
 
         lower_strds = tgis.SpaceTimeRasterDataset(lower_id)
         if not lower_strds.is_in_db():
@@ -243,7 +249,7 @@ def open_thresholds(input_strds, lower, upper, mapset, dbif):
                 _("The upper option works only in conjunction with the lower option")
             )
 
-        upper_id = upper if upper.find("@") >= 0 else upper + "@" + mapset
+        upper_id = tgis.open_stds.find_stds_id(upper, "strds", dbif)
         upper_strds = tgis.SpaceTimeRasterDataset(upper_id)
         if not upper_strds.is_in_db():
             dbif.close()
@@ -559,7 +565,7 @@ def main():
 
     input_strds, output_strds = open_datasets(input, output, mapset, dbif)
     check_lengths(input_strds, granularity, cycle, offset, dbif)
-    lower_strds, upper_strds = open_thresholds(input_strds, lower, upper, mapset, dbif)
+    lower_strds, upper_strds = open_thresholds(input_strds, lower, upper, dbif)
     start, stop = read_start_and_stop(input_strds, start, stop, granularity, dbif)
     end, cycle, granularity, offset = first_cycle(
         input_strds, start, cycle, granularity, offset, dbif

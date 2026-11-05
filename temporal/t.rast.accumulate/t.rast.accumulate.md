@@ -136,7 +136,10 @@ dataset; without it, they are removed.
 **upper** can be given with a mapset, `input=ones@t_rast_accumulate`, or
 without one, when the mapset is in the search path (see
 *[g.mapsets](g.mapsets.md)*). The output dataset and its maps are always
-created in the current mapset. The last example shows this.
+created in the current mapset: an **output** that names another mapset
+(`output=name@mapset`) ends the run before any computation with "Space time
+datasets can only be created in the current mapset". The last example shows
+the datasets of other mapsets.
 
 An existing output dataset stops the run before any computation, unless
 **--overwrite** is set.
