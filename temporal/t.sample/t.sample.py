@@ -44,8 +44,8 @@
 # %end
 
 # %option G_OPT_F_SEP
-# % description: Field separator between output columns, default is tabular " | "
-# % label: Do not use "," as this char is reserved to list several map ids in a sample granule
+# % label: Field separator between output columns
+# % description: A comma lists several map ids in a granule, so a separator with a comma is replaced by " | "
 # %end
 
 # %flag
@@ -85,7 +85,7 @@ def main():
     from grass.temporal.related_maps import (
         method_relations,
         related_per_granule,
-        sampler_refused,
+        sampler_refusal,
         with_gaps,
     )
 
@@ -115,10 +115,11 @@ def main():
     granules = None
     columns = []
     for stds in input_stds:
-        # An input that cannot be sampled is reported and left out of the
-        # rows, but it stays in the header, as in the classic function.
-        if sampler_refused(sampler_stds, stds, msgr):
-            continue
+        # A refusal ends the run with an error, so that a script sees that
+        # the input was not sampled.
+        refusal = sampler_refusal(sampler_stds, stds)
+        if refusal is not None:
+            gs.fatal(refusal)
         # Only an interval sampler can be given gaps, so this waits for the
         # guards above.
         if granules is None:

@@ -20,7 +20,7 @@ are of the type given by **intype**, the sampler is of the type given by
 **samtype**: `strds` (the default of both), `str3ds` or `stvds`. A name without
 `@mapset` means the current mapset. The temporal type, absolute or relative,
 must be the same for the sampler and for each input, and the maps of the sampler
-must be intervals. If they are not, the dataset is not sampled, see the NOTES.
+must be intervals. If they are not, the tool ends with an error, see the NOTES.
 
 The sampler divides the time into granules: each of its maps is a granule, and
 a hole between two maps is a granule of its own, a gap. A gap is time that no
@@ -43,8 +43,8 @@ following values:
   shares the start or the end of the granule counts as well
 - `equal`: the map has the start and the end of the granule
 - `start`: the maps of `contain`, the maps that begin before the granule and
-  end inside it or at its end, and the maps longer than the granule that begin
-  with it; the maps equal to the granule are never listed
+  end inside it or at its end, the maps longer than the granule that begin
+  with it, and the maps equal to the granule
 - `follows`: the map ends where the granule starts
 - `precedes`: the map starts where the granule ends, also a time instance
 
@@ -98,13 +98,12 @@ found, an unknown name or a name of another type than **intype** or **samtype**,
 ends the tool with the error `Dataset <name@mapset> not found in temporal
 database` and return code 1; the name in the message always has the mapset.
 
-The two other refusals print an error and no failure code. If the sampler has
-time instances instead of intervals, the tool prints `The temporal map type of
-the sample dataset must be interval`, nothing else, and returns 0. If an input
-has another temporal type than the sampler, absolute or relative, the tool
-prints `The space time datasets must be of the same temporal type`, leaves that
-input out of the rows and samples the others. With **-c** the header still
-names the left-out input, so the header has one column more than the rows.
+The two other refusals end the tool with an error and return code 1 as well,
+before anything is printed. If the sampler has time instances instead of
+intervals, the error is `The temporal map type of the sample dataset must be
+interval`. If an input has another temporal type than the sampler, absolute or
+relative, the error is `The space time datasets must be of the same temporal
+type`, also when other inputs could be sampled.
 
 Maps outside the time of the sampler get no row of their own. With the default
 method a map before the first granule, or starting at or after the end of the
@@ -344,10 +343,10 @@ method: the plain values `during` and `equal` come first, then the groups
 start times. The other calls select one relation each. `before` is related by
 none of them. `start` lists `early`, which begins before the granule and ends
 inside it, `wide_e`, which begins before it and ends with it, `wide_s`, which is
-longer and begins with it, and `inside`. It does not list `wide`, `late` and
-`same`: the value `start` never lists a map equal to the granule. The last call
-names `overlap` before `start`, yet the maps of `start` come first and `late`,
-which only `overlap` selects, comes last.
+longer and begins with it, `inside`, and last `same`, which is equal to the
+granule. It does not list `wide` and `late`. The last call names `overlap`
+before `start`, yet the maps of `start` come first and `late`, which only
+`overlap` selects, comes last.
 
 === "Command line"
 
@@ -418,7 +417,7 @@ which only `overlap` selects, comes last.
 
     ```text
     windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
-    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,same@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```sh
@@ -427,7 +426,7 @@ which only `overlap` selects, comes last.
 
     ```text
     windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
-    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,same@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
 === "Python (grass.tools)"
@@ -539,7 +538,7 @@ which only `overlap` selects, comes last.
 
     ```text
     windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
-    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,same@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```python
@@ -552,7 +551,7 @@ which only `overlap` selects, comes last.
 
     ```text
     windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
-    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,same@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
 ### Maps next to the granule
