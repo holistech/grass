@@ -101,11 +101,11 @@ anything, with "Map ... is already in temporal database, use overwrite flag to
 overwrite", and makes no dataset.
 
 <p>
-The last example shows that a dataset of another mapset works as input when an
-<b>expression</b> is given. Without an <b>expression</b>, such a dataset is refused,
-and the empty output dataset that the refusal leaves behind has to be removed
-with <em><a href="t.remove.html">t.remove</a></em>. Add an <b>expression</b> such as the name of the
-input dataset to copy the maps instead.
+A dataset of another mapset works as input. With an <b>expression</b> the new
+maps belong to the current mapset. Without one the new dataset registers the
+maps of the input, which stay in their mapset: the tool inserts them into the
+temporal database of the current mapset, as <em><a href="t.copy.html">t.copy</a></em> does without
+<b>-c</b>. The last example shows both.
 
 <h2>EXAMPLES</h2>
 
@@ -757,10 +757,11 @@ maps <code>copy_00001</code> and <code>copy_00002</code> belong to <code>t_rast3
 column shows the mapset.
 
 <p>
-The second block shows what happens without an expression. The call is
-refused, so the block prints <code>refused</code>. The refusal leaves the empty dataset
-<code>model_copy_empty</code> behind. <code>number_of_maps=None</code> shows that it has no maps, and
-<em>t.remove</em> removes it.
+The second block extracts without an expression. The new dataset
+<code>model_shared</code> belongs to <code>t_rast3d_extract_2</code> and registers the maps of
+<code>model@t_rast3d_extract</code> themselves. The <code>id</code> column shows that they stay in
+<code>t_rast3d_extract</code>, and <code>g.list</code> shows that <code>t_rast3d_extract_2</code> holds only the
+two copies of the first block.
 
 <p>Command line:</p>
 
@@ -779,23 +780,22 @@ copy_00002@t_rast3d_extract_2|6|2.0
 </pre></div>
 
 <div class="code"><pre>
-if t.rast3d.extract input=model@t_rast3d_extract output=model_copy_empty \
-    2&gt;/dev/null; then echo extracted; else echo refused; fi
-t.info -g type=str3ds input=model_copy_empty | grep -E "^(id|number_of_maps)="
-t.remove -f type=str3ds inputs=model_copy_empty
+t.rast3d.extract input=model@t_rast3d_extract output=model_shared
+t.rast3d.list input=model_shared columns=id,start_time,min
+g.list type=raster_3d mapset=.
 </pre></div>
 
 <div class="code"><pre>
-refused
-id=model_copy_empty@t_rast3d_extract_2
-number_of_maps=None
+id|start_time|min
+model_hour_0@t_rast3d_extract|0|1.0
+model_hour_6@t_rast3d_extract|6|2.0
+copy_00001
+copy_00002
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-from grass.tools import ToolError
-
 tools.g_mapset(mapset="t_rast3d_extract_2", flags="c")
 tools.g_region(
     raster="elev_state_500m", res=1000, res3=1000, t=3000, b=0, tbres=1000, flags="a"
@@ -817,31 +817,27 @@ copy_00002@t_rast3d_extract_2|6|2.0
 </pre></div>
 
 <div class="code"><pre>
-try:
-    tools.t_rast3d_extract(input="model@t_rast3d_extract", output="model_copy_empty")
-except ToolError:
-    print("refused")
-else:
-    print("extracted")
-info = tools.t_info(type="str3ds", input="model_copy_empty", flags="g").keyval
-for key in ("id", "number_of_maps"):
-    print(f"{key}={info[key]}")
-tools.t_remove(type="str3ds", inputs="model_copy_empty", flags="f")
+tools.t_rast3d_extract(input="model@t_rast3d_extract", output="model_shared")
+print(
+    tools.t_rast3d_list(input="model_shared", columns="id,start_time,min").text
+)
+print(tools.g_list(type="raster_3d", mapset=".").text)
 </pre></div>
 
 <div class="code"><pre>
-refused
-id=model_copy_empty@t_rast3d_extract_2
-number_of_maps=None
+id|start_time|min
+model_hour_0@t_rast3d_extract|0|1.0
+model_hour_6@t_rast3d_extract|6|2.0
+copy_00001
+copy_00002
 </pre></div>
 
 <h2>SEE ALSO</h2>
 
 <em><a href="g.list.html">g.list</a>, <a href="g.mapset.html">g.mapset</a>, <a href="r3.mapcalc.html">r3.mapcalc</a>,
-<a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.copy.html">t.copy</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
 <a href="t.rast.extract.html">t.rast.extract</a>, <a href="t.rast3d.list.html">t.rast3d.list</a>,
 <a href="t.rast3d.mapcalc.html">t.rast3d.mapcalc</a>, <a href="t.register.html">t.register</a>,
-<a href="t.remove.html">t.remove</a>,
 <a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>

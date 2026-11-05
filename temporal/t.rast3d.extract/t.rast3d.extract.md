@@ -91,11 +91,11 @@ database and **--overwrite** is not given, the tool stops before it computes
 anything, with "Map ... is already in temporal database, use overwrite flag to
 overwrite", and makes no dataset.
 
-The last example shows that a dataset of another mapset works as input when an
-**expression** is given. Without an **expression**, such a dataset is refused,
-and the empty output dataset that the refusal leaves behind has to be removed
-with *[t.remove](t.remove.md)*. Add an **expression** such as the name of the
-input dataset to copy the maps instead.
+A dataset of another mapset works as input. With an **expression** the new
+maps belong to the current mapset. Without one the new dataset registers the
+maps of the input, which stay in their mapset: the tool inserts them into the
+temporal database of the current mapset, as *[t.copy](t.copy.md)* does without
+**-c**. The last example shows both.
 
 ## EXAMPLES
 
@@ -746,10 +746,11 @@ dataset, though it has no mapset, and the output dataset `model_copy` and its
 maps `copy_00001` and `copy_00002` belong to `t_rast3d_extract_2`. The `id`
 column shows the mapset.
 
-The second block shows what happens without an expression. The call is
-refused, so the block prints `refused`. The refusal leaves the empty dataset
-`model_copy_empty` behind. `number_of_maps=None` shows that it has no maps, and
-*t.remove* removes it.
+The second block extracts without an expression. The new dataset
+`model_shared` belongs to `t_rast3d_extract_2` and registers the maps of
+`model@t_rast3d_extract` themselves. The `id` column shows that they stay in
+`t_rast3d_extract`, and `g.list` shows that `t_rast3d_extract_2` holds only the
+two copies of the first block.
 
 === "Command line"
 
@@ -768,23 +769,22 @@ refused, so the block prints `refused`. The refusal leaves the empty dataset
     ```
 
     ```sh
-    if t.rast3d.extract input=model@t_rast3d_extract output=model_copy_empty \
-        2>/dev/null; then echo extracted; else echo refused; fi
-    t.info -g type=str3ds input=model_copy_empty | grep -E "^(id|number_of_maps)="
-    t.remove -f type=str3ds inputs=model_copy_empty
+    t.rast3d.extract input=model@t_rast3d_extract output=model_shared
+    t.rast3d.list input=model_shared columns=id,start_time,min
+    g.list type=raster_3d mapset=.
     ```
 
     ```text
-    refused
-    id=model_copy_empty@t_rast3d_extract_2
-    number_of_maps=None
+    id|start_time|min
+    model_hour_0@t_rast3d_extract|0|1.0
+    model_hour_6@t_rast3d_extract|6|2.0
+    copy_00001
+    copy_00002
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    from grass.tools import ToolError
-
     tools.g_mapset(mapset="t_rast3d_extract_2", flags="c")
     tools.g_region(
         raster="elev_state_500m", res=1000, res3=1000, t=3000, b=0, tbres=1000, flags="a"
@@ -806,22 +806,19 @@ refused, so the block prints `refused`. The refusal leaves the empty dataset
     ```
 
     ```python
-    try:
-        tools.t_rast3d_extract(input="model@t_rast3d_extract", output="model_copy_empty")
-    except ToolError:
-        print("refused")
-    else:
-        print("extracted")
-    info = tools.t_info(type="str3ds", input="model_copy_empty", flags="g").keyval
-    for key in ("id", "number_of_maps"):
-        print(f"{key}={info[key]}")
-    tools.t_remove(type="str3ds", inputs="model_copy_empty", flags="f")
+    tools.t_rast3d_extract(input="model@t_rast3d_extract", output="model_shared")
+    print(
+        tools.t_rast3d_list(input="model_shared", columns="id,start_time,min").text
+    )
+    print(tools.g_list(type="raster_3d", mapset=".").text)
     ```
 
     ```text
-    refused
-    id=model_copy_empty@t_rast3d_extract_2
-    number_of_maps=None
+    id|start_time|min
+    model_hour_0@t_rast3d_extract|0|1.0
+    model_hour_6@t_rast3d_extract|6|2.0
+    copy_00001
+    copy_00002
     ```
 
 <!-- markdownlint-enable MD046 -->
@@ -829,10 +826,9 @@ refused, so the block prints `refused`. The refusal leaves the empty dataset
 ## SEE ALSO
 
 *[g.list](g.list.md), [g.mapset](g.mapset.md), [r3.mapcalc](r3.mapcalc.md),
-[t.create](t.create.md), [t.info](t.info.md),
+[t.copy](t.copy.md), [t.create](t.create.md), [t.info](t.info.md),
 [t.rast.extract](t.rast.extract.md), [t.rast3d.list](t.rast3d.list.md),
 [t.rast3d.mapcalc](t.rast3d.mapcalc.md), [t.register](t.register.md),
-[t.remove](t.remove.md),
 [temporal data processing](temporalintro.md)*
 
 ## AUTHOR
