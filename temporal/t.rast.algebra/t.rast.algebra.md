@@ -288,9 +288,7 @@ if statement                        decision option                        tempo
 
 An `if` without else gives 0 where a condition on map values is false, like
 the `if()` of *r.mapcalc* with two arguments, so a map that is false
-everywhere is registered with the value 0. The new algebra does so since
-17 October 2026; before, it gave null there and registered such a map only
-with **-n**.
+everywhere is registered with the value 0.
 
 The conditions are comparison expressions that are used to evaluate
 space time datasets. Specific values of temporal variables are compared
@@ -684,16 +682,15 @@ and *meet*). The relations *equivalent*, *cover*, *overlap*, *in*,
 spatial operator, for example `{+,equal|overlap}`; the maps then need
 this spatial relation in addition to the temporal one. Such a name builds
 the spatial topology for its operator also without **-s**, as in the
-classic algebra (since 17 October 2026; before, the new algebra stopped
-with an error).
+classic algebra.
 
 Maps are computed in the current region. A map that the result takes over
 unchanged, for example one that a selection stamps with a new time, is
 copied there as well; with **-s**, *r.mapcalc* computes such a copy in the
 union of the regions of its input maps instead. A copy of a map that lies
 outside the region has no data. Like any map without data it is not
-registered unless **-n** is given, and since 24 October 2026 a warning names
-it and the map it copies. Set the region with *g.region* so that it covers
+registered unless **-n** is given, and a warning names it and the map it
+copies. Set the region with *g.region* so that it covers
 the maps.
 
 Datasets of absolute and of relative time work in the same way, and the

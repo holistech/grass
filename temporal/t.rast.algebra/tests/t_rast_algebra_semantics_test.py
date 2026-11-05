@@ -1060,6 +1060,27 @@ def dataset_names(node):
     return []
 
 
+def skip_without_datasets(algebra, assignment):
+    """Skip the test if the fixture lacks a dataset that assignment reads
+
+    The fixture looks a name up in its own mapset only, so a name with a
+    mapset is skipped: the manual uses one for a dataset of another mapset,
+    whose error comes from the mapset and not the expression. R is where the
+    fixture writes the results, so its maps depend on the tests that ran
+    before.
+    """
+    names = dataset_names(parse(assignment).expression)
+    missing = sorted(
+        {
+            name
+            for name in names
+            if "@" in name or name == "R" or not algebra.exists(name)
+        }
+    )
+    if missing:
+        pytest.skip(f"datasets not in the fixture: {missing}")
+
+
 @pytest.mark.parametrize(("assignment", "classic"), manual_cases())
 def test_manual_example_runs(algebra, assignment, classic):
     """Every example of the manual on datasets of the fixture parses and plans
@@ -1067,22 +1088,8 @@ def test_manual_example_runs(algebra, assignment, classic):
     _name, expression = assignment.split(" = ", 1)
     errors = CLASSIC_MANUAL_ERRORS if classic else MANUAL_ERRORS
     if errors.get(assignment) is not SyntaxError:
-        # An expression that cannot be read has no datasets to look for. The
-        # fixture looks a name up in its own mapset only, so a name with a
-        # mapset is skipped: the manual uses one for a dataset of another
-        # mapset, whose error comes from the mapset and not the expression. R
-        # is where the fixture writes the results, so its maps depend on the
-        # tests that ran before.
-        names = dataset_names(parse(assignment).expression)
-        missing = sorted(
-            {
-                name
-                for name in names
-                if "@" in name or name == "R" or not algebra.exists(name)
-            }
-        )
-        if missing:
-            pytest.skip(f"datasets not in the fixture: {missing}")
+        # An expression that cannot be read has no datasets to look for.
+        skip_without_datasets(algebra, assignment)
     if assignment in errors:
         with pytest.raises(errors[assignment]):
             algebra.dry_times(expression, classic=classic)
@@ -1106,3 +1113,36 @@ def test_manual_example_error_of_the_classic_algebra(algebra, assignment):
     _name, expression = assignment.split(" = ", 1)
     with pytest.raises(CLASSIC_MANUAL_ERRORS[assignment]):
         algebra.dry_times(expression, classic=True)
+
+
+ORIGINAL_MANUAL = "### Catalog: the expressions of the original manual"
+
+
+def original_manual_cases():
+    """The assignments that the catalog of the expressions of the original
+    manual runs with the core, each once
+
+    They are expressions of the releases before GRASS 8.6, so the classic
+    algebra reads them as well; the examples show only the result of the
+    core, except for the last neighbourhood example.
+    """
+    text = MANUAL.read_text()
+    start = text.index(ORIGINAL_MANUAL + "\n")
+    end = text.index("\n### ", start)
+    return sorted(
+        {
+            assignment
+            for assignment, classic in manual_assignments(text[start:end])
+            if not classic
+        }
+    )
+
+
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize("assignment", original_manual_cases())
+def test_original_manual_example_plans_in_the_classic_algebra(algebra, assignment):
+    """The expressions of the original manual plan in the classic algebra too
+    (dry run), not only in the core that the examples run"""
+    _name, expression = assignment.split(" = ", 1)
+    skip_without_datasets(algebra, assignment)
+    algebra.dry_times(expression, classic=True)

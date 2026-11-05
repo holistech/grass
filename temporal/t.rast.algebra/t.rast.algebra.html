@@ -310,9 +310,7 @@ if statement                        decision option                        tempo
 <p>
 An <code>if</code> without else gives 0 where a condition on map values is false, like
 the <code>if()</code> of <em>r.mapcalc</em> with two arguments, so a map that is false
-everywhere is registered with the value 0. The new algebra does so since
-17 October 2026; before, it gave null there and registered such a map only
-with <b>-n</b>.
+everywhere is registered with the value 0.
 
 <p>
 The conditions are comparison expressions that are used to evaluate
@@ -733,8 +731,7 @@ and <em>meet</em>). The relations <em>equivalent</em>, <em>cover</em>, <em>overl
 spatial operator, for example <code>{+,equal|overlap}</code>; the maps then need
 this spatial relation in addition to the temporal one. Such a name builds
 the spatial topology for its operator also without <b>-s</b>, as in the
-classic algebra (since 17 October 2026; before, the new algebra stopped
-with an error).
+classic algebra.
 
 <p>
 Maps are computed in the current region. A map that the result takes over
@@ -742,8 +739,8 @@ unchanged, for example one that a selection stamps with a new time, is
 copied there as well; with <b>-s</b>, <em>r.mapcalc</em> computes such a copy in the
 union of the regions of its input maps instead. A copy of a map that lies
 outside the region has no data. Like any map without data it is not
-registered unless <b>-n</b> is given, and since 24 October 2026 a warning names
-it and the map it copies. Set the region with <em>g.region</em> so that it covers
+registered unless <b>-n</b> is given, and a warning names it and the map it
+copies. Set the region with <em>g.region</em> so that it covers
 the maps.
 
 <p>
