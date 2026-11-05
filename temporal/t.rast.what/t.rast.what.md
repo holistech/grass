@@ -112,6 +112,9 @@ A dataset with relative time works in the same way; the tables show the start
 and end time of a map as the numbers stored in the temporal database, without
 the unit. The seventh example shows it.
 
+A dataset of another mapset (`strds=name@mapset`) is queried like one of the
+current mapset; the tool reads its maps from their own mapset.
+
 ## EXAMPLES
 
 The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
