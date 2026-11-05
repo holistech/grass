@@ -229,8 +229,32 @@ def open_new_maps(maps, *, sp, base, time_suffix, new_labels, method, overwrite,
     an existing map stops the run before anything is written. The temporal
     database knows only registered maps; a raster of the same name outside
     it would otherwise stop only its own r.neighbors run while the others
-    write their maps.
+    write their maps. The same holds for a name that two maps of the run get
+    from the suffix, as two maps of one time do from gran: they would be written
+    over each other, or the second would fail to register.
     """
+    # The names are checked before the first map is opened: with overwrite,
+    # opening a map removes the entry of a registered map of that name.
+    made_from = {}
+    for count, map in enumerate(maps, start=1):
+        name = f"{base}_{tgis.map_name_suffix(map, time_suffix, sp.get_granularity(), count)}"
+        new_id = map.build_id(name, tgis.get_current_mapset())
+        if new_id in made_from:
+            dbif.close()
+            gs.fatal(
+                _(
+                    "The maps <{first}> and <{second}> are given the same name "
+                    "<{name}> by the suffix {suffix}. Use the suffix num or "
+                    "select maps of different times."
+                ).format(
+                    first=made_from[new_id],
+                    second=map.get_id(),
+                    name=new_id,
+                    suffix=time_suffix,
+                )
+            )
+        made_from[new_id] = map.get_id()
+
     new_maps = []
     for count, map in enumerate(maps, start=1):
         new_map = tgis.open_new_map_for(

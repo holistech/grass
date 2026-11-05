@@ -172,15 +172,11 @@ num%NN" for <code>suffix=gram</code>.
 
 <p>
 Two maps with the same start time, such as the bands of a scene, get the
-same name with the suffixes <code>gran</code> and <code>time</code>, and the run fails. The tool
-does not check this before it starts, so the outcome depends on the options.
-With <b>nprocs</b> <code>1</code> and without <b>--overwrite</b>, <em>r.neighbors</em> writes the
-first map, fails on the second with "<code>&lt;name&gt;</code> exists", and the tool stops; the
-first map stays as a raster map that belongs to no dataset, and no dataset is
-created. With <b>nprocs</b> above 1 or with <b>--overwrite</b>, the maps overwrite
-each other and the tool usually ends with a database error ("UNIQUE
-constraint failed") and an empty output dataset that stays behind; with
-<b>nprocs</b> above 1 the outcome varies from run to run. Use <b>suffix</b> <code>num</code>
+same name with the suffixes <code>gran</code> and <code>time</code>. The tool refuses this before it
+writes anything, with the same message for every <b>nprocs</b> and with or
+without <b>--overwrite</b>: "The maps <code>&lt;first&gt;</code> and <code>&lt;second&gt;</code> are given the same
+name <code>&lt;name&gt;</code> by the suffix <code>gran</code>. Use the suffix num or select maps of
+different times." No raster map and no dataset are made. Use <b>suffix</b> <code>num</code>
 for such maps, as the fifth example shows.
 
 <p>
@@ -809,12 +805,11 @@ as its name (<b>suffix</b> <code>time</code>).
 
 <p>
 The fourth block shows what happens without <b>suffix</b> <code>num</code>, with the default
-<code>gran</code> and with <code>time</code>, and with the default <b>nprocs</b> <code>1</code>: both new maps
-would get the same name, for instance <code>failed_2020_07_02T10_30_00</code>, and the
-tool stops at the second map and prints that the map exists. The block shows
-only the line with the message. The list of datasets of the mapset has neither
-of the datasets <code>failed</code> and <code>failed_time</code>, but the first map of each run stays
-behind as a raster map.
+<code>gran</code> and with <code>time</code>: both new maps would get the same name, for instance
+<code>failed_2020_07_02T10_30_00</code>, and the tool stops before it writes a map. The
+block shows only the line with the message. The list of datasets of the mapset
+has neither of the datasets <code>failed</code> and <code>failed_time</code>, and the list of raster
+maps has no map <code>failed*</code>.
 
 <p>Command line:</p>
 
@@ -862,19 +857,23 @@ rain_2020_07_02T10_30_00|precipitation_maximum|14.0|17.0
 
 <div class="code"><pre>
 (t.rast.neighbors input=layers output=failed basename=failed 2&gt;&amp;1 || true) \
-    | grep exists
+    | grep -A3 "^ERROR: The maps"
 (t.rast.neighbors input=layers output=failed_time basename=failed_time \
-    suffix=time 2&gt;&amp;1 || true) | grep exists
+    suffix=time 2&gt;&amp;1 || true) | grep -A3 "^ERROR: The maps"
 t.list type=strds columns=name format=line mapset=.
 g.list type=raster pattern="failed*" mapset=.
 </pre></div>
 
 <div class="code"><pre>
-ERROR: option &lt;output&gt;: &lt;failed_2020_07_02T10_30_00&gt; exists. To overwrite, use the --overwrite flag
-ERROR: option &lt;output&gt;: &lt;failed_time_2020_07_02T10_30_00&gt; exists. To overwrite, use the --overwrite flag
+ERROR: The maps &lt;layer_elevation@t_rast_neighbors&gt; and
+       &lt;layer_rain@t_rast_neighbors&gt; are given the same name
+       &lt;failed_2020_07_02T10_30_00@t_rast_neighbors&gt; by the suffix gran.
+       Use the suffix num or select maps of different times.
+ERROR: The maps &lt;layer_elevation@t_rast_neighbors&gt; and
+       &lt;layer_rain@t_rast_neighbors&gt; are given the same name
+       &lt;failed_time_2020_07_02T10_30_00@t_rast_neighbors&gt; by the suffix
+       time. Use the suffix num or select maps of different times.
 layers,maxima_layers,precipitation_daily,rain_above,rain_circular,rain_expo,rain_gauss,rain_maximum,rain_only,rain_picked,rain_quartile,rain_smooth,smoothed
-failed_2020_07_02T10_30_00
-failed_time_2020_07_02T10_30_00
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -947,27 +946,26 @@ rain_2020_07_02T10_30_00|precipitation_maximum|14.0|17.0
 </pre></div>
 
 <div class="code"><pre>
-from grass.tools import ToolError
+from grass.tools import Tools, ToolError
 
+# A tool without output returns None, unless the result object is requested.
+with_result = Tools(consistent_return_value=True)
 for output, suffix in (("failed", "gran"), ("failed_time", "time")):
     try:
         tools.t_rast_neighbors(
             input="layers", output=output, basename=output, suffix=suffix
         )
     except ToolError as error:
-        for line in error.stderr.splitlines():
-            if "exists" in line:
-                print(line)
+        print(" ".join(error.stderr.split()))
 print(tools.t_list(type="strds", columns="name", format="line", mapset=".").text)
-print(tools.g_list(type="raster", pattern="failed*", mapset=".").text)
+print(with_result.g_list(type="raster", pattern="failed*", mapset=".").stdout.split())
 </pre></div>
 
 <div class="code"><pre>
-ERROR: option &lt;output&gt;: &lt;failed_2020_07_02T10_30_00&gt; exists. To overwrite, use the --overwrite flag
-ERROR: option &lt;output&gt;: &lt;failed_time_2020_07_02T10_30_00&gt; exists. To overwrite, use the --overwrite flag
+ERROR: The maps &lt;layer_elevation@t_rast_neighbors&gt; and &lt;layer_rain@t_rast_neighbors&gt; are given the same name &lt;failed_2020_07_02T10_30_00@t_rast_neighbors&gt; by the suffix gran. Use the suffix num or select maps of different times.
+ERROR: The maps &lt;layer_elevation@t_rast_neighbors&gt; and &lt;layer_rain@t_rast_neighbors&gt; are given the same name &lt;failed_time_2020_07_02T10_30_00@t_rast_neighbors&gt; by the suffix time. Use the suffix num or select maps of different times.
 layers,maxima_layers,precipitation_daily,rain_above,rain_circular,rain_expo,rain_gauss,rain_maximum,rain_only,rain_picked,rain_quartile,rain_smooth,smoothed
-failed_2020_07_02T10_30_00
-failed_time_2020_07_02T10_30_00
+[]
 </pre></div>
 
 <h3>Select the maps to process</h3>

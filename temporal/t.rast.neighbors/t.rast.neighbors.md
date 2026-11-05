@@ -152,15 +152,11 @@ written, for instance with "Invalid suffix `<gram>`, use gran, time, num or
 num%NN" for `suffix=gram`.
 
 Two maps with the same start time, such as the bands of a scene, get the
-same name with the suffixes `gran` and `time`, and the run fails. The tool
-does not check this before it starts, so the outcome depends on the options.
-With **nprocs** `1` and without **--overwrite**, *r.neighbors* writes the
-first map, fails on the second with "`<name>` exists", and the tool stops; the
-first map stays as a raster map that belongs to no dataset, and no dataset is
-created. With **nprocs** above 1 or with **--overwrite**, the maps overwrite
-each other and the tool usually ends with a database error ("UNIQUE
-constraint failed") and an empty output dataset that stays behind; with
-**nprocs** above 1 the outcome varies from run to run. Use **suffix** `num`
+same name with the suffixes `gran` and `time`. The tool refuses this before it
+writes anything, with the same message for every **nprocs** and with or
+without **--overwrite**: "The maps `<first>` and `<second>` are given the same
+name `<name>` by the suffix `gran`. Use the suffix num or select maps of
+different times." No raster map and no dataset are made. Use **suffix** `num`
 for such maps, as the fifth example shows.
 
 The input dataset can be in another mapset of the project; the name with the
@@ -784,12 +780,11 @@ block selects one layer by its label and gives the new map the full start time
 as its name (**suffix** `time`).
 
 The fourth block shows what happens without **suffix** `num`, with the default
-`gran` and with `time`, and with the default **nprocs** `1`: both new maps
-would get the same name, for instance `failed_2020_07_02T10_30_00`, and the
-tool stops at the second map and prints that the map exists. The block shows
-only the line with the message. The list of datasets of the mapset has neither
-of the datasets `failed` and `failed_time`, but the first map of each run stays
-behind as a raster map.
+`gran` and with `time`: both new maps would get the same name, for instance
+`failed_2020_07_02T10_30_00`, and the tool stops before it writes a map. The
+block shows only the line with the message. The list of datasets of the mapset
+has neither of the datasets `failed` and `failed_time`, and the list of raster
+maps has no map `failed*`.
 
 === "Command line"
 
@@ -837,19 +832,23 @@ behind as a raster map.
 
     ```sh
     (t.rast.neighbors input=layers output=failed basename=failed 2>&1 || true) \
-        | grep exists
+        | grep -A3 "^ERROR: The maps"
     (t.rast.neighbors input=layers output=failed_time basename=failed_time \
-        suffix=time 2>&1 || true) | grep exists
+        suffix=time 2>&1 || true) | grep -A3 "^ERROR: The maps"
     t.list type=strds columns=name format=line mapset=.
     g.list type=raster pattern="failed*" mapset=.
     ```
 
     ```text
-    ERROR: option <output>: <failed_2020_07_02T10_30_00> exists. To overwrite, use the --overwrite flag
-    ERROR: option <output>: <failed_time_2020_07_02T10_30_00> exists. To overwrite, use the --overwrite flag
+    ERROR: The maps <layer_elevation@t_rast_neighbors> and
+           <layer_rain@t_rast_neighbors> are given the same name
+           <failed_2020_07_02T10_30_00@t_rast_neighbors> by the suffix gran.
+           Use the suffix num or select maps of different times.
+    ERROR: The maps <layer_elevation@t_rast_neighbors> and
+           <layer_rain@t_rast_neighbors> are given the same name
+           <failed_time_2020_07_02T10_30_00@t_rast_neighbors> by the suffix
+           time. Use the suffix num or select maps of different times.
     layers,maxima_layers,precipitation_daily,rain_above,rain_circular,rain_expo,rain_gauss,rain_maximum,rain_only,rain_picked,rain_quartile,rain_smooth,smoothed
-    failed_2020_07_02T10_30_00
-    failed_time_2020_07_02T10_30_00
     ```
 
 === "Python (grass.tools)"
@@ -922,27 +921,26 @@ behind as a raster map.
     ```
 
     ```python
-    from grass.tools import ToolError
+    from grass.tools import Tools, ToolError
 
+    # A tool without output returns None, unless the result object is requested.
+    with_result = Tools(consistent_return_value=True)
     for output, suffix in (("failed", "gran"), ("failed_time", "time")):
         try:
             tools.t_rast_neighbors(
                 input="layers", output=output, basename=output, suffix=suffix
             )
         except ToolError as error:
-            for line in error.stderr.splitlines():
-                if "exists" in line:
-                    print(line)
+            print(" ".join(error.stderr.split()))
     print(tools.t_list(type="strds", columns="name", format="line", mapset=".").text)
-    print(tools.g_list(type="raster", pattern="failed*", mapset=".").text)
+    print(with_result.g_list(type="raster", pattern="failed*", mapset=".").stdout.split())
     ```
 
     ```text
-    ERROR: option <output>: <failed_2020_07_02T10_30_00> exists. To overwrite, use the --overwrite flag
-    ERROR: option <output>: <failed_time_2020_07_02T10_30_00> exists. To overwrite, use the --overwrite flag
+    ERROR: The maps <layer_elevation@t_rast_neighbors> and <layer_rain@t_rast_neighbors> are given the same name <failed_2020_07_02T10_30_00@t_rast_neighbors> by the suffix gran. Use the suffix num or select maps of different times.
+    ERROR: The maps <layer_elevation@t_rast_neighbors> and <layer_rain@t_rast_neighbors> are given the same name <failed_time_2020_07_02T10_30_00@t_rast_neighbors> by the suffix time. Use the suffix num or select maps of different times.
     layers,maxima_layers,precipitation_daily,rain_above,rain_circular,rain_expo,rain_gauss,rain_maximum,rain_only,rain_picked,rain_quartile,rain_smooth,smoothed
-    failed_2020_07_02T10_30_00
-    failed_time_2020_07_02T10_30_00
+    []
     ```
 
 ### Select the maps to process
