@@ -21,7 +21,8 @@ sampler: `strds` (the default), `stvds` or `str3ds`. Only the time stamps of
 the sampler are used; the aggregated maps are always the raster maps of
 **input**. A dataset of another mapset is named with its mapset,
 `name@mapset`, and the new dataset is created in the current mapset, as the
-last example shows.
+last example shows. A name without a mapset is searched in the current mapset
+first, then in the search path, for the input and for the sampler.
 
 The input and the sampler must have the same temporal type, absolute or
 relative, and all maps of the sampler must be time intervals, not time

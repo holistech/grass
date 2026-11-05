@@ -156,7 +156,11 @@ def main():
         tgis.check_new_stds(output, "strds", dbif, gs.overwrite())
 
         try:
-            input_series = ta.source(input, where=where)
+            # source() looks for a name without a mapset in the current mapset
+            # only, so it gets the name of the dataset that was found.
+            input_series = ta.source(
+                input if "@" in input else f"{input}@{sp.get_mapset()}", where=where
+            )
             if not input_series.slots:
                 gs.fatal(_("Space time raster dataset <{}> is empty").format(input))
             # where filters the sampler too, as the classic tool does.

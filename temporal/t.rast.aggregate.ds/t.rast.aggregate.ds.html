@@ -21,7 +21,8 @@ sampler: <code>strds</code> (the default), <code>stvds</code> or <code>str3ds</c
 the sampler are used; the aggregated maps are always the raster maps of
 <b>input</b>. A dataset of another mapset is named with its mapset,
 <code>name@mapset</code>, and the new dataset is created in the current mapset, as the
-last example shows.
+last example shows. A name without a mapset is searched in the current mapset
+first, then in the search path, for the input and for the sampler.
 
 <p>
 The input and the sampler must have the same temporal type, absolute or
