@@ -64,8 +64,9 @@ error like `Space time dataset <soil> of type <strds> not found`; give
 **type=str3ds**.
 
 A dataset of an earlier release can have a dot in its name. It is found by its
-whole name and removed like any other dataset; only for a name that no
-dataset has, the text after the dot is read as a semantic label.
+whole name and removed like any other dataset: the mapsets are searched in
+turn, the current one first, and in each the whole name is tried before the
+text after the dot is read as a semantic label.
 
 A dataset of another mapset is refused with `Unable to delete dataset
 <name@mapset> of type strds from the temporal database. The mapset of the

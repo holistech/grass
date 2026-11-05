@@ -72,27 +72,30 @@ def _stds_if_in_db(ds_id, stds_type, semantic_label, dbif):
     return None
 
 
-def _find_old_stds(name, mapset, stds_type, semantic_label, dbif):
+def _find_old_stds(forms, mapset, stds_type, dbif):
     """Find the dataset in the given mapset, else in the current one and the search path
+
+    forms are the pairs of name and semantic label (or None) that the given
+    name can stand for. Each mapset is searched for all forms, in their order,
+    before the next mapset, so that a dataset of the current mapset wins over
+    one of the search path whichever form it matches.
 
     A name without a mapset is searched in the mapsets that the connection had
     when it was opened, not in a mapset that a name given with it added since
     (dbif.search_path_mapsets, not dbif.tgis_mapsets).
     """
     if mapset:
-        return _stds_if_in_db(f"{name}@{mapset}", stds_type, semantic_label, dbif)
-    # Check current mapset first
-    sp = _stds_if_in_db(
-        f"{name}@{get_current_mapset()}", stds_type, semantic_label, dbif
-    )
-    if sp:
-        return sp
-    for tgis_mapset in dbif.search_path_mapsets:
-        if tgis_mapset == get_current_mapset():
-            continue
-        sp = _stds_if_in_db(f"{name}@{tgis_mapset}", stds_type, semantic_label, dbif)
-        if sp:
-            return sp
+        mapsets = [mapset]
+    else:
+        current = get_current_mapset()
+        mapsets = [current, *(m for m in dbif.search_path_mapsets if m != current)]
+    for each_mapset in mapsets:
+        for name, semantic_label in forms:
+            sp = _stds_if_in_db(
+                f"{name}@{each_mapset}", stds_type, semantic_label, dbif
+            )
+            if sp:
+                return sp
     return None
 
 
@@ -112,7 +115,7 @@ def find_stds_id(name: str, type: str, dbif=None) -> str:
     """
     bare, _at, mapset = name.partition("@")
     with connection(dbif) as dbif:
-        sp = _find_old_stds(bare, mapset or None, type, None, dbif)
+        sp = _find_old_stds([(bare, None)], mapset or None, type, dbif)
     if sp:
         return sp.get_id()
     return f"{bare}@{mapset or get_current_mapset()}"
@@ -150,18 +153,27 @@ def open_old_stds(name, type, dbif=None, *, whole_name_first=True):
 
     with connection(dbif) as dbif:
         sp = None
-        # A dataset of an older release can have a dot in its name. The whole
-        # name is tried before a label is split off, so that such a dataset
-        # can be read and removed; "name.label" then still selects the maps
-        # of the dataset "name" unless a dataset of that name exists.
+        # A dataset of an older release can have a dot in its name. In each
+        # mapset the whole name is tried before a label is split off, so that
+        # such a dataset can be read and removed; "name.label" then still
+        # selects the maps of the dataset "name" unless a dataset of the
+        # whole name exists in the same mapset or in one searched before it.
         bare, _at, whole_mapset = name.partition("@")
-        if whole_name_first and "." in bare and stds_kind_of(stds_type).name == "strds":
-            sp = _find_old_stds(bare, whole_mapset or None, stds_type, None, dbif)
+        whole = (
+            whole_name_first and "." in bare and stds_kind_of(stds_type).name == "strds"
+        )
+        if whole and bare.count(".") > 1:
+            # _parse_id() refuses a label with a dot, so only the whole name
+            # can match; the refusal comes if it does not.
+            sp = _find_old_stds([(bare, None)], whole_mapset or None, stds_type, dbif)
         if not sp:
             # Check if the dataset name contains the mapset and the semantic
             # label as well
             name, mapset, semantic_label = _parse_id(name, stds_type=stds_type)
-            sp = _find_old_stds(name, mapset, stds_type, semantic_label, dbif)
+            forms = [(name, semantic_label)]
+            if whole and semantic_label is not None:
+                forms.insert(0, (bare, None))
+            sp = _find_old_stds(forms, mapset, stds_type, dbif)
         if not sp:
             msgr.fatal(
                 _("Space time dataset <%(name)s> of type <%(sp)s> not found")

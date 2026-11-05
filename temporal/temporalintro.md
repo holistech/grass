@@ -115,8 +115,9 @@ different labels may share the same time. With
 *[t.rast.aggregate](t.rast.aggregate.md)*, `input=name.label` selects the maps
 of one label from the dataset `name`. Therefore the name of a new space time
 dataset must not contain a dot. A dataset of an earlier release whose whole
-name contains a dot is found by that name first, and only if there is none is
-the text after the dot read as a label. *t.info* prints the labels of a
+name contains a dot is found by that name: the mapsets are searched in turn,
+the current one first, and in each the whole name is tried before the text
+after the dot is read as a label. *t.info* prints the labels of a
 dataset.
 
 The *semantic type* of a dataset, set with the option **semantictype** of

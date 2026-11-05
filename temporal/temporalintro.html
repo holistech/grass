@@ -120,8 +120,9 @@ different labels may share the same time. With
 <em><a href="t.rast.aggregate.html">t.rast.aggregate</a></em>, <code>input=name.label</code> selects the maps
 of one label from the dataset <code>name</code>. Therefore the name of a new space time
 dataset must not contain a dot. A dataset of an earlier release whose whole
-name contains a dot is found by that name first, and only if there is none is
-the text after the dot read as a label. <em>t.info</em> prints the labels of a
+name contains a dot is found by that name: the mapsets are searched in turn,
+the current one first, and in each the whole name is tried before the text
+after the dot is read as a label. <em>t.info</em> prints the labels of a
 dataset.
 
 <p>

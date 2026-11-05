@@ -19,7 +19,10 @@ after the name, `input=name.label`, keeps only the maps with this label; the
 name and the label are separated by a single dot. A dataset whose whole name
 is `name.label` is found first, before the text after the dot is read as a
 label; this concerns only datasets of earlier releases, which could have a dot
-in their name. Labels are given to maps by
+in their name. The mapsets are searched in turn, the current one first, and in
+each the whole name is tried before the label: the dataset `name` of the
+current mapset wins over a dataset `name.label` of the search path. Labels are
+given to maps by
 *[r.semantic.label](r.semantic.label.md)* or when the maps are registered
 with *[t.register](t.register.md)*.
 

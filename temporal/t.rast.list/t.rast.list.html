@@ -19,7 +19,10 @@ after the name, <code>input=name.label</code>, keeps only the maps with this lab
 name and the label are separated by a single dot. A dataset whose whole name
 is <code>name.label</code> is found first, before the text after the dot is read as a
 label; this concerns only datasets of earlier releases, which could have a dot
-in their name. Labels are given to maps by
+in their name. The mapsets are searched in turn, the current one first, and in
+each the whole name is tried before the label: the dataset <code>name</code> of the
+current mapset wins over a dataset <code>name.label</code> of the search path. Labels are
+given to maps by
 <em><a href="r.semantic.label.html">r.semantic.label</a></em> or when the maps are registered
 with <em><a href="t.register.html">t.register</a></em>.
 

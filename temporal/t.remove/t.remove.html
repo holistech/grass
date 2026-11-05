@@ -74,8 +74,9 @@ error like <code>Space time dataset &lt;soil&gt; of type &lt;strds&gt; not found
 
 <p>
 A dataset of an earlier release can have a dot in its name. It is found by its
-whole name and removed like any other dataset; only for a name that no
-dataset has, the text after the dot is read as a semantic label.
+whole name and removed like any other dataset: the mapsets are searched in
+turn, the current one first, and in each the whole name is tried before the
+text after the dot is read as a semantic label.
 
 <p>
 A dataset of another mapset is refused with <code>Unable to delete dataset
