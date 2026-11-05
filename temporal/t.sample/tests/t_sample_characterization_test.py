@@ -731,19 +731,23 @@ def test_failed_input_stays_in_the_header_only(sample_session, inputs):
 
 
 @pytest.mark.parametrize(
-    ("kwargs", "missing"),
+    ("kwargs", "missing", "kind"),
     [
-        ({"input": "nonexist", "sample": "sampler"}, "nonexist"),
-        ({"input": "input", "sample": "nonexist"}, "nonexist"),
-        ({"input": "input", "sample": "sampler", "intype": "stvds"}, "input"),
+        ({"input": "nonexist", "sample": "sampler"}, "nonexist", "strds"),
+        ({"input": "input", "sample": "nonexist"}, "nonexist", "strds"),
+        (
+            {"input": "input", "sample": "sampler", "intype": "stvds"},
+            "input",
+            "stvds",
+        ),
     ],
 )
-def test_missing_dataset_is_fatal(sample_session, kwargs, missing):
+def test_missing_dataset_is_fatal(sample_session, kwargs, missing, kind):
     with pytest.raises(ToolError) as error:
         sample_session.t_sample(**kwargs)
     assert error.value.returncode == 1
     assert error.value.errors == (
-        f"ERROR: Dataset <{missing}@PERMANENT> not found in temporal database\n"
+        f"ERROR: Space time dataset <{missing}> of type <{kind}> not found\n"
     )
 
 

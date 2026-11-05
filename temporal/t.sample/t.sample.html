@@ -18,7 +18,10 @@ The option <b>inputs</b> names the datasets to be sampled, separated by commas, 
 is required. The option <b>sample</b> names the sampler and is required. All inputs
 are of the type given by <b>intype</b>, the sampler is of the type given by
 <b>samtype</b>: <code>strds</code> (the default of both), <code>str3ds</code> or <code>stvds</code>. A name without
-<code>@mapset</code> means the current mapset. The temporal type, absolute or relative,
+<code>@mapset</code> is searched in the current mapset first and then in the mapsets of the
+search path, as in the other temporal tools; <code>name@mapset</code> reads the dataset of
+any mapset of the project. A dataset of an older release with a dot in its name,
+such as <code>a.b</code>, is read under that name. The temporal type, absolute or relative,
 must be the same for the sampler and for each input, and the maps of the sampler
 must be intervals. If they are not, the tool ends with an error, see the NOTES.
 
@@ -102,8 +105,8 @@ origin. Without <b>-s</b> the spatial extent plays no role.
 
 The tool checks every dataset before it prints anything. A dataset that is not
 found, an unknown name or a name of another type than <b>intype</b> or <b>samtype</b>,
-ends the tool with the error <code>Dataset &lt;name@mapset&gt; not found in temporal
-database</code> and return code 1; the name in the message always has the mapset.
+ends the tool with the error <code>Space time dataset &lt;name&gt; of type &lt;type&gt; not
+found</code> and return code 1; the name in the message has no mapset.
 
 <p>
 The two other refusals end the tool with an error and return code 1 as well,

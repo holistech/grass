@@ -14,9 +14,15 @@ from datetime import datetime
 
 import pytest
 
+import grass.temporal as tgis
 from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.readback import inventory, message
-from grass.tools import ToolError
+from grass.temporal.testing.session import (
+    mapset_session,
+    project_session,
+    temporal_session,
+)
+from grass.tools import ToolError, Tools
 
 D = datetime
 
@@ -156,3 +162,111 @@ def test_option_descriptions_match_behaviour(tools, prefix):
     }
     assert run["pipe"].startswith(f"{prefix}_s1@PERMANENT|{prefix}_s1@PERMANENT|")
     assert run["comma"].startswith(f"{prefix}_s1@PERMANENT | {prefix}_s1@PERMANENT | ")
+
+
+@pytest.fixture(scope="module")
+def two_mapsets(tmp_path_factory):
+    """Tools in the mapset "second", with the datasets obs and smp in "first"
+
+    "first" is not in the search path of "second" until a test adds it.
+    """
+    project = tmp_path_factory.mktemp("search_path") / "project"
+    with (
+        project_session(project, mapset="second") as second,
+        mapset_session(second, "first") as first,
+    ):
+        work, owner = (
+            Tools(session=session, consistent_return_value=True, capture_stderr=True)
+            for session in (second, first)
+        )
+        create_stds(
+            owner,
+            "strds",
+            "smp",
+            [MapSpec("s_1", 1, D(2026, 1, 1), D(2026, 1, 3))],
+        )
+        create_stds(
+            owner,
+            "strds",
+            "obs",
+            [MapSpec("o_1", 1, D(2026, 1, 2), D(2026, 1, 3))],
+        )
+        yield work
+
+
+@pytest.fixture
+def search_path(two_mapsets):
+    """The tools of "second" with only "second" in the search path"""
+    two_mapsets.g_mapsets(operation="set", mapset="second,PERMANENT")
+    yield two_mapsets
+    two_mapsets.g_mapsets(operation="set", mapset="second,PERMANENT")
+
+
+@pytest.mark.parametrize(
+    "names",
+    [
+        {"inputs": "obs", "sample": "smp@first"},
+        {"inputs": "obs@first", "sample": "smp"},
+        {"inputs": "obs", "sample": "smp"},
+    ],
+    ids=["input", "sample", "both"],
+)
+def test_name_without_mapset_from_search_path(search_path, names):
+    """A name without mapset is searched in the search path, as in the other tools"""
+    search_path.g_mapsets(operation="add", mapset="first")
+
+    result = search_path.t_sample(**names, method="contain,during,overlap,equal")
+
+    assert result.stdout.split("|")[:2] == ["s_1@first", "o_1@first"]
+
+
+@pytest.mark.parametrize("option", ["inputs", "sample"])
+def test_name_outside_search_path_is_not_found(search_path, option):
+    """Without the mapset in the search path the name is not found
+
+    The name with its mapset is read, as in the other tools.
+    """
+    names = {"inputs": "obs@first", "sample": "smp@first"}
+    names[option] = names[option].removesuffix("@first")
+    before = inventory(search_path)
+
+    with pytest.raises(ToolError) as error:
+        search_path.t_sample(**names)
+
+    name = names[option]
+    assert f"Space time dataset <{name}> of type <strds> not found" in message(
+        error.value
+    )
+    assert "Traceback" not in message(error.value)
+    assert inventory(search_path) == before
+
+
+def test_dotted_dataset_is_read(tmp_path):
+    """Input and sample are datasets of an older release with a dot in the name
+
+    The datasets are made with the dataset class, as the older release did.
+    The sampler a.b holds one interval, the input c.d an instant inside it.
+    """
+    with temporal_session(tmp_path / "project") as session:
+        tools = Tools(session=session, consistent_return_value=True)
+        tools.g_region(n=1, s=0, e=1, w=0, res=1)
+        for name, dataset, start, end in (
+            ("sm", "a.b", "2001-01-01", "2001-01-03"),
+            ("im", "c.d", "2001-01-02", None),
+        ):
+            tools.r_mapcalc(expression=f"{name} = 1")
+            stds = tgis.dataset_factory(
+                "strds", f"{dataset}@{tgis.get_current_mapset()}"
+            )
+            stds.set_initial_values("absolute", "mean", "t", "d")
+            stds.insert()
+            options = {"input": dataset, "maps": name, "start": start}
+            if end:
+                options["end"] = end
+            tools.t_register(**options)
+
+        result = tools.t_sample(
+            inputs="c.d", sample="a.b", method="contain,during,overlap,equal"
+        )
+
+    assert result.stdout.split("|")[:2] == ["sm@PERMANENT", "im@PERMANENT"]

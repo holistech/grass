@@ -63,18 +63,6 @@ import grass.script as gs
 ############################################################################
 
 
-def _open_stds(stds_type, name, msgr):
-    """The dataset object of a space time dataset, selected from the database"""
-    ident = name if "@" in name else f"{name}@{tgis.get_current_mapset()}"
-    stds = tgis.dataset_factory(stds_type, ident)
-    if stds.is_in_db() is False:
-        msgr.fatal(
-            _("Dataset <{name}> not found in temporal database").format(name=ident)
-        )
-    stds.select()
-    return stds
-
-
 def main():
     global tgis
     # Imported here, not at module level: gs.parser() answers --help and
@@ -99,12 +87,11 @@ def main():
     spatial = flags["s"]
 
     tgis.init()
-    msgr = tgis.get_tgis_message_interface()
 
     # All datasets are checked before anything is read, the inputs first, as
     # the classic function did.
-    input_stds = [_open_stds(intype, name, msgr) for name in inputs]
-    sampler_stds = _open_stds(samtype, sampler, msgr)
+    input_stds = [tgis.open_old_stds(name, intype) for name in inputs]
+    sampler_stds = tgis.open_old_stds(sampler, samtype)
 
     # The comma joins several map ids in one cell, so it cannot separate
     # columns; the classic function fell back to " | ".

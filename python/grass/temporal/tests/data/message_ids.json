@@ -43,7 +43,6 @@
  "Creating a new space time %s dataset",
  "Creating temporal database: %s",
  "Dataset <%s> not found in temporal database",
- "Dataset <{name}> not found in temporal database",
  "Dataset <{n}> of type <{t}> not found in temporal database",
  "Dataset is empty",
  "Dataset is empty or where clause is too constrained or incorrect",

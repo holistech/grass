@@ -16,7 +16,6 @@
   "Combinations across space time datasets and time stamped maps (e.g., raster and strds) are not allowed",
   "Copying %s maps to the current mapset...",
   "Createopt, metaopt and nodata options are not working with pack format, they will be skipped",
-  "Dataset <{name}> not found in temporal database",
   "Dataset <{n}> of type <{t}> not found in temporal database",
   "Each unit may appear only once in the granularity: {}",
   "Either <levels> or <step> option must be specified",
