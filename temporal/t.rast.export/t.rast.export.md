@@ -131,6 +131,9 @@ For a map of integer cells, a **nodata** value that no integer type holds, such
 as `nan`, leaves the choice of the type to *r.out.gdal*, which refuses it for
 the type it picks; the tool then stops with "Unable to export raster map".
 
+A dataset of another mapset (`input=name@mapset`) is exported like one of the
+current mapset; the tool reads its maps from their own mapset.
+
 ## EXAMPLES
 
 The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
