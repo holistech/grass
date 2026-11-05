@@ -76,10 +76,12 @@ The option **method** chooses what is listed. The default is `cols`.
   columns are `id`, `name`, `mapset`, `start_time`, `end_time`,
   `interval_length` and `distance_from_begin`. The length of a time instant is
   `None`. `delta` supports only these columns.
-- `deltagaps` is `delta` with a line for every temporal gap between two maps.
-  A gap line has `None` as `id`, `name` and `mapset`; its times are the end of
-  the map before and the start of the map after the gap, and its length is the
-  length of the gap. Maps that follow each other directly leave no gap.
+- `deltagaps` is `delta` with a line for every temporal gap. A gap is time
+  that no map covers. A gap line has `None` as `id`, `name` and `mapset`; its
+  times are the latest end of the maps before the gap and the start of the map
+  after it, and its length is the length of the gap. Maps that follow each
+  other directly leave no gap, and neither does a map that ends inside a longer
+  one.
 - `gran` samples the maps by a granule and prints one line per granule, with the
   columns of `delta`. The times and the length are those of the granule, not of
   the map, so a map that is longer than the granule is listed once for each
@@ -93,14 +95,22 @@ The option **method** chooses what is listed. The default is `cols`.
   the chosen column in one line, the ids without **columns**. Prefer the option
   **format**.
 
-The option **granule** is the granule of the method `gran`. For absolute
-time it is a text with a number and a time unit, such as `"2 months"`. For
-relative time, leave it out (see the notes). Without it, the granularity of the
-dataset is used. The first granule starts with the first map; each later start
-is counted in whole granules from this start. A step of months or years that
-ends behind the last day of a shorter month ends on that day: with a granule of
-one month and a first map from 31 January, the granules start on 31 January, 28
-February, 31 March and 30 April. The other methods ignore **granule**.
+The option **granule** is the granule of the method `gran`. For absolute time it
+is a text with a number and a time unit, such as `"2 months"`. For relative time
+it is a whole number of at least 1 in the time unit of the dataset, also
+followed by this unit: `12`, `"12 hours"` and `"12 hour"` are the same granule
+of a dataset in hours. Another unit, such as `"1 day"` for a dataset in hours,
+is refused with the error "Invalid granule". Without **granule**, the
+granularity of the dataset is used. The first granule starts with the first map,
+and the granules reach the latest end of the maps, also when a shorter map
+starts last. Each later start is counted in whole granules from the start of the
+dataset when the first selected map lies whole granules after it, otherwise from
+the first selected map; this matters when **where** selects later maps only. A
+step of months or years that ends behind the last day of a shorter month ends on
+that day: with a granule of one month and a first map from 31 January, the
+granules start on 31 January, 28 February, 31 March and 30 April. Such a series
+has the granularity one month (see *[t.info](t.info.md)*), so `gran` without
+**granule** samples it by months as well. The other methods ignore **granule**.
 
 ### Output
 
@@ -146,22 +156,17 @@ selects nothing in a dataset that has a granularity, but stops for a dataset
 without maps with the error "Nothing found in the database for space time
 dataset `<name@mapset>` (type: str3ds)", followed by "Dataset is empty". A
 dataset with a single map that is a time instant has no granularity, and `gran`
-without **granule** stops for it with the error "Wrong granularity: "None"",
-whatever **where** selects. Give a **granule**, such as `"1 day"`, or use
-`delta`.
+without **granule** stops for it with the error that the dataset has no
+granularity, whatever **where** selects. Give a **granule**, such as `"1 day"`,
+or use `delta`.
 
 With relative time, the times are numbers of the time unit of the dataset,
 printed without the unit, as the dataset `runoff` in the fourth example
-shows. The method `gran` works with relative time without **granule**. Given a
-**granule** for a dataset with relative time, it fails: a number ends with a
-Python error (`TypeError`) and a text with a unit such as `"6 hours"` with the
-error "Wrong granularity". Leave **granule** out; the granularity of the
-dataset is used.
+shows. The method `gran` works with relative time with and without
+**granule**, as the example "Sample the maps by a granule" shows.
 
-The option **output** takes the name of a file. The name `-` is not the
-standard output here: it writes a file with this name, as the last block of
-the "Choose the output format" example shows. To print the listing, leave out
-**output**; to keep it in a file, give a file name other than `-`.
+The option **output** takes the name of a file; the name `-` is the standard
+output, as the last block of the "Choose the output format" example shows.
 
 *t.rast3d.list* only reads, so it works on a dataset of another mapset as well.
 The name with the mapset (`input=temperature_profile@t_rast3d_list`) selects
@@ -594,8 +599,8 @@ fourth and fifth block print CSV with and without the line of column names;
 text is quoted and numbers are not. The sixth block replaces the separator of
 the plain format. The seventh block prints JSON, which the Python tab reads
 from `result.json` and prints name and `max` of each map. The eighth block
-writes the listing to a file and prints the file. The ninth block shows that
-`output=-` writes a file named `-`.
+writes the listing to a file and prints the file. The ninth block prints the
+listing with `output=-`, the standard output.
 
 === "Command line"
 
@@ -714,7 +719,6 @@ writes the listing to a file and prints the file. The ninth block shows that
 
     ```sh
     t.rast3d.list input=temperature_profile columns=name output=-
-    cat ./-
     ```
 
     ```text
@@ -879,8 +883,10 @@ writes the listing to a file and prints the file. The ninth block shows that
     ```
 
     ```python
-    tools.t_rast3d_list(input="temperature_profile", columns="name", output="-")
-    print(Path("-").read_text(), end="")
+    result = tools.t_rast3d_list(
+        input="temperature_profile", columns="name", output="-"
+    )
+    print(result.text)
     ```
 
     ```text
@@ -1067,9 +1073,11 @@ The method `gran` with a granule of one month prints one line per month
 granule: the granules start on 31 January, 28 February, 31 March and 30 April,
 as each start is counted in months from 31 January and cut to the last day of
 a shorter month. With a granule of two months, each line covers two maps and
-names the first of them. The last block samples the relative dataset `runoff`
-of the previous example without a granule, so it uses the granularity of the
-dataset, 6 hours.
+names the first of them. Without a granule, `gran` takes the granularity of the
+dataset, one month, and prints the same lines as with `"1 month"`. The last
+blocks sample the relative dataset `runoff` of the previous example: without a
+granule by the granularity of the dataset, 6 hours, and with the granule `12`,
+a number of hours; `"12 hours"` is the same granule.
 
 === "Command line"
 
@@ -1116,6 +1124,18 @@ dataset, 6 hours.
     ```
 
     ```sh
+    t.rast3d.list input=moisture method=gran
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    moisture_1@t_rast3d_list|moisture_1|t_rast3d_list|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+    moisture_2@t_rast3d_list|moisture_2|t_rast3d_list|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+    moisture_3@t_rast3d_list|moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+    moisture_4@t_rast3d_list|moisture_4|t_rast3d_list|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+    ```
+
+    ```sh
     t.rast3d.list input=runoff method=gran
     ```
 
@@ -1124,6 +1144,16 @@ dataset, 6 hours.
     runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|6|6|0
     runoff_2@t_rast3d_list|runoff_2|t_rast3d_list|6|12|6|6
     runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|18|6|12
+    ```
+
+    ```sh
+    t.rast3d.list input=runoff method=gran granule=12
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|12|12|0
+    runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|24|12|12
     ```
 
 === "Python (grass.tools)"
@@ -1181,6 +1211,18 @@ dataset, 6 hours.
     ```
 
     ```python
+    print(tools.t_rast3d_list(input="moisture", method="gran").text)
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    moisture_1@t_rast3d_list|moisture_1|t_rast3d_list|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+    moisture_2@t_rast3d_list|moisture_2|t_rast3d_list|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+    moisture_3@t_rast3d_list|moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+    moisture_4@t_rast3d_list|moisture_4|t_rast3d_list|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+    ```
+
+    ```python
     print(tools.t_rast3d_list(input="runoff", method="gran").text)
     ```
 
@@ -1189,6 +1231,16 @@ dataset, 6 hours.
     runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|6|6|0
     runoff_2@t_rast3d_list|runoff_2|t_rast3d_list|6|12|6|6
     runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|18|6|12
+    ```
+
+    ```python
+    print(tools.t_rast3d_list(input="runoff", method="gran", granule="12 hours").text)
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|12|12|0
+    runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|24|12|12
     ```
 
 ### Use a dataset of another mapset

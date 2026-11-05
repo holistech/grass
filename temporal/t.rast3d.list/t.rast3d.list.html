@@ -80,10 +80,12 @@ intervals and their distance from the first map. Without <b>columns</b>, the
 columns are <code>id</code>, <code>name</code>, <code>mapset</code>, <code>start_time</code>, <code>end_time</code>,
 <code>interval_length</code> and <code>distance_from_begin</code>. The length of a time instant is
 <code>None</code>. <code>delta</code> supports only these columns.</li>
-<li><code>deltagaps</code> is <code>delta</code> with a line for every temporal gap between two maps.
-A gap line has <code>None</code> as <code>id</code>, <code>name</code> and <code>mapset</code>; its times are the end of
-the map before and the start of the map after the gap, and its length is the
-length of the gap. Maps that follow each other directly leave no gap.</li>
+<li><code>deltagaps</code> is <code>delta</code> with a line for every temporal gap. A gap is time
+that no map covers. A gap line has <code>None</code> as <code>id</code>, <code>name</code> and <code>mapset</code>; its
+times are the latest end of the maps before the gap and the start of the map
+after it, and its length is the length of the gap. Maps that follow each
+other directly leave no gap, and neither does a map that ends inside a longer
+one.</li>
 <li><code>gran</code> samples the maps by a granule and prints one line per granule, with the
 columns of <code>delta</code>. The times and the length are those of the granule, not of
 the map, so a map that is longer than the granule is listed once for each
@@ -99,14 +101,22 @@ the chosen column in one line, the ids without <b>columns</b>. Prefer the option
 </ul>
 
 <p>
-The option <b>granule</b> is the granule of the method <code>gran</code>. For absolute
-time it is a text with a number and a time unit, such as <code>"2 months"</code>. For
-relative time, leave it out (see the notes). Without it, the granularity of the
-dataset is used. The first granule starts with the first map; each later start
-is counted in whole granules from this start. A step of months or years that
-ends behind the last day of a shorter month ends on that day: with a granule of
-one month and a first map from 31 January, the granules start on 31 January, 28
-February, 31 March and 30 April. The other methods ignore <b>granule</b>.
+The option <b>granule</b> is the granule of the method <code>gran</code>. For absolute time it
+is a text with a number and a time unit, such as <code>"2 months"</code>. For relative time
+it is a whole number of at least 1 in the time unit of the dataset, also
+followed by this unit: <code>12</code>, <code>"12 hours"</code> and <code>"12 hour"</code> are the same granule
+of a dataset in hours. Another unit, such as <code>"1 day"</code> for a dataset in hours,
+is refused with the error "Invalid granule". Without <b>granule</b>, the
+granularity of the dataset is used. The first granule starts with the first map,
+and the granules reach the latest end of the maps, also when a shorter map
+starts last. Each later start is counted in whole granules from the start of the
+dataset when the first selected map lies whole granules after it, otherwise from
+the first selected map; this matters when <b>where</b> selects later maps only. A
+step of months or years that ends behind the last day of a shorter month ends on
+that day: with a granule of one month and a first map from 31 January, the
+granules start on 31 January, 28 February, 31 March and 30 April. Such a series
+has the granularity one month (see <em><a href="t.info.html">t.info</a></em>), so <code>gran</code> without
+<b>granule</b> samples it by months as well. The other methods ignore <b>granule</b>.
 
 <h3>Output</h3>
 
@@ -157,24 +167,19 @@ selects nothing in a dataset that has a granularity, but stops for a dataset
 without maps with the error "Nothing found in the database for space time
 dataset <code>&lt;name@mapset&gt;</code> (type: str3ds)", followed by "Dataset is empty". A
 dataset with a single map that is a time instant has no granularity, and <code>gran</code>
-without <b>granule</b> stops for it with the error "Wrong granularity: "None"",
-whatever <b>where</b> selects. Give a <b>granule</b>, such as <code>"1 day"</code>, or use
-<code>delta</code>.
+without <b>granule</b> stops for it with the error that the dataset has no
+granularity, whatever <b>where</b> selects. Give a <b>granule</b>, such as <code>"1 day"</code>,
+or use <code>delta</code>.
 
 <p>
 With relative time, the times are numbers of the time unit of the dataset,
 printed without the unit, as the dataset <code>runoff</code> in the fourth example
-shows. The method <code>gran</code> works with relative time without <b>granule</b>. Given a
-<b>granule</b> for a dataset with relative time, it fails: a number ends with a
-Python error (<code>TypeError</code>) and a text with a unit such as <code>"6 hours"</code> with the
-error "Wrong granularity". Leave <b>granule</b> out; the granularity of the
-dataset is used.
+shows. The method <code>gran</code> works with relative time with and without
+<b>granule</b>, as the example "Sample the maps by a granule" shows.
 
 <p>
-The option <b>output</b> takes the name of a file. The name <code>-</code> is not the
-standard output here: it writes a file with this name, as the last block of
-the "Choose the output format" example shows. To print the listing, leave out
-<b>output</b>; to keep it in a file, give a file name other than <code>-</code>.
+The option <b>output</b> takes the name of a file; the name <code>-</code> is the standard
+output, as the last block of the "Choose the output format" example shows.
 
 <p>
 <em>t.rast3d.list</em> only reads, so it works on a dataset of another mapset as well.
@@ -608,8 +613,8 @@ fourth and fifth block print CSV with and without the line of column names;
 text is quoted and numbers are not. The sixth block replaces the separator of
 the plain format. The seventh block prints JSON, which the Python tab reads
 from <code>result.json</code> and prints name and <code>max</code> of each map. The eighth block
-writes the listing to a file and prints the file. The ninth block shows that
-<code>output=-</code> writes a file named <code>-</code>.
+writes the listing to a file and prints the file. The ninth block prints the
+listing with <code>output=-</code>, the standard output.
 
 <p>Command line:</p>
 
@@ -728,7 +733,6 @@ temperature_profile_2020_12|6.5
 
 <div class="code"><pre>
 t.rast3d.list input=temperature_profile columns=name output=-
-cat ./-
 </pre></div>
 
 <div class="code"><pre>
@@ -893,8 +897,10 @@ temperature_profile_2020_12|6.5
 </pre></div>
 
 <div class="code"><pre>
-tools.t_rast3d_list(input="temperature_profile", columns="name", output="-")
-print(Path("-").read_text(), end="")
+result = tools.t_rast3d_list(
+    input="temperature_profile", columns="name", output="-"
+)
+print(result.text)
 </pre></div>
 
 <div class="code"><pre>
@@ -1082,9 +1088,11 @@ The method <code>gran</code> with a granule of one month prints one line per mon
 granule: the granules start on 31 January, 28 February, 31 March and 30 April,
 as each start is counted in months from 31 January and cut to the last day of
 a shorter month. With a granule of two months, each line covers two maps and
-names the first of them. The last block samples the relative dataset <code>runoff</code>
-of the previous example without a granule, so it uses the granularity of the
-dataset, 6 hours.
+names the first of them. Without a granule, <code>gran</code> takes the granularity of the
+dataset, one month, and prints the same lines as with <code>"1 month"</code>. The last
+blocks sample the relative dataset <code>runoff</code> of the previous example: without a
+granule by the granularity of the dataset, 6 hours, and with the granule <code>12</code>,
+a number of hours; <code>"12 hours"</code> is the same granule.
 
 <p>Command line:</p>
 
@@ -1131,6 +1139,18 @@ moisture_3@t_rast3d_list|moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-05-31
 </pre></div>
 
 <div class="code"><pre>
+t.rast3d.list input=moisture method=gran
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+moisture_1@t_rast3d_list|moisture_1|t_rast3d_list|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+moisture_2@t_rast3d_list|moisture_2|t_rast3d_list|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+moisture_3@t_rast3d_list|moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+moisture_4@t_rast3d_list|moisture_4|t_rast3d_list|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+</pre></div>
+
+<div class="code"><pre>
 t.rast3d.list input=runoff method=gran
 </pre></div>
 
@@ -1139,6 +1159,16 @@ id|name|mapset|start_time|end_time|interval_length|distance_from_begin
 runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|6|6|0
 runoff_2@t_rast3d_list|runoff_2|t_rast3d_list|6|12|6|6
 runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|18|6|12
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=runoff method=gran granule=12
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|12|12|0
+runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|24|12|12
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -1196,6 +1226,18 @@ moisture_3@t_rast3d_list|moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-05-31
 </pre></div>
 
 <div class="code"><pre>
+print(tools.t_rast3d_list(input="moisture", method="gran").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+moisture_1@t_rast3d_list|moisture_1|t_rast3d_list|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+moisture_2@t_rast3d_list|moisture_2|t_rast3d_list|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+moisture_3@t_rast3d_list|moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+moisture_4@t_rast3d_list|moisture_4|t_rast3d_list|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+</pre></div>
+
+<div class="code"><pre>
 print(tools.t_rast3d_list(input="runoff", method="gran").text)
 </pre></div>
 
@@ -1204,6 +1246,16 @@ id|name|mapset|start_time|end_time|interval_length|distance_from_begin
 runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|6|6|0
 runoff_2@t_rast3d_list|runoff_2|t_rast3d_list|6|12|6|6
 runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|18|6|12
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_rast3d_list(input="runoff", method="gran", granule="12 hours").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|12|12|0
+runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|24|12|12
 </pre></div>
 
 <h3>Use a dataset of another mapset</h3>
