@@ -152,11 +152,10 @@ Description:</code> and <code># Command history:</code> and the lines with the t
 description start with <code>#</code>. The commands are those that created the dataset and
 registered maps in it; before each command, a line starting with <code>#</code> gives its
 time. The lines of the commands themselves do not start with <code>#</code>. Long commands
-are broken into several lines, and every line of a command ends in a backslash,
-also the last line of a command that is followed by another one. Only the last
-line of the whole history has none. <b>-h</b> with a map prints the report of the
-map; only space time datasets have a history. <b>-g</b> has no effect together
-with <b>-h</b>.
+are broken into several lines, and every line of a command ends in a backslash
+except the last line of the command, so a command can be copied into a shell
+as it is. <b>-h</b> with a map prints the report of the map; only space time
+datasets have a history. <b>-g</b> has no effect together with <b>-h</b>.
 
 <h3>The database back end</h3>
 
@@ -192,6 +191,10 @@ the error names the current mapset. A map of another mapset that is registered
 in a dataset of the current mapset is found with <code>name@mapset</code> as well.
 
 <p>
+The name is taken as it is: a dot belongs to the name, so a dataset of an
+earlier release whose name contains a dot is shown like any other.
+
+<p>
 Without <b>input</b> and without <b>-d</b>, the parser stops with "Required
 parameter <code>&lt;input&gt;</code> not set". <b>-d</b> with <b>-h</b> and without <b>input</b> stops
 with "Please specify input=".
@@ -203,11 +206,10 @@ numbers without unit; the unit is the line <code>Relative time unit</code> of th
 the key <code>unit</code> of the shell form.
 
 <p>
-The <code>Semantic label</code> line of a map, and <code>semantic_label</code> in the shell form,
-show <code>None</code> even for a map that has a semantic label, as the last but one
-example shows. The dataset reports the labels of its maps correctly (<code>Semantic
-labels</code>). To read the label of a map, use <code>t.rast.list
-columns=name,semantic_label</code>.
+The <code>Semantic label</code> line of a raster map, and <code>semantic_label</code> in the shell
+form, give the semantic label of the map, and <code>None</code> for a map without one. The
+dataset counts and lists the labels of its maps (<code>Number of semantic labels</code>,
+<code>Semantic labels</code>).
 
 <h2>EXAMPLES</h2>
 
@@ -678,7 +680,7 @@ t.info -h input=temperature_monthly
 # 2026-11-01 12:00:00
 t.create output="temperature_monthly" \
 title="Air temperature" \
-description="Monthly mean air temperature 2020 in degrees Celsius" \
+description="Monthly mean air temperature 2020 in degrees Celsius"
 # 2026-11-01 12:00:00
 t.register -i input="temperature_monthly" \
 file="maps.txt" start="2020-01-01" increment="1 month"
@@ -708,7 +710,7 @@ print(tools.t_info(input="temperature_monthly", flags="h").text)
 # 2026-11-01 12:00:00
 t.create output="temperature_monthly" \
 title="Air temperature" \
-description="Monthly mean air temperature 2020 in degrees Celsius" \
+description="Monthly mean air temperature 2020 in degrees Celsius"
 # 2026-11-01 12:00:00
 t.register -i input="temperature_monthly" \
 file="maps.txt" start="2020-01-01" increment="1 month"
@@ -1110,9 +1112,8 @@ The dataset <code>sentinel</code> holds the red band (semantic label <code>S2_B4
 infrared band (<code>S2_B8</code>) of two scenes, registered as time instances. The
 reflectances are constants over the region. The
 report of the dataset counts the two labels and names them. The second block
-shows what the notes say: the map <code>nir_1</code> is a time instance, so its end is
-<code>None</code>, and the report gives <code>None</code> for its semantic label, although it has
-one, while <em>t.rast.list</em> gives it.
+shows the map <code>nir_1</code>: it is a time instance, so its end is <code>None</code>, and
+its semantic label is <code>S2_B8</code>, which <em>t.rast.list</em> gives as well.
 
 <p>Command line:</p>
 
@@ -1147,7 +1148,7 @@ t.rast.list input=sentinel columns=name,semantic_label where="name = 'nir_1'"
 <div class="code"><pre>
 start_time='2026-06-01 10:30:00'
 end_time='None'
-semantic_label=None
+semantic_label=S2_B8
 name|semantic_label
 nir_1|S2_B8
 </pre></div>
@@ -1197,7 +1198,7 @@ print(result.text)
 <div class="code"><pre>
 start_time='2026-06-01 10:30:00'
 end_time='None'
-semantic_label=None
+semantic_label=S2_B8
 name|semantic_label
 nir_1|S2_B8
 </pre></div>

@@ -138,11 +138,10 @@ Description:` and `# Command history:` and the lines with the title and the
 description start with `#`. The commands are those that created the dataset and
 registered maps in it; before each command, a line starting with `#` gives its
 time. The lines of the commands themselves do not start with `#`. Long commands
-are broken into several lines, and every line of a command ends in a backslash,
-also the last line of a command that is followed by another one. Only the last
-line of the whole history has none. **-h** with a map prints the report of the
-map; only space time datasets have a history. **-g** has no effect together
-with **-h**.
+are broken into several lines, and every line of a command ends in a backslash
+except the last line of the command, so a command can be copied into a shell
+as it is. **-h** with a map prints the report of the map; only space time
+datasets have a history. **-g** has no effect together with **-h**.
 
 ### The database back end
 
@@ -174,6 +173,9 @@ of another mapset is selected as `input=name@mapset`, and without the mapset
 the error names the current mapset. A map of another mapset that is registered
 in a dataset of the current mapset is found with `name@mapset` as well.
 
+The name is taken as it is: a dot belongs to the name, so a dataset of an
+earlier release whose name contains a dot is shown like any other.
+
 Without **input** and without **-d**, the parser stops with "Required
 parameter `<input>` not set". **-d** with **-h** and without **input** stops
 with "Please specify input=".
@@ -183,11 +185,10 @@ as `2026-03-01 00:00:00`. With relative time, `Start time` and `End time` are
 numbers without unit; the unit is the line `Relative time unit` of the box and
 the key `unit` of the shell form.
 
-The `Semantic label` line of a map, and `semantic_label` in the shell form,
-show `None` even for a map that has a semantic label, as the last but one
-example shows. The dataset reports the labels of its maps correctly (`Semantic
-labels`). To read the label of a map, use `t.rast.list
-columns=name,semantic_label`.
+The `Semantic label` line of a raster map, and `semantic_label` in the shell
+form, give the semantic label of the map, and `None` for a map without one. The
+dataset counts and lists the labels of its maps (`Number of semantic labels`,
+`Semantic labels`).
 
 ## EXAMPLES
 
@@ -660,7 +661,7 @@ header and the id.
     # 2026-11-01 12:00:00
     t.create output="temperature_monthly" \
     title="Air temperature" \
-    description="Monthly mean air temperature 2020 in degrees Celsius" \
+    description="Monthly mean air temperature 2020 in degrees Celsius"
     # 2026-11-01 12:00:00
     t.register -i input="temperature_monthly" \
     file="maps.txt" start="2020-01-01" increment="1 month"
@@ -690,7 +691,7 @@ header and the id.
     # 2026-11-01 12:00:00
     t.create output="temperature_monthly" \
     title="Air temperature" \
-    description="Monthly mean air temperature 2020 in degrees Celsius" \
+    description="Monthly mean air temperature 2020 in degrees Celsius"
     # 2026-11-01 12:00:00
     t.register -i input="temperature_monthly" \
     file="maps.txt" start="2020-01-01" increment="1 month"
@@ -1087,9 +1088,8 @@ The dataset `sentinel` holds the red band (semantic label `S2_B4`) and the near
 infrared band (`S2_B8`) of two scenes, registered as time instances. The
 reflectances are constants over the region. The
 report of the dataset counts the two labels and names them. The second block
-shows what the notes say: the map `nir_1` is a time instance, so its end is
-`None`, and the report gives `None` for its semantic label, although it has
-one, while *t.rast.list* gives it.
+shows the map `nir_1`: it is a time instance, so its end is `None`, and
+its semantic label is `S2_B8`, which *t.rast.list* gives as well.
 
 === "Command line"
 
@@ -1124,7 +1124,7 @@ one, while *t.rast.list* gives it.
     ```text
     start_time='2026-06-01 10:30:00'
     end_time='None'
-    semantic_label=None
+    semantic_label=S2_B8
     name|semantic_label
     nir_1|S2_B8
     ```
@@ -1174,7 +1174,7 @@ one, while *t.rast.list* gives it.
     ```text
     start_time='2026-06-01 10:30:00'
     end_time='None'
-    semantic_label=None
+    semantic_label=S2_B8
     name|semantic_label
     nir_1|S2_B8
     ```
