@@ -24,7 +24,12 @@ The granularity is the one the dataset has before the call, as <em><a href="t.in
 shows it (the largest step that fits all start and end times of the maps).
 In a dataset with absolute time, a granularity of months or years is added as
 calendar months, so maps on the first of January, February, March and April
-give a last map that ends on May 1. A dataset with a single time instance has no
+give a last map that ends on May 1. The months count from the first map, with
+the cut to the end of a shorter month, as a monthly series does: maps on
+January 31, February 28, March 31 and April 30 have the granularity of one
+month as well, and the last map ends on May 31, not on May 30; with maps on
+January 31 and February 28 it ends on March 31. The snapped dataset keeps the
+granularity of one month. A dataset with a single time instance has no
 granularity, and the map stays a time instance.
 
 <p>
@@ -291,13 +296,13 @@ map_time=interval
 <h3>Close gaps and cut overlaps between intervals</h3>
 
 Four maps are intervals: <code>gap_1</code> from June 1 to 2, <code>gap_2</code> from June 4 to 8,
-<code>gap_3</code> from June 6 to 7 and <code>gap_4</code> from June 10 to 12. There is a gap after
-<code>gap_1</code> and after <code>gap_3</code>, and <code>gap_2</code> reaches into <code>gap_3</code>. The method
-<code>deltagaps</code> of <em><a href="t.rast.list.html">t.rast.list</a></em> lists the gaps as lines without
-a name. After <em>t.snap</em> each map ends where the next one starts: <code>gap_1</code> ends on
-June 4, <code>gap_2</code> on June 6, <code>gap_3</code> on June 10. The last map <code>gap_4</code> has an
-end of its own and keeps it. The list has no gaps now, and <code>gap_3</code> is longer
-than before.
+<code>gap_3</code> from June 6 to 7 and <code>gap_4</code> from June 10 to 12. <code>gap_3</code> lies inside
+<code>gap_2</code>, so the gaps are June 2 to 4 and June 8 to 10, the time that no map
+covers. The method <code>deltagaps</code> of <em><a href="t.rast.list.html">t.rast.list</a></em> lists the
+gaps as lines without a name. After <em>t.snap</em> each map ends where the next one
+starts: <code>gap_1</code> ends on June 4, <code>gap_2</code> on June 6, <code>gap_3</code> on June 10. The
+last map <code>gap_4</code> has an end of its own and keeps it. The list has no gaps now,
+and <code>gap_3</code> is longer than before.
 
 <p>Command line:</p>
 
@@ -320,7 +325,7 @@ gap_1|2026-06-01 00:00:00|2026-06-02 00:00:00
 None|2026-06-02 00:00:00|2026-06-04 00:00:00
 gap_2|2026-06-04 00:00:00|2026-06-08 00:00:00
 gap_3|2026-06-06 00:00:00|2026-06-07 00:00:00
-None|2026-06-07 00:00:00|2026-06-10 00:00:00
+None|2026-06-08 00:00:00|2026-06-10 00:00:00
 gap_4|2026-06-10 00:00:00|2026-06-12 00:00:00
 </pre></div>
 
@@ -364,7 +369,7 @@ gap_1|2026-06-01 00:00:00|2026-06-02 00:00:00
 None|2026-06-02 00:00:00|2026-06-04 00:00:00
 gap_2|2026-06-04 00:00:00|2026-06-08 00:00:00
 gap_3|2026-06-06 00:00:00|2026-06-07 00:00:00
-None|2026-06-07 00:00:00|2026-06-10 00:00:00
+None|2026-06-08 00:00:00|2026-06-10 00:00:00
 gap_4|2026-06-10 00:00:00|2026-06-12 00:00:00
 </pre></div>
 

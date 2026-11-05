@@ -22,7 +22,12 @@ The granularity is the one the dataset has before the call, as *[t.info](t.info.
 shows it (the largest step that fits all start and end times of the maps).
 In a dataset with absolute time, a granularity of months or years is added as
 calendar months, so maps on the first of January, February, March and April
-give a last map that ends on May 1. A dataset with a single time instance has no
+give a last map that ends on May 1. The months count from the first map, with
+the cut to the end of a shorter month, as a monthly series does: maps on
+January 31, February 28, March 31 and April 30 have the granularity of one
+month as well, and the last map ends on May 31, not on May 30; with maps on
+January 31 and February 28 it ends on March 31. The snapped dataset keeps the
+granularity of one month. A dataset with a single time instance has no
 granularity, and the map stays a time instance.
 
 Maps that start at the same time cannot be snapped to each other, as the end
@@ -287,13 +292,13 @@ June 9. The intervals have different lengths; *t.snap* does not make them equal.
 ### Close gaps and cut overlaps between intervals
 
 Four maps are intervals: `gap_1` from June 1 to 2, `gap_2` from June 4 to 8,
-`gap_3` from June 6 to 7 and `gap_4` from June 10 to 12. There is a gap after
-`gap_1` and after `gap_3`, and `gap_2` reaches into `gap_3`. The method
-`deltagaps` of *[t.rast.list](t.rast.list.md)* lists the gaps as lines without
-a name. After *t.snap* each map ends where the next one starts: `gap_1` ends on
-June 4, `gap_2` on June 6, `gap_3` on June 10. The last map `gap_4` has an
-end of its own and keeps it. The list has no gaps now, and `gap_3` is longer
-than before.
+`gap_3` from June 6 to 7 and `gap_4` from June 10 to 12. `gap_3` lies inside
+`gap_2`, so the gaps are June 2 to 4 and June 8 to 10, the time that no map
+covers. The method `deltagaps` of *[t.rast.list](t.rast.list.md)* lists the
+gaps as lines without a name. After *t.snap* each map ends where the next one
+starts: `gap_1` ends on June 4, `gap_2` on June 6, `gap_3` on June 10. The
+last map `gap_4` has an end of its own and keeps it. The list has no gaps now,
+and `gap_3` is longer than before.
 
 === "Command line"
 
@@ -316,7 +321,7 @@ than before.
     None|2026-06-02 00:00:00|2026-06-04 00:00:00
     gap_2|2026-06-04 00:00:00|2026-06-08 00:00:00
     gap_3|2026-06-06 00:00:00|2026-06-07 00:00:00
-    None|2026-06-07 00:00:00|2026-06-10 00:00:00
+    None|2026-06-08 00:00:00|2026-06-10 00:00:00
     gap_4|2026-06-10 00:00:00|2026-06-12 00:00:00
     ```
 
@@ -360,7 +365,7 @@ than before.
     None|2026-06-02 00:00:00|2026-06-04 00:00:00
     gap_2|2026-06-04 00:00:00|2026-06-08 00:00:00
     gap_3|2026-06-06 00:00:00|2026-06-07 00:00:00
-    None|2026-06-07 00:00:00|2026-06-10 00:00:00
+    None|2026-06-08 00:00:00|2026-06-10 00:00:00
     gap_4|2026-06-10 00:00:00|2026-06-12 00:00:00
     ```
 
