@@ -96,7 +96,12 @@ def main():
     if not name:
         gs.fatal(_("Please specify %s=") % ("input"))
 
-    id_ = name if name.find("@") >= 0 else name + "@" + gs.gisenv()["MAPSET"]
+    if type_ in {"strds", "stvds", "str3ds"}:
+        # A dataset is searched in the current mapset and the search path, as
+        # in the other tools; a map is looked for in the current mapset.
+        id_ = tgis.open_stds.find_stds_id(name, type_, dbif)
+    else:
+        id_ = name if name.find("@") >= 0 else name + "@" + gs.gisenv()["MAPSET"]
     dataset = tgis.dataset_factory(type_, id_)
 
     # The database of the mapset of the dataset is read by default. A map of

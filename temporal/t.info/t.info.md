@@ -168,10 +168,12 @@ A dataset or a map that is not registered in the temporal database ends the
 module with the error "Dataset `<name@mapset>` of type `<type>` not found in
 temporal database". The error also appears when **type** does not fit: a map
 asked for with the default type `strds`, or a dataset asked for with
-`type=raster`. A name without a mapset refers to the current mapset: a dataset
-of another mapset is selected as `input=name@mapset`, and without the mapset
-the error names the current mapset. A map of another mapset that is registered
-in a dataset of the current mapset is found with `name@mapset` as well.
+`type=raster`. The name of a dataset without a mapset is searched in the
+current mapset first, then in the search path. A dataset of a mapset outside the
+search path is selected as `input=name@mapset`, and without the mapset the error
+names the current mapset. The name of a map without a mapset refers to the
+current mapset; a map of another mapset that is registered in a dataset of the
+current mapset is found with `name@mapset`.
 
 The name is taken as it is: a dot belongs to the name, so a dataset of an
 earlier release whose name contains a dot is shown like any other.
