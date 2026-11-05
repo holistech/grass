@@ -48,11 +48,15 @@ multiplies the map of `moisture` by the related map of `bias`, and
 name. The operators and functions of *r3.mapcalc* are available.
 
 The tool puts the names of the maps into the text of the expression and
-numbers the results, so a call with four granules runs four statements such as
-`halved_1=moisture_1/2`. Because the replacement works on the text, a dataset
-name must not occur anywhere else in the expression, neither in a function name
-(a dataset `day` breaks `start_day()`) nor in another dataset name (`moisture`
-breaks `moisture_deep`); see the ninth example.
+numbers the results, so with the expression `moisture / 2` a call with four
+granules runs four statements such as `halved_1=moisture_1 / 2`. A dataset
+name is replaced only where it stands as a whole name: not inside a longer name
+(`moisture` in `moisture_deep`), and not before an opening parenthesis, where
+it is the name of a function (`day` in `start_day()`); see the ninth example.
+After a map name, as in `volume@moisture`, the name is a mapset and stays.
+The rest of the expression goes to *r3.mapcalc* as written, blanks included.
+Two inputs with the same name, such as `moisture,moisture`, are refused before
+any map is computed, because the expression could not tell them apart.
 
 The option **basename** is required. The new maps are named after it, followed
 by an underscore and the number of their granule, counted from 1 in the order
@@ -110,17 +114,18 @@ the listed relations. The third example shows the methods.
 - `follows`: the map ends when the granule starts.
 - `precedes`: the map starts when the granule ends.
 - `start`: the maps that lie inside the granule, the maps that start before it
-  and end inside it, and the maps that cover it while sharing its start or its
-  end. It does not take the equal map, a map that covers the granule strictly
-  and a map that starts inside it and ends after it. The temporal topology names
-  the relations of this group `overlapped`, `starts`, `started`, `finishes` and
-  `contains`.
+  and end inside it, the maps that cover it while sharing its start or its
+  end, and the equal map. It does not take a map that covers the granule
+  strictly and a map that starts inside it and ends after it. The temporal
+  topology names the relations of this group `overlapped`, `starts`, `started`,
+  `finishes`, `contains` and `equal`.
 
 If more than one map of a dataset is related to a granule, the tool warns on
 the standard error and uses only one of them. Which one, follows from the
 order in which it tries the relations. First come the methods `equal`,
 `during`, `follows` and `precedes`, in the order of the list **method**; then
-the group `start`, then `overlap` and then `contain`, if they are in the list.
+the group `start`, which tries the equal map last, then `overlap` and then
+`contain`, if they are in the list.
 Within one relation, the map with the earliest start time is taken, and for
 equal start times the map with the smaller id. So for the list
 `contain,during` a map found by `during` wins over a map found by `contain`.
@@ -175,16 +180,12 @@ on the standard error with "Starting temporal sampling..." (with **-s**:
 "Starting spatio-temporal sampling...") and "Starting mapcalc
 computation...".
 
-Some inputs give no samples. If **inputs** names more than one dataset and the
-sampler has only time instants, or the datasets have different temporal types,
-the tool prints a message that names the reason and "No samples found for map
-calculation". It makes no dataset **output** and ends with status 0. A call
-with one dataset needs no sampling, so time instants work there.
-
-Because the tool replaces the names as text, two datasets whose names share a
-start, such as `moisture` and `moisture_deep`, cannot be used together in one
-call, in whatever order they are listed. Copy one of them with
-*[t.copy](t.copy.md)* under another name, as the ninth example shows.
+If **inputs** names more than one dataset and the sampler has only time
+instants, or the datasets have different temporal types, the first dataset
+cannot sample the others: the tool stops before it computes any map, with "The
+temporal map type of the sample dataset must be interval" or "The space time
+datasets must be of the same temporal type". A call with one dataset needs no
+sampling, so time instants work there.
 
 ## EXAMPLES
 
@@ -505,7 +506,7 @@ The number at the end of a name is the number of the granule that found a
 related map: `equal` finds the map of granule 1, `during` the ones of the
 granules 3, 8 and 9, `contain` granule 2, `overlap` the granules 4 and 5,
 `follows` granule 6 and `precedes` granule 7. The method `start` finds the
-granules 2, 5, 8 and 9. The last block uses no **method**, so the default
+granules 1, 2, 5, 8 and 9. The last block uses no **method**, so the default
 `during,overlap,contain,equal` finds the granules 1 to 5, 8 and 9, and the
 listing shows that the maps have the times of the granules.
 
@@ -564,7 +565,7 @@ start and end time.
     overlap: overlap_4,overlap_5
     follows: follows_6
     precedes: precedes_7
-    start: start_2,start_5,start_8,start_9
+    start: start_1,start_2,start_5,start_8,start_9
     ```
 
     ```sh
@@ -644,7 +645,7 @@ start and end time.
     overlap: overlap_4,overlap_5
     follows: follows_6
     precedes: precedes_7
-    start: start_2,start_5,start_8,start_9
+    start: start_1,start_2,start_5,start_8,start_9
     ```
 
     ```python
@@ -1428,19 +1429,17 @@ numbers 1, 2 and 4.
 
 ### Names of datasets in the expression
 
-The tool replaces the name of a dataset in the text of the expression, so the
-name must not appear elsewhere in it. The dataset `day` has one map. In
-`day * start_day()` the replacement also changes `start_day()`, and
-*r3.mapcalc* stops with the message that the function `start_day_1` is not
-defined.
+A dataset name in the expression is replaced only where it stands as a whole
+name. The dataset `day` has one map with the value 4 on March 1. In
+`day * start_day()` the name `day` inside `start_day()` stays, so the result is
+4 times the day of the month, 1. The dataset `moisture_deep` has one map with
+the value 3 on March 1. In `moisture + moisture_deep` the name `moisture`
+inside `moisture_deep` stays, so the first granule of `moisture`, whose map
+holds the layer number 1 to 3, gets 4 to 6; the other three granules of
+`moisture` have no map of `moisture_deep` and are skipped.
 
-Two datasets whose names share a start have the same problem. The dataset
-`moisture_deep` has one map; `moisture + moisture_deep` becomes
-`moisture_1+moisture_1_deep`, and *r3.mapcalc* does not know the map
-`moisture_1_deep`.
-
-Copy a dataset under another name with *t.copy*, and use the new name. The copy
-holds the same maps, and the third block computes with it.
+Two inputs with the same name cannot be told apart in the expression. The
+third block names `day` twice, and the tool stops before it computes anything.
 
 === "Command line"
 
@@ -1449,20 +1448,14 @@ holds the same maps, and the third block computes with it.
     t.create type=str3ds output=day title="Day" description="One map"
     t.register type=raster_3d input=day maps=day_1 \
         start=2026-03-01 end=2026-03-02
-    if ! t.rast3d.mapcalc inputs=day output=bad basename=bad \
-        expression="day * start_day()" 2>&1; then
-        echo "t.rast3d.mapcalc failed"
-    fi
+    t.rast3d.mapcalc inputs=day output=day_of_month basename=day_of_month \
+        expression="day * start_day()"
+    t.rast3d.list input=day_of_month columns=name,start_time,min,max
     ```
 
     ```text
-    Starting temporal sampling...
-    Starting mapcalc computation...
-    Undefined function 'start_day_1'
-    Parse error
-    ERROR: parse error
-    ERROR: Error while mapcalc computation
-    t.rast3d.mapcalc failed
+    name|start_time|min|max
+    day_of_month_1|2026-03-01 00:00:00|4.0|4.0
     ```
 
     ```sh
@@ -1471,32 +1464,27 @@ holds the same maps, and the third block computes with it.
         description="One map"
     t.register type=raster_3d input=moisture_deep maps=moisture_deep_1 \
         start=2026-03-01 end=2026-03-02
-    if ! t.rast3d.mapcalc inputs=moisture,moisture_deep output=bad basename=bad \
-        expression="moisture + moisture_deep" 2>&1; then
+    t.rast3d.mapcalc inputs=moisture,moisture_deep output=layers basename=layers \
+        expression="moisture + moisture_deep"
+    t.rast3d.list input=layers columns=name,start_time,min,max
+    ```
+
+    ```text
+    name|start_time|min|max
+    layers_1|2026-03-01 00:00:00|4.0|6.0
+    ```
+
+    ```sh
+    if ! t.rast3d.mapcalc inputs=day,day output=twice basename=twice \
+        expression="day + 1" 2>&1; then
         echo "t.rast3d.mapcalc failed"
     fi
     ```
 
     ```text
-    Starting temporal sampling...
-    Starting mapcalc computation...
-    Invalid map <moisture_1_deep>
-    Parse error
-    ERROR: parse error
-    ERROR: Error while mapcalc computation
+    ERROR: The name <day> stands more than once in inputs, so the expression
+    cannot tell the inputs apart
     t.rast3d.mapcalc failed
-    ```
-
-    ```sh
-    t.copy type=str3ds input=day output=sunshine
-    t.rast3d.mapcalc inputs=sunshine output=sunny basename=sunny \
-        expression="sunshine * start_day()"
-    t.rast3d.list input=sunny columns=name,start_time,min,max
-    ```
-
-    ```text
-    name|start_time|min|max
-    sunny_1|2026-03-01 00:00:00|4.0|4.0
     ```
 
 === "Python (grass.tools)"
@@ -1507,23 +1495,22 @@ holds the same maps, and the third block computes with it.
     tools.t_register(
         type="raster_3d", input="day", maps="day_1", start="2026-03-01", end="2026-03-02"
     )
-    try:
-        tools.t_rast3d_mapcalc(
-            inputs="day", output="bad", basename="bad", expression="day * start_day()"
-        )
-    except ToolError as error:
-        print(error.stderr.strip())
-        print("t.rast3d.mapcalc failed")
+    tools.t_rast3d_mapcalc(
+        inputs="day",
+        output="day_of_month",
+        basename="day_of_month",
+        expression="day * start_day()",
+    )
+    print(
+        tools.t_rast3d_list(
+            input="day_of_month", columns="name,start_time,min,max"
+        ).text
+    )
     ```
 
     ```text
-    Starting temporal sampling...
-    Starting mapcalc computation...
-    Undefined function 'start_day_1'
-    Parse error
-    ERROR: parse error
-    ERROR: Error while mapcalc computation
-    t.rast3d.mapcalc failed
+    name|start_time|min|max
+    day_of_month_1|2026-03-01 00:00:00|4.0|4.0
     ```
 
     ```python
@@ -1538,12 +1525,24 @@ holds the same maps, and the third block computes with it.
         start="2026-03-01",
         end="2026-03-02",
     )
+    tools.t_rast3d_mapcalc(
+        inputs="moisture,moisture_deep",
+        output="layers",
+        basename="layers",
+        expression="moisture + moisture_deep",
+    )
+    print(tools.t_rast3d_list(input="layers", columns="name,start_time,min,max").text)
+    ```
+
+    ```text
+    name|start_time|min|max
+    layers_1|2026-03-01 00:00:00|4.0|6.0
+    ```
+
+    ```python
     try:
         tools.t_rast3d_mapcalc(
-            inputs="moisture,moisture_deep",
-            output="bad",
-            basename="bad",
-            expression="moisture + moisture_deep",
+            inputs="day,day", output="twice", basename="twice", expression="day + 1"
         )
     except ToolError as error:
         print(error.stderr.strip())
@@ -1551,29 +1550,9 @@ holds the same maps, and the third block computes with it.
     ```
 
     ```text
-    Starting temporal sampling...
-    Starting mapcalc computation...
-    Invalid map <moisture_1_deep>
-    Parse error
-    ERROR: parse error
-    ERROR: Error while mapcalc computation
+    ERROR: The name <day> stands more than once in inputs, so the expression
+    cannot tell the inputs apart
     t.rast3d.mapcalc failed
-    ```
-
-    ```python
-    tools.t_copy(type="str3ds", input="day", output="sunshine")
-    tools.t_rast3d_mapcalc(
-        inputs="sunshine",
-        output="sunny",
-        basename="sunny",
-        expression="sunshine * start_day()",
-    )
-    print(tools.t_rast3d_list(input="sunny", columns="name,start_time,min,max").text)
-    ```
-
-    ```text
-    name|start_time|min|max
-    sunny_1|2026-03-01 00:00:00|4.0|4.0
     ```
 
 ### Use a dataset of another mapset and replace a result
@@ -1753,7 +1732,7 @@ in it, but the tool does not remove them: `g.list` still finds all four.
 ## SEE ALSO
 
 *[g.list](g.list.md), [g.mapset](g.mapset.md), [r3.mapcalc](r3.mapcalc.md),
-[t.copy](t.copy.md), [t.info](t.info.md),
+[t.info](t.info.md),
 [t.rast.aggregate.ds](t.rast.aggregate.ds.md),
 [t.rast.mapcalc](t.rast.mapcalc.md), [t.rast3d.algebra](t.rast3d.algebra.md),
 [t.rast3d.list](t.rast3d.list.md), [t.register](t.register.md),
