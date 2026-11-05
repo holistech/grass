@@ -76,6 +76,12 @@ def test_the_extracted_dataset_keeps_type_and_description(tools, quarterly, pref
     assert info["temporal_type"] == "absolute"
     assert info["semantic_type"] == "mean"
     assert info["number_of_maps"] == 6
+    # The new dataset takes title and description of the input dataset, whose
+    # fixture gives both the name of the dataset.
+    text = " ".join(
+        tools.t_info(type="strds", input=prefix).stdout.replace("|", " ").split()
+    )
+    assert f"Title: {quarterly} Description: {quarterly} " in text
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).

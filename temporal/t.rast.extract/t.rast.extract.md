@@ -26,7 +26,8 @@ on 1 June 2020 or later. Without **where**, all maps are selected.
 
 Without **expression**, *t.rast.extract* creates no map. It registers the
 selected maps themselves in the new dataset, so a map is then part of two
-datasets and the data are not duplicated.
+datasets and the data are not duplicated. The new dataset takes the title and
+the description of the input dataset.
 
 With **expression**, the tool runs *r.mapcalc* once for each selected map and
 registers the new maps, with the start and end time of the map they come from,
@@ -48,7 +49,11 @@ map keeps the semantic label.
   monthly series from the last day of a month (January 31, February 28) has
   the granularity of one month and gets year and month (`2026_01`). A dataset
   of a single time instant has no granularity; `gran` then takes the full
-  start time, as `time` does.
+  start time, as `time` does. The suffix follows the granularity as
+  *[t.info](t.info.md)* shows it: two instants ten days apart at 10:30 are stored
+  with the granularity `14400 minutes`, and the names end with `2026_06_11_10_30`
+  and `2026_06_21_10_30`; the same instants at midnight are stored with `10 days`,
+  and the names end with `2026_06_11` and `2026_06_21`.
 - `time` takes the full start time: `2026_03_01T00_00_00`.
 - `num` numbers the selected maps from 1 in the order of their start time and
   map id, with five digits (`00001`); the number counts also the maps that come
@@ -75,6 +80,10 @@ same time. The default is `1`. The result does not depend on it.
 The expression is the right side of an *r.mapcalc* expression only. A call
 with `expression="if(temperature_monthly < 0, null(), temperature_monthly)"`, for
 instance, sets the negative values of a dataset `temperature_monthly` to null.
+Only the name of the input dataset stands for a map of the dataset. The name of
+another space time dataset in the expression is no raster map: *r.mapcalc*
+refuses it ("Invalid map"), the tool stops with "Error in computation process",
+and it makes no map and no dataset.
 
 If **where** selects no map, or the input dataset has none, *t.rast.extract*
 warns "Nothing found in the database for space time dataset" and makes no
