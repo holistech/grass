@@ -193,6 +193,25 @@ def register_in_new_stds(
     return register_new_maps(new_maps, dataset, register_null=register_null, dbif=dbif)
 
 
+def mapcalc_name(map_id):
+    """The text that names a raster or 3D raster map in an r.mapcalc expression
+
+    A map of the current mapset is named without its mapset, as the tools
+    always did: r.mapcalc searches the current mapset first. A map of another
+    mapset is named name@mapset in double quotes, because the expression
+    reader splits an unquoted name at characters that a mapset name may hold,
+    such as "-" in a user name, and reads a name of digits only as a number.
+    Measured 05.11.2026 with r.mapcalc: r_1@user-1 is read as r_1@user - 1,
+    "r_1@user-1" as the map.
+
+    :param map_id: The id of the map, name@mapset
+    """
+    name, _at, mapset = map_id.partition("@")
+    if not mapset or mapset == get_current_mapset():
+        return name
+    return f'"{name}@{mapset}"'
+
+
 def names_from_file(path):
     """Return the names that a file lists, one per line
 

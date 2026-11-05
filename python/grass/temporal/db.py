@@ -187,6 +187,10 @@ class SQLDatabaseInterfaceConnection:
 
     def __init__(self, mapsets: str | None = None) -> None:
         self.tgis_mapsets = get_available_temporal_mapsets(mapsets)
+        # The mapsets in which a name without a mapset is searched. add_mapset()
+        # extends tgis_mapsets by a mapset that a name gave, which must not make
+        # a later name without a mapset find a dataset there.
+        self.search_path_mapsets = list(self.tgis_mapsets)
         self.current_mapset = get_current_mapset()
         self.connections = {}
         self.connected = False

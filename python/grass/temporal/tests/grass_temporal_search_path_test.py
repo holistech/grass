@@ -100,10 +100,8 @@ def listed_rows(tools, name):
 
 # A case is the call of a tool with a dataset of the mapset m and the check of
 # the result; the calls write to the mapset "second" with overwrite, so the
-# cases do not depend on each other. t.rast.extract has an expression here:
-# without one it registers the maps of the input, which needs them in the
-# database of the current mapset (tested below). t.select relates ds to itself
-# because the classic algebra takes no bare dataset there.
+# cases do not depend on each other. t.select relates ds to itself because the
+# classic algebra takes no bare dataset there.
 CASES = {
     "t.rast.list": (
         lambda t, p, m: t.t_rast_list(input=f"ds@{m}"),
@@ -164,20 +162,25 @@ CASES = {
         ),
         lambda t, r: True,
     ),
-    # The expression names the dataset with its mapset because the tool puts the
-    # names of the maps into the r.mapcalc expression without a mapset when it
-    # replaces a name without one; those maps are then searched in the search
-    # path, and the documented form "ds + 1" fails outside it ("Invalid map",
-    # measured 04.11.2026 with t.rast.mapcalc in a throwaway project).
     "t.rast.mapcalc": (
         lambda t, p, m: t.t_rast_mapcalc(
             inputs=f"ds@{m}",
             output="calculated",
             basename="calculated",
-            expression=f"ds@{m} + 1",
+            expression="ds + 1",
             overwrite=True,
         ),
         lambda t, r: listed_rows(t, "calculated") == 3,
+    ),
+    "t.rast3d.mapcalc": (
+        lambda t, p, m: t.t_rast3d_mapcalc(
+            inputs=f"ds3@{m}",
+            output="calculated3",
+            basename="calculated3",
+            expression="ds3 + 1",
+            overwrite=True,
+        ),
+        lambda t, r: len(lines(t.t_rast3d_list(input="calculated3"))) == 3,
     ),
     "t.rast.algebra": (
         lambda t, p, m: t.t_rast_algebra(
@@ -245,19 +248,13 @@ def extract(tools, name):
 
 
 def test_extract_of_dataset_of_mapset_in_search_path_needs_maps_in_the_database(tools):
+    """The maps are put into the database of "second", the extract is made"""
     add_first(tools)
 
-    # Measured 04.11.2026: the access check passes, but the maps of the
-    # dataset are not in the temporal database of "second" yet, and
-    # t.rast.extract registers them in the new dataset.
-    with pytest.raises(ToolError) as error:
-        extract(tools, "extract_fails")
+    extract(tools, "extract_fails")
 
-    assert error.value.returncode == 1
-    assert REFUSAL not in message(error.value)
-    assert "Only a map that was inserted in the temporal database" in message(
-        error.value
-    )
+    listing = tools.t_rast_list(input="extract_fails_out", columns="name,mapset")
+    assert lines(listing) == ["name|mapset", "x1_1|first", "x1_2|first"]
 
 
 def test_extract_of_dataset_of_mapset_in_search_path_after_maps_are_in_the_database(

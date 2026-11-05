@@ -29,9 +29,9 @@ from grass.exceptions import CalledModuleError
 from grass.pygrass.modules import Module
 
 from .db import SQLStatementError, connection
-from .state import get_current_mapset, get_tgis_message_interface
+from .state import get_tgis_message_interface
 from .factory import dataset_factory
-from .open_stds import open_old_stds
+from .open_stds import find_stds_id, open_old_stds
 
 
 def compute_univar_stats(
@@ -446,9 +446,7 @@ def print_vector_dataset_univar_statistics(
         if output is not None:
             out_file = open(output, "w")
 
-        mapset = get_current_mapset()
-
-        id_ = input if input.find("@") >= 0 else input + "@" + mapset
+        id_ = find_stds_id(input, "stvds", dbif)
 
         sp = dataset_factory("stvds", id_)
 

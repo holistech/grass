@@ -16,11 +16,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .abstract_space_time_dataset import AbstractSpaceTimeDataset
-    from .db import SQLDatabaseInterfaceConnection
 import contextlib
 
 import grass.script as gs
@@ -61,21 +56,66 @@ def _parse_id(
     return name, mapset, semantic_label
 
 
-def _find_old_stds(name, mapset, stds_type, semantic_label, dbif, try_get_stds):
-    """Find the dataset in the given mapset, else in the current one and the search path"""
+def _stds_if_in_db(ds_id, stds_type, semantic_label, dbif):
+    """Return the dataset with the id if the temporal database holds it, else None"""
+    # A map type selects the datasets that hold such maps: "raster" is a
+    # space time raster dataset here.
+    stds_kind = stds_kind_of(stds_type).name
+    sp = dataset_factory(stds_kind, ds_id)
+    # Set the semantic label if it was given
+    if semantic_label and stds_kind == "strds":
+        sp.set_semantic_label(semantic_label)
+
+    with contextlib.suppress(SystemExit, FatalError):
+        if sp.is_in_db(dbif):
+            return sp
+    return None
+
+
+def _find_old_stds(name, mapset, stds_type, semantic_label, dbif):
+    """Find the dataset in the given mapset, else in the current one and the search path
+
+    A name without a mapset is searched in the mapsets that the connection had
+    when it was opened, not in a mapset that a name given with it added since
+    (dbif.search_path_mapsets, not dbif.tgis_mapsets).
+    """
     if mapset:
-        return try_get_stds(f"{name}@{mapset}", stds_type, semantic_label, dbif)
+        return _stds_if_in_db(f"{name}@{mapset}", stds_type, semantic_label, dbif)
     # Check current mapset first
-    sp = try_get_stds(f"{name}@{get_current_mapset()}", stds_type, semantic_label, dbif)
+    sp = _stds_if_in_db(
+        f"{name}@{get_current_mapset()}", stds_type, semantic_label, dbif
+    )
     if sp:
         return sp
-    for tgis_mapset in dbif.tgis_mapsets:
+    for tgis_mapset in dbif.search_path_mapsets:
         if tgis_mapset == get_current_mapset():
             continue
-        sp = try_get_stds(f"{name}@{tgis_mapset}", stds_type, semantic_label, dbif)
+        sp = _stds_if_in_db(f"{name}@{tgis_mapset}", stds_type, semantic_label, dbif)
         if sp:
             return sp
     return None
+
+
+def find_stds_id(name: str, type: str, dbif=None) -> str:
+    """Return the id of the dataset that a name selects, whole as it is given
+
+    Without a mapset in name the current mapset is searched first, then the
+    search path, as open_old_stds() does. Unlike open_old_stds() no text after
+    a dot is read as a semantic label, and a dataset that does not exist is not
+    an error: the id then has the current mapset, so that the caller reports
+    the dataset as not found with its usual message.
+
+    :param name: The name of the dataset, with or without the mapset
+    :param type: The type of the dataset (strds, str3ds, stvds)
+    :param dbif: The optional database interface to be used
+    :return: The id name@mapset
+    """
+    bare, _at, mapset = name.partition("@")
+    with connection(dbif) as dbif:
+        sp = _find_old_stds(bare, mapset or None, type, None, dbif)
+    if sp:
+        return sp.get_id()
+    return f"{bare}@{mapset or get_current_mapset()}"
 
 
 def open_old_stds(name, type, dbif=None, *, whole_name_first=True):
@@ -108,25 +148,6 @@ def open_old_stds(name, type, dbif=None, *, whole_name_first=True):
     if kind is None:
         msgr.fatal(_("Unknown type: %s") % (stds_type))
 
-    def try_get_stds(
-        ds_id: str,
-        stds_type: str,
-        semantic_label: str | None,
-        dbif: SQLDatabaseInterfaceConnection,
-    ) -> AbstractSpaceTimeDataset | None:
-        # A map type selects the datasets that hold such maps: "raster" is a
-        # space time raster dataset here.
-        stds_kind = stds_kind_of(stds_type).name
-        sp = dataset_factory(stds_kind, ds_id)
-        # Set the semantic label if it was given
-        if semantic_label and stds_kind == "strds":
-            sp.set_semantic_label(semantic_label)
-
-        with contextlib.suppress(SystemExit, FatalError):
-            if sp.is_in_db(dbif):
-                return sp
-        return None
-
     with connection(dbif) as dbif:
         sp = None
         # A dataset of an older release can have a dot in its name. The whole
@@ -135,16 +156,12 @@ def open_old_stds(name, type, dbif=None, *, whole_name_first=True):
         # of the dataset "name" unless a dataset of that name exists.
         bare, _at, whole_mapset = name.partition("@")
         if whole_name_first and "." in bare and stds_kind_of(stds_type).name == "strds":
-            sp = _find_old_stds(
-                bare, whole_mapset or None, stds_type, None, dbif, try_get_stds
-            )
+            sp = _find_old_stds(bare, whole_mapset or None, stds_type, None, dbif)
         if not sp:
             # Check if the dataset name contains the mapset and the semantic
             # label as well
             name, mapset, semantic_label = _parse_id(name, stds_type=stds_type)
-            sp = _find_old_stds(
-                name, mapset, stds_type, semantic_label, dbif, try_get_stds
-            )
+            sp = _find_old_stds(name, mapset, stds_type, semantic_label, dbif)
         if not sp:
             msgr.fatal(
                 _("Space time dataset <%(name)s> of type <%(sp)s> not found")

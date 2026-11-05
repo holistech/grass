@@ -21,6 +21,7 @@ from .db import SQLDatabaseInterfaceConnection, SQLStatementError, connection
 from .state import get_current_mapset, get_tgis_db_version, get_tgis_message_interface
 from .datetime_math import map_name_suffix
 from .open_stds import check_new_stds, open_new_stds, open_old_stds
+from .tool_steps import mapcalc_name
 
 
 def compile_new_map_name(
@@ -389,7 +390,7 @@ def _compute_new_maps(
             # We need to modify the r(3).mapcalc expression
             if type != "vector":
                 expr = expression
-                expr = expr.replace(sp.base.get_map_id(), row["id"])
+                expr = expr.replace(sp.base.get_map_id(), mapcalc_name(row["id"]))
                 expr = f"{map_name} = {expr}"
 
             new_map = sp.get_new_map_instance(map_id)
@@ -471,10 +472,23 @@ def _register_maps(
         if not expression:
             # Just register the source map in the new STRDS if no
             # the expression option is not used
-            if not old_map.is_in_db():
-                # Maps that are not part of the temporal database
-                # in the current mapset need to be inserted first
-                old_map.insert(dbif)
+            if not old_map.is_in_db(dbif, get_current_mapset()):
+                # A map that the temporal database of the current mapset
+                # lacks is inserted first, also when it belongs to another
+                # mapset: the new dataset can register only maps of its own
+                # database. The entry is made anew, as t.copy makes it, so
+                # that the datasets of the owner's database (old_map was
+                # read from it) are not copied into this one.
+                semantic_label = (
+                    old_map.metadata.get_semantic_label() if type == "raster" else None
+                )
+                fresh = sp.get_new_map_instance(row["id"])
+                fresh.set_temporal_extent(old_map.get_temporal_extent())
+                fresh.load()
+                if semantic_label is not None and semantic_label != "None":
+                    fresh.metadata.set_semantic_label(semantic_label)
+                fresh.insert(dbif)
+                old_map = fresh
             new_sp.register_map(old_map, dbif)
             continue
 

@@ -401,7 +401,12 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         :return: The SQL insert statement in case execute=False, or an
                  empty string otherwise
         """
-        if get_enable_timestamp_write():
+        # The time stamp of a map of another mapset stays as it is: writing
+        # it would put a file into the current mapset for a map that is not
+        # there (for a 3D raster map a directory that g.list shows as a map).
+        # Measured 05.11.2026 with t.rast3d.extract of a dataset of another
+        # mapset, which inserts the maps of the dataset in the current one.
+        if get_enable_timestamp_write() and self.get_mapset() == get_current_mapset():
             self.write_timestamp_to_grass()
         return AbstractDataset.insert(self, dbif=dbif, execute=execute)
 
@@ -420,7 +425,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         :return: The SQL insert statement in case execute=False, or an
                  empty string otherwise
         """
-        if get_enable_timestamp_write():
+        if get_enable_timestamp_write() and self.get_mapset() == get_current_mapset():
             self.write_timestamp_to_grass()
         return AbstractDataset.update(self, dbif, execute)
 
@@ -440,7 +445,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
                  empty string otherwise
 
         """
-        if get_enable_timestamp_write():
+        if get_enable_timestamp_write() and self.get_mapset() == get_current_mapset():
             self.write_timestamp_to_grass()
         return AbstractDataset.update_all(self, dbif, execute)
 
@@ -553,7 +558,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             time_table.update_all(dbif)
             self.base.update(dbif)
 
-        if get_enable_timestamp_write():
+        if get_enable_timestamp_write() and self.get_mapset() == get_current_mapset():
             self.write_timestamp_to_grass()
 
     def update_absolute_time(self, start_time, end_time=None, dbif=None) -> None:

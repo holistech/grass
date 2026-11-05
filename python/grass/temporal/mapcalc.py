@@ -31,6 +31,7 @@ from .algebra.time_functions import timevar
 from .batches import run_in_batches, run_mapcalc
 from .db import SQLDatabaseInterfaceConnection, SQLStatementError, connection
 from .state import get_current_mapset, get_tgis_message_interface
+from .tool_steps import mapcalc_name
 from .datetime_math import time_delta_to_relative_time
 from .factory import dataset_factory
 from .kinds import KINDS, stds_kind_of
@@ -122,11 +123,20 @@ def _dataset_name_pattern(names):
     return re.compile(rf"{_NAME_BEFORE}(?:{alternatives}){_NAME_AFTER}(?!\s*\()")
 
 
-def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
-    """The map name of the input name's first related map per sampler granule
+def _qualified(name, dataset):
+    """The name with the mapset of the dataset that was found for it
 
-    Returns a list with one entry per granule: the name of the map used, or
-    None where none relates.
+    source() looks for a name without a mapset in the current mapset only,
+    while open_old_stds() also searched the search path.
+    """
+    return name if "@" in name else f"{name}@{dataset.get_mapset()}"
+
+
+def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
+    """The input name's first related map per sampler granule
+
+    Returns a list with one entry per granule: the map used as mapcalc_name()
+    writes it, or None where none relates.
 
     The tool has no switch between the classic and the core algebra, so the
     map used is the one sample_by_dataset() takes, the first of the first
@@ -148,7 +158,7 @@ def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
                     "datasets."
                 )
             )
-        column.append(found[0].content.ident.split("@")[0] if found else None)
+        column.append(mapcalc_name(found[0].content.ident) if found else None)
 
     return column
 
@@ -349,7 +359,9 @@ def dataset_mapcalculator(
         msgr.message(_("Starting temporal sampling..."))
 
     try:
-        first_series = source(names[0], where=where, stds_type=stds_type)
+        first_series = source(
+            _qualified(names[0], first_dataset), where=where, stds_type=stds_type
+        )
     except SQLStatementError as error:
         msgr.fatal(_("Invalid where condition <{}>: {}").format(where, error))
     if len(first_series.slots) == 0:
@@ -368,7 +380,7 @@ def dataset_mapcalculator(
 
     id_list = [names[0], *others]
     columns = {
-        names[0]: [slot.content.ident.split("@")[0] for slot in first_series.slots]
+        names[0]: [mapcalc_name(slot.content.ident) for slot in first_series.slots]
     }
 
     # The sampler granule carries the time stamp and, for raster, the semantic
@@ -390,14 +402,22 @@ def dataset_mapcalculator(
             if refusal is not None:
                 msgr.fatal(refusal)
             columns[name] = _sample_column(
-                first_series, name, method_names, spatial, where, stds_type, msgr
+                first_series,
+                _qualified(name, datasets[name]),
+                method_names,
+                spatial,
+                where,
+                stds_type,
+                msgr,
             )
     else:
         # Inputs that name one dataset with different semantic labels
         # (x.B4,x.B8) are not sampled: the n-th map of each is used with the
         # n-th map of the first, as in the classic tool.
         for name in others:
-            other_series = source(name, where=where, stds_type=stds_type)
+            other_series = source(
+                _qualified(name, datasets[name]), where=where, stds_type=stds_type
+            )
             if len(other_series.slots) == 0:
                 msgr.message(
                     _("No maps registered in input dataset <{}>").format(
@@ -406,7 +426,7 @@ def dataset_mapcalculator(
                 )
                 return 0
             columns[name] = [
-                slot.content.ident.split("@")[0] for slot in other_series.slots
+                mapcalc_name(slot.content.ident) for slot in other_series.slots
             ]
 
     msgr.message(_("Starting mapcalc computation..."))
