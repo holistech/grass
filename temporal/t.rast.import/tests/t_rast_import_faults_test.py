@@ -1,7 +1,8 @@
-"""Test t.rast.import for a second import into a project the tool made
+"""Test t.rast.import for the region and for a second import into a new project
 
 The archives come from a project with the CRS EPSG:3358: the map rp_a has
-10 in every cell of a region of two rows and three columns.
+10 in every cell of a region of two rows and three columns, away from the
+origin, which the placeholder region of a new project contains.
 
 SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -21,6 +22,9 @@ from grass.tools import Tools
 
 pytestmark = pytest.mark.slow
 
+# The region of the maps of the archives
+REGION = {"n": 100002, "s": 100000, "e": 200003, "w": 200000}
+
 
 @pytest.fixture(scope="module")
 def projected(tmp_path_factory):
@@ -30,7 +34,7 @@ def projected(tmp_path_factory):
     with project_session(base / "source") as session:
         source = Tools(session=session)
         source.g_proj(flags="c", epsg=3358)
-        small_region(source, 2, 3)
+        source.g_region(n=100002, s=100000, e=200003, w=200000, res=1)
         create_stds(
             source,
             "strds",
@@ -61,6 +65,10 @@ def test_second_import_into_tool_made_project(tools, projected, prefix, tmp_path
         second = Tools(
             session=session, consistent_return_value=True, capture_stderr=True
         )
+        # The first import set the region of the new project to that of the
+        # archive. Extended from the placeholder region at the origin, it would
+        # reach west 0 and south 0.
+        assert {key: second.g_region(flags="g").keyval[key] for key in REGION} == REGION
         # The project was made from the PROJ string of the archive, which it
         # writes differently from the EPSG project the archive comes from.
         result = second.t_rast_import(
@@ -74,3 +82,28 @@ def test_second_import_into_tool_made_project(tools, projected, prefix, tmp_path
         assert [row.name for row in list_maps(second, "strds", f"{prefix}_two")] == [
             f"{prefix}_two_1"
         ]
+
+
+@pytest.mark.parametrize("fmt", ["GTiff", "pack"])
+def test_pack_extends_region(projected, tmp_path, fmt):
+    """The flag -e grows the region of a project to the imported map
+
+    The project has a region at the origin; its CRS is that of the archive.
+    The maps of both formats end at the same region.
+    """
+    with project_session(tmp_path / "target") as session:
+        target = Tools(session=session, consistent_return_value=True)
+        target.g_proj(flags="c", epsg=3358)
+        small_region(target, 1, 1)
+
+        target.t_rast_import(
+            input=str(projected[fmt]),
+            output="rp_out",
+            basename="rp_out",
+            directory=str(tmp_path),
+            flags="e",
+        )
+
+        region = target.g_region(flags="g").keyval
+        assert {key: region[key] for key in REGION} == {**REGION, "s": 0, "w": 0}
+        assert (region["nsres"], region["ewres"]) == (1, 1)

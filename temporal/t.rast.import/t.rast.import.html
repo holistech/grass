@@ -57,13 +57,15 @@ words (a datum as its ellipsoid and a shift): a second import of the archive
 into it passes the comparison and needs no <b>-o</b>.
 
 <p>
-The flag <b>-e</b> extends the extent of the project to the maps of a <code>GTiff</code> or
-<code>AAIGrid</code> archive: it makes the default region and the current region of the
-project cover the imported maps. With <b>project</b>, the flag is always on for
-these formats. Without <b>project</b> it changes the default region of the
-current project, so use it with care in a project that you share. The maps of a
-<code>pack</code> archive do not change the region, with or without <b>-e</b> (see the
-notes); a new project then keeps its default region.
+The flag <b>-e</b> extends the extent of the project to the maps of the archive:
+it makes the default region and the current region of the project cover the
+imported maps, in every format. The resolution of the region stays. In the
+mapset <code>PERMANENT</code> the flag changes the default region of the current project,
+so use it with care in a project that you share. A new project made with
+<b>project</b> needs no flag: its region is set to the region of the imported
+maps, with the resolution of the first map, not extended from the placeholder
+region that a new project has, one cell from (0, 0) to (1, 1), which would keep
+the origin in the region.
 
 <h3>Files and region</h3>
 
@@ -88,12 +90,11 @@ the same names are replaced.
 <h2>NOTES</h2>
 
 The maps of a <code>pack</code> archive are unpacked with <em><a href="r.unpack.html">r.unpack</a></em>,
-which does not extend the region: <b>-e</b> has no effect, the region stays as it
-is, and with <b>project</b> the new project keeps its default region, one cell
-from (0, 0) to (1, 1). Use
-<b>-r</b> to set the region from the maps of a <code>pack</code> archive, or
-<em><a href="g.region.html">g.region</a></em> afterwards. The example with the semantic labels
-shows the missing extension.
+which has no flag to extend the region. The tool extends the region itself
+after the import, for <b>-e</b> and for <b>project</b>, to the same region that
+<em><a href="r.in.gdal.html">r.in.gdal</a></em> with <b>-e</b> gives the other formats. The example
+with the semantic labels shows the extension. <b>-r</b> sets the current region to
+the region of the last map instead, after the extension.
 
 <p>
 A map that the archive names <code>name@mapset</code>, which
@@ -378,8 +379,9 @@ system of the archive, imports into it and goes back to the project it was
 called in. The new project is made in the GRASS database of the session, so it
 lies next to the project <code>nc_spm_08_grass7</code>; it must not exist yet. The maps
 keep their names, because the new project has none of them, and <b>-o</b> is not
-needed. The commands switch to the new project to look at the
-dataset in it, and switch back to the mapset of these examples.
+needed. The region of the new project is set to the region of the maps. The
+commands switch to the new project to look at the dataset and the region in it,
+and switch back to the mapset of these examples.
 
 <p>Command line:</p>
 
@@ -388,6 +390,7 @@ t.rast.import input=precipitation.tar.bz2 output=precipitation \
     project=archive_copy
 g.mapset project=archive_copy mapset=PERMANENT
 t.info -g input=precipitation | grep -E "^(start_time|end_time|number_of_maps)="
+g.region -dg | grep -E "^(n|s|e|w)="
 g.mapset project=nc_spm_08_grass7 mapset=t_rast_import
 </pre></div>
 
@@ -395,6 +398,10 @@ g.mapset project=nc_spm_08_grass7 mapset=t_rast_import
 start_time='2020-01-01 00:00:00'
 end_time='2021-01-01 00:00:00'
 number_of_maps=12
+n=319000
+s=-16000
+w=124000
+e=963000
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -412,6 +419,7 @@ tools.g_mapset(project="archive_copy", mapset="PERMANENT")
 info = tools.t_info(input="precipitation", flags="g").keyval
 keys = ("start_time", "end_time", "number_of_maps")
 print("\n".join(f"{key}={info[key]}" for key in keys))
+print_extent("dg")
 tools.g_mapset(project="nc_spm_08_grass7", mapset="t_rast_import")
 </pre></div>
 
@@ -419,6 +427,10 @@ tools.g_mapset(project="nc_spm_08_grass7", mapset="t_rast_import")
 start_time='2020-01-01 00:00:00'
 end_time='2021-01-01 00:00:00'
 number_of_maps=12
+n=319000
+s=-16000
+w=124000
+e=963000
 </pre></div>
 
 <h3>Create a project without importing</h3>
@@ -620,9 +632,9 @@ times and the labels.
 
 <p>
 The last block moves the region to a small window and imports the archive a
-second time with <b>-e</b> under another <b>basename</b>. The region is the same
-before and after, although the maps cover the whole of North Carolina: <b>-e</b>
-does nothing for a <code>pack</code> archive.
+second time with <b>-e</b> under another <b>basename</b>. The maps cover the whole of
+North Carolina, so the region grows from the window to cover them, as it does
+for an archive of GeoTIFF files.
 
 <p>Command line:</p>
 
@@ -671,10 +683,10 @@ n=250000
 s=240000
 w=500000
 e=510000
-n=250000
-s=240000
-w=500000
-e=510000
+n=319000
+s=-16000
+w=124000
+e=963000
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -745,10 +757,10 @@ n=250000
 s=240000
 w=500000
 e=510000
-n=250000
-s=240000
-w=500000
-e=510000
+n=319000
+s=-16000
+w=124000
+e=963000
 </pre></div>
 
 <h2>SEE ALSO</h2>

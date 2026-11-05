@@ -54,13 +54,15 @@ reference system of that archive, though it may write the definition in other
 words (a datum as its ellipsoid and a shift): a second import of the archive
 into it passes the comparison and needs no **-o**.
 
-The flag **-e** extends the extent of the project to the maps of a `GTiff` or
-`AAIGrid` archive: it makes the default region and the current region of the
-project cover the imported maps. With **project**, the flag is always on for
-these formats. Without **project** it changes the default region of the
-current project, so use it with care in a project that you share. The maps of a
-`pack` archive do not change the region, with or without **-e** (see the
-notes); a new project then keeps its default region.
+The flag **-e** extends the extent of the project to the maps of the archive:
+it makes the default region and the current region of the project cover the
+imported maps, in every format. The resolution of the region stays. In the
+mapset `PERMANENT` the flag changes the default region of the current project,
+so use it with care in a project that you share. A new project made with
+**project** needs no flag: its region is set to the region of the imported
+maps, with the resolution of the first map, not extended from the placeholder
+region that a new project has, one cell from (0, 0) to (1, 1), which would keep
+the origin in the region.
 
 ### Files and region
 
@@ -83,12 +85,11 @@ the same names are replaced.
 ## NOTES
 
 The maps of a `pack` archive are unpacked with *[r.unpack](r.unpack.md)*,
-which does not extend the region: **-e** has no effect, the region stays as it
-is, and with **project** the new project keeps its default region, one cell
-from (0, 0) to (1, 1). Use
-**-r** to set the region from the maps of a `pack` archive, or
-*[g.region](g.region.md)* afterwards. The example with the semantic labels
-shows the missing extension.
+which has no flag to extend the region. The tool extends the region itself
+after the import, for **-e** and for **project**, to the same region that
+*[r.in.gdal](r.in.gdal.md)* with **-e** gives the other formats. The example
+with the semantic labels shows the extension. **-r** sets the current region to
+the region of the last map instead, after the extension.
 
 A map that the archive names `name@mapset`, which
 *[t.rast.export](t.rast.export.md)* writes for maps of one name from several
@@ -376,8 +377,9 @@ system of the archive, imports into it and goes back to the project it was
 called in. The new project is made in the GRASS database of the session, so it
 lies next to the project `nc_spm_08_grass7`; it must not exist yet. The maps
 keep their names, because the new project has none of them, and **-o** is not
-needed. The commands switch to the new project to look at the
-dataset in it, and switch back to the mapset of these examples.
+needed. The region of the new project is set to the region of the maps. The
+commands switch to the new project to look at the dataset and the region in it,
+and switch back to the mapset of these examples.
 
 === "Command line"
 
@@ -388,6 +390,7 @@ dataset in it, and switch back to the mapset of these examples.
         project=archive_copy
     g.mapset project=archive_copy mapset=PERMANENT
     t.info -g input=precipitation | grep -E "^(start_time|end_time|number_of_maps)="
+    g.region -dg | grep -E "^(n|s|e|w)="
     g.mapset project=nc_spm_08_grass7 mapset=t_rast_import
     ```
 
@@ -395,6 +398,10 @@ dataset in it, and switch back to the mapset of these examples.
     start_time='2020-01-01 00:00:00'
     end_time='2021-01-01 00:00:00'
     number_of_maps=12
+    n=319000
+    s=-16000
+    w=124000
+    e=963000
     ```
 
 === "Python (grass.tools)"
@@ -414,6 +421,7 @@ dataset in it, and switch back to the mapset of these examples.
     info = tools.t_info(input="precipitation", flags="g").keyval
     keys = ("start_time", "end_time", "number_of_maps")
     print("\n".join(f"{key}={info[key]}" for key in keys))
+    print_extent("dg")
     tools.g_mapset(project="nc_spm_08_grass7", mapset="t_rast_import")
     ```
 
@@ -421,6 +429,10 @@ dataset in it, and switch back to the mapset of these examples.
     start_time='2020-01-01 00:00:00'
     end_time='2021-01-01 00:00:00'
     number_of_maps=12
+    n=319000
+    s=-16000
+    w=124000
+    e=963000
     ```
 
 ### Create a project without importing
@@ -637,9 +649,9 @@ of the same names exist in the first mapset. The dataset keeps the unit, the
 times and the labels.
 
 The last block moves the region to a small window and imports the archive a
-second time with **-e** under another **basename**. The region is the same
-before and after, although the maps cover the whole of North Carolina: **-e**
-does nothing for a `pack` archive.
+second time with **-e** under another **basename**. The maps cover the whole of
+North Carolina, so the region grows from the window to cover them, as it does
+for an archive of GeoTIFF files.
 
 === "Command line"
 
@@ -688,10 +700,10 @@ does nothing for a `pack` archive.
     s=240000
     w=500000
     e=510000
-    n=250000
-    s=240000
-    w=500000
-    e=510000
+    n=319000
+    s=-16000
+    w=124000
+    e=963000
     ```
 
 === "Python (grass.tools)"
@@ -762,10 +774,10 @@ does nothing for a `pack` archive.
     s=240000
     w=500000
     e=510000
-    n=250000
-    s=240000
-    w=500000
-    e=510000
+    n=319000
+    s=-16000
+    w=124000
+    e=963000
     ```
 
 <!-- markdownlint-enable MD046 -->

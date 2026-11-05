@@ -149,7 +149,10 @@ def _import_raster_maps_from_gdal(
     # An Arc/Info ASCII Grid file carries no projection, which r.in.gdal
     # accepts only with the override flag.
     impflags = "o" if overr or format_ == "AAIGrid" else ""
-    if exp or location:
+    # A new project gets the region of the maps instead, see _import_maps():
+    # extending the placeholder region at the origin would keep the origin in
+    # the region of the maps.
+    if exp and not location:
         impflags += "e"
     for row in maplist:
         name = row["name"]
@@ -302,34 +305,80 @@ def _set_region_of_vector_maps(maplist: list[dict[str, str]], *, replace: bool) 
 def _extend_region_to_vector_maps(names: list[str], *, replace: bool = False) -> None:
     """Grow the region to cover the vector maps, as v.in.ogr -e does
 
-    In the PERMANENT mapset the default region of the project is the base and
-    is saved again; elsewhere the current region is the base. The new bounds
-    are aligned to the resolution from the north and west edges.
+    See _extend_region() for the base of the region and for replace.
+    """
+    bounds = []
+    for name in names:
+        info = gs.parse_command("v.info", map=name, flags="g")
+        bounds.append(
+            tuple(float(info[key]) for key in ("north", "south", "east", "west"))
+        )
+    _extend_region(bounds, replace=replace)
 
-    With replace the region covers the maps and nothing else, keeping only the
-    resolution. A new project has a placeholder region at the origin, which
-    would otherwise stay part of the region of the maps.
+
+def _set_region_of_raster_maps(maplist: list[dict[str, str]], *, replace: bool) -> None:
+    """Extend the region to the imported raster maps, or replace it with them
+
+    The resolution of the first map is the one of a replaced region, see
+    _extend_region().
+    """
+    if not maplist:
+        return
+    names = [row["name"] for row in maplist]
+    infos = [gs.parse_command("r.info", map=name, flags="g") for name in names]
+    bounds = [
+        tuple(float(info[key]) for key in ("north", "south", "east", "west"))
+        for info in infos
+    ]
+    resolution = (float(infos[0]["nsres"]), float(infos[0]["ewres"]))
+    _extend_region(bounds, replace=replace, resolution=resolution)
+
+
+def _extend_region(
+    bounds: list[tuple[float, float, float, float]],
+    *,
+    replace: bool = False,
+    resolution: tuple[float, float] | None = None,
+) -> None:
+    """Grow the region to cover bounds, as r.in.gdal -e and v.in.ogr -e do
+
+    bounds are (north, south, east, west) of the maps. In the PERMANENT mapset
+    the default region of the project is the base and is saved again;
+    elsewhere the current region is the base. The new bounds are aligned to
+    the resolution from the north and west edges.
+
+    With replace the region covers the maps and nothing else. A new project
+    has a placeholder region at the origin, which would otherwise stay part
+    of the region of the maps. A replaced region has the given resolution
+    (north-south, east-west), by default that of the region of the project.
     """
     in_permanent = get_current_mapset() == "PERMANENT"
     if in_permanent:
         gs.run_command("g.region", flags="d")
     region = gs.region()
+    nsres, ewres = (
+        resolution
+        if replace and resolution
+        else (
+            region["nsres"],
+            region["ewres"],
+        )
+    )
     north, south = (-math.inf, math.inf) if replace else (region["n"], region["s"])
     east, west = (-math.inf, math.inf) if replace else (region["e"], region["w"])
-    for name in names:
-        info = gs.parse_command("v.info", map=name, flags="g")
-        north = max(north, float(info["north"]))
-        south = min(south, float(info["south"]))
-        east = max(east, float(info["east"]))
-        west = min(west, float(info["west"]))
+    for map_north, map_south, map_east, map_west in bounds:
+        north = max(north, map_north)
+        south = min(south, map_south)
+        east = max(east, map_east)
+        west = min(west, map_west)
     # One cell at least: the maps may be a single point.
-    rows = max(1, math.ceil((north - south) / region["nsres"]))
-    cols = max(1, math.ceil((east - west) / region["ewres"]))
+    rows = max(1, math.ceil((north - south) / nsres))
+    cols = max(1, math.ceil((east - west) / ewres))
     gs.run_command(
         "g.region",
         n=north,
-        s=north - rows * region["nsres"],
-        e=west + cols * region["ewres"],
+        s=north - rows * nsres,
+        e=west + cols * ewres,
         w=west,
         rows=rows,
         cols=cols,
@@ -829,6 +878,13 @@ def _import_maps(
             )
         if format_ == "pack":
             _import_raster_maps(maplist, set_current_region=set_current_region)
+        # r.unpack has no flag to extend the region, unlike r.in.gdal -e, and a
+        # new project gets the region of the maps for every format.
+        if location or (exp and format_ == "pack"):
+            _set_region_of_raster_maps(maplist, replace=bool(location))
+            if set_current_region:
+                # The region of the last map wins, as it does without the above.
+                gs.run_command("g.region", raster=maplist[-1]["name"])
     elif type_ == "stvds":
         if format_ in {"GML", "GPKG"}:
             _import_vector_maps_from_ogr(
