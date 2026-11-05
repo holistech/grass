@@ -102,6 +102,11 @@ message that begins with "Invalid where condition".
 An existing **output** dataset is replaced only with **--overwrite**; the
 vector maps of the same names are then replaced as well.
 
+Two raster maps of the same time get the same name with the suffixes `gran` and
+`time`. The tool refuses this before it writes a map, with "The maps `<map1>`
+and `<map2>` are given the same name `<name>` by the suffix gran. Use the suffix
+num or select maps of different times."
+
 The input dataset can be in another mapset of the project; the name with the
 mapset (`input=tmax@PERMANENT`) selects it. The new vector maps and the new
 dataset are always created in the current mapset, as the last example shows.

@@ -119,6 +119,12 @@ An existing <b>output</b> dataset is replaced only with <b>--overwrite</b>; the
 vector maps of the same names are then replaced as well.
 
 <p>
+Two raster maps of the same time get the same name with the suffixes <code>gran</code> and
+<code>time</code>. The tool refuses this before it writes a map, with "The maps <code>&lt;map1&gt;</code>
+and <code>&lt;map2&gt;</code> are given the same name <code>&lt;name&gt;</code> by the suffix gran. Use the suffix
+num or select maps of different times."
+
+<p>
 The input dataset can be in another mapset of the project; the name with the
 mapset (<code>input=tmax@PERMANENT</code>) selects it. The new vector maps and the new
 dataset are always created in the current mapset, as the last example shows.

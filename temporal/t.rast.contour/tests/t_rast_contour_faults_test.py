@@ -7,7 +7,7 @@ from itertools import pairwise
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, small_region
-from grass.temporal.testing.readback import list_maps, message
+from grass.temporal.testing.readback import inventory, list_maps, message
 from grass.tools import ToolError
 
 
@@ -121,3 +121,43 @@ def test_all_empty_results_with_overwrite_remove_the_old_dataset(
     assert tools.t_list(type="stvds", columns="name").stdout.count(prefix) == 0
     # The maps of the removed dataset stay as maps.
     assert f"{prefix}_old" in tools.g_list(type="vector").stdout
+
+
+def test_same_time_suffix_gran_is_refused_first(tools, prefix):
+    """Two maps of one time get one name from gran; nothing is written
+
+    Both r.contour runs would write the same vector map, and the second
+    registration would fail, so the run is refused before the first one.
+    """
+    small_region(tools, 4, 4)
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [
+            MapSpec(f"{prefix}_{number}", "double(col())", start, end)
+            for number, (start, end) in enumerate(
+                [
+                    (datetime(2026, 1, 1), datetime(2026, 2, 1)),
+                    (datetime(2026, 1, 1), datetime(2026, 2, 1)),
+                    (datetime(2026, 2, 1), datetime(2026, 3, 1)),
+                ],
+                start=1,
+            )
+        ],
+    )
+    before = inventory(tools)
+
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_contour(
+            input=f"{prefix}_in", output=prefix, basename=f"{prefix}_b", step=1
+        )
+
+    text = message(error.value)
+    assert (
+        f"The maps <{prefix}_1@PERMANENT> and <{prefix}_2@PERMANENT> are given the "
+        f"same name <{prefix}_b_2026_01@PERMANENT> by the suffix gran. Use the "
+        "suffix num" in text
+    )
+    assert "Traceback" not in text
+    assert inventory(tools) == before

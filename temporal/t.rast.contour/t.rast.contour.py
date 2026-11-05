@@ -162,6 +162,33 @@ def process_count(nprocs, t_flag):
     return nprocs
 
 
+def check_distinct_names(maps, sp, base, time_suffix, dbif):
+    """Refuse a name that two maps get from the suffix, before any map is written
+
+    Two maps of one time get one name from gran: the second r.contour would
+    fail or write over the first, and the second map could not be registered.
+    """
+    made_from = {}
+    for count, map in enumerate(maps, start=1):
+        suffix = tgis.map_name_suffix(map, time_suffix, sp.get_granularity(), count)
+        new_id = map.build_id(f"{base}_{suffix}", tgis.get_current_mapset())
+        if new_id in made_from:
+            dbif.close()
+            gs.fatal(
+                _(
+                    "The maps <{first}> and <{second}> are given the same name "
+                    "<{name}> by the suffix {suffix}. Use the suffix num or "
+                    "select maps of different times."
+                ).format(
+                    first=made_from[new_id],
+                    second=map.get_id(),
+                    name=new_id,
+                    suffix=time_suffix,
+                )
+            )
+        made_from[new_id] = map.get_id()
+
+
 def queue_contours(
     maps, r_contour, process_queue, *, sp, base, time_suffix, overwrite, dbif
 ):
@@ -291,6 +318,8 @@ def main(options, flags):
         dbif.close()
         gs.warning(_("Space time raster dataset <%s> is empty") % sp.get_id())
         return
+
+    check_distinct_names(maps, sp, base, time_suffix, dbif)
 
     # Check the new stvds
     output_stds = tgis.check_new_stds(output, "stvds", dbif=dbif, overwrite=overwrite)
