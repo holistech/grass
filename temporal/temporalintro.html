@@ -119,8 +119,10 @@ different labels may share the same time. With
 <em><a href="t.rast.list.html">t.rast.list</a></em>, <em><a href="t.rast.univar.html">t.rast.univar</a></em> and
 <em><a href="t.rast.aggregate.html">t.rast.aggregate</a></em>, <code>input=name.label</code> selects the maps
 of one label from the dataset <code>name</code>. Therefore the name of a new space time
-dataset must not contain a dot. <em>t.info</em> prints the
-labels of a dataset.
+dataset must not contain a dot. A dataset of an earlier release whose whole
+name contains a dot is found by that name first, and only if there is none is
+the text after the dot read as a label. <em>t.info</em> prints the labels of a
+dataset.
 
 <p>
 The <em>semantic type</em> of a dataset, set with the option <b>semantictype</b> of

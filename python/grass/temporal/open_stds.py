@@ -61,7 +61,24 @@ def _parse_id(
     return name, mapset, semantic_label
 
 
-def open_old_stds(name, type, dbif=None):
+def _find_old_stds(name, mapset, stds_type, semantic_label, dbif, try_get_stds):
+    """Find the dataset in the given mapset, else in the current one and the search path"""
+    if mapset:
+        return try_get_stds(f"{name}@{mapset}", stds_type, semantic_label, dbif)
+    # Check current mapset first
+    sp = try_get_stds(f"{name}@{get_current_mapset()}", stds_type, semantic_label, dbif)
+    if sp:
+        return sp
+    for tgis_mapset in dbif.tgis_mapsets:
+        if tgis_mapset == get_current_mapset():
+            continue
+        sp = try_get_stds(f"{name}@{tgis_mapset}", stds_type, semantic_label, dbif)
+        if sp:
+            return sp
+    return None
+
+
+def open_old_stds(name, type, dbif=None, *, whole_name_first=True):
     """This function opens an existing space time dataset and return the
     created and initialized object of the specified type.
 
@@ -77,6 +94,10 @@ def open_old_stds(name, type, dbif=None):
     :param type: The type of the space time dataset (strd, str3ds, stvds,
                  raster, vector, raster3d)
     :param dbif: The optional database interface to be used
+    :param whole_name_first: Whether the name with a dot is tried whole before
+                             the text after the dot is read as a semantic
+                             label. The classic algebra passes False, as it
+                             always read the label.
 
     :return: New stds object
 
@@ -106,34 +127,24 @@ def open_old_stds(name, type, dbif=None):
                 return sp
         return None
 
-    # Check if the dataset name contains the mapset and the semantic label as well
-    name, mapset, semantic_label = _parse_id(name, stds_type=stds_type)
-
     with connection(dbif) as dbif:
-        # Check user given ID
         sp = None
-        if mapset:
-            sp = try_get_stds(f"{name}@{mapset}", stds_type, semantic_label, dbif)
-        else:
-            # Check current mapset first
-            sp = try_get_stds(
-                f"{name}@{get_current_mapset()}",
-                stds_type,
-                semantic_label,
-                dbif,
+        # A dataset of an older release can have a dot in its name. The whole
+        # name is tried before a label is split off, so that such a dataset
+        # can be read and removed; "name.label" then still selects the maps
+        # of the dataset "name" unless a dataset of that name exists.
+        bare, _at, whole_mapset = name.partition("@")
+        if whole_name_first and "." in bare and stds_kind_of(stds_type).name == "strds":
+            sp = _find_old_stds(
+                bare, whole_mapset or None, stds_type, None, dbif, try_get_stds
             )
-            if not sp:
-                for tgis_mapset in dbif.tgis_mapsets:
-                    if tgis_mapset == get_current_mapset():
-                        continue
-                    sp = try_get_stds(
-                        f"{name}@{tgis_mapset}",
-                        stds_type,
-                        semantic_label,
-                        dbif,
-                    )
-                    if sp:
-                        break
+        if not sp:
+            # Check if the dataset name contains the mapset and the semantic
+            # label as well
+            name, mapset, semantic_label = _parse_id(name, stds_type=stds_type)
+            sp = _find_old_stds(
+                name, mapset, stds_type, semantic_label, dbif, try_get_stds
+            )
         if not sp:
             msgr.fatal(
                 _("Space time dataset <%(name)s> of type <%(sp)s> not found")

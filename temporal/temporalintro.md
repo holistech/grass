@@ -114,8 +114,10 @@ different labels may share the same time. With
 *[t.rast.list](t.rast.list.md)*, *[t.rast.univar](t.rast.univar.md)* and
 *[t.rast.aggregate](t.rast.aggregate.md)*, `input=name.label` selects the maps
 of one label from the dataset `name`. Therefore the name of a new space time
-dataset must not contain a dot. *t.info* prints the
-labels of a dataset.
+dataset must not contain a dot. A dataset of an earlier release whose whole
+name contains a dot is found by that name first, and only if there is none is
+the text after the dot read as a label. *t.info* prints the labels of a
+dataset.
 
 The *semantic type* of a dataset, set with the option **semantictype** of
 *t.create*, is a different thing: it states whether the values are amounts

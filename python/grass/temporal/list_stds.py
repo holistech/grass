@@ -33,7 +33,8 @@ from .db import (
 )
 from .kinds import find_kind
 from .open_stds import open_old_stds
-from .state import get_tgis_message_interface
+from .schema import get_tgis_db_version_from_metadata, get_tgis_metadata
+from .state import get_tgis_database_string, get_tgis_message_interface
 from .topology import _has_start
 
 #: Columns that only the methods delta, deltagaps and gran can list: they
@@ -767,6 +768,23 @@ def _get_list_of_maps_delta_gran(dataset, columns, where, method, gran, dbif, ms
     return rows
 
 
+def _refuse_missing_label_column(dbif, error):
+    """Name t.upgrade when a database of version 2 lacks the semantic label
+
+    The statement of a listing fails with an SQL error about the missing
+    column, which says nothing about the way out.
+    """
+    if "semantic_label" not in str(error):
+        return
+    if get_tgis_db_version_from_metadata(get_tgis_metadata(dbif)) < 3:
+        get_tgis_message_interface().fatal(
+            _(
+                "The temporal database <{database}> has version 2, which has "
+                "no semantic labels. Run t.upgrade first."
+            ).format(database=get_tgis_database_string())
+        )
+
+
 def _get_list_of_maps_stds(
     element_type,
     name,
@@ -849,6 +867,7 @@ def _get_list_of_maps_stds(
                     ",".join(columns), where, order, dbif
                 )
             except SQLStatementError as error:
+                _refuse_missing_label_column(dbif, error)
                 msgr.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
             # End with error for the old, custom formats. Proper formats simply return

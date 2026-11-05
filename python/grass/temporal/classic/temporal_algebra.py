@@ -970,7 +970,7 @@ class TemporalAlgebraParser:
             start_times = []
             temporal_types = set()
             for name in self._stds_names_in(expression, lexer):
-                stds = open_old_stds(name, stdstype, dbif)
+                stds = open_old_stds(name, stdstype, dbif, whole_name_first=False)
                 # We need valid temporal topology
                 if stds.check_temporal_topology() is False:
                     self.msgr.error(

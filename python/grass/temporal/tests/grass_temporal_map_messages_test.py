@@ -75,7 +75,17 @@ def ids(tools):
         "abs": f"mm{number}_abs",
         "rel": f"mm{number}_rel",
     }
-    tools.v_random(output=names["vec"], npoints=3, seed=1)
+    # The map has categories in layer 2, too: a layer that the map has
+    # neither linked nor with categories is refused before the registration.
+    tools.v_random(output=f"{names['vec']}_src", npoints=3, seed=1)
+    tools.v_category(
+        input=f"{names['vec']}_src",
+        output=names["vec"],
+        option="add",
+        layer=2,
+        type="point",
+    )
+    tools.g_remove(flags="f", type="vector", name=f"{names['vec']}_src")
     for key, temporaltype in (("abs", "absolute"), ("rel", "relative")):
         tgis.open_new_stds(
             name=names[key],

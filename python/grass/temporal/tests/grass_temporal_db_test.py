@@ -106,7 +106,7 @@ PYFORMAT = {
     "('soil@PERMANENT', 'CELL', None, None, None, "
     "None, None, 1.0, None, 'soil@PERMANENT'))",
     "metadata.get_select_statement": "('SELECT  id  , datatype  , cols  , rows  , "
-    "number_of_cells  , nsres  , ewres  , min  , max  "
+    "number_of_cells  , nsres  , ewres  , min  , max  , semantic_label  "
     "FROM raster_metadata WHERE id = %s;\\n', "
     "('soil@PERMANENT',))",
     "metadata.get_is_in_db_statement": "('SELECT id FROM raster_metadata WHERE id = "

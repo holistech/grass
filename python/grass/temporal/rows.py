@@ -109,7 +109,7 @@ class DictSQLSerializer:
         self.D = {}
         self.dbmi_paramstyle = get_tgis_dbmi_paramstyle()
 
-    def serialize(self, type, table, where=None, where_args=()):
+    def serialize(self, type, table, where=None, where_args=(), dbif=None, mapset=None):
         """Convert the internal dictionary into a string of semicolon
         separated SQL statements The keys are the column names and
         the values are the row entries
@@ -140,6 +140,9 @@ class DictSQLSerializer:
         :param where: The optional where statement
         :param where_args: The values of the placeholders in the where statement,
                            appended to the arguments of the statement
+        :param dbif: For SELECT, the interface that runs the statement, which
+                     a subclass may ask which columns its database has
+        :param mapset: For SELECT, the mapset whose database runs it
         :return: a tuple containing the SQL string and the arguments
 
         """  # noqa: E501
@@ -148,7 +151,7 @@ class DictSQLSerializer:
         if type not in {"SELECT", "INSERT", "UPDATE", "UPDATE ALL"}:
             return "", tuple(where_args)
         if type == "SELECT":
-            keys = list(self.D)
+            keys = self._select_keys(dbif, mapset)
             args = []
         else:
             # UPDATE writes only the entries which are not None.
@@ -169,6 +172,15 @@ class DictSQLSerializer:
         sql += ";\n"
 
         return sql, (*args, *where_args)
+
+    def _select_keys(self, dbif=None, mapset=None) -> list[str]:
+        """Return the columns a SELECT reads: the keys of D
+
+        A subclass adds the columns that the table has but that D does not
+        hold until a value is given; dbif and mapset name the database that
+        runs the statement.
+        """
+        return list(self.D)
 
     def deserialize(self, row) -> None:
         """Convert the content of the dbmi dictionary like row into the
@@ -333,14 +345,21 @@ class SQLDatabaseInterface(DictSQLSerializer):
         # Nothing found
         return row is not None
 
-    def get_select_statement(self):
+    def get_select_statement(self, dbif=None, mapset=None):
         """Return the sql statement and the argument list in
         database specific style
+
+        :param dbif: The interface that will run it, see serialize()
+        :param mapset: The mapset whose database will run it
 
         :return: The SELECT string
         """
         return self.serialize(
-            "SELECT", self.get_table_name(), *self._where_id(self.ident)
+            "SELECT",
+            self.get_table_name(),
+            *self._where_id(self.ident),
+            dbif=dbif,
+            mapset=mapset,
         )
 
     def get_select_statement_mogrified(self, dbif=None):
@@ -354,7 +373,7 @@ class SQLDatabaseInterface(DictSQLSerializer):
             dbif = SQLDatabaseInterfaceConnection()
 
         return dbif.mogrify_sql_statement(
-            self.get_select_statement(), mapset=self.mapset
+            self.get_select_statement(dbif, self.mapset), mapset=self.mapset
         )
 
     def select(self, dbif=None, mapset=None) -> bool:
@@ -364,8 +383,6 @@ class SQLDatabaseInterface(DictSQLSerializer):
         :param dbif: The database interface to be used,
                      if None a temporary connection will be established
         """
-        sql, args = self.get_select_statement()
-
         # default: use the temporal database in the mapset of this map
         if mapset is None:
             mapset = self.mapset
@@ -374,6 +391,7 @@ class SQLDatabaseInterface(DictSQLSerializer):
 
         # The statement always has the identifier as argument.
         with _connected(dbif) as dbif:
+            sql, args = self.get_select_statement(dbif, mapset)
             dbif.execute(sql, args, mapset=mapset)
             row = dbif.fetchone(mapset=mapset)
 

@@ -46,7 +46,17 @@ def ids(tools):
         "rel": f"msg{number}_rel",
         "rel2": f"msg{number}_rel2",
     }
-    tools.v_random(output=names["vec"], npoints=3, seed=1)
+    # The map has categories in layer 2, too: a layer that the map has
+    # neither linked nor with categories is refused before the registration.
+    tools.v_random(output=f"{names['vec']}_src", npoints=3, seed=1)
+    tools.v_category(
+        input=f"{names['vec']}_src",
+        output=names["vec"],
+        option="add",
+        layer=2,
+        type="point",
+    )
+    tools.g_remove(flags="f", type="vector", name=f"{names['vec']}_src")
     tools.v_random(output=names["vec2"], npoints=3, seed=1)
     tools.r_mapcalc(expression=f"{names['ras']} = 1")
     for key, temporaltype in (
@@ -124,7 +134,7 @@ def test_a_registered_map_with_a_layer_gets_a_warning_and_a_time_check(ids, warn
     register(name=ids["abs"], maps=f"{ids['vec']}:2", start="2001-01-01")
 
     with pytest.raises(tgis.FatalError) as error:
-        register(name=ids["rel"], maps=f"{ids['vec']}:2")
+        register(name=ids["rel"], maps=f"{ids['vec']}:2", start="0", unit="days")
 
     assert str(error.value) == (
         f"Temporal type of space time dataset <{ids['rel']}@{MAPSET}> and map "
@@ -141,7 +151,7 @@ def test_a_registered_map_without_layer_gets_a_warning_and_a_time_check(ids, war
     register(name=ids["abs"], maps=ids["vec"], start="2001-01-01")
 
     with pytest.raises(tgis.FatalError) as error:
-        register(name=ids["rel"], maps=ids["vec"])
+        register(name=ids["rel"], maps=ids["vec"], start="0", unit="days")
 
     assert str(error.value) == (
         f"Temporal type of space time dataset <{ids['rel']}@{MAPSET}> and map "

@@ -88,6 +88,31 @@ def _has_semantic_label_counts() -> bool:
     return version > 2
 
 
+def _database_has_semantic_labels(dbif, mapset) -> bool:
+    """Tell whether the database of the mapset has the semantic label column
+
+    The version is read once for each interface and mapset and kept on the
+    interface: a SELECT is made for every map that is read, and a query of
+    the version for each of them made reading 50 times slower (measured
+    05.11.2026 with 300 maps). The version changes only with t.upgrade, which
+    runs in a process of its own, so an interface that stays open does not
+    see a change, as it does not see the other changes of the schema.
+    Without an interface the version of the current mapset is read.
+    """
+    if dbif is None:
+        return _has_semantic_label_counts()
+    cache = dbif.__dict__.setdefault("_semantic_label_columns", {})
+    if mapset not in cache:
+        dbif.execute(
+            "SELECT value FROM tgis_metadata WHERE key = 'tgis_db_version';",
+            mapset=mapset,
+        )
+        row = dbif.fetchone(mapset=mapset)
+        version = int(row[0]) if row else get_tgis_db_version()
+        cache[mapset] = version > 2
+    return cache[mapset]
+
+
 # The columns of a raster and of a 3D raster map, in the order the row stores
 # them. The semantic label is left out of the row until one is given.
 _RASTER_COLUMNS = (
@@ -368,6 +393,24 @@ class MetadataRow(Row):
             msg = f"{self.kind.name} metadata has no column {', '.join(values)}"
             raise TypeError(msg)
 
+    def _select_keys(self, dbif=None, mapset=None) -> list[str]:
+        """Return the keys of D and the columns that D holds only once a value is set
+
+        A column that is left out of a new row (the semantic label) is still in
+        the table of a current database. Reading only the keys of D left it
+        out of every row that was read back, so t.info showed None for a map
+        that has a label. A database of version 2 has no such column. The
+        version is that of the database that runs the statement.
+        """
+        keys = super()._select_keys(dbif, mapset)
+        if _database_has_semantic_labels(dbif, mapset):
+            keys.extend(
+                column.name
+                for column in self.columns
+                if column.init is False and column.name not in keys
+            )
+        return keys
+
     def print_info(self) -> None:
         """Print information about this class in human readable style"""
         self._print(False)
@@ -426,22 +469,13 @@ class _SpaceTimeMetadata:
 
         if command:
             tokens = command.split("\n")
-            print_list = []
-            for token in tokens:
-                token = str(token).rstrip().lstrip()
-                if len(token) > 1:
-                    print_list.append(token)
-
-            count = 0
-            for token in print_list:
-                count += 1
-                if len(token) > 1:
-                    if token[0] == "#":
-                        print(token)
-                    elif count < len(print_list):
-                        print(token + " \\")
-                    else:
-                        print(token)
+            lines = [token.strip() for token in tokens if len(token.strip()) > 1]
+            for line, following in zip(lines, [*lines[1:], "#"], strict=True):
+                # A backslash continues a command, so only a line that another
+                # line of the same command follows gets one. The last line of
+                # a command is followed by the "#" line of the next command,
+                # and the last line of the history by nothing.
+                print(line if line[0] == "#" or following[0] == "#" else f"{line} \\")
 
 
 class _SemanticLabelsMetadata:

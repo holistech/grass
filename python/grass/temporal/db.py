@@ -233,6 +233,7 @@ class SQLDatabaseInterfaceConnection:
 
         Supported backends are sqlite3 and postgresql
         """
+        self._forget_database_versions()
         for mapset in self.tgis_mapsets:
             driver, dbstring = self.tgis_mapsets[mapset]
             conn = self.connections[mapset]
@@ -240,6 +241,15 @@ class SQLDatabaseInterfaceConnection:
                 conn.connect(dbstring)
 
         self.connected = True
+
+    def _forget_database_versions(self) -> None:
+        """Drop the versions of the databases that the metadata rows cached
+
+        metadata.py keeps them on the interface, so that a SELECT per map does
+        not ask for the version each time. An interface that is closed and
+        connected again may meet a database that t.upgrade changed in between.
+        """
+        self.__dict__.pop("_semantic_label_columns", None)
 
     def is_connected(self):
         """Tell whether ``connect`` has been called and ``close`` has not"""
@@ -254,6 +264,7 @@ class SQLDatabaseInterfaceConnection:
         for key in self.unique_connections:
             self.unique_connections[key].close()
 
+        self._forget_database_versions()
         self.connected = False
 
     def add_mapset(self, mapset):

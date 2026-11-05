@@ -18,6 +18,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 from __future__ import annotations
 
 import copy
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -244,8 +245,11 @@ def _read_map_file(file, fs, sp, type):
     """Read the rows of the input file, a path or a stream with readline()
 
     A stream belongs to the caller and stays open; a path is opened here.
+    The path "-" is the standard input, as for the other tools that read a
+    file, which the caller of the tool pipes to; the stream is not closed.
 
-    :param file: A path, or an object with readline()
+    :param file: A path, "-" for the standard input, or an object with
+                 readline()
     :param fs: The field separator
     :param sp: The dataset, or None; its temporal type decides which last
                column of three is an end time
@@ -254,6 +258,8 @@ def _read_map_file(file, fs, sp, type):
     """
     if hasattr(file, "readline"):
         return _read_rows(file, fs, sp, type)
+    if file == "-":
+        return _read_rows(sys.stdin, fs, sp, type)
     with open(file) as stream:
         return _read_rows(stream, fs, sp, type)
 
@@ -268,7 +274,9 @@ def _map_rows(maps, file, fs, sp, type, increment, interval):
 
     rows = _read_map_file(file, fs, sp, type)
     msgr = get_tgis_message_interface()
-    times_in_file = any(row.start is not None for row in rows)
+    # The increment is ignored only if every row has a time of its own; a row
+    # without one is moved by it (see _row_times), so a mixed file uses it.
+    times_in_file = bool(rows) and all(row.start is not None for row in rows)
     if times_in_file and increment:
         msgr.warning(
             _(
@@ -316,7 +324,7 @@ def _check_vector_layer(run, map_object):
     A vector map with a database link lists its layers. A layer can also have
     categories without a link (v.category option=add), so those are asked
     before a layer outside the links is refused. A map without any link is
-    not checked, so any layer of it can still be registered.
+    checked against the categories alone.
     """
     layer = map_object.get_layer()
     if not layer or map_object.get_type() != "vector":
@@ -329,14 +337,14 @@ def _check_vector_layer(run, map_object):
             ).format(mid=map_id, l=layer)
         )
     layers = set(gs.vector_db(map_id))
-    if layers and int(layer) not in layers:
+    if int(layer) not in layers:
         layers.update(
             int(item)
             for item in gs.read_command(
                 "v.category", input=map_id, option="layers"
             ).split()
         )
-    if layers and int(layer) not in layers:
+    if int(layer) not in layers:
         get_tgis_message_interface().fatal(
             _(
                 "Unable to register vector map <{mid}>. The map has no layer {l}."
@@ -478,14 +486,14 @@ def _check_zone_consistency(run, map_object):
         get_tgis_message_interface().fatal(
             _(
                 "Unable to register {t} map <{mid}>. Its time "
-                "{with_or_without} a time zone, the time of the "
+                "{with_or_without} time zone, the time of the "
                 "maps in the space time dataset <{name}> "
                 "{other}."
             ).format(
                 t=map_object.get_type(),
                 mid=map_object.get_map_id(),
                 name=run.name,
-                with_or_without=_("has") if aware else _("has no"),
+                with_or_without=_("has a") if aware else _("has no"),
                 other=_("has none") if aware else _("has one"),
             )
         )
@@ -542,7 +550,10 @@ def _validate_map(run, count, row):
         _check_new_map_time(run, map_object, start)
     else:
         if not run.overwrite:
-            _warn_known_map(run, map_object)
+            # Without a time nothing was asked to be updated, only the
+            # registration in the dataset, which is done.
+            if start not in {"", None}:
+                _warn_known_map(run, map_object)
             # Simple registration is allowed. The map keeps the time of its
             # entry, so that time is checked against the dataset before any
             # other map of the run is written.

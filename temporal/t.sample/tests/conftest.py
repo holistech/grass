@@ -450,9 +450,12 @@ def sample_session(xy_module_session):
 
     # Vector maps with layers: lay:1 and lay:2 are ids of the one map lay,
     # registered as separate instants on d1 and d2. v.random writes layer
-    # 1 only and t.register does not check the layer, so the ids are
-    # registered whether or not the layer holds data.
-    tools.v_random(output="lay", npoints=1, seed=1, overwrite=True)
+    # 1 only, and t.register refuses a layer the map does not have, so
+    # v.category adds the categories of layer 2.
+    tools.v_random(output="lay_points", npoints=1, seed=1, overwrite=True)
+    tools.v_category(
+        input="lay_points", output="lay", option="add", layer=2, overwrite=True
+    )
     register_stds(
         tools,
         "stvds",
