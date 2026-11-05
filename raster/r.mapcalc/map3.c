@@ -519,6 +519,11 @@ int open_map(const char *name, int mod, int row, int col,
     if (!m->handle)
         G_fatal_error(_("Unable to open raster map <%s>"), name);
 
+    /* As r.mapcalc with the 2D mask, the 3D mask applies to the maps that
+     * are read, so an expression without a map stays unmasked. Without a
+     * mask file this does nothing. */
+    Rast3d_mask_on(m->handle);
+
     return num_maps++;
 }
 
