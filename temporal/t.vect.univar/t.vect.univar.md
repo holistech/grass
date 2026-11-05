@@ -105,9 +105,10 @@ hours shows `0` and `6`, as the first example shows.
 
 *t.vect.univar* only reads, so it works on a dataset of another mapset as
 well. The name with the mapset (`input=gauges@t_vect_univar`) selects it. A name
-without a mapset means the current mapset: the mapsets of the search path (see
-*[g.mapsets](g.mapsets.md)*) are not searched, unlike in *t.rast.univar*, and
-the dataset is reported as not found. The last example shows this.
+without a mapset is searched in the current mapset first, then in the mapsets of
+the search path (see *[g.mapsets](g.mapsets.md)*), as in *t.rast.univar*; a
+dataset of another mapset that is not in the search path is reported as not
+found. The last example shows this.
 
 If **twhere** selects no map, or the dataset has no map, *t.vect.univar* stops
 with the message that the space time vector dataset is empty. A dataset that
@@ -871,20 +872,18 @@ the second block of each tab prints the file.
 ### Use a dataset of another mapset
 
 *t.vect.univar* reads a dataset of another mapset. The example creates the
-mapset `t_vect_univar_2`, switches to it, sets the region and adds the mapset
-`t_vect_univar` to the search path with *g.mapsets*. The dataset `gauges` stays
-in the mapset `t_vect_univar` and is named with its mapset. A name without a
-mapset means the current mapset, whatever the search path of *g.mapsets*
-holds: in the second block, `t_vect_univar` is in the search path of
-`t_vect_univar_2`, but `input=gauges` is refused. The second block prints the
-line of the error message.
+mapset `t_vect_univar_2`, switches to it and sets the region. The dataset
+`gauges` stays in the mapset `t_vect_univar` and is named with its mapset in the
+first block, which needs no entry in the search path. In the second block,
+`input=gauges` without a mapset is refused while `t_vect_univar` is not in the
+search path; the block prints the line of the error message. After
+*g.mapsets* has added the mapset, the same name finds the dataset.
 
 === "Command line"
 
     ```sh
     g.mapset -c mapset=t_vect_univar_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_vect_univar operation=add
     t.vect.univar input=gauges@t_vect_univar column=discharge \
         twhere="start_time < '2026-03-02'" | cut -d"|" -f1,4-9
     ```
@@ -895,13 +894,16 @@ line of the error message.
     ```
 
     ```sh
-    g.mapsets -p
     t.vect.univar input=gauges column=discharge 2>&1 | grep ERROR || true
+    g.mapsets mapset=t_vect_univar operation=add
+    t.vect.univar input=gauges column=discharge \
+        twhere="start_time < '2026-03-02'" | cut -d"|" -f1,4-9
     ```
 
     ```text
-    t_vect_univar_2 PERMANENT t_vect_univar
     ERROR: Space time vector dataset <gauges@t_vect_univar_2> not found
+    id|n|nmissing|nnull|min|max|range
+    gauges_1@t_vect_univar|4|0|0|1|4|3
     ```
 
 === "Python (grass.tools)"
@@ -911,7 +913,6 @@ line of the error message.
 
     tools.g_mapset(mapset="t_vect_univar_2", flags="c")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_vect_univar", operation="add")
     result = tools.t_vect_univar(
         input="gauges@t_vect_univar", column="discharge", twhere="start_time < '2026-03-02'"
     )
@@ -924,16 +925,21 @@ line of the error message.
     ```
 
     ```python
-    print(tools.g_mapsets(flags="p").text)
     try:
         tools.t_vect_univar(input="gauges", column="discharge")
     except ToolError as error:
         print([line for line in error.stderr.splitlines() if "ERROR" in line][0])
+    tools.g_mapsets(mapset="t_vect_univar", operation="add")
+    result = tools.t_vect_univar(
+        input="gauges", column="discharge", twhere="start_time < '2026-03-02'"
+    )
+    print_columns(result)
     ```
 
     ```text
-    t_vect_univar_2 PERMANENT t_vect_univar
     ERROR: Space time vector dataset <gauges@t_vect_univar_2> not found
+    id|n|nmissing|nnull|min|max|range
+    gauges_1@t_vect_univar|4|0|0|1|4|3
     ```
 
 <!-- markdownlint-enable MD046 -->

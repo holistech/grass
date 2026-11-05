@@ -123,9 +123,10 @@ hours shows <code>0</code> and <code>6</code>, as the first example shows.
 <p>
 <em>t.vect.univar</em> only reads, so it works on a dataset of another mapset as
 well. The name with the mapset (<code>input=gauges@t_vect_univar</code>) selects it. A name
-without a mapset means the current mapset: the mapsets of the search path (see
-<em><a href="g.mapsets.html">g.mapsets</a></em>) are not searched, unlike in <em>t.rast.univar</em>, and
-the dataset is reported as not found. The last example shows this.
+without a mapset is searched in the current mapset first, then in the mapsets of
+the search path (see <em><a href="g.mapsets.html">g.mapsets</a></em>), as in <em>t.rast.univar</em>; a
+dataset of another mapset that is not in the search path is reported as not
+found. The last example shows this.
 
 <p>
 If <b>twhere</b> selects no map, or the dataset has no map, <em>t.vect.univar</em> stops
@@ -899,20 +900,18 @@ gauges_3@t_vect_univar,2026-03-03 00:00:00,2026-03-04 00:00:00,4,0,0,10,40,30,17
 <h3>Use a dataset of another mapset</h3>
 
 <em>t.vect.univar</em> reads a dataset of another mapset. The example creates the
-mapset <code>t_vect_univar_2</code>, switches to it, sets the region and adds the mapset
-<code>t_vect_univar</code> to the search path with <em>g.mapsets</em>. The dataset <code>gauges</code> stays
-in the mapset <code>t_vect_univar</code> and is named with its mapset. A name without a
-mapset means the current mapset, whatever the search path of <em>g.mapsets</em>
-holds: in the second block, <code>t_vect_univar</code> is in the search path of
-<code>t_vect_univar_2</code>, but <code>input=gauges</code> is refused. The second block prints the
-line of the error message.
+mapset <code>t_vect_univar_2</code>, switches to it and sets the region. The dataset
+<code>gauges</code> stays in the mapset <code>t_vect_univar</code> and is named with its mapset in the
+first block, which needs no entry in the search path. In the second block,
+<code>input=gauges</code> without a mapset is refused while <code>t_vect_univar</code> is not in the
+search path; the block prints the line of the error message. After
+<em>g.mapsets</em> has added the mapset, the same name finds the dataset.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
 g.mapset -c mapset=t_vect_univar_2
 g.region raster=elev_state_500m res=1000 -a
-g.mapsets mapset=t_vect_univar operation=add
 t.vect.univar input=gauges@t_vect_univar column=discharge \
     twhere="start_time &lt; '2026-03-02'" | cut -d"|" -f1,4-9
 </pre></div>
@@ -923,13 +922,16 @@ gauges_1@t_vect_univar|4|0|0|1|4|3
 </pre></div>
 
 <div class="code"><pre>
-g.mapsets -p
 t.vect.univar input=gauges column=discharge 2&gt;&amp;1 | grep ERROR || true
+g.mapsets mapset=t_vect_univar operation=add
+t.vect.univar input=gauges column=discharge \
+    twhere="start_time &lt; '2026-03-02'" | cut -d"|" -f1,4-9
 </pre></div>
 
 <div class="code"><pre>
-t_vect_univar_2 PERMANENT t_vect_univar
 ERROR: Space time vector dataset &lt;gauges@t_vect_univar_2&gt; not found
+id|n|nmissing|nnull|min|max|range
+gauges_1@t_vect_univar|4|0|0|1|4|3
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -939,7 +941,6 @@ from grass.tools import ToolError
 
 tools.g_mapset(mapset="t_vect_univar_2", flags="c")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-tools.g_mapsets(mapset="t_vect_univar", operation="add")
 result = tools.t_vect_univar(
     input="gauges@t_vect_univar", column="discharge", twhere="start_time &lt; '2026-03-02'"
 )
@@ -952,16 +953,21 @@ gauges_1@t_vect_univar|4|0|0|1|4|3
 </pre></div>
 
 <div class="code"><pre>
-print(tools.g_mapsets(flags="p").text)
 try:
     tools.t_vect_univar(input="gauges", column="discharge")
 except ToolError as error:
     print([line for line in error.stderr.splitlines() if "ERROR" in line][0])
+tools.g_mapsets(mapset="t_vect_univar", operation="add")
+result = tools.t_vect_univar(
+    input="gauges", column="discharge", twhere="start_time &lt; '2026-03-02'"
+)
+print_columns(result)
 </pre></div>
 
 <div class="code"><pre>
-t_vect_univar_2 PERMANENT t_vect_univar
 ERROR: Space time vector dataset &lt;gauges@t_vect_univar_2&gt; not found
+id|n|nmissing|nnull|min|max|range
+gauges_1@t_vect_univar|4|0|0|1|4|3
 </pre></div>
 
 <h2>SEE ALSO</h2>
