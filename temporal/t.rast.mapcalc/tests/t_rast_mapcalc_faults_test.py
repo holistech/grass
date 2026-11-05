@@ -470,3 +470,33 @@ def test_label_without_maps_warns(tools, prefix, where):
         expected = f"WARNING: No maps registered in input dataset <{prefix}_x.B9>"
     assert expected in message(result)
     assert inventory(tools) == before
+
+
+def test_label_without_maps_as_sampler_warns(tools, prefix):
+    """A label without maps samples another dataset; nothing is computed
+
+    No where condition is given, so the tool warns that no sample was found,
+    makes no dataset and ends with status 0.
+    """
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_x",
+        [MapSpec(f"{prefix}_b4", 1, D(2026, 1, 1), D(2026, 1, 2), "B4")],
+    )
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_p",
+        [MapSpec(f"{prefix}_p1", 2, D(2026, 1, 1), D(2026, 1, 2))],
+    )
+    before = inventory(tools)
+    result = tools.t_rast_mapcalc(
+        inputs=f"{prefix}_x.B9,{prefix}_p",
+        expression=f"{prefix}_x.B9 + {prefix}_p",
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+    )
+    assert result.returncode == 0
+    assert "WARNING: No samples found for map calculation" in message(result)
+    assert inventory(tools) == before
