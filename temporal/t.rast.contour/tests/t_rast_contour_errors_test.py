@@ -158,12 +158,13 @@ def test_a_failing_r_contour_is_reported_when_the_processes_are_waited_for(
 def test_a_map_that_r_contour_did_not_make_is_not_registered(
     tools, broken_tools, ramps, prefix
 ):
-    # A run that ends with 0 and makes nothing leaves no vector map to register.
+    # A run that ends with 0 and makes nothing leaves no vector map to register,
+    # so there is no map with lines and no dataset.
     broken_tools("r.contour", status=0).t_rast_contour(
         input=ramps, output=prefix, basename=prefix, step=1
     )
 
-    assert stds_info(tools, "stvds", prefix)["number_of_maps"] == 0
+    assert prefix not in tools.t_list(type="stvds", columns="name").stdout.split()
 
 
 def test_the_progress_is_reported_every_ten_maps(tools, prefix):
@@ -172,8 +173,9 @@ def test_the_progress_is_reported_every_ten_maps(tools, prefix):
     small_region(tools, 4, 4)
     create_daily_stds(tools, "strds", [f"{prefix}_in"], 10, map_prefix=prefix)
 
+    # The maps are constant, so their contours are empty; -n registers them.
     result = tools.t_rast_contour(
-        input=f"{prefix}_in", output=prefix, basename=prefix, step=1
+        input=f"{prefix}_in", output=prefix, basename=prefix, step=1, flags="n"
     )
 
     # Once when the tenth process is queued, once when the tenth map is

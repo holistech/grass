@@ -51,3 +51,73 @@ def test_gran_suffix_of_month_end_series_names_the_month(tools, prefix):
 
     names = [row.name for row in list_maps(tools, "stvds", prefix)]
     assert names == [f"{prefix}_b_2026_01", f"{prefix}_b_2026_02"]
+
+
+@pytest.fixture
+def only_null_maps(tools, prefix):
+    """A dataset of two maps without a value, whose contours are empty"""
+    small_region(tools, 4, 4)
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_null",
+        [
+            MapSpec(f"{prefix}_n{number}", "double(null())", start, end)
+            for number, (start, end) in enumerate(
+                pairwise(
+                    [datetime(2026, 1, 1), datetime(2026, 2, 1), datetime(2026, 3, 1)]
+                ),
+                start=1,
+            )
+        ],
+    )
+    return f"{prefix}_null"
+
+
+def test_all_empty_results_create_no_dataset(tools, prefix, only_null_maps):
+    result = tools.t_rast_contour(
+        input=only_null_maps, output=prefix, basename=f"{prefix}_b", step=1
+    )
+
+    assert (
+        f"No map with lines was computed. No space time dataset <{prefix}> was created."
+        in message(result)
+    )
+    assert tools.t_list(type="stvds", columns="name").stdout.count(prefix) == 0
+    # The empty maps are removed, as those of a partly empty result are.
+    assert f"{prefix}_b" not in tools.g_list(type="vector").stdout
+
+
+def test_all_empty_results_with_n_register_the_empty_maps(
+    tools, prefix, only_null_maps
+):
+    tools.t_rast_contour(
+        input=only_null_maps, output=prefix, basename=f"{prefix}_b", step=1, flags="n"
+    )
+
+    assert [row.name for row in list_maps(tools, "stvds", prefix)] == [
+        f"{prefix}_b_2026_01",
+        f"{prefix}_b_2026_02",
+    ]
+
+
+def test_all_empty_results_with_overwrite_remove_the_old_dataset(
+    tools, prefix, only_null_maps, ramps
+):
+    tools.t_rast_contour(input=ramps, output=prefix, basename=f"{prefix}_old", step=1)
+    assert list_maps(tools, "stvds", prefix)
+
+    result = tools.t_rast_contour(
+        input=only_null_maps,
+        output=prefix,
+        basename=f"{prefix}_b",
+        step=1,
+        overwrite=True,
+    )
+
+    text = message(result)
+    assert f"No space time dataset <{prefix}> was created." in text
+    assert f"The existing space time dataset <{prefix}> was removed." in text
+    assert tools.t_list(type="stvds", columns="name").stdout.count(prefix) == 0
+    # The maps of the removed dataset stay as maps.
+    assert f"{prefix}_old" in tools.g_list(type="vector").stdout

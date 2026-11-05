@@ -25,6 +25,9 @@ def _lines(tools, name):
 
 def _contour(tools, input, prefix, **options):
     tools.t_rast_contour(input=input, output=prefix, basename=prefix, **options)
+    # A result without a line makes no dataset.
+    if prefix not in tools.t_list(type="stvds", columns="name").stdout.split():
+        return []
     return [_lines(tools, row.name) for row in list_maps(tools, "stvds", prefix)]
 
 
@@ -59,7 +62,7 @@ def test_levels_outside_the_values_give_no_line(tools, ramps, prefix):
         input=ramps, output=prefix, basename=prefix, levels="20,30"
     )
 
-    assert list_maps(tools, "stvds", prefix) == []
+    assert prefix not in tools.t_list(type="stvds", columns="name").stdout.split()
     assert result.returncode == 0
 
 

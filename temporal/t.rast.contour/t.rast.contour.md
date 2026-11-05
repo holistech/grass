@@ -72,7 +72,11 @@ relative time has no calendar date.
 A raster map can give a vector map without lines, for instance when no level
 lies within its values or when the map has no values. Such an empty vector map
 is removed and not registered, unless the flag **-n** is given; then it is
-registered as well.
+registered as well. If every map is empty and **-n** is not given, there is
+nothing to register: the tool warns "No map with lines was computed. No space
+time dataset `<name>` was created." and creates no output dataset. With
+**--overwrite**, an output dataset that exists is removed in this case, and the
+tool warns again that it did so; its maps stay as maps.
 
 ## NOTES
 
@@ -401,7 +405,8 @@ such a map gets no level and so no line:
   as in the previous example.
 - With **minlevel** `5` and **maxlevel** `10`, the values of every month lie
   wholly above **maxlevel**, so no month has a line. With **-n**, the three
-  empty vector maps are registered all the same.
+  empty vector maps are registered all the same; without it, the tool makes no
+  dataset.
 
 === "Command line"
 

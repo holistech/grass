@@ -209,21 +209,17 @@ def wait_for_contours(process_queue, dbif):
         gs.fatal(_("Error running r.contour: {}").format(error))
 
 
-def register_contours(new_maps, new_sp, register_null, dbif):
-    """Register the new maps in the temporal database and in new_sp
+def split_empty_maps(new_maps, register_null):
+    """Sort the new maps into those to register and the empty ones
 
     A map that cannot be loaded is passed over, neither registered nor
-    returned. A map without primitives is not registered unless register_null
-    is set. Return the empty maps that were left out; the caller removes them.
+    returned. A map without primitives is empty and is not registered unless
+    register_null is set. Return the maps to register and the empty maps that
+    were left out; the caller removes them.
     """
-    num_maps = len(new_maps)
+    kept = []
     empty_maps = []
-
-    for count, map in enumerate(new_maps, start=1):
-        if count % 10 == 0:
-            gs.percent(count, num_maps, 1)
-
-        # Do not register empty maps
+    for map in new_maps:
         try:
             if map.load() is not True:
                 continue
@@ -231,7 +227,17 @@ def register_contours(new_maps, new_sp, register_null, dbif):
             continue
         if map.metadata.get_number_of_primitives() == 0 and not register_null:
             empty_maps.append(map)
-            continue
+        else:
+            kept.append(map)
+    return kept, empty_maps
+
+
+def register_contours(kept, new_sp, dbif):
+    """Register the maps in the temporal database and in new_sp"""
+    num_maps = len(kept)
+    for count, map in enumerate(kept, start=1):
+        if count % 10 == 0:
+            gs.percent(count, num_maps, 1)
 
         # Insert map in temporal database
         map.insert(dbif)
@@ -240,7 +246,6 @@ def register_contours(new_maps, new_sp, register_null, dbif):
     # Update the spatio-temporal extent and the metadata table entries
     new_sp.update_from_registered_maps(dbif)
     gs.percent(1, 1, 1)
-    return empty_maps
 
 
 def main(options, flags):
@@ -288,7 +293,7 @@ def main(options, flags):
         return
 
     # Check the new stvds
-    tgis.check_new_stds(output, "stvds", dbif=dbif, overwrite=overwrite)
+    output_stds = tgis.check_new_stds(output, "stvds", dbif=dbif, overwrite=overwrite)
 
     # Configure the r.contour module
     r_contour = contour_module(options, t_flag, overwrite)
@@ -311,13 +316,32 @@ def main(options, flags):
     # Wait for unfinished processes
     wait_for_contours(process_queue, dbif)
 
-    # Open the new space time vector dataset
-    ttype, stype, title, descr = sp.get_initial_values()
-    new_sp = tgis.open_new_stds(
-        output, "stvds", ttype, title, descr, stype, dbif, overwrite
-    )
-
-    empty_maps = register_contours(new_maps, new_sp, register_null, dbif)
+    kept, empty_maps = split_empty_maps(new_maps, register_null)
+    if not kept:
+        # A dataset without a map would be an empty one, so there is none. With
+        # overwrite the old dataset is removed, as it would be replaced by a
+        # result with maps; its maps stay as maps. t.rast.accumulate does the
+        # same.
+        gs.warning(
+            _(
+                "No map with lines was computed. No space time dataset <{out}> "
+                "was created."
+            ).format(out=output)
+        )
+        if overwrite and output_stds.is_in_db(dbif):
+            output_stds.delete(dbif)
+            gs.warning(
+                _("The existing space time dataset <{out}> was removed.").format(
+                    out=output
+                )
+            )
+    else:
+        # Open the new space time vector dataset
+        ttype, stype, title, descr = sp.get_initial_values()
+        new_sp = tgis.open_new_stds(
+            output, "stvds", ttype, title, descr, stype, dbif, overwrite
+        )
+        register_contours(kept, new_sp, dbif)
 
     # Remove empty maps
     tgis.remove_maps(empty_maps, "vector")
