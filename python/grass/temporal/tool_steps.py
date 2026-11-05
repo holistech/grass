@@ -311,7 +311,8 @@ def dataset_cycles(dataset, start, end, *, stop, cycle, offset, dbif):
     """Yield the start and the end of each cycle over the maps of dataset
 
     The first cycle runs from start to end, next_cycle() gives the later
-    ones, counted from start. A cycle is yielded while it starts before stop
+    ones, counted from start. The offset may be negative, so that cycles
+    overlap. A cycle is yielded while it starts before stop
     and before the end of the data. A cycle that reaches beyond stop ends at
     stop. The end of the data is the end of dataset, or one unit behind it
     (one second in absolute time) when a map is an instant there, so that
@@ -329,9 +330,9 @@ def dataset_cycles(dataset, start, end, *, stop, cycle, offset, dbif):
     :param stop: The time at which the cycles end, None for the end of the
                  data
     :param cycle: The length of a cycle as next_cycle() takes it
-    :param offset: The gap between two cycles as next_cycle() takes it; the
-                   caller makes sure that the cycles move forward
+    :param offset: The gap between two cycles as next_cycle() takes it
     :param dbif: The database interface or None
+    :raises ValueError: when a cycle does not start after the one before it
     """
     data_end = _data_end(dataset, dbif)
     if stop is None:
@@ -340,10 +341,21 @@ def dataset_cycles(dataset, start, end, *, stop, cycle, offset, dbif):
     origin = start
     number = 0
     while data_end > start and stop > start:
-        end = min(end, stop)
-        yield start, end
+        # The cut end is only for the caller: the next cycle counts from the
+        # whole end, or a negative offset would take it back to the same start.
+        yield start, min(end, stop)
         number += 1
+        previous = start
         start, end = next_cycle(origin, number, end, cycle, offset, absolute)
+        # A negative offset in another unit than the cycle, such as -29 days
+        # on a month, counts from the end of the cycle before, and a month cut
+        # at the end of February can bring the start back to the same day.
+        if start <= previous:
+            msg = _(
+                "The offset must not move the next cycle back to or before "
+                "the start of this one"
+            )
+            raise ValueError(msg)
 
 
 def _data_end(dataset, dbif):

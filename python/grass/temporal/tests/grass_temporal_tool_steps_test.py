@@ -387,6 +387,58 @@ def test_an_instant_at_the_end_of_the_data_is_in_a_cycle(instants):
     ]
 
 
+def test_cycles_with_a_negative_offset_end_at_the_data(instants):
+    # Each cycle starts one day after the one before. The cycle that reaches
+    # beyond the end of the data is cut there, and the next one still counts
+    # from the end it would have had: counted from the cut end, the next
+    # start would go back to the same day and the cycles would never end.
+    # islice keeps a repeat from hanging the test.
+    cycles = list(
+        itertools.islice(
+            tgis.dataset_cycles(
+                instants,
+                datetime(2001, 1, 1),
+                datetime(2001, 1, 3),
+                stop=None,
+                cycle="2 days",
+                offset="-1 day",
+                dbif=None,
+            ),
+            10,
+        )
+    )
+
+    assert cycles == [
+        (datetime(2001, 1, 1), datetime(2001, 1, 3)),
+        (datetime(2001, 1, 2), datetime(2001, 1, 3, 0, 0, 1)),
+        (datetime(2001, 1, 3), datetime(2001, 1, 3, 0, 0, 1)),
+    ]
+
+
+def test_an_offset_of_another_unit_that_stops_the_cycles_is_refused(monthly):
+    # Cycles of a month with an offset of -29 days start two days later each
+    # time, until the month from January 30 is cut at the end of February and
+    # the next start is January 30 again. Without the refusal the cycles never
+    # end; islice keeps a repeat from hanging the test.
+    dataset, _maps = monthly
+
+    with pytest.raises(ValueError, match="must not move the next cycle back"):
+        list(
+            itertools.islice(
+                tgis.dataset_cycles(
+                    dataset,
+                    datetime(2001, 1, 1),
+                    datetime(2001, 2, 1),
+                    stop=None,
+                    cycle="1 month",
+                    offset="-29 days",
+                    dbif=None,
+                ),
+                100,
+            )
+        )
+
+
 @pytest.fixture(scope="module")
 def relative(tools):
     """A dataset of relative instants at 0, 2 and 4 days"""
