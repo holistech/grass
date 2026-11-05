@@ -31,7 +31,9 @@ of every cycle the sum starts from zero again.
   required. With relative time it is an integer.
 - **offset** is a time that is skipped between the end of a cycle and the
   beginning of the next one. Maps that start in the skipped time are not
-  used. Without **offset**, a cycle begins where the cycle before ended.
+  used. Without **offset**, a cycle begins where the cycle before ended. A
+  negative **offset** makes the cycles overlap, but every cycle must start
+  after the one before it.
 - **granularity** is the length of a granule. In every granule, the maps that
   belong to it are accumulated into one result map. The default is `1 day`
   with absolute time. With relative time there is no usable default: give
@@ -118,23 +120,34 @@ in the current mapset. The option **basename** is the beginning of the names
 of the result maps and is required. The tool appends a suffix, which the
 option **suffix** selects:
 
-- `gran` (the default) appends the start of the granule, with the resolution of
-  the granularity of the input dataset, such as `_2026_03_01` or
-  `_2026_06_01_12`. With relative time it appends a number.
+- `gran` (the default) appends the start of the granule, cut to the unit of the
+  option **granularity**, such as `_2026_03` for one month,
+  `_2026_03_01` for one day or `_2026_06_01_12` for 12 hours. With relative
+  time it appends a number.
 - `time` appends the start of the granule with the whole time of the day, such
   as `_2026_06_01T00_00_00`.
 - `num` appends a number of five digits, such as `_00001`. The numbers count
   the result maps in the order of the computation, over all cycles.
 
-The result maps need different names. The suffix `gran` cuts the start of a
-granule to the unit of the granularity of the **input** dataset, so a
-**granularity** of the accumulation that is shorter than that of the input
-gives several granules one name. The default granularity of one day does so on
-a monthly dataset: every day of a month would get the month as its name, and
-this also holds for a series from the last day of a month, whose granularity is
-one month. The run then ends before any map is computed, and the message names
-the granularity of the input dataset. Choose a **granularity** as long as the
-input's, or the suffix `time` or `num`.
+The result maps need different names. The suffix `gran` follows the option
+**granularity** of the accumulation, not the granularity of the input dataset,
+so granules of one day get one name each, also on a monthly input dataset
+and on a series from the last day of a month.
+Granules of different cycles can still get one name: when a negative
+**offset** makes the cycles overlap, or when a cycle is shorter than the unit
+that `gran` cuts to, such as a cycle of 36 hours with a **granularity** of one
+day. The run ends before any map is computed with "The granules starting at
+`<time1>` and `<time2>` get the same map name `<name>` from the suffix gran. Use
+the suffix num, or change the cycle, the granularity or the offset so that no
+two granules start in the same unit of time." With the suffix `num` the run goes
+through. A **cycle** and an **offset** that would give the same start twice,
+such as a month with an offset of -29 days, end with "The offset must not move
+the next cycle back to or before the start of this one".
+
+The name of a map that is registered in another dataset ends the run before
+any map is computed; so does the name of an existing raster map, unless
+**--overwrite** is set. The message for an existing raster map is
+"Raster map `<name@mapset>` exists. To overwrite, use the --overwrite flag."
 
 Every result map has the time of its granule. A result map that has no cell
 with a value is empty. The flag **-n** registers the empty maps in the output
@@ -518,9 +531,9 @@ method `huglin` takes the mean of `avg` and `max`, minus 10: 10,
 
     ```text
     name|start_time|max
-    mean_2026_06_01_00|2026-06-01 00:00:00|16.0
-    mean_2026_06_02_00|2026-06-02 00:00:00|38.0
-    mean_2026_06_03_00|2026-06-03 00:00:00|73.0
+    mean_2026_06_01|2026-06-01 00:00:00|16.0
+    mean_2026_06_02|2026-06-02 00:00:00|38.0
+    mean_2026_06_03|2026-06-03 00:00:00|73.0
     ```
 
     ```sh
@@ -531,9 +544,9 @@ method `huglin` takes the mean of `avg` and `max`, minus 10: 10,
 
     ```text
     name|start_time|max
-    gdd_2026_06_01_00|2026-06-01 00:00:00|6.0
-    gdd_2026_06_02_00|2026-06-02 00:00:00|18.0
-    gdd_2026_06_03_00|2026-06-03 00:00:00|43.0
+    gdd_2026_06_01|2026-06-01 00:00:00|6.0
+    gdd_2026_06_02|2026-06-02 00:00:00|18.0
+    gdd_2026_06_03|2026-06-03 00:00:00|43.0
     ```
 
     ```sh
@@ -544,9 +557,9 @@ method `huglin` takes the mean of `avg` and `max`, minus 10: 10,
 
     ```text
     name|start_time|max
-    bedd_2026_06_01_00|2026-06-01 00:00:00|6.0
-    bedd_2026_06_02_00|2026-06-02 00:00:00|18.0
-    bedd_2026_06_03_00|2026-06-03 00:00:00|38.0
+    bedd_2026_06_01|2026-06-01 00:00:00|6.0
+    bedd_2026_06_02|2026-06-02 00:00:00|18.0
+    bedd_2026_06_03|2026-06-03 00:00:00|38.0
     ```
 
     ```sh
@@ -557,9 +570,9 @@ method `huglin` takes the mean of `avg` and `max`, minus 10: 10,
 
     ```text
     name|start_time|max
-    huglin_2026_06_01_00|2026-06-01 00:00:00|10.0
-    huglin_2026_06_02_00|2026-06-02 00:00:00|26.0
-    huglin_2026_06_03_00|2026-06-03 00:00:00|58.5
+    huglin_2026_06_01|2026-06-01 00:00:00|10.0
+    huglin_2026_06_02|2026-06-02 00:00:00|26.0
+    huglin_2026_06_03|2026-06-03 00:00:00|58.5
     ```
 
 === "Python (grass.tools)"
@@ -593,9 +606,9 @@ method `huglin` takes the mean of `avg` and `max`, minus 10: 10,
 
     ```text
     name|start_time|max
-    mean_2026_06_01_00|2026-06-01 00:00:00|16.0
-    mean_2026_06_02_00|2026-06-02 00:00:00|38.0
-    mean_2026_06_03_00|2026-06-03 00:00:00|73.0
+    mean_2026_06_01|2026-06-01 00:00:00|16.0
+    mean_2026_06_02|2026-06-02 00:00:00|38.0
+    mean_2026_06_03|2026-06-03 00:00:00|73.0
     ```
 
     ```python
@@ -613,9 +626,9 @@ method `huglin` takes the mean of `avg` and `max`, minus 10: 10,
 
     ```text
     name|start_time|max
-    gdd_2026_06_01_00|2026-06-01 00:00:00|6.0
-    gdd_2026_06_02_00|2026-06-02 00:00:00|18.0
-    gdd_2026_06_03_00|2026-06-03 00:00:00|43.0
+    gdd_2026_06_01|2026-06-01 00:00:00|6.0
+    gdd_2026_06_02|2026-06-02 00:00:00|18.0
+    gdd_2026_06_03|2026-06-03 00:00:00|43.0
     ```
 
     ```python
@@ -633,9 +646,9 @@ method `huglin` takes the mean of `avg` and `max`, minus 10: 10,
 
     ```text
     name|start_time|max
-    bedd_2026_06_01_00|2026-06-01 00:00:00|6.0
-    bedd_2026_06_02_00|2026-06-02 00:00:00|18.0
-    bedd_2026_06_03_00|2026-06-03 00:00:00|38.0
+    bedd_2026_06_01|2026-06-01 00:00:00|6.0
+    bedd_2026_06_02|2026-06-02 00:00:00|18.0
+    bedd_2026_06_03|2026-06-03 00:00:00|38.0
     ```
 
     ```python
@@ -653,9 +666,9 @@ method `huglin` takes the mean of `avg` and `max`, minus 10: 10,
 
     ```text
     name|start_time|max
-    huglin_2026_06_01_00|2026-06-01 00:00:00|10.0
-    huglin_2026_06_02_00|2026-06-02 00:00:00|26.0
-    huglin_2026_06_03_00|2026-06-03 00:00:00|58.5
+    huglin_2026_06_01|2026-06-01 00:00:00|10.0
+    huglin_2026_06_02|2026-06-02 00:00:00|26.0
+    huglin_2026_06_03|2026-06-03 00:00:00|58.5
     ```
 
 ### Restart the accumulation in cycles
@@ -1624,10 +1637,10 @@ the mean of each is 1, so the sums are 1 and 2. The second cycle begins on
 
     ```text
     name|start_time|end_time|max
-    months_2001_01_01|2001-01-01 00:00:00|2001-02-01 00:00:00|1.0
-    months_2001_02_01|2001-02-01 00:00:00|2001-03-01 00:00:00|2.0
-    months_2001_03_01|2001-03-01 00:00:00|2001-04-01 00:00:00|1.0
-    months_2001_04_01|2001-04-01 00:00:00|2001-05-01 00:00:00|2.0
+    months_2001_01|2001-01-01 00:00:00|2001-02-01 00:00:00|1.0
+    months_2001_02|2001-02-01 00:00:00|2001-03-01 00:00:00|2.0
+    months_2001_03|2001-03-01 00:00:00|2001-04-01 00:00:00|1.0
+    months_2001_04|2001-04-01 00:00:00|2001-05-01 00:00:00|2.0
     ```
 
 === "Python (grass.tools)"
@@ -1682,10 +1695,10 @@ the mean of each is 1, so the sums are 1 and 2. The second cycle begins on
 
     ```text
     name|start_time|end_time|max
-    months_2001_01_01|2001-01-01 00:00:00|2001-02-01 00:00:00|1.0
-    months_2001_02_01|2001-02-01 00:00:00|2001-03-01 00:00:00|2.0
-    months_2001_03_01|2001-03-01 00:00:00|2001-04-01 00:00:00|1.0
-    months_2001_04_01|2001-04-01 00:00:00|2001-05-01 00:00:00|2.0
+    months_2001_01|2001-01-01 00:00:00|2001-02-01 00:00:00|1.0
+    months_2001_02|2001-02-01 00:00:00|2001-03-01 00:00:00|2.0
+    months_2001_03|2001-03-01 00:00:00|2001-04-01 00:00:00|1.0
+    months_2001_04|2001-04-01 00:00:00|2001-05-01 00:00:00|2.0
     ```
 
 ### Use datasets of another mapset

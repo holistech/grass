@@ -458,13 +458,16 @@ def run_accumulation(
         gs.fatal(_("Error running r.series.accumulate"))
 
 
-def new_map_names(input_strds, gran_list, count, *, reverse, base, time_suffix):
+def new_map_names(gran_list, count, *, granularity, reverse, base, time_suffix):
     """Name the new maps of one cycle in the order of the computation
 
-    gran_lists are the granules of the cycle after relate_granules(). Returns
+    gran_list are the granules of the cycle after relate_granules(). Returns
     a list of (index of the granule, name of its map) for each granule with
     input maps, the first map numbered count. The number follows the order of
-    the computation, which the flag reverse turns around.
+    the computation, which the flag reverse turns around. The suffix gran
+    cuts the start of a granule to the unit of granularity, the step of the
+    output: cut to the unit of the input, granules of a day on a monthly
+    series would share the name of their month.
     """
     names = []
     num_maps = len(gran_list)
@@ -473,26 +476,27 @@ def new_map_names(input_strds, gran_list, count, *, reverse, base, time_suffix):
         granule = gran_list[index]
         if len(granule_input_maps(granule)) == 0:
             continue
-        suffix = tgis.map_name_suffix(
-            granule, time_suffix, input_strds.get_granularity(), count
-        )
+        suffix = tgis.map_name_suffix(granule, time_suffix, granularity, count)
         names.append((index, f"{base}_{suffix}"))
         count += 1
     return names
 
 
-def check_new_maps(cycles, input_strds, output_strds, mapset, dbif):
+def check_new_maps(cycles, time_suffix, output_strds, mapset, dbif):
     """Refuse the names that the accumulation cannot use, before it writes
 
     cycles holds one tuple per cycle, its list of granules and the names of
-    new_map_names(). A name that more than one granule gets is refused, as
-    the suffix gran cuts the start of a granule to the unit of the
-    granularity of the input dataset: a granularity of one day on a monthly
-    series gives every day of a month the name of the month. A new map that
-    is registered in the temporal database is refused unless overwrite is set,
-    and then only if it belongs to the old output dataset, so that the maps
-    of another dataset survive. Checked here, not when each map is made, so
-    that a refusal leaves no map behind.
+    new_map_names(). A name that two granules get is refused. Within one
+    cycle the names differ, since gran cuts the start to the largest unit of
+    the granularity and the granules lie at least one such unit apart. Across
+    cycles they can repeat: when a negative offset makes the cycles overlap,
+    or when a cycle is shorter than the unit that gran cuts to, as a cycle of
+    36 hours with granules of one day.
+    Without overwrite a new map that exists as a raster or is registered in
+    the temporal database is refused. With overwrite a registered map is
+    refused only if it belongs to another dataset than the old output, so
+    that the maps of another dataset survive. Checked here, not when each map
+    is made, so that a refusal leaves no map behind.
     """
     granule_of = {}
     for gran_list, names in cycles:
@@ -501,12 +505,17 @@ def check_new_maps(cycles, input_strds, output_strds, mapset, dbif):
                 dbif.close()
                 gs.fatal(
                     _(
-                        "The suffix gran gives more than one granule the map "
-                        "name <{name}>: it cuts the start time to the unit of "
-                        "the granularity <{granularity}> of the input "
-                        "dataset. Use a granularity of the accumulation as "
-                        "long as that of the input dataset, or another suffix."
-                    ).format(name=name, granularity=input_strds.get_granularity())
+                        "The granules starting at <{first}> and <{second}> get "
+                        "the same map name <{name}> from the suffix {suffix}. "
+                        "Use the suffix num, or change the cycle, the "
+                        "granularity or the offset so that no two granules "
+                        "start in the same unit of time."
+                    ).format(
+                        first=granule_of[name].get_temporal_extent_as_tuple()[0],
+                        second=gran_list[index].get_temporal_extent_as_tuple()[0],
+                        name=name,
+                        suffix=time_suffix,
+                    )
                 )
             granule_of[name] = gran_list[index]
     for name, granule in granule_of.items():
@@ -537,6 +546,17 @@ def check_new_maps(cycles, input_strds, output_strds, mapset, dbif):
                         output=output_strds.get_id(),
                     )
                 )
+        # The temporal database knows only registered maps; r.series.accumulate
+        # would stop at a raster of another origin only when it reaches its
+        # granule, after the earlier granules wrote their maps.
+        new_id = granule.build_id(name, mapset)
+        if not gs.overwrite() and granule.get_new_instance(new_id).map_exists():
+            dbif.close()
+            gs.fatal(
+                _(
+                    "Raster map <{}> exists. To overwrite, use the --overwrite flag."
+                ).format(new_id)
+            )
 
 
 def accumulate_granules(
@@ -650,9 +670,22 @@ def main():
     # the run cannot use is refused with nothing written.
     count = 1
     cycles = []
-    for cycle_start, cycle_end in tgis.dataset_cycles(
-        input_strds, start, end, stop=stop, cycle=cycle, offset=offset, dbif=dbif
-    ):
+    try:
+        cycle_times = list(
+            tgis.dataset_cycles(
+                input_strds,
+                start,
+                end,
+                stop=stop,
+                cycle=cycle,
+                offset=offset,
+                dbif=dbif,
+            )
+        )
+    except ValueError as error:
+        dbif.close()
+        gs.fatal(str(error))
+    for cycle_start, cycle_end in cycle_times:
         where = "start_time >= '%s' AND start_time < '%s'" % (
             str(cycle_start),
             str(cycle_end),
@@ -666,9 +699,9 @@ def main():
         gran_lists = granules(input_strds, cycle_start, cycle_end, granularity, count)
         relate_granules(gran_lists, input_maps, lower_strds, upper_strds, dbif)
         names = new_map_names(
-            input_strds,
             gran_lists[0],
             count,
+            granularity=granularity,
             reverse=reverse,
             base=base,
             time_suffix=time_suffix,
@@ -677,7 +710,7 @@ def main():
         count += len(names)
     check_new_maps(
         [(gran_lists[0], names) for _s, _e, gran_lists, names in cycles if names],
-        input_strds,
+        time_suffix,
         output_strds,
         mapset,
         dbif,
