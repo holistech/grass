@@ -23,9 +23,12 @@ from grass.temporal.testing.session import (
 from grass.tools import ToolError, Tools
 
 # What a tool prints when the mapset of a dataset has no accessible database
-# (db.py, _create_mapset_error_message()); of the mapsets in the search path of
-# the tests only the current mapset has a temporal database.
-REFUSAL = "Accessible mapsets are: <second>"
+# (db.py, _create_mapset_error_message()). It lists no accessible mapsets,
+# because any mapset of the project with a temporal database is readable.
+REFUSAL = (
+    "You have no permission to access mapset <nodb>, or mapset <nodb> has no"
+    " temporal database."
+)
 
 
 @pytest.fixture(scope="module")
@@ -233,8 +236,8 @@ def test_mapset_without_temporal_database_is_refused(tools, tool, tmp_path):
         run(tools, tool, tmp_path, mapset="nodb")
 
     assert error.value.returncode == 1
-    assert "mapset <nodb> has no temporal database" in message(error.value)
     assert REFUSAL in message(error.value)
+    assert "Accessible mapsets" not in message(error.value)
 
 
 def extract(tools, name):

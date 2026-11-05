@@ -710,8 +710,13 @@ def test_a_mapset_without_a_database_is_refused_by_name(call, text):
         call(dbif, "nosuchmapset")
     message = str(error.value)
     assert f"Unable to {text}." in message
-    assert "<nosuchmapset>" in message
-    assert "Accessible mapsets are:" in message
+    assert (
+        "You have no permission to access mapset <nosuchmapset>, or mapset"
+        " <nosuchmapset> has no temporal database." in message
+    )
+    # Any mapset of the project with a temporal database is readable, so the
+    # message lists none.
+    assert "Accessible mapsets" not in message
 
 
 class NamedColumnRow(list):

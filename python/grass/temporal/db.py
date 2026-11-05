@@ -389,11 +389,13 @@ class SQLDatabaseInterfaceConnection:
         ).execute_transaction(statement)
 
     def _create_mapset_error_message(self, mapset) -> str:
+        # No list of the accessible mapsets: _connection_of() adds any mapset
+        # of the project that has a temporal database, so the mapsets this
+        # connection holds so far are not the ones that could be read.
         return _(
             "You have no permission to access mapset <{mapset}>, or mapset"
             " <{mapset}> has no temporal database."
-            " Accessible mapsets are: <{mapsets}>"
-        ).format(mapset=decode(mapset), mapsets=",".join(self.tgis_mapsets.keys()))
+        ).format(mapset=decode(mapset))
 
 
 class DBConnection:
