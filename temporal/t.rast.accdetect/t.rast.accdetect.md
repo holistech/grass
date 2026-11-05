@@ -150,7 +150,10 @@ as a month with an offset of -29 days, ends with "The offset must not move the
 next cycle back to or before the start of this one". Two input maps that get
 one name, such as two maps of the same time with the suffix `gran`, are refused
 with "The maps `<map1>` and `<map2>` are given the same name `<name>` by the
-suffix gran. Use the suffix num or select maps of different times."
+suffix gran. Use the suffix num or select maps of different times." Daily maps
+that overlap and start at different times of the same day, such as one from
+10:30 and one from 14:30, have a granularity of one day, so `gran` gives them
+the same name as well; use the suffix `num` for them.
 
 If no map with values is computed for an output, the tool warns, for example
 "No map with values was computed in any cycle. No space time dataset `<name>`

@@ -367,3 +367,67 @@ def test_gran_suffix_of_maps_at_the_same_time_of_day_names_the_day(tools, prefix
         f"{prefix}_b_2026_06_01",
         f"{prefix}_b_2026_06_11",
     ]
+
+
+def test_gran_suffix_of_overlapping_maps_of_one_day_is_refused(tools, prefix):
+    """Daily maps from 10:30 and from 14:30 of the same day share a gran name
+
+    Maps that overlap get the granularity from their durations alone, so the
+    three maps have "1 day" and gran names them by the day; before 05.11.2026
+    it was "1440 minutes" and the names ended with the time of day. The run is
+    refused before the first map, and the suffix num, which the message points
+    to, goes through.
+    """
+    small_region(tools, 1, 1)
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [
+            MapSpec(
+                f"{prefix}_c1",
+                20,
+                datetime(2026, 6, 1, 10, 30),
+                datetime(2026, 6, 2, 10, 30),
+            ),
+            MapSpec(
+                f"{prefix}_c2",
+                20,
+                datetime(2026, 6, 1, 14, 30),
+                datetime(2026, 6, 2, 14, 30),
+            ),
+            MapSpec(
+                f"{prefix}_c3",
+                20,
+                datetime(2026, 6, 2, 10, 30),
+                datetime(2026, 6, 3, 10, 30),
+            ),
+        ],
+    )
+    arguments = {
+        "input": f"{prefix}_in",
+        "start": "2026-06-01",
+        "cycle": "10 days",
+        "basename": f"{prefix}_b",
+        "occurrence": f"{prefix}_occ",
+        "range": "10,50",
+    }
+    before = inventory(tools)
+
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_accdetect(**arguments)
+
+    text = message(error.value)
+    assert (
+        f"The maps <{prefix}_c1@PERMANENT> and <{prefix}_c2@PERMANENT> are given "
+        f"the same name <{prefix}_b_2026_06_01@PERMANENT> by the suffix gran" in text
+    )
+    assert "Use the suffix num" in text
+    assert inventory(tools) == before
+
+    tools.t_rast_accdetect(suffix="num", **arguments)
+    assert [row.name for row in list_maps(tools, "strds", f"{prefix}_occ")] == [
+        f"{prefix}_b_00001",
+        f"{prefix}_b_00002",
+        f"{prefix}_b_00003",
+    ]
