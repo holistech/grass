@@ -121,11 +121,11 @@ def test_dataset_name_prefix_of_other(tools):
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [
-        # r3.mapcalc gives null for "@" on a 3D raster (measured 2026-11-05
-        # with r3.mapcalc directly, labels copied with r3.support), so the
-        # test asks only that the name after "@" is a map: both branches
-        # give the value 2.
+        # The name after "@" is replaced by the map of the granule; both
+        # branches give its value 2.
         ("if(isnull(@{ds}), {ds}, {ds})", 2.0),
+        # The label 7.5 of the category 2, copied with r3.support
+        ("@{ds}", 7.5),
         # The grey value of the colour 100:100:100
         ("#{ds} * 1", 100.0),
     ],
