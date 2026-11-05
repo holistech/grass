@@ -267,15 +267,15 @@ project that has a temporal database. The mapset does not have to be in the
 search path. A name without a mapset is searched by <em>t.rast.list</em>, for
 example, in the current mapset first, then in the mapsets of the search path
 in their order, and is not found if the dataset lies in a mapset outside the
-search path. Some tools, such as <em>t.info</em>, look for a name without a mapset
-only in the current mapset; give them <code>name@mapset</code>. <em>t.rast.accdetect</em>,
-<em>t.rast.mapcalc</em> and <em>t.rast3d.mapcalc</em> read the maps of their input dataset
-through the search path, so for them the mapset must be in the search path
-even if <b>input</b> or <b>inputs</b> names the dataset with it. For the other
-tools, add the mapset with <em><a href="g.mapsets.html">g.mapsets</a></em> <code>operation=add</code>
-only if datasets of that mapset should be found by their name alone. A mapset
-that does not exist or has no temporal database is refused with an error. The
-last example of the <a href="#examples">EXAMPLES</a> shows both ways.
+search path. Some tools, such as <em>t.select</em>, <em>t.sample</em>, <em>t.rast.aggregate</em> and
+the algebra tools, look for a name without a mapset only in the current mapset;
+give them <code>name@mapset</code>. A tool that reads the maps of a dataset of another
+mapset, such as <em>t.rast.mapcalc</em>, <em>t.rast3d.mapcalc</em> and <em>t.rast.accdetect</em>,
+needs no entry in the search path for it. For the other tools, add the mapset
+with <em><a href="g.mapsets.html">g.mapsets</a></em> <code>operation=add</code> only if datasets of that
+mapset should be found by their name alone. A mapset that does not exist or has
+no temporal database is refused with an error. The last example of the
+<a href="#examples">EXAMPLES</a> shows both ways.
 
 <h2>Modules to visualize space-time datasets and temporal data</h2>
 
