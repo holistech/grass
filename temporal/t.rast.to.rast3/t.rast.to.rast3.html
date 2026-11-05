@@ -25,10 +25,12 @@ copied into each of them; the third example shows a map of two days in two
 layers. A step in which no map is registered, a gap of the dataset, becomes a
 layer without values (null cells). The layers run from the bottom upwards in
 the order of time. A time instant has no end; it gets one layer that starts at
-its time, so the cube of a dataset of time instants reaches one granularity
-beyond its time stamp, as the eighth example shows. A monthly series from the
-last day of a month (January 31, February 28, March 31) has the granularity of
-one month, so its cube has a layer per month.
+its time, so the cube of a dataset of time instants ends one granularity after
+the last instant, as the eighth example shows. A monthly series from the last
+day of a month (January 31, February 28, March 31) has the granularity of one
+month, so its cube has a layer per month. The maps of the dataset must not
+overlap, include each other or have the same time: the tool refuses such a
+dataset before it writes anything.
 
 <p>
 <b>Horizontal extent and resolution.</b> The cube covers the current
@@ -74,8 +76,9 @@ the alignment of cubes with different granularities. Cubes with the unit
 <p>
 The cube is registered as a 3D raster map in the temporal database, with the
 temporal type of the dataset and the start and end time of the dataset as its
-time stamp. For a dataset of time instants, the end is the time of the last
-instant. <em><a href="t.info.html">t.info</a></em> with <code>type=raster_3d</code> shows it. To convert only
+time stamp. For a dataset of time instants, the end is one granularity after
+the last instant, where the top of the cube is. <em><a href="t.info.html">t.info</a></em> with
+<code>type=raster_3d</code> shows it. To convert only
 some maps, select them into a dataset of their own with
 <em><a href="t.rast.extract.html">t.rast.extract</a></em>, as the seventh example shows.
 
@@ -95,6 +98,11 @@ relative time.</li>
 <li>The cube exists and <b>--overwrite</b> is not given: "<code>&lt;name&gt;</code> exists. To
 overwrite, use the --overwrite flag". With <b>--overwrite</b> the tool replaces
 the cube and its entry in the temporal database; the fourth example shows it.</li>
+<li>The maps overlap, include each other or have the same time: "The maps of the
+space time raster dataset <code>&lt;name@mapset&gt;</code> overlap, include each other or have
+the same time, so a layer cannot be assigned to one of them. See t.topology."
+The check is that of <em><a href="t.topology.html">t.topology</a></em>; a dataset with one map
+passes.</li>
 <li>The maps have different data types: "Input maps have to be from the same
 type. CELL, FCELL or DCELL!", followed by "Unable to create 3D raster map
 <code>&lt;name&gt;</code>".</li>
@@ -103,11 +111,10 @@ map <code>&lt;name&gt;</code>". The cube is not made.</li>
 </ul>
 
 <p>
-A dataset of time instants gives a cube that is one granularity taller than
-its time stamp: the cube of three daily instants has three layers and spans
-three days, but its time stamp in the temporal database ends at the last
-instant, two days after the start. Use maps with intervals if the time stamp
-of the cube has to match its layers.
+The cube of three daily instants has three layers and spans three days, and
+its time stamp in the temporal database ends three days after the start, one
+granularity after the last instant. The same holds for a series of instants in
+months and for one in relative time.
 
 <p>
 The gaps are filled with a temporary map of null cells. The tool removes it
@@ -122,6 +129,25 @@ is two days long.
 <p>
 A dataset of another mapset (<code>input=name@mapset</code>) is read like one of the
 current mapset. The 3D raster map is created in the current mapset.
+
+<h3>Management of open file limits</h3>
+
+<em>r.to.rast3</em> opens all maps of the dataset at the same time, so the number of
+maps that the tool can stack is limited by the per-user limit of open files of
+the operating system. With more maps, the tool stops with "Too many open
+files" from <em>r.to.rast3</em> and "Unable to create 3D raster map" and makes no
+cube. The soft limit can be raised with <code>ulimit -n 4096</code> (UNIX-based operating
+systems) up to the hard limit. If the hard limit is too low, a superuser can
+raise it with an entry in <code>/etc/security/limits.conf</code>:
+
+<div class="code"><pre>
+# &lt;domain&gt;      &lt;type&gt;  &lt;item&gt;         &lt;value&gt;
+your_username  hard    nofile          4096
+</pre></div>
+
+<p>
+The overall limit of the operating system is in <code>/proc/sys/fs/file-max</code>; on
+modern Linux systems it is several 100,000 files.
 
 <h2>EXAMPLES</h2>
 
@@ -835,13 +861,13 @@ start_time='2026-03-02 00:00:00'
 end_time='2026-03-04 00:00:00'
 </pre></div>
 
-<h3>Time instants reach beyond the time stamp</h3>
+<h3>Time instants</h3>
 
 The dataset <code>instants</code> holds three maps registered as time instants, March 1,
 2, and 3, without an end. Its granularity is one day. Each instant gets one
 layer, so the cube has three layers and spans the days from 46080 to 46083,
-three days. The time stamp of the cube ends at the last instant, March 3, one
-day before the top of the cube.
+three days. The time stamp of the cube ends one granularity after the last
+instant, on March 4, where the top of the cube is.
 
 <p>Command line:</p>
 
@@ -862,7 +888,7 @@ bottom=46080
 top=46083
 depths=3
 start_time='2026-03-01 00:00:00'
-end_time='2026-03-03 00:00:00'
+end_time='2026-03-04 00:00:00'
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -892,7 +918,7 @@ bottom=46080
 top=46083
 depths=3
 start_time='2026-03-01 00:00:00'
-end_time='2026-03-03 00:00:00'
+end_time='2026-03-04 00:00:00'
 </pre></div>
 
 <h3>Maps of different data types are refused</h3>

@@ -148,14 +148,32 @@ def set_cube_unit(output, unit):
         gs.warning(_("%s failed to set units.") % "r3.support")
 
 
-def register_cube(sp, output, mapset):
+def cube_end(sp, layers):
+    """The end of the cube: the end of sp, for time instants one step later
+
+    A time instant has no end, so the last one is the end of sp, but its layer
+    is one granularity thick and the cube reaches that far beyond it. The end
+    is then the time of the top of the cube, layers steps of the granularity
+    after the start. Maps with an interval end where their last layer ends.
+    """
+    start, end = sp.get_temporal_extent_as_tuple()
+    if sp.get_map_time() != "point":
+        return end
+    if sp.is_time_absolute():
+        return tgis.datetime_after_steps(start, sp.get_granularity(), layers)
+    return start + sp.get_granularity() * layers
+
+
+def register_cube(sp, output, mapset, layers):
     """Register the 3D map in the temporal database with the extent of sp
 
-    An entry of the same name is replaced.
+    The cube ends where its top is, see cube_end(); layers is the number of
+    its layers. An entry of the same name is replaced.
     """
     id = output if output.find("@") >= 0 else output + "@" + mapset
 
-    start, end = sp.get_temporal_extent_as_tuple()
+    start = sp.get_temporal_extent_as_tuple()[0]
+    end = cube_end(sp, layers)
     r3ds = tgis.Raster3DDataset(id)
 
     if r3ds.is_in_db():
@@ -194,6 +212,18 @@ def main():
     if not sp.metadata.get_number_of_maps():
         gs.fatal(_("Space time raster dataset <{}> is empty").format(sp.get_id()))
 
+    # The maps of one layer are told apart by their time. Maps that overlap,
+    # include each other or have the same time compete for a layer, so they
+    # are refused before anything is written.
+    if sp.metadata.get_number_of_maps() > 1 and not sp.check_temporal_topology():
+        gs.fatal(
+            _(
+                "The maps of the space time raster dataset <{}> overlap, "
+                "include each other or have the same time, so a layer cannot "
+                "be assigned to one of them. See t.topology."
+            ).format(sp.get_id())
+        )
+
     gs.use_temp_region()
 
     maps = sp.get_registered_maps_as_objects_by_granularity()
@@ -214,7 +244,7 @@ def main():
         gs.run_command("g.remove", flags="f", type="raster", name=null_map)
 
     set_cube_unit(output, unit)
-    register_cube(sp, output, mapset)
+    register_cube(sp, output, mapset, num_maps)
 
 
 if __name__ == "__main__":
