@@ -227,13 +227,12 @@ def test_the_methods_as_a_comma_separated_string(datasets):
     assert as_text == matrix_of(sample("inp", ["equal", "start"], False))
 
 
-def test_equal_time_is_not_found_by_start(datasets):
+def test_equal_time_is_found_by_start(datasets):
     """The method "start" finds the map of the same time as the granule
 
-    The name is historical: it stems from the time when "start" missed a map
-    of equal time. The granule s1 and the map a are equal. "equal" lists a,
-    and "start" lists it after b, which s1 contains, because equal is the
-    last relation of the group.
+    The granule s1 and the map a are equal. "equal" lists a, and "start" lists
+    it after b, which s1 contains, because equal is the last relation of the
+    group.
     """
     equal = sample(["inp"], ["equal"], False)[0][0]["samples"]
     start = sample(["inp"], ["start"], False)[0][0]["samples"]

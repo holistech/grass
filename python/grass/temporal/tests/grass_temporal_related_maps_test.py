@@ -57,12 +57,11 @@ def test_method_names_map_to_relations_without_inverse():
     assert union(["equal", "during"]) == equal | during
 
 
-def test_start_method_omits_equal():
+def test_start_method_keeps_equal():
     """The 'start' union holds equal, so the method matches a map of equal time
 
-    The name is historical: it stems from the time when the union omitted
-    equal, as sample_by_dataset() still does (its EQUALS key is never filed).
-    The test now checks that the union holds equal as its last relation.
+    Equal is the last relation of the union. sample_by_dataset() still omits
+    it (its EQUALS key is never filed).
     """
     rel = union(["start"])
     assert rel.temporal == {
