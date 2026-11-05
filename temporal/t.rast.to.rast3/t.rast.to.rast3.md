@@ -105,6 +105,9 @@ one short map or one short gap has a small granularity and so a cube with many
 layers: the layers of the third example are one day thick although one map
 is two days long.
 
+A dataset of another mapset (`input=name@mapset`) is read like one of the
+current mapset. The 3D raster map is created in the current mapset.
+
 ## EXAMPLES
 
 The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
