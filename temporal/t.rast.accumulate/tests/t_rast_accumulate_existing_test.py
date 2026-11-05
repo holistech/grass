@@ -96,12 +96,11 @@ def test_a_result_map_that_is_registered_elsewhere_is_not_replaced(tools, taken)
     assert stds_info(tools, "strds", f"{taken}_ds")["number_of_maps"] == 1
 
 
-def test_overwrite_replaces_a_result_map_that_is_registered_elsewhere(tools, taken):
+def test_overwrite_keeps_a_result_map_that_is_registered_elsewhere(tools, taken):
     """Check that overwrite leaves a map of another dataset alone
 
-    The name says "replaces" from the time before the rule that overwrite replaces
-    only maps of the old output dataset. The test now checks the refusal and that
-    the other dataset keeps its map.
+    Overwrite replaces only maps of the old output dataset: the run is refused
+    and the other dataset keeps its map.
     """
     with pytest.raises(ToolError) as error:
         _run(tools, taken, input="ex_ones", cycle="3 days", overwrite=True)
