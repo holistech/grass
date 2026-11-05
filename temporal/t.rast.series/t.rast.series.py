@@ -137,8 +137,15 @@ def main():
         gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
     # A warning, not an error, so that a script that computes possibly empty
-    # selections keeps running; t.rast.aggregate stops with the same text.
-    if not rows:
+    # selections keeps running. It names the where condition when there is
+    # one, because the dataset itself may have maps.
+    if not rows and where:
+        gs.warning(
+            _(
+                "The where condition selects no map of space time raster dataset <{}>"
+            ).format(sp.get_id())
+        )
+    elif not rows:
         gs.warning(_("Space time raster dataset <{}> is empty").format(sp.get_id()))
     else:
         # Create the r.series input file

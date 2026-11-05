@@ -125,6 +125,7 @@
   "The unit <{sampler_unit}> of the aggregation dataset <{sampler}> differs from the unit <{unit}> of the input dataset <{input}>",
   "The upper limit must be above the lower limit",
   "The upper option works only in conjunction with the lower option",
+  "The where condition selects no map of space time raster dataset <{}>",
   "The where option cannot be used with vector map <{vector}>: it has the layers {layers} besides layer 1 and the selection would drop them",
   "The where option selects no point of vector map <{}>",
   "This space time voxel cube was created with t.rast.to.rast3",
