@@ -100,6 +100,13 @@ begins with "Invalid where condition".
 The flag <b>-t</b> of earlier releases, which had no effect, was removed; the
 parser refuses it.
 
+<p>
+A dataset of another mapset is refused before any gap is looked for, also if it
+has none, with the message "Unable to register maps in the space time dataset
+<code>&lt;name@mapset&gt;</code>. The mapset of the dataset does not match the current mapset".
+The interpolated maps would be made in the current mapset but could not be
+registered in a dataset of another one, so the tool makes none.
+
 <h2>EXAMPLES</h2>
 
 The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from

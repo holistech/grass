@@ -279,6 +279,18 @@ def main():
     dbif.connect()
 
     sp = tgis.open_old_stds(input, "strds")
+    # The maps are registered in the dataset at the end, which only a dataset
+    # of the current mapset allows. Refusing it here leaves no interpolated
+    # map without an entry in the temporal database.
+    if sp.get_mapset() != mapset:
+        dbif.close()
+        gs.fatal(
+            _(
+                "Unable to register maps in the space time dataset <{name}>. "
+                "The mapset of the dataset does not match the current "
+                "mapset"
+            ).format(name=sp.get_id())
+        )
 
     maps = maps_with_gaps(sp, where, dbif)
     check_instants(sp, maps, dbif)

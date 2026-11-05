@@ -88,6 +88,12 @@ begins with "Invalid where condition".
 The flag **-t** of earlier releases, which had no effect, was removed; the
 parser refuses it.
 
+A dataset of another mapset is refused before any gap is looked for, also if it
+has none, with the message "Unable to register maps in the space time dataset
+`<name@mapset>`. The mapset of the dataset does not match the current mapset".
+The interpolated maps would be made in the current mapset but could not be
+registered in a dataset of another one, so the tool makes none.
+
 ## EXAMPLES
 
 The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
