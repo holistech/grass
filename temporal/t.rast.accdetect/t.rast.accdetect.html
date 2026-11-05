@@ -130,9 +130,10 @@ of the computation, over all cycles.</li>
 <h2>NOTES</h2>
 
 The new datasets and maps are created in the current mapset. The last example
-reads an input dataset of another mapset, <code>input=gdd@t_rast_accdetect</code>. The tool
-reads the maps of the input dataset through the search path, so the mapset of
-the input dataset must be in the search path or be the current mapset (see
+reads an input dataset of another mapset, <code>input=gdd@t_rast_accdetect</code>. The
+input and the datasets of <b>minimum</b> and <b>maximum</b> are read from any mapset
+of the project that has a temporal database; a name without a mapset is searched
+in the current mapset first, then in the search path (see
 <a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other mapsets</a>).
 
 <p>
@@ -975,18 +976,15 @@ print(tools.t_rast_what(strds="occ_noon", coordinates=points, layout="col").text
 
 The new mapset <code>t_rast_accdetect_2</code> has no dataset of its own and starts with
 the default region of the sample dataset, so the second command sets the region
-as before. The example adds the mapset <code>t_rast_accdetect</code> to the search path of
-mapsets and names the input <code>gdd@t_rast_accdetect</code>; the new maps and the new
-dataset are created in <code>t_rast_accdetect_2</code>, as the column <code>mapset</code> shows. The
-mapset is added because the tool reads the maps of the input dataset through the
-search path (see <a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other mapsets</a>).
+as before. The input is named <code>gdd@t_rast_accdetect</code>, which needs no entry in the
+search path; the new maps and the new dataset are created in
+<code>t_rast_accdetect_2</code>, as the column <code>mapset</code> shows.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
 g.mapset -c mapset=t_rast_accdetect_2
 g.region raster=elev_state_500m res=1000 -a
-g.mapsets mapset=t_rast_accdetect operation=add
 t.rast.accdetect input=gdd@t_rast_accdetect occurrence=occ_copy \
     basename=occ_copy start=2026-03-01 cycle="4 days" range=8,25
 t.rast.list input=occ_copy columns=name,mapset,start_time
@@ -1007,7 +1005,6 @@ occ_copy_2026_03_08|t_rast_accdetect_2|2026-03-08 00:00:00
 <div class="code"><pre>
 tools.g_mapset(flags="c", mapset="t_rast_accdetect_2")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-tools.g_mapsets(mapset="t_rast_accdetect", operation="add")
 tools.t_rast_accdetect(
     input="gdd@t_rast_accdetect",
     occurrence="occ_copy",

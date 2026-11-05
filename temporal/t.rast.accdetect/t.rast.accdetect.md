@@ -117,9 +117,10 @@ The option **suffix** selects the suffix:
 ## NOTES
 
 The new datasets and maps are created in the current mapset. The last example
-reads an input dataset of another mapset, `input=gdd@t_rast_accdetect`. The tool
-reads the maps of the input dataset through the search path, so the mapset of
-the input dataset must be in the search path or be the current mapset (see
+reads an input dataset of another mapset, `input=gdd@t_rast_accdetect`. The
+input and the datasets of **minimum** and **maximum** are read from any mapset
+of the project that has a temporal database; a name without a mapset is searched
+in the current mapset first, then in the search path (see
 [Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)).
 
 An existing **occurrence** or **indicator** dataset stops the run before any
@@ -956,18 +957,15 @@ maps take the upper bound 25 from **range**. The sum 24 of the third cell on
 
 The new mapset `t_rast_accdetect_2` has no dataset of its own and starts with
 the default region of the sample dataset, so the second command sets the region
-as before. The example adds the mapset `t_rast_accdetect` to the search path of
-mapsets and names the input `gdd@t_rast_accdetect`; the new maps and the new
-dataset are created in `t_rast_accdetect_2`, as the column `mapset` shows. The
-mapset is added because the tool reads the maps of the input dataset through the
-search path (see [Datasets of other mapsets](temporalintro.md#datasets-of-other-mapsets)).
+as before. The input is named `gdd@t_rast_accdetect`, which needs no entry in the
+search path; the new maps and the new dataset are created in
+`t_rast_accdetect_2`, as the column `mapset` shows.
 
 === "Command line"
 
     ```sh
     g.mapset -c mapset=t_rast_accdetect_2
     g.region raster=elev_state_500m res=1000 -a
-    g.mapsets mapset=t_rast_accdetect operation=add
     t.rast.accdetect input=gdd@t_rast_accdetect occurrence=occ_copy \
         basename=occ_copy start=2026-03-01 cycle="4 days" range=8,25
     t.rast.list input=occ_copy columns=name,mapset,start_time
@@ -988,7 +986,6 @@ search path (see [Datasets of other mapsets](temporalintro.md#datasets-of-other-
     ```python
     tools.g_mapset(flags="c", mapset="t_rast_accdetect_2")
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
-    tools.g_mapsets(mapset="t_rast_accdetect", operation="add")
     tools.t_rast_accdetect(
         input="gdd@t_rast_accdetect",
         occurrence="occ_copy",

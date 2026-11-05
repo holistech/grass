@@ -122,9 +122,9 @@
 import grass.script as gs
 
 
-def open_input(input_name, mapset, dbif):
+def open_input(input_name, dbif):
     """Open the input dataset and read it from the database"""
-    id = input_name if input_name.find("@") >= 0 else input_name + "@" + mapset
+    id = tgis.open_stds.find_stds_id(input_name, "strds", dbif)
     input_strds = tgis.SpaceTimeRasterDataset(id)
 
     if not input_strds.is_in_db():
@@ -204,7 +204,7 @@ def open_indicator(indicator, staend, mapset, dbif):
     return indicator_strds, (int(staend[0]), int(staend[1]), int(staend[2]))
 
 
-def open_thresholds(input_strds, minimum, maximum, mapset, dbif):
+def open_thresholds(input_strds, minimum, maximum, dbif):
     """Open the threshold datasets of the options minimum and maximum
 
     Returns both, None for an option that is not given. A dataset that does
@@ -212,7 +212,7 @@ def open_thresholds(input_strds, minimum, maximum, mapset, dbif):
     """
     minimum_strds = None
     if minimum:
-        minimum_id = minimum if minimum.find("@") >= 0 else minimum + "@" + mapset
+        minimum_id = tgis.open_stds.find_stds_id(minimum, "strds", dbif)
 
         minimum_strds = tgis.SpaceTimeRasterDataset(minimum_id)
         if not minimum_strds.is_in_db():
@@ -229,7 +229,7 @@ def open_thresholds(input_strds, minimum, maximum, mapset, dbif):
 
     maximum_strds = None
     if maximum:
-        maximum_id = maximum if maximum.find("@") >= 0 else maximum + "@" + mapset
+        maximum_id = tgis.open_stds.find_stds_id(maximum, "strds", dbif)
 
         maximum_strds = tgis.SpaceTimeRasterDataset(maximum_id)
         if not maximum_strds.is_in_db():
@@ -384,10 +384,12 @@ def compute_occurrence(
         max = range_vals[1]
 
         if minimum_strds:
-            min = tgis.first_related_map_id(input_maps_minimum[index]) or min
+            found = tgis.first_related_map_id(input_maps_minimum[index])
+            min = tgis.tool_steps.mapcalc_name(found) if found else min
 
         if maximum_strds:
-            max = tgis.first_related_map_id(input_maps_maximum[index]) or max
+            found = tgis.first_related_map_id(input_maps_maximum[index])
+            max = tgis.tool_steps.mapcalc_name(found) if found else max
 
         for bound, name in ((min, "minimum"), (max, "maximum")):
             if bound is None:
@@ -399,9 +401,9 @@ def compute_occurrence(
 
         expression = "%s = if(%s > %s && %s < %s, %s, null())" % (
             occurrence_map_name,
-            map.get_name(),
+            tgis.tool_steps.mapcalc_name(map.get_id()),
             min,
-            map.get_name(),
+            tgis.tool_steps.mapcalc_name(map.get_id()),
             max,
             days,
         )
@@ -534,14 +536,12 @@ def main():
 
     mapset = tgis.get_current_mapset()
 
-    input_strds = open_input(input, mapset, dbif)
+    input_strds = open_input(input, dbif)
     occurrence_strds = open_occurrence(
         occurrence, minimum, maximum, range_, mapset, dbif
     )
     indicator_strds, staend = open_indicator(indicator, staend, mapset, dbif)
-    minimum_strds, maximum_strds = open_thresholds(
-        input_strds, minimum, maximum, mapset, dbif
-    )
+    minimum_strds, maximum_strds = open_thresholds(input_strds, minimum, maximum, dbif)
     check_lengths(input_strds, cycle, offset, dbif)
     start, stop = read_start_and_stop(input_strds, start, stop, dbif)
     end, cycle, offset = first_cycle(input_strds, start, cycle, offset, dbif)
