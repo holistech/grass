@@ -40,7 +40,7 @@
 # %option
 # % key: granularity
 # % type: string
-# % description: Aggregation granularity, format absolute time "x years, x months, x weeks, x days, x hours, x minutes, x seconds" or an integer value for relative time
+# % description: Aggregation granularity: for absolute time one number and one unit, such as "1 months" or "2 weeks" (years, months, weeks, days, hours, minutes, seconds); for relative time an integer in the unit of the dataset
 # % required: yes
 # % multiple: no
 # %end

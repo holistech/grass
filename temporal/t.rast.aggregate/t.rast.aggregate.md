@@ -25,13 +25,16 @@ all maps are used.
 
 The option **granularity** gives the length of a granule. In absolute time it
 is one number and one unit, for instance `1 months` or `12 hours`; the units
-are `seconds`, `minutes`, `hours`, `days`, `weeks`, `months` and `years`.
-In relative time it is an integer, counted in the unit of the input dataset.
+are `seconds`, `minutes`, `hours`, `days`, `weeks`, `months` and `years`. A
+form with several units, such as `1 months, 5 days`, is refused. In relative
+time it is an integer, counted in the unit of the input dataset.
 
 The first granule starts at the start of the first selected map, moved back to
 the beginning of the unit of the granularity: a year to 1 January, a month to
-the first of the month, a day to 00:00:00, an hour to the full hour, a minute
-to the full minute. The fourth example shows this for each unit. The grid ends
+the first of the month, a week to 00:00:00 on the Monday on or before the map,
+which may lie in the month or the year before, a day to 00:00:00, an hour to
+the full hour, a minute to the full minute. The fourth example shows this for
+each unit. The grid ends
 with the granule that holds the end of the last map, or the last map itself if
 it is a time instant.
 
@@ -142,19 +145,15 @@ Wrong input stops the tool with a message before anything is written:
 - In absolute time, a **granularity** with another unit ("Wrong granularity
   format: 1 fortnight") or with a fraction ("Cannot read '1.5 days' as a time
   step"); without a unit, as in `2`, the message is "Invalid granularity
-  `<2>`".
+  `<2>`", and with several units, as in `1 months, 5 days`, it is "Invalid
+  granularity `<1 months, 5 days>`".
 - In relative time, a **granularity** that is not an integer ("Invalid
   granularity `<1.5>`") or not positive ("The granularity 0 must be
   positive").
 
-For **granularity** in `weeks`, the start of the first granule is wrong when
-the first selected map starts in the first days of a month: when the day of
-its month is not greater than the number of its weekday, counted from Monday
-as 0. The first granule then starts after that map and does not contain it.
-If no other map is related to a granule, the tool warns and creates no dataset;
-the fourth example shows this. With `granularity="7 days"`, the first granule
-starts at 00:00:00 on the day of the first map, so the granules are not tied to
-Mondays.
+With `granularity="7 days"`, the first granule starts at 00:00:00 on the day
+of the first map, so the granules are not tied to Mondays; the fourth example
+shows both.
 
 ## EXAMPLES
 
@@ -528,11 +527,9 @@ With minutes, the first instant (12:30:45) lies in the granule from 12:30 and
 the other two (12:31:10 and 12:31:35) in the granule from 12:31, so there are
 two granules. **method** `maximum` gives the strongest gust of each granule.
 
-The third block shows the trap of the weeks. The dataset `frost` holds one
-map of a night frost at 3 January 2026, a Saturday, which has the weekday
-number 5 and lies on the 3rd, a day not greater than 5. The tool warns that no
-map is related to any granule, because the first granule starts after the
-map, and creates no dataset, as the list of the datasets shows; with
+The third block shows a week that begins in the year before. The dataset
+`frost` holds one map of a night frost at 3 January 2026, a Saturday. The week
+granule starts on the Monday before, 29 December 2025, and holds the map; with
 `7 days`, the granule starts on the day of the map.
 
 === "Command line"
@@ -585,17 +582,17 @@ map, and creates no dataset, as the list of the datasets shows; with
     t.register input=frost maps=frost_1 start=2026-01-03
     t.rast.aggregate input=frost output=frost_weeks basename=frost_weeks \
         granularity="1 weeks" method=sum
+    t.rast.list input=frost_weeks columns=name,start_time,end_time
     t.rast.aggregate input=frost output=frost_days basename=frost_days \
         granularity="7 days" method=sum
     t.rast.list input=frost_days columns=name,start_time,end_time
-    t.list type=strds columns=name where="name LIKE 'frost%'"
     ```
 
     ```text
     name|start_time|end_time
+    frost_weeks_2025_12_29|2025-12-29 00:00:00|2026-01-05 00:00:00
+    name|start_time|end_time
     frost_days_2026_01_03|2026-01-03 00:00:00|2026-01-10 00:00:00
-    frost
-    frost_days
     ```
 
 === "Python (grass.tools)"
@@ -677,6 +674,9 @@ map, and creates no dataset, as the list of the datasets shows; with
         granularity="1 weeks",
         method="sum",
     )
+    print(
+        tools.t_rast_list(input="frost_weeks", columns="name,start_time,end_time").text
+    )
     tools.t_rast_aggregate(
         input="frost",
         output="frost_days",
@@ -685,14 +685,13 @@ map, and creates no dataset, as the list of the datasets shows; with
         method="sum",
     )
     print(tools.t_rast_list(input="frost_days", columns="name,start_time,end_time").text)
-    print(tools.t_list(type="strds", columns="name", where="name LIKE 'frost%'").text)
     ```
 
     ```text
     name|start_time|end_time
+    frost_weeks_2025_12_29|2025-12-29 00:00:00|2026-01-05 00:00:00
+    name|start_time|end_time
     frost_days_2026_01_03|2026-01-03 00:00:00|2026-01-10 00:00:00
-    frost
-    frost_days
     ```
 
 ### Choose the maps of a granule
