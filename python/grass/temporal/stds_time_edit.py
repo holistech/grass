@@ -291,9 +291,26 @@ def update_map_timestamps(stds, maps, date_list, dbif) -> None:
     """
     # A dict keeps the order, in which the datasets of the maps are met
     datasets_to_modify = {}
-    for map_, (start, end) in zip(maps, date_list, strict=True):
+    for map_ in maps:
         map_.select(dbif)
+        datasets_to_modify.update(dict.fromkeys(map_.get_registered_stds(dbif) or []))
 
+    # With TGIS_DISABLE_MAPSET_CHECK the maps of another mapset are written,
+    # but the extent of a dataset of another mapset is refused whatever the
+    # switch says. That is found out before the first map is written, so a
+    # refusal leaves every time as it was.
+    for dataset in datasets_to_modify:
+        _check_mapset(
+            stds.get_new_instance(ident=dataset),
+            _(
+                "Unable to update dataset <%(ds)s> of type "
+                "%(type)s in the temporal database. The mapset"
+                " of the database does not match the current "
+                "mapset"
+            ),
+        )
+
+    for map_, (start, end) in zip(maps, date_list, strict=True):
         if stds.is_time_absolute():
             map_.update_absolute_time(start_time=start, end_time=end, dbif=dbif)
         elif stds.is_time_relative():
@@ -303,8 +320,6 @@ def update_map_timestamps(stds, maps, date_list, dbif) -> None:
                 unit=stds.get_relative_time_unit(),
                 dbif=dbif,
             )
-
-        datasets_to_modify.update(dict.fromkeys(map_.get_registered_stds(dbif) or []))
 
     stds.update_from_registered_maps(dbif)
 
