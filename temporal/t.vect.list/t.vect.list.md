@@ -87,26 +87,43 @@ The option **method** chooses what is listed. The default is `cols`.
   columns are `id`, `name`, `layer`, `mapset`, `start_time`, `end_time`,
   `interval_length` and `distance_from_begin`. The length of a time instant is
   `None`. `delta` supports only these columns.
-- `deltagaps` is `delta` with a line for every temporal gap between two maps.
-  A gap line has `None` as `id`, `name`, `layer` and `mapset`; its times are
-  the end of the map before and the start of the map after the gap, and its
-  length is the length of the gap. Maps that follow each other directly leave
-  no gap.
-- `gran` samples the maps by the granularity of the dataset and prints one line
-  per granule, with the columns of `delta`. There is no option to choose another
-  granule. The times and the length are those of the granule, not of the map, so
-  a map that is longer than the granule is listed once for each granule it
-  covers. A granule without a map has `None` as `id`, `name`, `layer` and
-  `mapset`. When more than one map meets a granule, the line names the map with
-  the earliest start of the first of these groups that is not empty: maps that
-  are equal to the granule, maps that contain it, maps that start inside it and
-  end after it, maps that start before it and end inside it, and maps that lie
-  inside it. The sixth example shows a map that is equal to a granule named
-  before a longer map that contains it. The granularity of a dataset is shown by
-  *[t.info](t.info.md)* with the flag **-g**.
+- `deltagaps` is `delta` with a line for every temporal gap. A gap is time
+  that no map covers. A gap line has `None` as `id`, `name`, `layer` and
+  `mapset`; its times are the latest end of the maps before the gap and the
+  start of the map after it, and its length is the length of the gap. Maps
+  that follow each other directly leave no gap, and neither does a map that
+  ends inside a longer one.
+- `gran` samples the maps by a granule and prints one line per granule, with
+  the columns of `delta`. The times and the length are those of the granule,
+  not of the map, so a map that is longer than the granule is listed once for
+  each granule it covers. A granule without a map has `None` as `id`, `name`,
+  `layer` and `mapset`. When more than one map meets a granule, the line names
+  the map with the earliest start of the first of these groups that is not
+  empty: maps that are equal to the granule, maps that contain it, maps that
+  start inside it and end after it, maps that start before it and end inside
+  it, and maps that lie inside it. The sixth example shows a map that is equal
+  to a granule named before a longer map that contains it. The granularity of a
+  dataset is shown by *[t.info](t.info.md)* with the flag **-g**.
 - `comma` is the old name of `cols` with `format=line`: it prints the values
   of the chosen column in one line, the ids without **columns**. Prefer the
   option **format**.
+
+The option **granule** is the granule of the method `gran`. For absolute time it
+is a text with a number and a time unit, such as `"2 days"`. For relative time
+it is a whole number of at least 1 in the time unit of the dataset, also
+followed by this unit: `12`, `"12 hours"` and `"12 hour"` are the same granule
+of a dataset in hours. Another unit, such as `"1 day"` for a dataset in hours,
+is refused with the error "Invalid granule". Without **granule**, the
+granularity of the dataset is used. The first granule starts with the first map,
+and the granules reach the latest end of the maps, also when a shorter map with
+the same start comes last. Each later start is counted in whole granules from
+the start of the dataset when the first selected map lies whole granules after
+it, otherwise from the first selected map; this matters when **where** selects
+later maps only. A step of months or years that ends behind the last day of a
+shorter month ends on that day: with a granule of one month and a first map from
+31 January, the granules start on 31 January, 28 February, 31 March and 30
+April. Such a series has the granularity one month (see *[t.info](t.info.md)*).
+The other methods ignore **granule**.
 
 ### Output
 
@@ -153,19 +170,17 @@ selects nothing in a dataset that has a granularity, but stops for a dataset
 without maps with the error "Nothing found in the database for space time
 dataset `<name@mapset>` (type: stvds)", followed by "Dataset is empty". A
 dataset with a single map that is a time instant has no granularity, and `gran`
-stops for it with the error "Wrong granularity: "None"", whatever **where**
-selects, as the last block of the sixth example shows. Use `delta` for such a
-dataset.
+without **granule** stops for it with the error that the dataset has no
+granularity, whatever **where** selects, as the sixth example shows. Give a
+**granule**, such as `"1 day"`, or use `delta`.
 
 With relative time, the times are numbers of the time unit of the dataset,
 printed without the unit, as the model in the fifth example shows. The method
-`gran` works with relative time as well; the granularity of the dataset is the
-granule.
+`gran` works with relative time with and without **granule**, as the sixth
+example shows.
 
-The option **output** takes the name of a file. The name `-` is not the
-standard output here: it writes a file with this name, as the last block of
-the third example shows. To print the listing, leave out **output**; to keep it
-in a file, give a file name other than `-`.
+The option **output** takes the name of a file; the name `-` is the standard
+output, as the last block of the third example shows.
 
 *t.vect.list* only reads, so it works on a dataset of another mapset as well.
 The name with the mapset (`input=survey@t_vect_list`) selects it; a name without
@@ -178,7 +193,9 @@ three methods list only the columns of `delta`, so a column of the temporal
 database is refused with them, and `interval_length` and `distance_from_begin`
 are refused with `cols` and `comma`. More than one column is refused with
 `format=line`, **-u** and **separator** with `json` and `yaml`, and a separator
-of more than one character with `csv`.
+of more than one character with `csv`. A granule of absolute time without a time
+unit (`"2"`) or with an unknown unit (`"3 foo"`) is refused with the error
+"Wrong granularity".
 
 ## EXAMPLES
 
@@ -628,7 +645,8 @@ with and without the line of column names; text is quoted and numbers are not.
 The sixth block replaces the separator of the plain format. The seventh block
 prints JSON, which the Python tab reads from `result.json` and prints name and
 number of points of each map. The eighth block writes the listing to a file and
-prints the file. The ninth block shows that `output=-` writes a file named `-`.
+prints the file. The ninth block prints the listing with `output=-`, the
+standard output.
 
 === "Command line"
 
@@ -715,7 +733,6 @@ prints the file. The ninth block shows that `output=-` writes a file named `-`.
 
     ```sh
     t.vect.list input=survey columns=name output=-
-    cat ./-
     ```
 
     ```text
@@ -824,8 +841,7 @@ prints the file. The ninth block shows that `output=-` writes a file named `-`.
     ```
 
     ```python
-    tools.t_vect_list(input="survey", columns="name", output="-")
-    print(Path("-").read_text(), end="")
+    print(tools.t_vect_list(input="survey", columns="name", output="-").text)
     ```
 
     ```text
@@ -1269,17 +1285,22 @@ days long, and `well_2` for 4 June, which is one day long. 3 June is a gap. The
 first block shows the granularity of the dataset, 1 day, which is the granule
 of the method `gran`. The second block prints one line per day: `well_1` is
 listed for both of its days, the day of the gap has `None` as `id`, `name`,
-`layer` and `mapset`, and `well_2` follows. The third block samples the
-relative dataset `model` of the previous example: its granularity is 6 hours.
+`layer` and `mapset`, and `well_2` follows. With the granule `"2 days"`, the
+third block prints two granules: the first is equal to `well_1`, the second
+holds the gap and `well_2`, which lies inside it. The fourth block samples the
+relative dataset `model` of the previous example by its granularity, 6 hours,
+and the fifth one by the granule `12`, a number of hours; `"12 hours"` is the
+same granule.
 The dataset `nest` has the map `nest_a` from 1 to 3 July and the map `nest_b`
 from 2 to 3 July. Its granularity is 1 day. The first granule is covered by
 `nest_a` only, and the second one by both maps: `nest_b` is equal to it and
 `nest_a` contains it, so the line names `nest_b`, although `nest_a` starts
 first.
 
-The last block creates the dataset `lone` with a single map that is a time
-instant. Such a dataset has no granularity, so `gran` stops with an error. The
-shell block prints the message instead of failing.
+The last blocks create the dataset `lone` with a single map that is a time
+instant. Such a dataset has no granularity, so `gran` without a granule stops
+with an error that says so; the shell block prints the message instead of
+failing. With the granule `"1 day"`, `gran` lists the map.
 
 === "Command line"
 
@@ -1313,6 +1334,16 @@ shell block prints the message instead of failing.
     ```
 
     ```sh
+    t.vect.list input=wells method=gran granule="2 days"
+    ```
+
+    ```text
+    id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+    well_1@t_vect_list|well_1|None|t_vect_list|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    well_2@t_vect_list|well_2|None|t_vect_list|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    ```
+
+    ```sh
     t.vect.list input=model method=gran
     ```
 
@@ -1321,6 +1352,16 @@ shell block prints the message instead of failing.
     step_1@t_vect_list|step_1|None|t_vect_list|0|6|6|0
     step_2@t_vect_list|step_2|None|t_vect_list|6|12|6|6
     step_3@t_vect_list|step_3|None|t_vect_list|12|18|6|12
+    ```
+
+    ```sh
+    t.vect.list input=model method=gran granule=12
+    ```
+
+    ```text
+    id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+    step_1@t_vect_list|step_1|None|t_vect_list|0|12|12|0
+    step_3@t_vect_list|step_3|None|t_vect_list|12|24|12|12
     ```
 
     ```sh
@@ -1349,8 +1390,19 @@ shell block prints the message instead of failing.
     ```
 
     ```text
-    ERROR: Wrong granularity: "None"
+    ERROR: Space time dataset <lone@t_vect_list> has no granularity, for
+    example because it holds a single time instance. Give a granule or use
+    another method.
     t.vect.list failed
+    ```
+
+    ```sh
+    t.vect.list input=lone method=gran granule="1 day"
+    ```
+
+    ```text
+    id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+    lone_1@t_vect_list|lone_1|None|t_vect_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
     ```
 
 === "Python (grass.tools)"
@@ -1391,6 +1443,16 @@ shell block prints the message instead of failing.
     ```
 
     ```python
+    print(tools.t_vect_list(input="wells", method="gran", granule="2 days").text)
+    ```
+
+    ```text
+    id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+    well_1@t_vect_list|well_1|None|t_vect_list|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    well_2@t_vect_list|well_2|None|t_vect_list|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    ```
+
+    ```python
     print(tools.t_vect_list(input="model", method="gran").text)
     ```
 
@@ -1399,6 +1461,16 @@ shell block prints the message instead of failing.
     step_1@t_vect_list|step_1|None|t_vect_list|0|6|6|0
     step_2@t_vect_list|step_2|None|t_vect_list|6|12|6|6
     step_3@t_vect_list|step_3|None|t_vect_list|12|18|6|12
+    ```
+
+    ```python
+    print(tools.t_vect_list(input="model", method="gran", granule="12 hours").text)
+    ```
+
+    ```text
+    id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+    step_1@t_vect_list|step_1|None|t_vect_list|0|12|12|0
+    step_3@t_vect_list|step_3|None|t_vect_list|12|24|12|12
     ```
 
     ```python
@@ -1442,8 +1514,19 @@ shell block prints the message instead of failing.
     ```
 
     ```text
-    ERROR: Wrong granularity: "None"
+    ERROR: Space time dataset <lone@t_vect_list> has no granularity, for
+    example because it holds a single time instance. Give a granule or use
+    another method.
     t.vect.list failed
+    ```
+
+    ```python
+    print(tools.t_vect_list(input="lone", method="gran", granule="1 day").text)
+    ```
+
+    ```text
+    id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+    lone_1@t_vect_list|lone_1|None|t_vect_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
     ```
 
 ### Use a dataset of another mapset

@@ -58,6 +58,14 @@
 # % answer: cols
 # %end
 
+# %option
+# % key: granule
+# % type: string
+# % description: The granule to be used for listing. The granule must be specified as string eg.: absolute time "1 months" or relative time "1"
+# % required: no
+# % multiple: no
+# %end
+
 # %option G_OPT_F_FORMAT
 # % options: plain,line,json,yaml,csv
 # % descriptions: plain;Plain text output;line;Comma separated list of map names;json;JSON (JavaScript Object Notation);yaml;YAML (YAML Ain't Markup Language);csv;CSV (Comma Separated Values);
@@ -96,6 +104,7 @@ def main():
     where = options["where"]
     separator = gs.separator(options["separator"])
     method = options["method"]
+    granule = options["granule"]
     header = flags["u"]
     output = options["output"]
     output_format = options["format"]
@@ -166,6 +175,7 @@ def main():
         separator,
         method,
         header,
+        granule,
         outpath=output,
         output_format=output_format,
     )
