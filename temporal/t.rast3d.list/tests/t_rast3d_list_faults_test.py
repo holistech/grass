@@ -74,3 +74,38 @@ def test_gran_on_single_instant_names_missing_granularity(tools):
     assert "has no granularity" in text
     assert "Give a granule or use another method" in text
     assert "None" not in text
+
+
+@pytest.mark.timeout(10)
+@pytest.mark.parametrize("granule", ["0 days", "0 months", "-1 days"])
+def test_zero_granule_is_refused(tools, granule):
+    """A granule of 0 or less ends with a message and does not run on
+
+    Granule "0 days" never moved on, so the listing ran without end; the
+    timeout makes such a run fail the test instead of hanging it.
+    """
+    create_stds(
+        tools,
+        "str3ds",
+        "stepped",
+        [
+            MapSpec(f"d_{k}", k, datetime(2026, 7, k), datetime(2026, 7, k + 1))
+            for k in range(1, 4)
+        ],
+        overwrite=True,
+    )
+    before = inventory(tools)
+    with pytest.raises(ToolError) as error:
+        tools.t_rast3d_list(input="stepped", method="gran", granule=granule)
+    text = message(error.value)
+    assert f"Invalid granule <{granule}>: the number must be positive" in text
+    assert "Traceback" not in text
+    assert inventory(tools) == before
+
+
+@pytest.mark.timeout(10)
+def test_zero_relative_granule_is_refused(tools, model):
+    """The relative granule 0 is refused as well"""
+    with pytest.raises(ToolError) as error:
+        tools.t_rast3d_list(input=model, method="gran", granule="0")
+    assert "Invalid granule <0>" in message(error.value)

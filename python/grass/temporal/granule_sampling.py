@@ -328,6 +328,17 @@ def registered_maps_by_granularity(stds, gran=None, where=None, dbif=None):
             gran = granule
         elif not check_granularity_string(gran, stds.get_temporal_type()):
             stds.msgr.fatal(_('Wrong granularity: "%s"') % str(gran))
+        elif stds.is_time_absolute() and int(gran.split()[0]) < 1:
+            # A granule of 0 never moves on and would run without end; a
+            # negative one makes the end time precede the start time. A
+            # relative number is taken as it is, see above. The split is safe:
+            # check_granularity_string() above accepted the text, so it has a
+            # whole number as its first word.
+            stds.msgr.fatal(
+                _("Invalid granule <{granule}>: the number must be positive").format(
+                    granule=gran
+                )
+            )
 
         maps = stds.get_registered_maps_as_objects(
             dbif=dbif, order="start_time", where=where
