@@ -45,6 +45,11 @@ changes.
 The new name must not contain a dot; *t.rename* stops with an error and keeps
 the old name, for every type of dataset.
 
+Renaming works only for a temporal database on SQLite. With a database on
+PostgreSQL (see *[t.connect](t.connect.md)*) *t.rename* stops with the error
+"Renaming of space time datasets is not supported for PostgreSQL." before it
+writes anything; the dataset keeps its name.
+
 If the new name carries another mapset than the current one, the error says
 that the mapset of the new identifier differs from the current mapset. For a
 dataset of another mapset as **input**, the error says that the mapset of the
@@ -366,7 +371,8 @@ registered in the renamed dataset.
 
 ## SEE ALSO
 
-*[t.create](t.create.md), [t.info](t.info.md), [t.register](t.register.md),
+*[t.connect](t.connect.md), [t.create](t.create.md), [t.info](t.info.md),
+[t.register](t.register.md),
 [t.remove](t.remove.md), [t.support](t.support.md),
 [temporal data processing](temporalintro.md)*
 

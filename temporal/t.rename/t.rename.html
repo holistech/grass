@@ -52,6 +52,12 @@ The new name must not contain a dot; <em>t.rename</em> stops with an error and k
 the old name, for every type of dataset.
 
 <p>
+Renaming works only for a temporal database on SQLite. With a database on
+PostgreSQL (see <em><a href="t.connect.html">t.connect</a></em>) <em>t.rename</em> stops with the error
+"Renaming of space time datasets is not supported for PostgreSQL." before it
+writes anything; the dataset keeps its name.
+
+<p>
 If the new name carries another mapset than the current one, the error says
 that the mapset of the new identifier differs from the current mapset. For a
 dataset of another mapset as <b>input</b>, the error says that the mapset of the
@@ -369,7 +375,8 @@ registered_datasets=wind@t_rename
 
 <h2>SEE ALSO</h2>
 
-<em><a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>, <a href="t.register.html">t.register</a>,
+<em><a href="t.connect.html">t.connect</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.register.html">t.register</a>,
 <a href="t.remove.html">t.remove</a>, <a href="t.support.html">t.support</a>,
 <a href="temporalintro.html">temporal data processing</a></em>
 
