@@ -16,7 +16,10 @@ themselves.
 
 The option <b>input</b> names the space time raster dataset. A semantic label
 after the name, <code>input=name.label</code>, keeps only the maps with this label; the
-name and the label are separated by a single dot. Labels are given to maps by
+name and the label are separated by a single dot. A dataset whose whole name
+is <code>name.label</code> is found first, before the text after the dot is read as a
+label; this concerns only datasets of earlier releases, which could have a dot
+in their name. Labels are given to maps by
 <em><a href="r.semantic.label.html">r.semantic.label</a></em> or when the maps are registered
 with <em><a href="t.register.html">t.register</a></em>.
 
@@ -42,7 +45,9 @@ separated by commas. The columns are:
 <li><code>id</code>, the name of the map with its mapset, such as
 <code>temperature_2026_03_01@t_rast_list</code>; <code>name</code> and <code>mapset</code>, the two parts of it;</li>
 <li><code>semantic_label</code>, the semantic label of the map, <code>None</code> for a map without
-one;</li>
+one. A temporal database of version 2 has no semantic labels: asking for
+the column stops the run with an error that tells to run
+<em><a href="t.upgrade.html">t.upgrade</a></em> first;</li>
 <li><code>temporal_type</code>, <code>absolute</code> or <code>relative</code>;</li>
 <li><code>start_time</code> and <code>end_time</code>, the time of the map. The end time of a map
 registered as a time instant is <code>None</code>. With relative time, they are numbers
@@ -1203,7 +1208,7 @@ temperature_2026_03_04@t_rast_list|2026-03-04 00:00:00
 <a href="r.semantic.label.html">r.semantic.label</a>, <a href="t.create.html">t.create</a>,
 <a href="t.info.html">t.info</a>, <a href="t.list.html">t.list</a>, <a href="t.rast.univar.html">t.rast.univar</a>,
 <a href="t.rast3d.list.html">t.rast3d.list</a>, <a href="t.register.html">t.register</a>,
-<a href="t.vect.list.html">t.vect.list</a>,
+<a href="t.upgrade.html">t.upgrade</a>, <a href="t.vect.list.html">t.vect.list</a>,
 <a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>

@@ -15,7 +15,9 @@ import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.readback import inventory, message
-from grass.tools import ToolError
+from grass.temporal.testing.session import project_session
+from grass.temporal.testing.versions import downgrade_to_version_2
+from grass.tools import ToolError, Tools
 
 D = datetime
 COLUMNS = "name,start_time,end_time"
@@ -168,3 +170,27 @@ def test_gran_of_a_selection_counts_from_the_start_of_the_dataset(tools):
         ["month_selection_2", "2026-02-28 00:00:00", "2026-03-31 00:00:00"],
         ["month_selection_3", "2026-03-31 00:00:00", "2026-04-30 00:00:00"],
     ]
+
+
+def test_old_database_points_to_upgrade(tmp_path):
+    """A column that only the current database has is named with t.upgrade"""
+    with project_session(tmp_path / "project") as session:
+        tools = Tools(
+            session=session, consistent_return_value=True, capture_stderr=True
+        )
+        tools.g_region(n=1, s=0, e=1, w=0, res=1)
+        create_stds(
+            tools, "strds", "series", [MapSpec("map1", 1, D(2026, 1, 1), D(2026, 2, 1))]
+        )
+        downgrade_to_version_2(session)
+        with pytest.raises(ToolError) as error:
+            tools.t_rast_list(input="series", columns="name,semantic_label")
+        text = message(error.value)
+        # The warning about the version names t.upgrade already; the error
+        # that ends the run has to name it, too.
+        error_text = text.rsplit("ERROR:", 1)[1]
+        assert "semantic labels" in error_text
+        assert "t.upgrade" in error_text
+        # Columns that version 2 has are still listed.
+        result = tools.t_rast_list(input="series", columns="name")
+        assert result.stdout.split()[1:] == ["map1"]

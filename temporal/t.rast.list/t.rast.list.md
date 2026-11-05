@@ -16,7 +16,10 @@ themselves.
 
 The option **input** names the space time raster dataset. A semantic label
 after the name, `input=name.label`, keeps only the maps with this label; the
-name and the label are separated by a single dot. Labels are given to maps by
+name and the label are separated by a single dot. A dataset whose whole name
+is `name.label` is found first, before the text after the dot is read as a
+label; this concerns only datasets of earlier releases, which could have a dot
+in their name. Labels are given to maps by
 *[r.semantic.label](r.semantic.label.md)* or when the maps are registered
 with *[t.register](t.register.md)*.
 
@@ -40,7 +43,9 @@ separated by commas. The columns are:
 - `id`, the name of the map with its mapset, such as
   `temperature_2026_03_01@t_rast_list`; `name` and `mapset`, the two parts of it;
 - `semantic_label`, the semantic label of the map, `None` for a map without
-  one;
+  one. A temporal database of version 2 has no semantic labels: asking for
+  the column stops the run with an error that tells to run
+  *[t.upgrade](t.upgrade.md)* first;
 - `temporal_type`, `absolute` or `relative`;
 - `start_time` and `end_time`, the time of the map. The end time of a map
   registered as a time instant is `None`. With relative time, they are numbers
@@ -1189,7 +1194,7 @@ because a name without a mapset is searched only there (see
 [r.semantic.label](r.semantic.label.md), [t.create](t.create.md),
 [t.info](t.info.md), [t.list](t.list.md), [t.rast.univar](t.rast.univar.md),
 [t.rast3d.list](t.rast3d.list.md), [t.register](t.register.md),
-[t.vect.list](t.vect.list.md),
+[t.upgrade](t.upgrade.md), [t.vect.list](t.vect.list.md),
 [temporal data processing](temporalintro.md)*
 
 ## AUTHOR
