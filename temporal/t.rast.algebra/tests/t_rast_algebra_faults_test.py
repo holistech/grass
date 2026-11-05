@@ -7,7 +7,10 @@ by the month, the granularity mode (-g) has a granule per month, and tsnap()
 ends a last time instance one month later, on the month series of the first
 map. The classic algebra (-c, or GRASS_TEMPORAL_ALGEBRA=classic) keeps the
 granularity "1 day" of the releases before GRASS 8.6;
-grass_temporal_classic_frozen_library_test.py holds its results.
+grass_temporal_classic_frozen_library_test.py holds its results. In the
+granularity mode, datasets whose starts differ in a finer unit than their
+common granularity are sampled in granules of that finer unit in both
+algebras.
 
 The core looks for a dataset name without a mapset in the current mapset and
 then in the search path, the classic algebra in the current mapset only. The
@@ -130,6 +133,49 @@ def test_granularity_mode_has_a_granule_per_month(core_tools):
         ("2026-01-31 00:00:00", "2026-02-28 00:00:00", 1),
         ("2026-02-28 00:00:00", "2026-03-31 00:00:00", 2),
         ("2026-03-31 00:00:00", "2026-04-30 00:00:00", 3),
+    ]
+
+
+# A month series from the first and one from the fifteenth: the common granule
+# of their granularities "1 month" is the day, the finest unit in which their
+# starts differ, so that a granule starts with each map of both datasets.
+FIRSTS = [D(2001, 1, 1), D(2001, 2, 1), D(2001, 3, 1), D(2001, 4, 1)]
+FIFTEENTHS = [D(2001, 1, 15), D(2001, 2, 15), D(2001, 3, 15), D(2001, 4, 15)]
+
+
+@pytest.mark.parametrize("flags", ["g", "cg"], ids=["core", "classic"])
+def test_granularity_mode_aligns_datasets_that_start_on_other_days(core_tools, flags):
+    for name, starts, value in (("FIRSTS", FIRSTS, 1), ("FIFTEENTHS", FIFTEENTHS, 10)):
+        if not core_tools.t_list(type="strds", where=f"name = '{name}'").stdout.strip():
+            create_stds(
+                core_tools,
+                "strds",
+                name,
+                [
+                    MapSpec(f"{name.lower()}_{number}", value * number, start, end)
+                    for number, (start, end) in enumerate(pairwise(starts), start=1)
+                ],
+            )
+    output = f"ALIGNED_{flags.upper()}"
+    core_tools.t_rast_algebra(
+        expression=f"{output} = FIRSTS + FIFTEENTHS",
+        basename=output.lower(),
+        flags=flags,
+    )
+    rows = list_maps(core_tools, "strds", output)
+    # Daily granules from 15 January, where both datasets have maps, to
+    # 1 April, where the month series from the first ends
+    assert (rows[0].start, rows[-1].end) == (
+        "2001-01-15 00:00:00",
+        "2001-04-01 00:00:00",
+    )
+    sums = [row.min for row in rows]
+    assert [(value, sums.count(value)) for value in sorted(set(sums))] == [
+        (11, 17),
+        (12, 14),
+        (22, 14),
+        (23, 14),
+        (33, 17),
     ]
 
 

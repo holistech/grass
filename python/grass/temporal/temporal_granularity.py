@@ -457,7 +457,10 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
 
     The list of start dates is optional. If you use this function to compute a common
     granularity between space time datasets, then you should provide their start times
-    to avoid wrong synchronization.
+    to avoid wrong synchronization: if the start times differ in the unit of the
+    common granule or in a finer one, the result is one unit of the finest unit in
+    which they differ ("1 hour" for "1 day" with starts at midnight and at noon).
+    The years of the start times are not compared.
 
     :param gran_list: List of granularities
     :param start_date_list: List of the start times of related space time datasets
@@ -492,13 +495,22 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
     num, granule = common_granule.split()
     unit = _singular_unit(granule)
 
+    if unit in _UNITS:
+        # A granule has to start with the maps of each dataset. Start dates
+        # that differ in the field of the unit allow no longer granule than
+        # one unit; the same holds for a finer field, where only a granule of
+        # that finer unit fits both: daily maps from midnight and daily maps
+        # from noon share no day, but the hour. The year itself is not
+        # compared, as it never was.
+        finer = _UNITS[: _UNITS.index(unit)]
+        compared = (*finer, unit) if unit in _HIERARCHY_LIMIT else finer
+        for field in compared:
+            first = getattr(start_date_list[0], field)
+            if any(getattr(start, field) != first for start in start_date_list):
+                return f"1 {field}"
+
     if unit in _HIERARCHY_LIMIT:
         limit = _HIERARCHY_LIMIT[unit]
-        # If the start dates differ in the field of the unit, the granule
-        # cannot be longer than one unit
-        for start_time in start_date_list:
-            if getattr(start_time, unit) != getattr(start_date_list[0], unit):
-                return f"1 {unit}"
         # Make sure the granule does not exceed the hierarchy limit
         if int(num) > limit:
             if int(num) % limit == 0:

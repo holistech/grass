@@ -9,6 +9,9 @@ latest end of its maps, not to the end of the map that starts last.
 
 The classic algebra keeps the old rules in copies of its own, see
 grass_temporal_classic_frozen_library_test.py.
+
+The common granule of datasets whose start times differ in a finer unit than
+the granule is one unit of the finest unit in which they differ.
 """
 
 import datetime
@@ -351,4 +354,35 @@ def test_relative_granule_given_as_number_is_taken_as_it_is(relative_instant):
     on the reference before and after this rule)"""
     assert (
         relative_instant.get_registered_maps_as_objects_by_granularity(gran=0) is None
+    )
+
+
+@pytest.mark.parametrize(
+    ("grans", "starts", "expected"),
+    [
+        # Daily at midnight and daily at noon: a granule of one day starts at
+        # one of the two times only, an hour fits both.
+        (["1 day", "1 day"], [D(2026, 6, 1), D(2026, 6, 1, 12)], "1 hour"),
+        # Monthly from the first and from the fifteenth of a month
+        (["1 month", "1 month"], [D(2026, 1, 1), D(2026, 1, 15)], "1 day"),
+        # Yearly from January and from July
+        (["1 year", "1 year"], [D(2025, 1, 1), D(2026, 7, 1)], "1 month"),
+        # The finest unit that differs decides: the days and the minutes differ.
+        (["2 days", "1 day"], [D(2026, 6, 1), D(2026, 6, 2, 0, 30)], "1 minute"),
+        # Starts that differ only in a coarser unit than the granule keep it.
+        (["1 day", "1 day"], [D(2026, 6, 1, 12), D(2026, 7, 1, 12)], "1 day"),
+        (["1 year", "1 year"], [D(2025, 3, 1), D(2026, 3, 1)], "1 year"),
+    ],
+    ids=["noon", "fifteenth", "july", "finest", "same time of day", "same month"],
+)
+def test_common_granule_aligns_starts_that_differ_in_a_finer_unit(
+    grans, starts, expected
+):
+    """The common granule is one unit of the finest unit in which the starts
+    differ, if that unit is finer than the granule"""
+    assert (
+        tgis.temporal_granularity.compute_common_absolute_time_granularity(
+            grans, starts
+        )
+        == expected
     )

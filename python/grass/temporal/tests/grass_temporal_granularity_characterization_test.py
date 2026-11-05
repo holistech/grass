@@ -5,6 +5,10 @@ subset of a short list. This test adds the combinations of more units, the
 hierarchy limits of the common granule with start dates and the granularity of
 maps. The expected values are the answers of the functions before they were
 computed from one table of units, kept in data/granularity_characterization.json.
+The common granule with start dates that differ in a finer unit than the
+granule was changed on purpose on 05.11.2026: it is one unit of the finest
+unit in which the starts differ (one day and starts that differ by five seconds
+give "1 second", before "1 day").
 """
 
 import json

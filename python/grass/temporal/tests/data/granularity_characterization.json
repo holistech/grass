@@ -1822,7 +1822,7 @@
     "1 minute"
    ],
    "second",
-   "1 minute"
+   "1 second"
   ],
   [
    [
@@ -1878,7 +1878,7 @@
     "60 minutes"
    ],
    "second",
-   "60 minutes"
+   "1 second"
   ],
   [
    [
@@ -1934,7 +1934,7 @@
     "61 minutes"
    ],
    "second",
-   "1 minute"
+   "1 second"
   ],
   [
    [
@@ -1990,7 +1990,7 @@
     "120 minutes"
    ],
    "second",
-   "60 minutes"
+   "1 second"
   ],
   [
    [
@@ -2046,7 +2046,7 @@
     "121 minutes"
    ],
    "second",
-   "1 minute"
+   "1 second"
   ],
   [
    [
@@ -2102,14 +2102,14 @@
     "1 hour"
    ],
    "second",
-   "1 hour"
+   "1 second"
   ],
   [
    [
     "1 hour"
    ],
    "minute",
-   "1 hour"
+   "1 minute"
   ],
   [
    [
@@ -2158,14 +2158,14 @@
     "24 hours"
    ],
    "second",
-   "24 hours"
+   "1 second"
   ],
   [
    [
     "24 hours"
    ],
    "minute",
-   "24 hours"
+   "1 minute"
   ],
   [
    [
@@ -2214,14 +2214,14 @@
     "25 hours"
    ],
    "second",
-   "1 hour"
+   "1 second"
   ],
   [
    [
     "25 hours"
    ],
    "minute",
-   "1 hour"
+   "1 minute"
   ],
   [
    [
@@ -2270,14 +2270,14 @@
     "48 hours"
    ],
    "second",
-   "24 hours"
+   "1 second"
   ],
   [
    [
     "48 hours"
    ],
    "minute",
-   "24 hours"
+   "1 minute"
   ],
   [
    [
@@ -2326,14 +2326,14 @@
     "49 hours"
    ],
    "second",
-   "1 hour"
+   "1 second"
   ],
   [
    [
     "49 hours"
    ],
    "minute",
-   "1 hour"
+   "1 minute"
   ],
   [
    [
@@ -2382,21 +2382,21 @@
     "1 day"
    ],
    "second",
-   "1 day"
+   "1 second"
   ],
   [
    [
     "1 day"
    ],
    "minute",
-   "1 day"
+   "1 minute"
   ],
   [
    [
     "1 day"
    ],
    "hour",
-   "1 day"
+   "1 hour"
   ],
   [
    [
@@ -2438,21 +2438,21 @@
     "365 days"
    ],
    "second",
-   "365 days"
+   "1 second"
   ],
   [
    [
     "365 days"
    ],
    "minute",
-   "365 days"
+   "1 minute"
   ],
   [
    [
     "365 days"
    ],
    "hour",
-   "365 days"
+   "1 hour"
   ],
   [
    [
@@ -2494,21 +2494,21 @@
     "366 days"
    ],
    "second",
-   "1 day"
+   "1 second"
   ],
   [
    [
     "366 days"
    ],
    "minute",
-   "1 day"
+   "1 minute"
   ],
   [
    [
     "366 days"
    ],
    "hour",
-   "1 day"
+   "1 hour"
   ],
   [
    [
@@ -2550,21 +2550,21 @@
     "730 days"
    ],
    "second",
-   "365 days"
+   "1 second"
   ],
   [
    [
     "730 days"
    ],
    "minute",
-   "365 days"
+   "1 minute"
   ],
   [
    [
     "730 days"
    ],
    "hour",
-   "365 days"
+   "1 hour"
   ],
   [
    [
@@ -2606,21 +2606,21 @@
     "731 days"
    ],
    "second",
-   "1 day"
+   "1 second"
   ],
   [
    [
     "731 days"
    ],
    "minute",
-   "1 day"
+   "1 minute"
   ],
   [
    [
     "731 days"
    ],
    "hour",
-   "1 day"
+   "1 hour"
   ],
   [
    [
@@ -2662,28 +2662,28 @@
     "1 month"
    ],
    "second",
-   "1 month"
+   "1 second"
   ],
   [
    [
     "1 month"
    ],
    "minute",
-   "1 month"
+   "1 minute"
   ],
   [
    [
     "1 month"
    ],
    "hour",
-   "1 month"
+   "1 hour"
   ],
   [
    [
     "1 month"
    ],
    "day",
-   "1 month"
+   "1 day"
   ],
   [
    [
@@ -2718,28 +2718,28 @@
     "12 months"
    ],
    "second",
-   "12 months"
+   "1 second"
   ],
   [
    [
     "12 months"
    ],
    "minute",
-   "12 months"
+   "1 minute"
   ],
   [
    [
     "12 months"
    ],
    "hour",
-   "12 months"
+   "1 hour"
   ],
   [
    [
     "12 months"
    ],
    "day",
-   "12 months"
+   "1 day"
   ],
   [
    [
@@ -2774,28 +2774,28 @@
     "13 months"
    ],
    "second",
-   "1 month"
+   "1 second"
   ],
   [
    [
     "13 months"
    ],
    "minute",
-   "1 month"
+   "1 minute"
   ],
   [
    [
     "13 months"
    ],
    "hour",
-   "1 month"
+   "1 hour"
   ],
   [
    [
     "13 months"
    ],
    "day",
-   "1 month"
+   "1 day"
   ],
   [
    [
@@ -2830,28 +2830,28 @@
     "24 months"
    ],
    "second",
-   "12 months"
+   "1 second"
   ],
   [
    [
     "24 months"
    ],
    "minute",
-   "12 months"
+   "1 minute"
   ],
   [
    [
     "24 months"
    ],
    "hour",
-   "12 months"
+   "1 hour"
   ],
   [
    [
     "24 months"
    ],
    "day",
-   "12 months"
+   "1 day"
   ],
   [
    [
@@ -2886,28 +2886,28 @@
     "25 months"
    ],
    "second",
-   "1 month"
+   "1 second"
   ],
   [
    [
     "25 months"
    ],
    "minute",
-   "1 month"
+   "1 minute"
   ],
   [
    [
     "25 months"
    ],
    "hour",
-   "1 month"
+   "1 hour"
   ],
   [
    [
     "25 months"
    ],
    "day",
-   "1 month"
+   "1 day"
   ],
   [
    [
@@ -2942,35 +2942,35 @@
     "1 year"
    ],
    "second",
-   "1 year"
+   "1 second"
   ],
   [
    [
     "1 year"
    ],
    "minute",
-   "1 year"
+   "1 minute"
   ],
   [
    [
     "1 year"
    ],
    "hour",
-   "1 year"
+   "1 hour"
   ],
   [
    [
     "1 year"
    ],
    "day",
-   "1 year"
+   "1 day"
   ],
   [
    [
     "1 year"
    ],
    "month",
-   "1 year"
+   "1 month"
   ],
   [
    [
@@ -2998,35 +2998,35 @@
     "2 years"
    ],
    "second",
-   "2 years"
+   "1 second"
   ],
   [
    [
     "2 years"
    ],
    "minute",
-   "2 years"
+   "1 minute"
   ],
   [
    [
     "2 years"
    ],
    "hour",
-   "2 years"
+   "1 hour"
   ],
   [
    [
     "2 years"
    ],
    "day",
-   "2 years"
+   "1 day"
   ],
   [
    [
     "2 years"
    ],
    "month",
-   "2 years"
+   "1 month"
   ],
   [
    [
@@ -3120,7 +3120,7 @@
     "1 day"
    ],
    "second",
-   "2 hours"
+   "1 second"
   ],
   [
    [
@@ -3128,7 +3128,7 @@
     "1 day"
    ],
    "minute",
-   "2 hours"
+   "1 minute"
   ],
   [
    [
@@ -3184,7 +3184,7 @@
     "1 month"
    ],
    "second",
-   "1 day"
+   "1 second"
   ],
   [
    [
@@ -3192,7 +3192,7 @@
     "1 month"
    ],
    "minute",
-   "1 day"
+   "1 minute"
   ],
   [
    [
@@ -3200,7 +3200,7 @@
     "1 month"
    ],
    "hour",
-   "1 day"
+   "1 hour"
   ],
   [
    [
@@ -3248,7 +3248,7 @@
     "1 year"
    ],
    "second",
-   "1 month"
+   "1 second"
   ],
   [
    [
@@ -3256,7 +3256,7 @@
     "1 year"
    ],
    "minute",
-   "1 month"
+   "1 minute"
   ],
   [
    [
@@ -3264,7 +3264,7 @@
     "1 year"
    ],
    "hour",
-   "1 month"
+   "1 hour"
   ],
   [
    [
@@ -3272,7 +3272,7 @@
     "1 year"
    ],
    "day",
-   "1 month"
+   "1 day"
   ],
   [
    [
