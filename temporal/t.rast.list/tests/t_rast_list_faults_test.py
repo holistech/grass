@@ -215,7 +215,7 @@ def test_zero_granule_is_refused(tools, granule):
     with pytest.raises(ToolError) as error:
         tools.t_rast_list(input="stepped", method="gran", granule=granule)
     text = message(error.value)
-    assert f"Invalid granule <{granule}>: the number must be positive" in text
+    assert f"The granularity {granule!r} must be positive" in text
     assert "Traceback" not in text
     assert inventory(tools) == before
 

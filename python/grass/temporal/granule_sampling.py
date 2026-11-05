@@ -333,12 +333,10 @@ def registered_maps_by_granularity(stds, gran=None, where=None, dbif=None):
             # negative one makes the end time precede the start time. A
             # relative number is taken as it is, see above. The split is safe:
             # check_granularity_string() above accepted the text, so it has a
-            # whole number as its first word.
-            stds.msgr.fatal(
-                _("Invalid granule <{granule}>: the number must be positive").format(
-                    granule=gran
-                )
-            )
+            # whole number as its first word. The English text is the one of
+            # the algebra core, which t.rast.aggregate shows for such a
+            # granularity, so that both name the error alike.
+            stds.msgr.fatal(_("The granularity '{}' must be positive").format(gran))
 
         maps = stds.get_registered_maps_as_objects(
             dbif=dbif, order="start_time", where=where

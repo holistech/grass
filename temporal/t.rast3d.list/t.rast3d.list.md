@@ -100,17 +100,19 @@ is a text with a number and a time unit, such as `"2 months"`. For relative time
 it is a whole number of at least 1 in the time unit of the dataset, also
 followed by this unit: `12`, `"12 hours"` and `"12 hour"` are the same granule
 of a dataset in hours. Another unit, such as `"1 day"` for a dataset in hours,
-is refused with the error "Invalid granule". Without **granule**, the
-granularity of the dataset is used. The first granule starts with the first map,
-and the granules reach the latest end of the maps, also when a shorter map
-starts last. Each later start is counted in whole granules from the start of the
-dataset when the first selected map lies whole granules after it, otherwise from
-the first selected map; this matters when **where** selects later maps only. A
-step of months or years that ends behind the last day of a shorter month ends on
-that day: with a granule of one month and a first map from 31 January, the
-granules start on 31 January, 28 February, 31 March and 30 April. Such a series
-has the granularity one month (see *[t.info](t.info.md)*), so `gran` without
-**granule** samples it by months as well. The other methods ignore **granule**.
+is refused with the error "Invalid granule". An absolute granule whose number is
+below 1, such as `"0 days"`, is refused with the error "The granularity '0 days'
+must be positive". Without **granule**, the granularity of the dataset is used.
+The first granule starts with the first map, and the granules reach the latest
+end of the maps, also when a shorter map starts last. Each later start is
+counted in whole granules from the start of the dataset when the first selected
+map lies whole granules after it, otherwise from the first selected map; this
+matters when **where** selects later maps only. A step of months or years that
+ends behind the last day of a shorter month ends on that day: with a granule of
+one month and a first map from 31 January, the granules start on 31 January, 28
+February, 31 March and 30 April. Such a series has the granularity one month
+(see *[t.info](t.info.md)*), so `gran` without **granule** samples it by months
+as well. The other methods ignore **granule**.
 
 ### Output
 

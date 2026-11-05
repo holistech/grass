@@ -106,17 +106,19 @@ is a text with a number and a time unit, such as <code>"2 months"</code>. For re
 it is a whole number of at least 1 in the time unit of the dataset, also
 followed by this unit: <code>12</code>, <code>"12 hours"</code> and <code>"12 hour"</code> are the same granule
 of a dataset in hours. Another unit, such as <code>"1 day"</code> for a dataset in hours,
-is refused with the error "Invalid granule". Without <b>granule</b>, the
-granularity of the dataset is used. The first granule starts with the first map,
-and the granules reach the latest end of the maps, also when a shorter map
-starts last. Each later start is counted in whole granules from the start of the
-dataset when the first selected map lies whole granules after it, otherwise from
-the first selected map; this matters when <b>where</b> selects later maps only. A
-step of months or years that ends behind the last day of a shorter month ends on
-that day: with a granule of one month and a first map from 31 January, the
-granules start on 31 January, 28 February, 31 March and 30 April. Such a series
-has the granularity one month (see <em><a href="t.info.html">t.info</a></em>), so <code>gran</code> without
-<b>granule</b> samples it by months as well. The other methods ignore <b>granule</b>.
+is refused with the error "Invalid granule". An absolute granule whose number is
+below 1, such as <code>"0 days"</code>, is refused with the error "The granularity '0 days'
+must be positive". Without <b>granule</b>, the granularity of the dataset is used.
+The first granule starts with the first map, and the granules reach the latest
+end of the maps, also when a shorter map starts last. Each later start is
+counted in whole granules from the start of the dataset when the first selected
+map lies whole granules after it, otherwise from the first selected map; this
+matters when <b>where</b> selects later maps only. A step of months or years that
+ends behind the last day of a shorter month ends on that day: with a granule of
+one month and a first map from 31 January, the granules start on 31 January, 28
+February, 31 March and 30 April. Such a series has the granularity one month
+(see <em><a href="t.info.html">t.info</a></em>), so <code>gran</code> without <b>granule</b> samples it by months
+as well. The other methods ignore <b>granule</b>.
 
 <h3>Output</h3>
 
