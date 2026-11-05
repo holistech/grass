@@ -50,8 +50,14 @@ be counted: `1 month` for maps that are one month long and follow each other
 without gap; with relative time it is a number of the unit, in the example `6`
 for maps that are 6 hours long. With maps of different lengths or gaps between
 them, it is the greatest common divisor of the lengths and gaps, as in the
-dataset `uneven` of the examples. How months and years count is explained in the
-[introduction to temporal data processing](temporalintro.md). `Temporal type
+dataset `uneven` of the examples. A step of whole months from the first map
+counts as a month, also when it is cut to the end of a shorter month: maps
+from January 31 to February 28, March 31 and April 30 have the granularity
+`1 month`. How months and years count is explained in the
+[introduction to temporal data processing](temporalintro.md). The granularity
+is stored with the dataset. A dataset that a release before GRASS 8.6 created
+may show `1 day` for such a series until its metadata is updated from the
+maps, for example by *[t.support](t.support.md)* with **-u**. `Temporal type
 of maps` is `interval` if all maps have a start and an end, `point` if all are
 time instances, and `mixed` if both occur.
 

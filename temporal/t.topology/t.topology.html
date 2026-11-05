@@ -34,10 +34,14 @@ break no rule, so the topology of an empty selection is <code>valid</code>.</li>
 <li><code>Number of points</code> counts the maps that have a start time only and
 <code>Number of intervals</code> those that have a start and an end time.
 <code>Invalid time stamps</code> counts the maps without a start time.</li>
-<li><code>Number of gaps</code> counts the neighbours in the order of the start times of
-which the later one starts after the earlier one has ended.</li>
+<li><code>Number of gaps</code> counts the gaps, the times that no map covers. A gap lies
+before a map that starts after the latest end of the maps before it, so a
+map that ends inside a longer one leaves no gap.</li>
 <li><code>Granularity</code> is the time step of the maps, for example <code>1 day</code>. In relative
-time it is a number without a unit. It is <code>None</code> if there are no maps.</li>
+time it is a number without a unit. It is <code>None</code> if there are no maps. A step
+of whole months from the earliest start of the selected maps counts as a
+month, also when it is cut to the end of a shorter month: maps from
+January 31 to February 28 and March 31 have the granularity <code>1 month</code>.</li>
 </ul>
 
 <p>

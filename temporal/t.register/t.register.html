@@ -467,9 +467,10 @@ Eight maps, <code>month_1</code> to <code>month_8</code>, are registered as mont
 first four start on January 31. Each start is a month after the previous one,
 counted from January 31, and a month that is too short ends on its last day:
 February 28, March 31 and April 30. The intervals are 28, 31, 30 and 31 days
-long, so the granularity of <code>jan31</code> is <code>1 day</code>. The maps <code>month_5</code> to
-<code>month_8</code> start on January 1 and form the dataset <code>jan01</code> with the granularity
-<code>1 month</code>.
+long; each is a step of one month cut to the end of a shorter month, so the
+granularity of <code>jan31</code> is <code>1 month</code> (before GRASS 8.6 it was <code>1 day</code>). The
+maps <code>month_5</code> to <code>month_8</code> start on January 1 and form the dataset <code>jan01</code>,
+also with the granularity <code>1 month</code>.
 
 <p>Command line:</p>
 
@@ -496,7 +497,7 @@ t.info -g input=jan31 | grep "^granularity="
 </pre></div>
 
 <div class="code"><pre>
-granularity='1 day'
+granularity='1 month'
 </pre></div>
 
 <div class="code"><pre>
@@ -540,7 +541,7 @@ print(f"granularity={info['granularity']}")
 </pre></div>
 
 <div class="code"><pre>
-granularity='1 day'
+granularity='1 month'
 </pre></div>
 
 <div class="code"><pre>

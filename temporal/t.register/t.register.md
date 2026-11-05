@@ -449,9 +449,10 @@ Eight maps, `month_1` to `month_8`, are registered as monthly intervals. The
 first four start on January 31. Each start is a month after the previous one,
 counted from January 31, and a month that is too short ends on its last day:
 February 28, March 31 and April 30. The intervals are 28, 31, 30 and 31 days
-long, so the granularity of `jan31` is `1 day`. The maps `month_5` to
-`month_8` start on January 1 and form the dataset `jan01` with the granularity
-`1 month`.
+long; each is a step of one month cut to the end of a shorter month, so the
+granularity of `jan31` is `1 month` (before GRASS 8.6 it was `1 day`). The
+maps `month_5` to `month_8` start on January 1 and form the dataset `jan01`,
+also with the granularity `1 month`.
 
 === "Command line"
 
@@ -478,7 +479,7 @@ long, so the granularity of `jan31` is `1 day`. The maps `month_5` to
     ```
 
     ```text
-    granularity='1 day'
+    granularity='1 month'
     ```
 
     ```sh
@@ -522,7 +523,7 @@ long, so the granularity of `jan31` is `1 day`. The maps `month_5` to
     ```
 
     ```text
-    granularity='1 day'
+    granularity='1 month'
     ```
 
     ```python

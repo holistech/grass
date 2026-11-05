@@ -39,7 +39,11 @@ and the semantic type and the aggregation type both in its text output and with
 
 A dataset keeps the values that it computes from its maps: the start and end
 time, the granularity, the spatial extent, the resolutions, the range of values
-and the number of maps. The flags compute them again:
+and the number of maps. The flags compute them again; so does a change of
+**title**, **description**, **semantictype** or **aggr_type**. This also
+writes the granularity anew that a release before GRASS 8.6 stored for a
+monthly series from the last day of a month, `1 day`; it is `1 month` now (see
+*[t.info](t.info.md)*):
 
 - **-u** computes them again from the entries of the registered maps in the
   temporal database. It does not read the maps themselves, so a map that was

@@ -31,10 +31,14 @@ The second part, **Temporal topology**, has these lines:
 - `Number of points` counts the maps that have a start time only and
   `Number of intervals` those that have a start and an end time.
   `Invalid time stamps` counts the maps without a start time.
-- `Number of gaps` counts the neighbours in the order of the start times of
-  which the later one starts after the earlier one has ended.
+- `Number of gaps` counts the gaps, the times that no map covers. A gap lies
+  before a map that starts after the latest end of the maps before it, so a
+  map that ends inside a longer one leaves no gap.
 - `Granularity` is the time step of the maps, for example `1 day`. In relative
-  time it is a number without a unit. It is `None` if there are no maps.
+  time it is a number without a unit. It is `None` if there are no maps. A step
+  of whole months from the earliest start of the selected maps counts as a
+  month, also when it is cut to the end of a shorter month: maps from
+  January 31 to February 28 and March 31 have the granularity `1 month`.
 
 The third part, **Topological relations**, counts the pairs of maps by their
 temporal relation. Each pair counts twice, once for each map as the point of
