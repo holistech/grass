@@ -23,11 +23,12 @@ must be the same for the sampler and for each input, and the maps of the sampler
 must be intervals. If they are not, the dataset is not sampled, see the NOTES.
 
 The sampler divides the time into granules: each of its maps is a granule, and
-a hole between two maps is a granule of its own, a gap. Two maps that touch,
-where the end of one is the start of the next, leave no gap. A granule includes
-its start and excludes its end. The sampler should have a valid topology: the
-tool does not check it, and if sampler maps start at the same time, the rows
-follow the order of their start and end times.
+a hole between two maps is a granule of its own, a gap. A gap is time that no
+sampler map covers. Two maps that touch, where the end of one is the start of
+the next, leave no gap, and neither does a map that ends inside a longer one.
+A granule includes its start and excludes its end. The sampler should have a
+valid topology: the tool does not check it, and if sampler maps start at the
+same time, the rows follow the order of their start and end times.
 
 ### Relations
 

@@ -45,8 +45,10 @@ map keeps the semantic label.
 - `gran` (the default) takes the start time of the map, cut to the unit of the
   granularity of the input dataset: year and month for a granularity of three
   months, year, month and day for a granularity of one day (`2026_03_01`). A
-  dataset of a single time instant has no granularity; `gran` then takes the
-  full start time, as `time` does.
+  monthly series from the last day of a month (January 31, February 28) has
+  the granularity of one month and gets year and month (`2026_01`). A dataset
+  of a single time instant has no granularity; `gran` then takes the full
+  start time, as `time` does.
 - `time` takes the full start time: `2026_03_01T00_00_00`.
 - `num` numbers the selected maps from 1 in the order of their start time and
   map id, with five digits (`00001`); the number counts also the maps that come

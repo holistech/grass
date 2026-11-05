@@ -26,7 +26,9 @@ The flag <b>-g</b> writes the files for equidistant steps of the granularity of
 the dataset. A time step in which no map is registered, a gap, gets a file in
 which every cell has the <b>null</b> value. The files of a dataset without gaps
 are the same with and without <b>-g</b>. A dataset with gaps gets more files with
-<b>-g</b>, one for each missing step.
+<b>-g</b>, one for each missing step. A monthly series from the last day of a month
+(January 31, February 28, March 31) has the granularity of one month, so <b>-g</b>
+writes a file per month.
 
 <h3>Names of the files</h3>
 

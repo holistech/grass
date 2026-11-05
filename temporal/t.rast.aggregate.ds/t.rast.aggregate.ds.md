@@ -74,7 +74,9 @@ The option **suffix** sets the form of the suffix:
 
 - `gran` (the default), for absolute time: the start of the interval, cut to
   the granularity of the sampler, with underscores. For a sampler with a
-  granularity of one day this is `2020_07_01`;
+  granularity of one day this is `2020_07_01`. A monthly sampler from the last
+  day of a month (January 31, February 28) has the granularity of one month
+  and gives year and month, `2026_01`;
 - `time`: the full start time, `2020_07_01T00_00_00`;
 - `num`: the number of the interval with five digits, `00001`; `num%03` sets
   the number of digits to 3.

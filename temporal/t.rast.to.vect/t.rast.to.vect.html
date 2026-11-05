@@ -70,9 +70,10 @@ underscore and a suffix that the option <b>suffix</b> chooses:
 
 <ul>
 <li><code>gran</code> (the default) takes the start time of the raster map, cut to the
-granularity of the input dataset: <code>2020_05</code> in a dataset of months. A
-dataset of a single time instance has no granularity; <code>gran</code> then takes the
-full start time, as <code>time</code> does.</li>
+granularity of the input dataset: <code>2020_05</code> in a dataset of months, also in
+a monthly series from the last day of a month (May 31, June 30), which has
+the granularity of one month. A dataset of a single time instance has no
+granularity; <code>gran</code> then takes the full start time, as <code>time</code> does.</li>
 <li><code>time</code> takes the full start time: <code>2020_05_01T00_00_00</code>.</li>
 <li><code>num</code> numbers the selected maps from 1, with five digits: <code>00001</code>.
 <code>num%03</code> gives three digits: <code>001</code>.</li>

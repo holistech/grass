@@ -24,7 +24,9 @@ layers. A step in which no map is registered, a gap of the dataset, becomes a
 layer without values (null cells). The layers run from the bottom upwards in
 the order of time. A time instant has no end; it gets one layer that starts at
 its time, so the cube of a dataset of time instants reaches one granularity
-beyond its time stamp, as the eighth example shows.
+beyond its time stamp, as the eighth example shows. A monthly series from the
+last day of a month (January 31, February 28, March 31) has the granularity of
+one month, so its cube has a layer per month.
 
 **Horizontal extent and resolution.** The cube covers the current
 computational region. Its resolution in the horizontal plane is the 3D
@@ -76,6 +78,10 @@ The tool refuses to run in these cases and writes a message:
   empty".
 - The dataset does not exist: "Space time dataset `<name>` of type `<strds>`
   not found".
+- The dataset holds a single time instance and so has no granularity to make
+  layers of: "Space time dataset `<name@mapset>` has no granularity, for
+  example because it holds a single time instance", in absolute and in
+  relative time.
 - The cube exists and **--overwrite** is not given: "`<name>` exists. To
   overwrite, use the --overwrite flag". With **--overwrite** the tool replaces
   the cube and its entry in the temporal database; the fourth example shows it.

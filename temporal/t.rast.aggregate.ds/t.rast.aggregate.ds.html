@@ -81,7 +81,9 @@ The option <b>suffix</b> sets the form of the suffix:
 <ul>
 <li><code>gran</code> (the default), for absolute time: the start of the interval, cut to
 the granularity of the sampler, with underscores. For a sampler with a
-granularity of one day this is <code>2020_07_01</code>;</li>
+granularity of one day this is <code>2020_07_01</code>. A monthly sampler from the last
+day of a month (January 31, February 28) has the granularity of one month
+and gives year and month, <code>2026_01</code>;</li>
 <li><code>time</code>: the full start time, <code>2020_07_01T00_00_00</code>;</li>
 <li><code>num</code>: the number of the interval with five digits, <code>00001</code>; <code>num%03</code> sets
 the number of digits to 3.</li>

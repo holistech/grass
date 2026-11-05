@@ -79,9 +79,11 @@ The new maps are named after **basename**, followed by an underscore and a
 suffix that the option **suffix** chooses:
 
 - `gran` (the default) takes the start time of the map, cut to the granularity
-  of the input dataset: `2020_07_01` in a dataset of days. A dataset of a
-  single time instance has no granularity; `gran` then takes the full start
-  time, as `time` does.
+  of the input dataset: `2020_07_01` in a dataset of days. A monthly series
+  from the last day of a month (January 31, February 28) has the granularity
+  of one month and gets year and month: `2026_01`. A dataset of a single time
+  instance has no granularity; `gran` then takes the full start time, as
+  `time` does.
 - `time` takes the full start time: `2020_07_01T00_00_00`.
 - `num` numbers the selected maps from 1, with five digits: `00001`.
   `num%03` gives three digits: `001`.
