@@ -174,6 +174,11 @@ the same time. The default is <code>1</code>. The result does not depend on it.
 touched; the tool makes new maps.
 
 <p>
+If <b>inputs</b> names one dataset and it has no maps, the tool warns "No maps
+registered in input dataset ...", makes no dataset <b>output</b> and ends with
+status 0.
+
+<p>
 If a map of the base name exists as a registered map and <b>--overwrite</b> is not
 given, the tool stops before it computes any map, with "Map ... is already in
 temporal database, use overwrite flag to overwrite". If the dataset <b>output</b>

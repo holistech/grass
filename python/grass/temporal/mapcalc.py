@@ -141,6 +141,39 @@ def _qualified(name, dataset):
     return name if "@" in name else f"{name}@{dataset.get_mapset()}"
 
 
+# Each type has a message of its own rather than one with the name of the
+# type inserted, so that translators can inflect the whole sentence. The
+# raster text is the one of t.rast.series.
+def _where_selects_nothing(stds_type):
+    return {
+        "strds": _(
+            "The where condition selects no map of space time raster dataset <{}>"
+        ),
+        "str3ds": _(
+            "The where condition selects no map of space time 3D raster dataset <{}>"
+        ),
+    }[stds_type]
+
+
+def _warn_nothing_selected(dataset, where, stds_type, empty_text, msgr):
+    """Warn that an input gives no map to compute with
+
+    A warning, not an error, so that a script that computes possibly empty
+    selections keeps running, as with t.rast.series. With a where condition
+    the warning names it, because the dataset itself may have maps;
+    otherwise it is empty_text. The dataset is named with its semantic label,
+    which also selects the maps.
+    """
+    if where:
+        msgr.warning(
+            _where_selects_nothing(stds_type).format(
+                f"{dataset.get_name()}@{dataset.get_mapset()}"
+            )
+        )
+    else:
+        msgr.warning(empty_text)
+
+
 def _read_series(name, where, stds_type, msgr):
     """source() of the name; a dataset that source() does not find ends the run
 
@@ -392,16 +425,26 @@ def dataset_mapcalculator(
         msgr.fatal(_("Invalid where condition <{}>: {}").format(where, error))
     if len(first_series.slots) == 0:
         if not do_sampling:
-            msgr.message(
+            _warn_nothing_selected(
+                first_dataset,
+                where,
+                stds_type,
                 _("No maps registered in input dataset <{}>").format(
                     display_names[names[0]]
-                )
+                ),
+                msgr,
             )
             return 0
         refusal = sampler_refusal(first_dataset, datasets[others[0]])
         if refusal is not None:
             msgr.fatal(refusal)
-        msgr.message(_("No samples found for map calculation"))
+        _warn_nothing_selected(
+            first_dataset,
+            where,
+            stds_type,
+            _("No samples found for map calculation"),
+            msgr,
+        )
         return 0
 
     id_list = [names[0], *others]
@@ -445,10 +488,14 @@ def dataset_mapcalculator(
                 _qualified(name, datasets[name]), where, stds_type, msgr
             )
             if len(other_series.slots) == 0:
-                msgr.message(
+                _warn_nothing_selected(
+                    datasets[name],
+                    where,
+                    stds_type,
                     _("No maps registered in input dataset <{}>").format(
                         display_names[name]
-                    )
+                    ),
+                    msgr,
                 )
                 return 0
             columns[name] = [

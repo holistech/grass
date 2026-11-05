@@ -1072,9 +1072,10 @@ def test_same_dataset_twice_substitutes_its_name_twice(mapcalc_session):
 
 
 def test_sampler_without_maps_gives_no_samples(mapcalc_session):
-    """If where leaves no map of the sampler, the tool reports that it found
-    no samples, ends without an error and creates no output dataset. Measured
-    2026-10-14 on the unchanged tool."""
+    """If where leaves no map of the sampler, the tool ends without an error
+    and creates no output dataset. Measured 2026-10-14 on the unchanged tool,
+    which reported "No samples found for map calculation" as a message; the
+    tool now warns that the where condition selects no map of the sampler."""
     tools = Tools(session=mapcalc_session, overwrite=True, consistent_return_value=True)
     _make_strds(tools, "char_es_s", [(1, "2001-01-01", "2001-02-01")])
     _make_strds(tools, "char_es_p", [(2, "2001-03-01", "2001-04-01")])
@@ -1086,5 +1087,8 @@ def test_sampler_without_maps_gives_no_samples(mapcalc_session):
         method="equal",
         where="start_time >= '2001-03-01'",
     )
-    assert "No samples found for map calculation" in result.stderr
+    assert (
+        "WARNING: The where condition selects no map of space time raster "
+        "dataset <char_es_s@PERMANENT>" in " ".join(result.stderr.split())
+    )
     assert not _exists(tools, "char_es_out")

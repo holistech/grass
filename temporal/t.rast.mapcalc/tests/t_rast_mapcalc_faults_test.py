@@ -7,7 +7,9 @@ it is followed by "(", also after the label operator "@" and the grey
 operator "#" of r.mapcalc. Two inputs of the same name are refused, and the
 expression reaches r.mapcalc with its blanks. An older dataset with a dot in
 its name is read as an input; a dotted name that names no dataset ends the
-run with an error message.
+run with an error message. A where condition that selects no map of the
+sampler or of the only dataset gives a warning that names it, a dataset
+without maps a warning with its own text; neither makes an output dataset.
 """
 
 from datetime import datetime
@@ -330,3 +332,141 @@ def test_dotted_input_is_read(tmp_path):
 
         assert result.returncode == 0, result.stderr
         assert [row.min for row in list_maps(tools, "strds", "calc")] == [2.0, 3.0]
+
+
+def make_where_datasets(tools, prefix):
+    """The datasets <prefix>_s and <prefix>_p, each of two daily intervals in
+    January 2026, and the dataset <prefix>_e without maps"""
+    for name, value in (("s", 1), ("p", 10)):
+        create_stds(
+            tools,
+            "strds",
+            f"{prefix}_{name}",
+            [
+                MapSpec(
+                    f"{prefix}_{name}{day}", value, D(2026, 1, day), D(2026, 1, day + 1)
+                )
+                for day in (1, 2)
+            ],
+        )
+    tools.t_create(
+        type="strds",
+        temporaltype="absolute",
+        output=f"{prefix}_e",
+        title="t",
+        description="t",
+    )
+
+
+@pytest.mark.parametrize("inputs", ["{}_s,{}_p", "{}_s"], ids=["sampler", "single"])
+def test_where_selects_nothing_warns(tools, prefix, inputs):
+    """The warning names the where condition and the dataset it emptied"""
+    make_where_datasets(tools, prefix)
+    names = inputs.format(prefix, prefix)
+    before = inventory(tools)
+    result = tools.t_rast_mapcalc(
+        inputs=names,
+        expression=" + ".join(names.split(",")),
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+        where="start_time >= '2027-01-01'",
+    )
+    assert result.returncode == 0
+    assert (
+        "WARNING: The where condition selects no map of space time raster "
+        f"dataset <{prefix}_s@PERMANENT>"
+    ) in message(result)
+    assert inventory(tools) == before
+
+
+def test_empty_dataset_without_where_warns(tools, prefix):
+    make_where_datasets(tools, prefix)
+    before = inventory(tools)
+    result = tools.t_rast_mapcalc(
+        inputs=f"{prefix}_e",
+        expression=f"{prefix}_e + 1",
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+    )
+    assert result.returncode == 0
+    assert f"WARNING: No maps registered in input dataset <{prefix}_e>" in message(
+        result
+    )
+    assert "where condition" not in message(result)
+    assert inventory(tools) == before
+
+
+def test_empty_dataset_with_where_names_the_where_condition(tools, prefix):
+    """With where, a dataset without maps gets the warning about the where
+    condition, as in t.rast.series"""
+    make_where_datasets(tools, prefix)
+    before = inventory(tools)
+    result = tools.t_rast_mapcalc(
+        inputs=f"{prefix}_e",
+        expression=f"{prefix}_e + 1",
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+        where="start_time >= '2026-01-01'",
+    )
+    assert result.returncode == 0
+    assert (
+        "WARNING: The where condition selects no map of space time raster "
+        f"dataset <{prefix}_e@PERMANENT>"
+    ) in message(result)
+    assert "No maps registered" not in message(result)
+    assert inventory(tools) == before
+
+
+@pytest.mark.parametrize("inputs", ["{}_s,{}_p", "{}_s"], ids=["sampler", "single"])
+def test_where_with_maps_gives_no_warning(tools, prefix, inputs):
+    make_where_datasets(tools, prefix)
+    names = inputs.format(prefix, prefix)
+    result = tools.t_rast_mapcalc(
+        inputs=names,
+        expression=" + ".join(names.split(",")),
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+        where="start_time >= '2026-01-02'",
+    )
+    assert "WARNING" not in result.stderr
+    assert [row.min for row in list_maps(tools, "strds", f"{prefix}_out")] == [
+        11.0 if "," in names else 1.0
+    ]
+
+
+@pytest.mark.parametrize("where", [None, "start_time < '2026-01-02'"])
+def test_label_without_maps_warns(tools, prefix, where):
+    """Two labels of one dataset are not sampled; the second one gives no map
+
+    The map with the label B4 is on 1 January, the one with B8 on 2 January,
+    so the where condition leaves a map of B4 only. Without it, the label B9
+    selects no map.
+    """
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_x",
+        [
+            MapSpec(f"{prefix}_b4", 1, D(2026, 1, 1), D(2026, 1, 2), "B4"),
+            MapSpec(f"{prefix}_b8", 2, D(2026, 1, 2), D(2026, 1, 3), "B8"),
+        ],
+    )
+    second = "B8" if where else "B9"
+    before = inventory(tools)
+    result = tools.t_rast_mapcalc(
+        inputs=f"{prefix}_x.B4,{prefix}_x.{second}",
+        expression=f"{prefix}_x.B4 + {prefix}_x.{second}",
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+        **({"where": where} if where else {}),
+    )
+    assert result.returncode == 0
+    if where:
+        expected = (
+            "WARNING: The where condition selects no map of space time raster "
+            f"dataset <{prefix}_x.B8@PERMANENT>"
+        )
+    else:
+        expected = f"WARNING: No maps registered in input dataset <{prefix}_x.B9>"
+    assert expected in message(result)
+    assert inventory(tools) == before

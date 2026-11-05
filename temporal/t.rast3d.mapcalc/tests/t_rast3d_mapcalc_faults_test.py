@@ -5,9 +5,13 @@ ends the run with an error, the method start selects a map of the same time
 as the granule, a dataset name in the expression is replaced only where it
 stands as a whole name and not before "(", also after the label operator
 "@" and the grey operator "#", two inputs of the same name are refused, and
-the expression reaches r3.mapcalc with its blanks.
+the expression reaches r3.mapcalc with its blanks. A dataset without maps
+gives a warning and no output dataset. The tool has no option where, so the
+warning for a where condition that selects no map is checked on
+dataset_mapcalculator(), which the tool calls.
 """
 
+import sys
 from datetime import datetime
 from io import StringIO
 
@@ -190,3 +194,95 @@ def test_expression_keeps_spaces(tools):
     )
     assert 'Apply mapcalc expression: "sp_out_1=sp1 + 5"' in result.stderr
     assert values(tools, "sp_out")[0][3] == 6.0
+
+
+# dataset_mapcalculator() with a where condition, in a process of its own in
+# the session of tools; the expression adds the inputs, as in the 2D tests.
+MAPCALC_WITH_WHERE = """
+import sys
+import grass.temporal as tgis
+tgis.init()
+inputs, output, where = sys.argv[1:]
+tgis.dataset_mapcalculator(
+    inputs, output, "raster3d", " + ".join(inputs.split(",")), output,
+    ["equal"], where=where,
+)
+"""
+
+
+def make_where_datasets(tools, prefix):
+    """The datasets <prefix>_s and <prefix>_p, each of two daily intervals in
+    January 2026, and the dataset <prefix>_e without maps"""
+    for name, value in (("s", 1), ("p", 10)):
+        create_stds(
+            tools,
+            "str3ds",
+            f"{prefix}_{name}",
+            [
+                MapSpec(
+                    f"{prefix}_{name}{day}", value, D(2026, 1, day), D(2026, 1, day + 1)
+                )
+                for day in (1, 2)
+            ],
+        )
+    tools.t_create(
+        type="str3ds",
+        temporaltype="absolute",
+        output=f"{prefix}_e",
+        title="t",
+        description="t",
+    )
+
+
+def mapcalc_with_where(tools, inputs, output, where):
+    return tools.call_cmd(
+        [sys.executable, "-c", MAPCALC_WITH_WHERE, inputs, output, where]
+    )
+
+
+@pytest.mark.parametrize("inputs", ["{}_s,{}_p", "{}_s"], ids=["sampler", "single"])
+def test_where_selects_nothing_warns(tools, prefix, inputs):
+    """The warning names the where condition and the dataset it emptied"""
+    make_where_datasets(tools, prefix)
+    before = inventory(tools)
+    result = mapcalc_with_where(
+        tools,
+        inputs.format(prefix, prefix),
+        f"{prefix}_out",
+        "start_time >= '2027-01-01'",
+    )
+    assert result.returncode == 0
+    assert (
+        "WARNING: The where condition selects no map of space time 3D raster "
+        f"dataset <{prefix}_s@PERMANENT>"
+    ) in message(result)
+    assert inventory(tools) == before
+
+
+def test_empty_dataset_without_where_warns(tools, prefix):
+    make_where_datasets(tools, prefix)
+    before = inventory(tools)
+    result = tools.t_rast3d_mapcalc(
+        inputs=f"{prefix}_e",
+        expression=f"{prefix}_e + 1",
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+    )
+    assert result.returncode == 0
+    assert f"WARNING: No maps registered in input dataset <{prefix}_e>" in message(
+        result
+    )
+    assert inventory(tools) == before
+
+
+@pytest.mark.parametrize("inputs", ["{}_s,{}_p", "{}_s"], ids=["sampler", "single"])
+def test_where_with_maps_gives_no_warning(tools, prefix, inputs):
+    make_where_datasets(tools, prefix)
+    names = inputs.format(prefix, prefix)
+    result = mapcalc_with_where(
+        tools, names, f"{prefix}_out", "start_time >= '2026-01-02'"
+    )
+    assert "WARNING" not in result.stderr
+    assert [row.min for row in list_maps(tools, "str3ds", f"{prefix}_out")] == [
+        11.0 if "," in names else 1.0
+    ]

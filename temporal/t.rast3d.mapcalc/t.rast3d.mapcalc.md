@@ -159,6 +159,10 @@ the same time. The default is `1`. The result does not depend on it.
 **where**, and works on 3D rasters only. The maps of the datasets are not
 touched; the tool makes new maps.
 
+If **inputs** names one dataset and it has no maps, the tool warns "No maps
+registered in input dataset ...", makes no dataset **output** and ends with
+status 0.
+
 If a map of the base name exists as a registered map and **--overwrite** is not
 given, the tool stops before it computes any map, with "Map ... is already in
 temporal database, use overwrite flag to overwrite". If the dataset **output**

@@ -205,12 +205,16 @@ instants, or the datasets have different temporal types, the first dataset
 cannot sample the others: the tool stops before it computes any map, with "The
 temporal map type of the sample dataset must be interval" or "The space time
 datasets must be of the same temporal type". If **where** leaves no map in the
-sampler, the tool prints "No samples found for map calculation". A call with
-one dataset needs no sampling: time instants work as in the fifth example, and
-if **where** leaves no map, the tool prints "No maps registered in input
-dataset ...". In these two cases it makes no dataset **output** and ends with
-status 0. If **where** leaves no map in another dataset, no granule has a
-partner, and the tool makes an **output** without maps.
+sampler, the tool warns "The where condition selects no map of space time
+raster dataset ...". A call with one dataset needs no sampling: time instants
+work as in the fifth example; if **where** leaves no map, the tool gives the
+same warning, and if the dataset has no maps and no **where** is given, it
+warns "No maps registered in input dataset ...". Labels of one dataset, as in
+`bands.S2_8,bands.S2_4`, are not sampled either: if a later label has no map,
+the tool warns in the same way and names that label. In these cases it makes no
+dataset **output** and ends with status 0. If **where** leaves no map in
+another dataset that the sampler samples, no granule has a partner, and the
+tool makes an **output** without maps.
 
 ## EXAMPLES
 
