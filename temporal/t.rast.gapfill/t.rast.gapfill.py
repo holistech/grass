@@ -161,9 +161,11 @@ def interpolation_maps(
     _predecessor_end, start = predecessor.get_temporal_extent_as_tuple()
     end, _successor_end = successor.get_temporal_extent_as_tuple()
 
-    # Now resample the gap
+    # The granules of the gap count from the start of the dataset: a month
+    # series from 31 January has the granule 28 February to 31 March, which
+    # counted from 28 February would end on 28 March.
     map_matrix = tgis.AbstractSpaceTimeDataset.resample_maplist_by_granularity(
-        (gap,), start, end, gran
+        (gap,), start, end, gran, anchor=sp.get_temporal_extent_as_tuple()[0]
     )
 
     new_maps = []

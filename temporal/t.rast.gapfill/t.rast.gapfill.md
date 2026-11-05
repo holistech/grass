@@ -8,8 +8,9 @@ input dataset itself; the tool creates no new dataset. See the
 [introduction to temporal data processing](temporalintro.md) for space time
 datasets.
 
-A gap is a period between two maps of the dataset in which no map is
-registered; *[t.rast.list](t.rast.list.md)* with `method=deltagaps` shows the
+A gap is a period in which no map of the dataset is registered, so a map that
+ends inside a longer one leaves no gap; *[t.rast.list](t.rast.list.md)* with
+`method=deltagaps` shows the
 gaps as rows with `None` in the columns `id`, `name` and `mapset`, as the first
 example does. *t.rast.gapfill* finds all gaps of the dataset by itself. It
 takes the map that ends where the gap starts (the predecessor) and the map that
@@ -18,6 +19,9 @@ starts where the gap ends (the successor) and interpolates between them.
 The tool cuts each gap into steps of the granularity of the dataset and makes
 one new map for each step. A gap of one granule gets one map, a gap of three
 granules three maps. The new map gets the start and the end time of its step.
+The steps of months or years count from the start of the dataset: in a monthly
+series from January 31, which has the granularity of one month, the missing
+month from February 28 gets one map that ends on March 31.
 The `n` maps of a gap lie at the positions `i / (n + 1)` of the way from the
 predecessor to the successor, so in each cell the value of map `i` is
 `v0 + i * (v1 - v0) / (n + 1)`, where `v0` and `v1` are the values of the
