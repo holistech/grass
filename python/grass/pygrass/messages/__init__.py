@@ -180,6 +180,7 @@ class Messenger:
 
     def __init__(self, raise_on_error: bool = False) -> None:
         self.raise_on_error = raise_on_error
+        self._stopped = False
         ctx = _get_multiprocessing_context()
         self.client_conn, self.server_conn = ctx.Pipe()
         self.lock = ctx.Lock()
@@ -191,6 +192,7 @@ class Messenger:
 
     def start_server(self) -> None:
         """Start the messenger server and open the pipe"""
+        self._stopped = False
         ctx = _get_multiprocessing_context()
         self.client_conn, self.server_conn = ctx.Pipe()
         self.lock = ctx.Lock()
@@ -206,8 +208,14 @@ class Messenger:
             return
         self.client_conn.close()
         self.server_conn.close()
+        stopped_here = self._stopped
         self.start_server()
-        self.warning("Needed to restart the messenger server")
+        # A server that stop() ended, as fatal() does before it exits, is
+        # no fault: the cleanup that follows (a finally block, an atexit
+        # handler) may still send messages, and a warning about the restart
+        # would only follow the error that ended the run.
+        if not stopped_here:
+            self.warning("Needed to restart the messenger server")
 
     def message(self, message: str) -> None:
         """Send a message to stderr
@@ -302,6 +310,7 @@ class Messenger:
 
     def stop(self) -> None:
         """Stop the messenger server and close the pipe"""
+        self._stopped = True
         if self.server is not None and self.server.is_alive():
             self.client_conn.send(
                 [
