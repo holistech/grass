@@ -458,14 +458,91 @@ def run_accumulation(
         gs.fatal(_("Error running r.series.accumulate"))
 
 
+def new_map_names(input_strds, gran_list, count, *, reverse, base, time_suffix):
+    """Name the new maps of one cycle in the order of the computation
+
+    gran_lists are the granules of the cycle after relate_granules(). Returns
+    a list of (index of the granule, name of its map) for each granule with
+    input maps, the first map numbered count. The number follows the order of
+    the computation, which the flag reverse turns around.
+    """
+    names = []
+    num_maps = len(gran_list)
+    for i in range(num_maps):
+        index = num_maps - i - 1 if reverse else i
+        granule = gran_list[index]
+        if len(granule_input_maps(granule)) == 0:
+            continue
+        suffix = tgis.map_name_suffix(
+            granule, time_suffix, input_strds.get_granularity(), count
+        )
+        names.append((index, f"{base}_{suffix}"))
+        count += 1
+    return names
+
+
+def check_new_maps(cycles, input_strds, output_strds, mapset, dbif):
+    """Refuse the names that the accumulation cannot use, before it writes
+
+    cycles holds one tuple per cycle, its list of granules and the names of
+    new_map_names(). A name that more than one granule gets is refused, as
+    the suffix gran cuts the start of a granule to the unit of the
+    granularity of the input dataset: a granularity of one day on a monthly
+    series gives every day of a month the name of the month. A new map that
+    is registered in the temporal database is refused unless overwrite is set,
+    and then only if it belongs to the old output dataset, so that the maps
+    of another dataset survive. Checked here, not when each map is made, so
+    that a refusal leaves no map behind.
+    """
+    granule_of = {}
+    for gran_list, names in cycles:
+        for index, name in names:
+            if name in granule_of:
+                dbif.close()
+                gs.fatal(
+                    _(
+                        "The suffix gran gives more than one granule the map "
+                        "name <{name}>: it cuts the start time to the unit of "
+                        "the granularity <{granularity}> of the input "
+                        "dataset. Use a granularity of the accumulation as "
+                        "long as that of the input dataset, or another suffix."
+                    ).format(name=name, granularity=input_strds.get_granularity())
+                )
+            granule_of[name] = gran_list[index]
+    for name, granule in granule_of.items():
+        try:
+            tgis.open_result_map(granule, name, overwrite=False, dbif=dbif)
+        except ValueError as error:
+            if not gs.overwrite():
+                dbif.close()
+                gs.fatal(str(error))
+            registered_in = granule.get_new_instance(
+                granule.build_id(name, mapset)
+            ).get_registered_stds(dbif)
+            others = [
+                stds_id
+                for stds_id in registered_in or []
+                if stds_id != output_strds.get_id()
+            ]
+            if others:
+                dbif.close()
+                gs.fatal(
+                    _(
+                        "Map <{map}> is registered in the space time dataset "
+                        "<{stds}>, not in the output <{output}>, and is not "
+                        "replaced."
+                    ).format(
+                        map=granule.build_id(name, mapset),
+                        stds=others[0],
+                        output=output_strds.get_id(),
+                    )
+                )
+
+
 def accumulate_granules(
-    input_strds,
     gran_lists,
-    count,
+    names,
     *,
-    reverse,
-    base,
-    time_suffix,
     lower_strds,
     upper_strds,
     settings,
@@ -473,33 +550,23 @@ def accumulate_granules(
 ):
     """Accumulate the granules of one cycle, each on the result of the one before
 
-    gran_lists are the lists of granules() after relate_granules(). Returns
-    the new maps in the order of the computation, the first numbered count. A
-    granule without input maps gets no map.
+    gran_lists are the lists of granules() after relate_granules(), names those
+    of new_map_names(). Returns the new maps in the order of the computation.
     """
     gran_list, gran_list_low, gran_list_up = gran_lists
     new_maps = []
     old_map_name = None
-    num_maps = len(gran_list)
-    for i in range(num_maps):
-        # The threshold lists are in time order like gran_list, so they
-        # take the same index as the granule.
-        index = num_maps - i - 1 if reverse else i
+    for index, output_map_name in names:
         granule = gran_list[index]
         input_maps = granule_input_maps(granule)
-        if len(input_maps) == 0:
-            continue
-
-        suffix = tgis.map_name_suffix(
-            granule, time_suffix, input_strds.get_granularity(), count
-        )
-        output_map_name = f"{base}_{suffix}"
         try:
             output_map = tgis.open_result_map(
                 granule, output_map_name, overwrite=gs.overwrite(), dbif=dbif
             )
         except ValueError as error:
             gs.fatal(str(error))
+        # The threshold lists are in time order like gran_list, so they
+        # take the same index as the granule.
         lower_map_name = (
             tgis.first_related_map_id(gran_list_low[index])
             if lower_strds is not None
@@ -522,7 +589,6 @@ def accumulate_granules(
 
         new_maps.append(output_map)
         old_map_name = output_map_name
-        count += 1
     return new_maps
 
 
@@ -580,8 +646,10 @@ def main():
         return
 
     settings = {"limits": limits, "shift": shift, "scale": scale, "method": method}
+    # All cycles are planned before the first map is computed, so that a name
+    # the run cannot use is refused with nothing written.
     count = 1
-    output_maps = []
+    cycles = []
     for cycle_start, cycle_end in tgis.dataset_cycles(
         input_strds, start, end, stop=stop, cycle=cycle, offset=offset, dbif=dbif
     ):
@@ -591,27 +659,43 @@ def main():
         )
         input_maps = input_strds.get_registered_maps_as_objects(where=where, dbif=dbif)
 
-        gs.message(_("Processing cycle %s - %s") % (str(cycle_start), str(cycle_end)))
-
         if len(input_maps) == 0:
+            cycles.append((cycle_start, cycle_end, None, []))
             continue
 
         gran_lists = granules(input_strds, cycle_start, cycle_end, granularity, count)
         relate_granules(gran_lists, input_maps, lower_strds, upper_strds, dbif)
-        cycle_maps = accumulate_granules(
+        names = new_map_names(
             input_strds,
-            gran_lists,
+            gran_lists[0],
             count,
             reverse=reverse,
             base=base,
             time_suffix=time_suffix,
+        )
+        cycles.append((cycle_start, cycle_end, gran_lists, names))
+        count += len(names)
+    check_new_maps(
+        [(gran_lists[0], names) for _s, _e, gran_lists, names in cycles if names],
+        input_strds,
+        output_strds,
+        mapset,
+        dbif,
+    )
+
+    output_maps = []
+    for cycle_start, cycle_end, gran_lists, names in cycles:
+        gs.message(_("Processing cycle %s - %s") % (str(cycle_start), str(cycle_end)))
+        if gran_lists is None:
+            continue
+        output_maps += accumulate_granules(
+            gran_lists,
+            names,
             lower_strds=lower_strds,
             upper_strds=upper_strds,
             settings=settings,
             dbif=dbif,
         )
-        output_maps += cycle_maps
-        count += len(cycle_maps)
 
     # When no map is to be registered, a warning and no output dataset; with
     # overwrite an output dataset that exists is removed, as it would be

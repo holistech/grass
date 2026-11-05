@@ -126,6 +126,16 @@ option **suffix** selects:
 - `num` appends a number of five digits, such as `_00001`. The numbers count
   the result maps in the order of the computation, over all cycles.
 
+The result maps need different names. The suffix `gran` cuts the start of a
+granule to the unit of the granularity of the **input** dataset, so a
+**granularity** of the accumulation that is shorter than that of the input
+gives several granules one name. The default granularity of one day does so on
+a monthly dataset: every day of a month would get the month as its name, and
+this also holds for a series from the last day of a month, whose granularity is
+one month. The run then ends before any map is computed, and the message names
+the granularity of the input dataset. Choose a **granularity** as long as the
+input's, or the suffix `time` or `num`.
+
 Every result map has the time of its granule. A result map that has no cell
 with a value is empty. The flag **-n** registers the empty maps in the output
 dataset; without it, they are removed.
@@ -152,10 +162,12 @@ in a gap, when a **stop** is not after the **start** (such as a relative stop of
 **--overwrite**, an output dataset that exists is removed in this case, and the
 tool warns again that it did so. The maps of the removed dataset stay as maps,
 except for maps that have the name of a new result map, which the computation
-replaces and then removes. This also holds for a map that another dataset
-holds: with **--overwrite** and an empty result, such a map is replaced by an
-empty map and removed, and the other dataset loses it. The eighth example
-shows an empty result.
+replaces and then removes. The eighth example shows an empty result.
+
+**--overwrite** replaces only maps of the old output dataset. A result map
+that has the name of a map registered in another space time dataset ends the run
+before any map is computed, as without **--overwrite**, and the other dataset
+keeps its map.
 
 A cycle in which no map starts is skipped. An empty input dataset ends with a
 warning and creates no output.

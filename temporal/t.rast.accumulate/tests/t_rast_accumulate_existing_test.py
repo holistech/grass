@@ -97,18 +97,30 @@ def test_a_result_map_that_is_registered_elsewhere_is_not_replaced(tools, taken)
 
 
 def test_overwrite_replaces_a_result_map_that_is_registered_elsewhere(tools, taken):
-    _run(tools, taken, input="ex_ones", cycle="3 days", overwrite=True)
+    """Check that overwrite leaves a map of another dataset alone
 
-    assert _series(tools, taken)[0] == (_text(0), 1)
-    # The map is registered anew in the result dataset and dropped from the
-    # other one's list.
-    assert list_maps(tools, "strds", f"{taken}_ds") == []
+    The name says "replaces" from the time before the rule that overwrite replaces
+    only maps of the old output dataset. The test now checks the refusal and that
+    the other dataset keeps its map.
+    """
+    with pytest.raises(ToolError) as error:
+        _run(tools, taken, input="ex_ones", cycle="3 days", overwrite=True)
+
+    assert (
+        f"Map <{taken}_2001_01_01@PERMANENT> is registered in the space time "
+        f"dataset <{taken}_ds@PERMANENT>, not in the output <{taken}@PERMANENT>, "
+        "and is not replaced" in message(error.value)
+    )
+    assert [row.name for row in list_maps(tools, "strds", f"{taken}_ds")] == [
+        f"{taken}_2001_01_01"
+    ]
 
 
 def test_the_other_dataset_counts_its_maps_after_an_overwrite(tools, taken):
-    _run(tools, taken, input="ex_ones", cycle="3 days", overwrite=True)
+    with pytest.raises(ToolError):
+        _run(tools, taken, input="ex_ones", cycle="3 days", overwrite=True)
 
-    assert stds_info(tools, "strds", f"{taken}_ds")["number_of_maps"] == 0
+    assert stds_info(tools, "strds", f"{taken}_ds")["number_of_maps"] == 1
 
 
 def test_a_granule_overlapping_a_map_takes_it(tools):
