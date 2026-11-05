@@ -163,6 +163,44 @@ def test_same_time_suffix_gran_is_refused_first(tools, prefix):
     assert inventory(tools) == before
 
 
+def test_same_time_suffix_time_is_refused_first(tools, prefix):
+    """The suffix time names two maps of one start alike as well"""
+    small_region(tools, 4, 4)
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [
+            MapSpec(f"{prefix}_{number}", "double(col())", start, end)
+            for number, (start, end) in enumerate(
+                [
+                    (datetime(2026, 1, 1), datetime(2026, 2, 1)),
+                    (datetime(2026, 1, 1), datetime(2026, 1, 15)),
+                ],
+                start=1,
+            )
+        ],
+    )
+    before = inventory(tools)
+
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_contour(
+            input=f"{prefix}_in",
+            output=prefix,
+            basename=f"{prefix}_b",
+            step=1,
+            suffix="time",
+        )
+
+    text = message(error.value)
+    assert (
+        f"The maps <{prefix}_1@PERMANENT> and <{prefix}_2@PERMANENT> are given the "
+        f"same name <{prefix}_b_2026_01_01T00_00_00@PERMANENT> by the suffix time. "
+        "Use the suffix num" in text
+    )
+    assert inventory(tools) == before
+
+
 def test_gran_suffix_of_maps_at_the_same_time_of_day_names_the_day(tools, prefix):
     # Maps that start and end at 10:30 have the granularity "10 days": a time
     # of the day that is the same at both ends of a step does not count.
