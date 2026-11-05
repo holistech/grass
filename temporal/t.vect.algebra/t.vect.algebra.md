@@ -383,13 +383,14 @@ tsnap(A)                Snap time instances and intervals of STDS A
 A negative size shrinks the maps; the new algebra stops with an error where
 a map would keep no time, see "Core and classic algebra".
 
-`tsnap()` ends a last map that is a time instance one granularity of the
-maps after its start. A granularity of months counts from the first map, with
-the cut to the end of a shorter month: the time instances January 31,
-February 28 and March 31 have the granularity of one month, and the last one
-ends on April 30; after an instance on April 30 in the same series it ends on
-May 31. The classic algebra (**-c**) computes the granularity of the releases
-before GRASS 8.6, one day, and ends the instance of March 31 on April 1.
+`tsnap()` ends a last map that is a time instance one granularity of the maps
+after its start. A granularity of months counts from the first map, with the cut
+to the end of a shorter month: the time instances January 31, February 28 and
+March 31 have the granularity of one month, and the last one ends on April 30;
+after an instance on April 30 in the same series it ends on May 31. The classic
+algebra (**-c**) computes the granularity by the rules of the releases before
+GRASS 8.6 with the correction of item 11 under "Corrections to the classic
+algebra", one day here, and ends the instance of March 31 on April 1.
 
 The function merge(A, B) gives the maps of both datasets in one dataset.
 
@@ -700,16 +701,16 @@ both corrections.
 
 #### Corrections to the classic algebra
 
-The classic algebra gives the results of the releases before GRASS 8.6, with
-the exceptions below. In these cases those releases computed wrongly, ended in
-an error that had no reason, or reported the wrong error. **-c** now gives the
+The classic algebra gives the results of the releases before GRASS 8.6, with the
+exceptions below. In these cases those releases computed wrongly, ended in an
+error that had no reason, or reported the wrong error. **-c** now gives the
 result described here. The reference implementation was corrected in the same
 way, except in items 8 and 9: it still takes the time of a partner whose box
 only touches, and it still raises the `CalledModuleError` of a failed module.
-The new algebra never had these errors; only the items on month steps, on
-dates beyond the year 9999 and on a failed module concerned the library and
-with it both algebras. Results of earlier GRASS versions that used one of
-these forms need a new run.
+The new algebra never had these errors; only the items on month steps, on dates
+beyond the year 9999, on a failed module and on the granularity concerned the
+library and with it both algebras. Results of earlier GRASS versions that used
+one of these forms need a new run.
 
 1. **tsnap() and tshift() of no maps.** If the expression inside has no
     maps, the result is empty like any other empty result: the classic
@@ -757,70 +758,78 @@ these forms need a new run.
 5. **A spatial relation without a temporal one.** An operator with spatial
     relation names only, such as `A {&,equivalent,l} B`, related no map, because
     maps are related by their temporal relations, and gave an empty result
-    without a message (corrected 17 October 2026). It stops now with the error
-    "equivalent is a spatial relation and needs a temporal one, as in
-    equal|overlap", as in the new algebra. A selection in braces, which refuses
-    spatial names with a syntax error, gives this error too when the names are
-    spatial only. Write a temporal relation beside the spatial one:
+    without a message. It stops now with the error "equivalent is a spatial
+    relation and needs a temporal one, as in equal|overlap", as in the new
+    algebra. A selection in braces, which refuses spatial names with a syntax
+    error, gives this error too when the names are spatial only. Write a
+    temporal relation beside the spatial one:
 
     ```sh
     C = A {&,equal|equivalent,l} B
     ```
 
-6. **Month and year steps from the end of a month.** `tshift()` and
-    `buff_t()` by months or years ended in an error ("day is out of range for
-    month") when a time stamp moved to a day that the target month lacks, in
-    both algebras. Such a step now ends on the last day of that month
-    (corrected 23 October 2026). With a dataset M whose map lasts from 31
-    January to 31 March 2001, the first expression gives a map from 28
-    February to 30 April 2001, the second one a map from 31 December 2000 to
-    30 April 2001. A year step from 29 February 2004 ends on 28 February 2005:
+6. **Month and year steps from the end of a month.** `tshift()` and `buff_t()`
+    by months or years ended in an error ("day is out of range for month") when
+    a time stamp moved to a day that the target month lacks, in both algebras.
+    Such a step now ends on the last day of that month. With a dataset M whose
+    map lasts from 31 January to 31 March 2001, the first expression gives a map
+    from 28 February to 30 April 2001, the second one a map from 31 December
+    2000 to 30 April 2001. A year step from 29 February 2004 ends on 28 February
+    2005:
 
     ```sh
     C = tshift(M, "1 months")
     C = buff_t(M, "1 months")
     ```
 
-    A month step back that ends in December of the year before last or
-    earlier, for example `buff_t(A, "24 months")` on a map that starts on 1
-    December or `tshift(A, "-13 months")` on one that starts in January,
-    ended in the error "bad month number 0" and now gives a result
-    (corrected 23 October 2026). Years and months of one step count as one
-    step of 12 * years + months months, so `"1 years, 11 months"` and
-    `"23 months"` end on the same day.
+    A month step back that ends in December of the year before last or earlier,
+    for example `buff_t(A, "24 months")` on a map that starts on 1 December or
+    `tshift(A, "-13 months")` on one that starts in January, ended in the error
+    "bad month number 0" and now gives a result. Years and months of one step
+    count as one step of 12 * years + months months, so `"1 years, 11 months"`
+    and `"23 months"` end on the same day.
 
-7. **A date beyond the year 9999.** A step that ends behind the year 9999
-    or before the year 1, for example `buff_t(A, "365 days")` on a map that ends
-    on 1 December 9999, ended with a traceback ("date value out of range")
-    in both algebras. It now ends with the error "... is beyond the year
-    9999" or "... is before the year 1" (corrected 23 October 2026); no map
-    and no dataset is created.
+7. **A date beyond the year 9999.** A step that ends behind the year 9999 or
+    before the year 1, for example `buff_t(A, "365 days")` on a map that ends on
+    1 December 9999, ended with a traceback ("date value out of range") in both
+    algebras. It now ends with the error "... is beyond the year 9999" or "...
+    is before the year 1"; no map and no dataset is created.
 
-8. **A selection with r or u under -s and maps whose boxes only touch.**
-    With **-s** two maps are related when they are related in time and in
-    space; boxes that meet at an edge or a corner only are not related in
-    space. A selection such as `A {:,precedes,r} B` took the time of every
-    map that was related in time, also of one whose box only touches the box
-    of the map of A, and the last such map won. An inverse selection such as
+8. **A selection with r or u under -s and maps whose boxes only touch.** With
+    **-s** two maps are related when they are related in time and in space;
+    boxes that meet at an edge or a corner only are not related in space. A
+    selection such as `A {:,precedes,r} B` took the time of every map that was
+    related in time, also of one whose box only touches the box of the map of A,
+    and the last such map won. An inverse selection such as
     `A {!:,precedes,r} B` kept a map without a related partner, as it should,
     but gave it the time of a partner that only touches it. The time is now
-    taken only from maps that are related in time and in space, and `!:`
-    keeps a map without such a partner with its own time (corrected 23
-    October 2026). For example, a map of A from 1 to 2 January whose box
-    meets at a corner the box of a map of B from 2 to 3 January keeps the
-    time 1 to 2 January in the inverse selection above, where it took 2 to 3
-    January. Without **-s** nothing changes.
+    taken only from maps that are related in time and in space, and `!:` keeps a
+    map without such a partner with its own time. For example, a map of A from 1
+    to 2 January whose box meets at a corner the box of a map of B from 2 to 3
+    January keeps the time 1 to 2 January in the inverse selection above, where
+    it took 2 to 3 January. Without **-s** nothing changes.
 
 9. **A failed module.** If a module fails while the maps are computed, for
     example *v.patch*, both algebras ended with a Python traceback. They now end
     with an error that names the module and its return code, such as
-    `Module <v.patch> failed with return code 1, see the error output above`
-    (corrected 24 October 2026); the cause is in the error output of the module
-    above it. No dataset is created.
+    `Module <v.patch> failed with return code 1, see the error output above`;
+    the cause is in the error output of the module above it. No dataset is
+    created.
 
-10. **The relation equals.** The releases before GRASS 8.6 refused the
-    spelling `equals` of the paper with a syntax error (corrected 17 October
-    2026). The classic algebra reads it as `equal`, as the new algebra does.
+10. **The relation equals.** The releases before GRASS 8.6 refused the spelling
+    `equals` of the paper with a syntax error. The classic algebra reads it as
+    `equal`, as the new algebra does.
+
+11. **The granularity of steps over a year and of a time of the day.** The
+    granularity of a dataset, which `tsnap()` uses for the end of a last time
+    instance, counted a step between the first days of two months more than a
+    year apart by the difference of the months only: 1 January 2024 to 1 March
+    2025 gave 2 months and now gives 14 months. A step whose two ends lie at the
+    same time of the day other than midnight counted in hours or minutes: time
+    instances at 10:30 ten days apart had the granularity `14400 minutes` and
+    now have `10 days`. A time of the day that differs between the two ends
+    still counts: from 10:30 to 11:30 ten days later the granularity is
+    `241 hours`.
 
 #### Differences from the reference implementation
 
