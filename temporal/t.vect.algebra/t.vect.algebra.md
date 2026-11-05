@@ -686,7 +686,8 @@ variables also takes the maps that no condition map is related to. Figure
 A3 of Gebbert, Leppelt and Pebesma (2019) needs both: A has maps from day
 1 to 3, 3 to 5 and 5 to 7 of January 2001, B has daily maps from day 1 to
 10, and this expression gives the first two maps of A and the maps of B
-from day 5 on, as the figure shows:
+from day 5 on, as the figure shows (see the example "Figure A3 of the
+publication"):
 
 ```sh
 C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)
@@ -2327,6 +2328,153 @@ The first day has one common circle, the second two.
     name|start_time|end_time|areas
     d_0|2026-03-01 00:00:00|2026-03-02 00:00:00|1
     d_1|2026-03-02 00:00:00|2026-03-03 00:00:00|2
+    ```
+
+### Figure A3 of the publication
+
+Figure A3 of Gebbert, Leppelt and Pebesma (2019) shows the expression of the
+NOTES (section "Core and classic algebra") on datasets of January 2001. The
+example creates the mapset `t_vect_algebra_4`, sets its region and creates new
+datasets `A` and `B` there, so that the expression can be written as it is
+printed. Their maps are copies of the squares `a1` and `b1` of the first
+example: `A` has three maps of two days from 1 to 7 January 2001, `B` ten daily
+maps from 1 to 10 January. The result `C` holds the first two maps of `A`,
+whose start is not after 3 January, and the maps of `B` from day 5 on, which
+no such map of `A` contains or equals. The maps are registered as they are,
+not copied. The classic algebra (**-c**) gives the same maps.
+
+=== "Command line"
+
+    ```sh
+    g.mapset -c mapset=t_vect_algebra_4
+    g.region raster=elev_state_500m res=1000 -a
+    for i in 1 2 3; do
+        g.copy vector=a1@t_vect_algebra,fig_a_$i
+    done
+    for i in $(seq 1 10); do
+        g.copy vector=b1@t_vect_algebra,fig_b_$i
+    done
+    t.create type=stvds output=A title="Figure A3, A" \
+        description="Three maps of two days in January 2001"
+    t.register -i type=vector input=A maps=fig_a_1,fig_a_2,fig_a_3 \
+        start=2001-01-01 increment="2 days"
+    t.create type=stvds output=B title="Figure A3, B" \
+        description="Ten daily maps in January 2001"
+    t.register -i type=vector input=B \
+        maps=$(seq -s, -f "fig_b_%g" 1 10) start=2001-01-01 increment="1 day"
+    t.vect.algebra \
+        expression='C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)' \
+        basename=fig
+    t.vect.list input=C columns=name,start_time,end_time
+    ```
+
+    ```text
+    name|start_time|end_time
+    fig_a_1|2001-01-01 00:00:00|2001-01-03 00:00:00
+    fig_a_2|2001-01-03 00:00:00|2001-01-05 00:00:00
+    fig_b_5|2001-01-05 00:00:00|2001-01-06 00:00:00
+    fig_b_6|2001-01-06 00:00:00|2001-01-07 00:00:00
+    fig_b_7|2001-01-07 00:00:00|2001-01-08 00:00:00
+    fig_b_8|2001-01-08 00:00:00|2001-01-09 00:00:00
+    fig_b_9|2001-01-09 00:00:00|2001-01-10 00:00:00
+    fig_b_10|2001-01-10 00:00:00|2001-01-11 00:00:00
+    ```
+
+    ```sh
+    t.vect.algebra -c --overwrite \
+        expression='C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)' \
+        basename=figc
+    t.vect.list input=C columns=name,start_time,end_time
+    ```
+
+    ```text
+    name|start_time|end_time
+    fig_a_1|2001-01-01 00:00:00|2001-01-03 00:00:00
+    fig_a_2|2001-01-03 00:00:00|2001-01-05 00:00:00
+    fig_b_5|2001-01-05 00:00:00|2001-01-06 00:00:00
+    fig_b_6|2001-01-06 00:00:00|2001-01-07 00:00:00
+    fig_b_7|2001-01-07 00:00:00|2001-01-08 00:00:00
+    fig_b_8|2001-01-08 00:00:00|2001-01-09 00:00:00
+    fig_b_9|2001-01-09 00:00:00|2001-01-10 00:00:00
+    fig_b_10|2001-01-10 00:00:00|2001-01-11 00:00:00
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.g_mapset(mapset="t_vect_algebra_4", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    for i in range(1, 4):
+        tools.g_copy(vector=f"a1@t_vect_algebra,fig_a_{i}")
+    for i in range(1, 11):
+        tools.g_copy(vector=f"b1@t_vect_algebra,fig_b_{i}")
+    tools.t_create(
+        type="stvds",
+        output="A",
+        title="Figure A3, A",
+        description="Three maps of two days in January 2001",
+    )
+    tools.t_register(
+        type="vector",
+        input="A",
+        maps="fig_a_1,fig_a_2,fig_a_3",
+        start="2001-01-01",
+        increment="2 days",
+        flags="i",
+    )
+    tools.t_create(
+        type="stvds",
+        output="B",
+        title="Figure A3, B",
+        description="Ten daily maps in January 2001",
+    )
+    tools.t_register(
+        type="vector",
+        input="B",
+        maps=",".join(f"fig_b_{i}" for i in range(1, 11)),
+        start="2001-01-01",
+        increment="1 day",
+        flags="i",
+    )
+    tools.t_vect_algebra(
+        expression='C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)',
+        basename="fig",
+    )
+    print(tools.t_vect_list(input="C", columns="name,start_time,end_time").text)
+    ```
+
+    ```text
+    name|start_time|end_time
+    fig_a_1|2001-01-01 00:00:00|2001-01-03 00:00:00
+    fig_a_2|2001-01-03 00:00:00|2001-01-05 00:00:00
+    fig_b_5|2001-01-05 00:00:00|2001-01-06 00:00:00
+    fig_b_6|2001-01-06 00:00:00|2001-01-07 00:00:00
+    fig_b_7|2001-01-07 00:00:00|2001-01-08 00:00:00
+    fig_b_8|2001-01-08 00:00:00|2001-01-09 00:00:00
+    fig_b_9|2001-01-09 00:00:00|2001-01-10 00:00:00
+    fig_b_10|2001-01-10 00:00:00|2001-01-11 00:00:00
+    ```
+
+    ```python
+    tools.t_vect_algebra(
+        expression='C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)',
+        basename="figc",
+        flags="c",
+        overwrite=True,
+    )
+    print(tools.t_vect_list(input="C", columns="name,start_time,end_time").text)
+    ```
+
+    ```text
+    name|start_time|end_time
+    fig_a_1|2001-01-01 00:00:00|2001-01-03 00:00:00
+    fig_a_2|2001-01-03 00:00:00|2001-01-05 00:00:00
+    fig_b_5|2001-01-05 00:00:00|2001-01-06 00:00:00
+    fig_b_6|2001-01-06 00:00:00|2001-01-07 00:00:00
+    fig_b_7|2001-01-07 00:00:00|2001-01-08 00:00:00
+    fig_b_8|2001-01-08 00:00:00|2001-01-09 00:00:00
+    fig_b_9|2001-01-09 00:00:00|2001-01-10 00:00:00
+    fig_b_10|2001-01-10 00:00:00|2001-01-11 00:00:00
     ```
 
 <!-- markdownlint-enable MD046 -->
