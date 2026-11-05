@@ -63,6 +63,10 @@ such as the default `strds` for a space time 3D raster dataset, stops with an
 error like `Space time dataset <soil> of type <strds> not found`; give
 **type=str3ds**.
 
+A dataset of an earlier release can have a dot in its name. It is found by its
+whole name and removed like any other dataset; only for a name that no
+dataset has, the text after the dot is read as a semantic label.
+
 ## EXAMPLES
 
 The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
