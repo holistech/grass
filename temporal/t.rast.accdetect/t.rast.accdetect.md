@@ -86,7 +86,9 @@ starts, `2` while it goes on and `3` where it ends. The option **staend**
 changes the three values, for instance `staend=10,20,30`; the default is
 `1,2,3`. A cell that is null in the occurrence map is null in the indicator.
 A stretch that is still going on at the last map of a cycle ends there, so
-that map gets the end value.
+that map gets the end value. A stretch of a single map has no map to end it
+after its start: it gets the start value only, never the end value. The same
+holds for a map that is alone in its cycle.
 
 The flag **-r** works through every cycle from its last map back, for an input
 dataset that *t.rast.accumulate* made with its flag **-r**. The indicator then
