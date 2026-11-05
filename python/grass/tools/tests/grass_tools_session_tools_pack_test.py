@@ -782,17 +782,22 @@ def test_workflow_create_project_and_run_xy_crs(
     assert raster.is_file()
 
 
-def test_v_pack_writes_the_archive_as_is(xy_dataset_session, tmp_path: Path):
-    """Check that v.pack gets the .pack file name instead of a raster import"""
+def test_v_pack_writes_the_archive_as_is(
+    xy_dataset_session, tmp_path: Path, monkeypatch
+):
+    """Check that v.pack gets the .pack path, not the name of the map"""
     tools = Tools(session=xy_dataset_session, use_cache=True)
     tools.v_in_ascii(input=StringIO("1|1"), output="points", separator="pipe")
+    # Given the name of the map, v.pack wrote its archive to a file of that
+    # name in the working directory of the run; an empty directory of its own
+    # shows such a file and keeps it out of the directory pytest started in.
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
     packed_file = tmp_path / "points.pack"
     tools.v_pack(input="points", output=packed_file)
     assert packed_file.exists()
-    # No raster may appear under the archive name.
-    assert not tools.g_findfile(element="raster", file=packed_file.stem, format="json")[
-        "name"
-    ]
+    assert not list(work.iterdir())
 
 
 def test_v_unpack_takes_the_archive_as_is(xy_dataset_session, tmp_path: Path):
