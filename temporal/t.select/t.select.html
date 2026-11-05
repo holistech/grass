@@ -60,8 +60,10 @@ t.select expression="C = A : B"
 Here <b>C</b> is the new space time raster dataset that will contain the maps
 from <b>A</b> that are selected by equal temporal relationships to the existing
 dataset <b>B</b>. An existing dataset <b>C</b> is only replaced with the
-<b>--overwrite</b> flag. Datasets of other mapsets are written as <code>name@mapset</code>;
-a name without mapset means the current mapset only.
+<b>--overwrite</b> flag. Datasets of other mapsets are written as <code>name@mapset</code>.
+A name without mapset is searched in the current mapset first, then in the
+mapsets of the search path; the classic algebra (<b>-c</b>) searches only the
+current mapset.
 
 <p>
 The option <b>type</b> gives the type of the datasets named in the expression:
@@ -470,9 +472,10 @@ The result dataset and the copies of retimed maps are always created in the
 current mapset. A selected map that keeps its time is registered as it is,
 also when it belongs to another mapset: the result of the example with the
 mapset <code>t_select_2</code> holds <code>a2@t_select</code>, and no map of that name exists in
-<code>t_select_2</code>. A name without a mapset in the expression refers to the current
-mapset only, so <code>X</code> does not find a dataset <code>X</code> of another mapset; write
-<code>X@mapset</code>.
+<code>t_select_2</code>. A name without a mapset in the expression finds a dataset <code>X</code>
+of another mapset only if that mapset is in the search path, and with <b>-c</b>
+not at all; <code>X@mapset</code> finds it in any mapset of the project that has a
+temporal database.
 
 <p>
 An expression that selects no map creates an empty space time dataset, for
@@ -482,7 +485,10 @@ vector maps also, with <b>-c</b> and without. The empty dataset has the map coun
 <p>
 Datasets of relative time are selected like those of absolute time, with the
 same relations and operators. The result has the temporal type of the input
-(see the example on relative time).
+(see the example on relative time). The calendar functions, such as
+<code>start_month()</code> or <code>start_doy()</code>, need absolute time: on a dataset of relative
+time both algebras stop with the error "Temporal function start_month() is
+not available for map ...", and no dataset is created.
 
 <h3>Core and classic algebra</h3>
 
@@ -501,15 +507,13 @@ algebra, and the flag takes precedence over the variable.
 <p>
 Both algebras pull maps of another dataset type into a selection with the
 functions <code>strds()</code>, <code>str3ds()</code> and <code>stvds()</code>; the type of the function need
-not equal the parameter <b>type</b>, which gives the type of the result (since
-17 October 2026 the new algebra reads them as well; before, only the classic
-algebra did). Since 21 October 2026 the new algebra also relates a vector
-dataset on the left to a raster or 3D raster dataset, as in
-<code>if({contains}, stvds(B) {#,contains} A == 2, A)</code>; before, it stopped with an
-error. Besides the lower case spelling, <code>str3ds(A)</code>, both read the
-capitals of the paper, <code>STRDS(A)</code>, <code>STR3DS(A)</code> and <code>STVDS(A)</code>. A capital name
-is a function only before an opening parenthesis, so that a dataset may be
-named <code>STRDS</code>. Other spellings, such as <code>Str3ds(A)</code>, are a syntax error.
+not equal the parameter <b>type</b>, which gives the type of the result. The new
+algebra also relates a vector dataset on the left to a raster or 3D raster
+dataset, as in <code>if({contains}, stvds(B) {#,contains} A == 2, A)</code>. Besides the
+lower case spelling, <code>str3ds(A)</code>, both read the capitals of the paper,
+<code>STRDS(A)</code>, <code>STR3DS(A)</code> and <code>STVDS(A)</code>. A capital name is a function only
+before an opening parenthesis, so that a dataset may be named <code>STRDS</code>. Other
+spellings, such as <code>Str3ds(A)</code>, are a syntax error.
 
 <p>
 <em>t.select</em> only selects and retimes maps, it computes none, so most

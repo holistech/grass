@@ -56,8 +56,10 @@ t.select expression="C = A : B"
 Here **C** is the new space time raster dataset that will contain the maps
 from **A** that are selected by equal temporal relationships to the existing
 dataset **B**. An existing dataset **C** is only replaced with the
-**--overwrite** flag. Datasets of other mapsets are written as `name@mapset`;
-a name without mapset means the current mapset only.
+**--overwrite** flag. Datasets of other mapsets are written as `name@mapset`.
+A name without mapset is searched in the current mapset first, then in the
+mapsets of the search path; the classic algebra (**-c**) searches only the
+current mapset.
 
 The option **type** gives the type of the datasets named in the expression:
 `strds` (default), `stvds` or `str3ds`. The result has this type as a rule.
@@ -436,9 +438,10 @@ The result dataset and the copies of retimed maps are always created in the
 current mapset. A selected map that keeps its time is registered as it is,
 also when it belongs to another mapset: the result of the example with the
 mapset `t_select_2` holds `a2@t_select`, and no map of that name exists in
-`t_select_2`. A name without a mapset in the expression refers to the current
-mapset only, so `X` does not find a dataset `X` of another mapset; write
-`X@mapset`.
+`t_select_2`. A name without a mapset in the expression finds a dataset `X`
+of another mapset only if that mapset is in the search path, and with **-c**
+not at all; `X@mapset` finds it in any mapset of the project that has a
+temporal database.
 
 An expression that selects no map creates an empty space time dataset, for
 vector maps also, with **-c** and without. The empty dataset has the map count
@@ -446,7 +449,10 @@ vector maps also, with **-c** and without. The empty dataset has the map count
 
 Datasets of relative time are selected like those of absolute time, with the
 same relations and operators. The result has the temporal type of the input
-(see the example on relative time).
+(see the example on relative time). The calendar functions, such as
+`start_month()` or `start_doy()`, need absolute time: on a dataset of relative
+time both algebras stop with the error "Temporal function start_month() is
+not available for map ...", and no dataset is created.
 
 ### Core and classic algebra
 
@@ -464,15 +470,13 @@ algebra, and the flag takes precedence over the variable.
 
 Both algebras pull maps of another dataset type into a selection with the
 functions `strds()`, `str3ds()` and `stvds()`; the type of the function need
-not equal the parameter **type**, which gives the type of the result (since
-17 October 2026 the new algebra reads them as well; before, only the classic
-algebra did). Since 21 October 2026 the new algebra also relates a vector
-dataset on the left to a raster or 3D raster dataset, as in
-`if({contains}, stvds(B) {#,contains} A == 2, A)`; before, it stopped with an
-error. Besides the lower case spelling, `str3ds(A)`, both read the
-capitals of the paper, `STRDS(A)`, `STR3DS(A)` and `STVDS(A)`. A capital name
-is a function only before an opening parenthesis, so that a dataset may be
-named `STRDS`. Other spellings, such as `Str3ds(A)`, are a syntax error.
+not equal the parameter **type**, which gives the type of the result. The new
+algebra also relates a vector dataset on the left to a raster or 3D raster
+dataset, as in `if({contains}, stvds(B) {#,contains} A == 2, A)`. Besides the
+lower case spelling, `str3ds(A)`, both read the capitals of the paper,
+`STRDS(A)`, `STR3DS(A)` and `STVDS(A)`. A capital name is a function only
+before an opening parenthesis, so that a dataset may be named `STRDS`. Other
+spellings, such as `Str3ds(A)`, are a syntax error.
 
 *t.select* only selects and retimes maps, it computes none, so most
 differences between the two algebras do not reach it. An expression that
