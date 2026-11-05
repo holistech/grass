@@ -135,7 +135,9 @@ class Translator:
         self._kind = kind
         self._spatial = spatial
         self._selection = selection
-        self._resolve = resolve or functools.partial(source, stds_type=STDS_TYPES[kind])
+        self._resolve = resolve or functools.partial(
+            source, stds_type=STDS_TYPES[kind], search_path=profile.search_path
+        )
         self._resolve_map = resolve_map or functools.partial(source_map, kind=kind)
         self._datasets = {}
 

@@ -21,8 +21,10 @@ The option <b>expression</b> holds the statement <code>result = expression</code
 name left of the equal sign is the new space time 3D raster dataset; it
 is created in the current mapset, and an existing dataset of that name is
 replaced only with <b>--overwrite</b>. A dataset of another mapset is named
-<code>name@mapset</code> in the expression; a name without mapset is searched only in the
-current mapset. The right side may contain space time
+<code>name@mapset</code> in the expression. A name without mapset is searched in the
+current mapset first, then in the mapsets of the search path; the classic
+algebra (<b>-c</b>) searches only the current mapset. The right side may contain
+space time
 3D raster datasets, single maps (<code>map()</code> and <code>tmap()</code>), temporal and
 raster operators and functions, as described below and in
 <em><a href="t.rast.algebra.html">t.rast.algebra</a></em>.
@@ -30,14 +32,16 @@ raster operators and functions, as described below and in
 <p>
 The option <b>basename</b> is required. The result maps are named <code>basename_0</code>,
 <code>basename_1</code> and so on, counted from 0 in the order in which the algebra
-computes them. This is not always the order of their time, and in the new
-algebra a number can be missing: a map that is null everywhere is not registered
-unless <b>-n</b> is given, but it keeps its number (see the example "Spatially
-related maps and empty maps"). The classic algebra (<b>-c</b>) does not compute a
-pair of maps that do not overlap in space at all, so it registers no empty map
-for it, even with <b>-n</b>, and its numbers have no gap. An expression that leaves
-no map to register ends with the warning "The expression produced no map, the
-result is empty", and the result is an empty dataset.
+computes them. This is not always the order of their time. A map that is null
+everywhere is not registered unless <b>-n</b> is given. The new algebra numbers
+only the registered maps, so such a map leaves no gap: the next registered map
+takes its number (see the example "Spatially related maps and empty maps").
+The classic algebra (<b>-c</b>) keeps the number of a map that it computes and
+does not register, so its numbers can have a gap; it does not compute a pair
+of maps that do not overlap in space at all, so it registers no empty map for
+it, even with <b>-n</b>. An expression that leaves no map to register ends with
+the warning "The expression produced no map, the result is empty", and the
+result is an empty dataset.
 
 <p>
 The option <b>nprocs</b> is the number of <em>r3.mapcalc</em> processes that run at
@@ -856,13 +860,13 @@ afterwards.
 <p>
 The expression <code>A + P</code> is computed in the current region. The maps of the
 second day do not overlap in space, so the result for that day has no data in
-the region. By default a map without data is not registered, and the first
-block gives the maps <code>plain_0</code> (1 + 100 = 101) and <code>plain_2</code> (3 + 300 = 303);
-the number 1 is missing. <b>-n</b> registers the empty map as well: <code>with_null_1</code>
-has no minimum or maximum, which the list shows as <code>None</code>. With <b>-s</b> the
-maps of the second day are not related in space, so the algebra does not
-compute that pair, and with <b>-n</b> there is no empty map either: <code>spatial_0</code>
-and <code>spatial_1</code> hold 101 and 303 and the numbers are consecutive. This is the
+the region. By default a map without data is not registered, and the numbers
+count the registered maps only: the first block gives the maps <code>plain_0</code>
+(1 + 100 = 101) and <code>plain_1</code> (3 + 300 = 303). <b>-n</b> registers the empty map
+as well: <code>with_null_1</code> has no minimum or maximum, which the list shows as
+<code>None</code>. With <b>-s</b> the maps of the second day are not related in space, so
+the algebra does not compute that pair, and with <b>-n</b> there is no empty map
+either: <code>spatial_0</code> and <code>spatial_1</code> hold 101 and 303. This is the
 new algebra; the classic algebra gives the same two maps with or without <b>-n</b>
 and <b>-s</b>, see the last example of the catalog.
 
@@ -886,7 +890,7 @@ t.rast3d.list input=plain columns=name,start_time,end_time,min,max
 <div class="code"><pre>
 name|start_time|end_time|min|max
 plain_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
-plain_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
+plain_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
 </pre></div>
 
 <div class="code"><pre>
@@ -961,7 +965,7 @@ print(
 <div class="code"><pre>
 name|start_time|end_time|min|max
 plain_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
-plain_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
+plain_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
 </pre></div>
 
 <div class="code"><pre>

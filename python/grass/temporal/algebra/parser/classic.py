@@ -1626,9 +1626,12 @@ CLASSIC = Profile(
     union_region_when_spatial=True,
     list_order=True,
     database_order=True,
+    search_path=False,
     last_of_equal_names=True,
     neighbour_space="neighbour",
     mixed_times="unrelated",
     classic_errors=True,
     absolute_granularity=compute_absolute_time_granularity,
+    suffix_digits=False,
+    number_registered=False,
 )

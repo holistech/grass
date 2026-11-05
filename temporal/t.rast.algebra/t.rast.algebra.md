@@ -59,24 +59,27 @@ with the error
 name of the result must not contain a dot or a mapset. The parser
 stops at the dot: the new algebra with the error "Unexpected character '.'",
 the classic algebra (**-c**) with a syntax error. No dataset is created. A
-dataset of another mapset is named `name@mapset` in the expression; a name
-without mapset is searched only in the current mapset (see the example "Use
-datasets of another mapset").
+dataset of another mapset is named `name@mapset` in the expression. A name
+without mapset is searched in the current mapset first, then in the mapsets
+of the search path; the classic algebra (**-c**) searches only the current
+mapset (see the example "Use datasets of another mapset").
 
 The option **basename** is required. The result maps are named `basename_0`,
 `basename_1` and so on, numbered in the order in which the algebra computes
 them. This is not always the order of their time. The number is padded with
 zeros to the digits of the count of computed maps: ten maps are named
 `basename_00` to `basename_09` (see the example "Catalog: merge, single maps
-and the neighbourhood modifier"). In the new algebra a number can be missing,
-also the first one: a map that is null everywhere is not registered unless
-**-n** is given, but it keeps its number (see the example "Spatially related
-maps and empty maps"). A neighbourhood modifier that reaches before the first
-map makes such a map, see the last example of "Catalog: the expressions of the
-original manual". The classic algebra computes no such map and numbers the
-registered maps without a gap. An expression that leaves no map to register
-ends with the warning "The expression produced no map, the result is empty",
-and the result is an empty dataset.
+and the neighbourhood modifier"). A map that is null everywhere is not
+registered unless **-n** is given. The new algebra numbers only the registered
+maps, so such a map leaves no gap: the next registered map takes its number
+(see the example "Spatially related maps and empty maps"). A neighbourhood
+modifier that reaches before the first map makes such a map in the new
+algebra, see the last example of "Catalog: the expressions of the original
+manual". The dry run with **-d** shows the names of a run that registers every
+computed map. The classic algebra keeps the number of a map that it computes
+and does not register, so its numbers can have a gap. An expression that
+leaves no map to register ends with the warning "The expression produced no
+map, the result is empty", and the result is an empty dataset.
 
 The option **suffix** changes the part of the names after the basename. `num`,
 the default, is the number described above. For absolute time, `gran` takes
@@ -86,8 +89,10 @@ monthly result from the last day of a month (January 31, February 28) has the
 granularity of one month, so `gran` gives year and month (`2026_01`); the
 classic algebra (**-c**) computes the granularity of the releases before GRASS
 8.6, one day, and gives `2026_01_31` (see the
-[introduction](temporalintro.md)). The
-text `num%NN` is accepted as `num`; see the NOTES.
+[introduction](temporalintro.md)). `num%NN`
+pads the number with zeros to NN digits: `suffix=num%03` names the maps
+`basename_000`, `basename_001` and so on, as in *t.rast.extract*. The classic
+algebra takes `num%NN` as `num`.
 
 The option **nprocs** is the number of *r.mapcalc* processes that run at the
 same time. The default is 1. The result is the same for any number.
@@ -698,11 +703,6 @@ time and texts such as `"1 day"` for absolute time. Datasets of both temporal
 types cannot be related in one expression: the tool stops with an error and
 creates no dataset (see the example "Catalog: select and combine maps by
 temporal relations").
-
-The suffix `num%NN` is accepted, but the number of digits NN has no effect:
-`suffix=num%03` numbers four maps `basename_0` to `basename_3`, as `suffix=num`
-does (see the example "Name the result maps and plan a run"). Use `num` if you
-want these names.
 
 An existing result dataset without **--overwrite** stops a dry run with
 **-d** as it stops a real run.
@@ -1490,8 +1490,8 @@ The option **suffix** decides how the names of the result maps continue after
 the **basename**. `num`, the default, counts the maps from 0, as in the first
 example. For a dataset of absolute time, `gran` names a map after its start
 time cut to the granularity of the dataset, here one day, and `time` after its
-full start time, written as `2026_03_01T00_00_00`. The text `num%03` is accepted
-as well, but it does not give three digits; see the NOTES.
+full start time, written as `2026_03_01T00_00_00`. `num%03` counts from 0
+with three digits.
 
 The flag **-d** plans the run and computes nothing. It prints the process
 chain as a Python dictionary: the result dataset (`STDS`), the calls of
@@ -1523,10 +1523,10 @@ earlier examples.
     by_time_2026_03_03T00_00_00
     by_time_2026_03_04T00_00_00
     name
-    by_num_0
-    by_num_1
-    by_num_2
-    by_num_3
+    by_num_000
+    by_num_001
+    by_num_002
+    by_num_003
     ```
 
     ```sh
@@ -1582,10 +1582,10 @@ earlier examples.
     by_time_2026_03_03T00_00_00
     by_time_2026_03_04T00_00_00
     name
-    by_num_0
-    by_num_1
-    by_num_2
-    by_num_3
+    by_num_000
+    by_num_001
+    by_num_002
+    by_num_003
     ```
 
     ```python
@@ -1704,15 +1704,15 @@ set back afterwards.
 
 The expression `A + patches` is computed in the current region. The maps of the
 second day do not overlap in space, so the result for that day has no data in
-the region. By default a map without data is not registered, and the first
-block gives the maps `plain_0` (1 + 100 = 101) and `plain_2` (3 + 300 = 303);
-the number 1 is missing. **-n** registers the empty map as well: `with_null_1`
-has no minimum or maximum, which the list shows as `None`. With **-s** the
-maps of the second day are not related in space, so the algebra does not
-compute that pair, and with **-n** there is no empty map either: `spatial_0`
-and `spatial_1` hold 101 and 303 and the numbers are consecutive. The classic
-algebra (**-c**) registers no empty map even with **-n**, and its numbers have
-no gap: `classic_0` and `classic_1` hold 101 and 303.
+the region. By default a map without data is not registered, and the numbers
+count the registered maps only: the first block gives the maps `plain_0`
+(1 + 100 = 101) and `plain_1` (3 + 300 = 303). **-n** registers the empty map
+as well: `with_null_1` has no minimum or maximum, which the list shows as
+`None`. With **-s** the maps of the second day are not related in space, so
+the algebra does not compute that pair, and with **-n** there is no empty map
+either: `spatial_0` and `spatial_1` hold 101 and 303. The classic algebra
+(**-c**) registers no empty map even with **-n**: `classic_0` and `classic_1`
+hold 101 and 303.
 
 === "Command line"
 
@@ -1733,7 +1733,7 @@ no gap: `classic_0` and `classic_1` hold 101 and 303.
     ```text
     name|start_time|end_time|min|max
     plain_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
-    plain_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
+    plain_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
     ```
 
     ```sh
@@ -1797,7 +1797,7 @@ no gap: `classic_0` and `classic_1` hold 101 and 303.
     ```text
     name|start_time|end_time|min|max
     plain_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
-    plain_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
+    plain_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
     ```
 
     ```python
@@ -2023,15 +2023,20 @@ for the maps of the result.
 
 ### Use datasets of another mapset
 
-A dataset of another mapset is named `name@mapset` in the expression; a name
-without mapset is searched only in the current mapset. The example creates the
-mapset `t_rast_algebra_2`, switches to it and sets the region of the first
-example. The first call names `A` without mapset and fails, because
-`t_rast_algebra_2` has no dataset `A`, although `A` exists in `t_rast_algebra`.
-The second call names `A@t_rast_algebra`. The result dataset `halved` is always
-created in the current mapset: its maps are new maps in `t_rast_algebra_2`, as
-the column `mapset` shows, and the maps of `A` stay as they were. The last
-command returns to `t_rast_algebra` for the following examples.
+A dataset of another mapset is named `name@mapset` in the expression. A name
+without mapset is searched in the current mapset first, then in the mapsets of
+the search path. The example creates the mapset `t_rast_algebra_2`, switches to
+it and sets the region of the first example. The first call names `A` without
+mapset and fails: `t_rast_algebra_2` has no dataset `A`, and `t_rast_algebra`,
+where `A` exists, is not in its search path. The second call names
+`A@t_rast_algebra`. The result dataset `halved` is always created in the
+current mapset: its maps are new maps in `t_rast_algebra_2`, as the column
+`mapset` shows, and the maps of `A` stay as they were.
+
+The second block adds `t_rast_algebra` to the search path with
+*[g.mapsets](g.mapsets.md)*, and `A` without mapset is found there. The
+classic algebra (**-c**) searches only the current mapset and still fails.
+The last command returns to `t_rast_algebra` for the following examples.
 
 === "Command line"
 
@@ -2043,7 +2048,6 @@ command returns to `t_rast_algebra` for the following examples.
     fi
     t.rast.algebra expression="halved = A@t_rast_algebra * 0.5" basename=halved
     t.rast.list input=halved columns=name,mapset,min,max
-    g.mapset mapset=t_rast_algebra
     ```
 
     ```text
@@ -2054,6 +2058,26 @@ command returns to `t_rast_algebra` for the following examples.
     halved_1|t_rast_algebra_2|1.0|1.0
     halved_2|t_rast_algebra_2|1.5|1.5
     halved_3|t_rast_algebra_2|2.0|2.0
+    ```
+
+    ```sh
+    g.mapsets operation=add mapset=t_rast_algebra
+    t.rast.algebra expression="doubled = A * 2" basename=doubled
+    t.rast.list input=doubled columns=name,mapset,min,max
+    if ! t.rast.algebra -c expression="doubled_c = A * 2" basename=doubled_c 2>&1; then
+        echo "t.rast.algebra -c failed"
+    fi
+    g.mapset mapset=t_rast_algebra
+    ```
+
+    ```text
+    name|mapset|min|max
+    doubled_0|t_rast_algebra_2|2.0|2.0
+    doubled_1|t_rast_algebra_2|4.0|4.0
+    doubled_2|t_rast_algebra_2|6.0|6.0
+    doubled_3|t_rast_algebra_2|8.0|8.0
+    ERROR: Space time raster dataset <A@t_rast_algebra_2> not found
+    t.rast.algebra -c failed
     ```
 
 === "Python (grass.tools)"
@@ -2070,7 +2094,6 @@ command returns to `t_rast_algebra` for the following examples.
         print("t.rast.algebra failed")
     tools.t_rast_algebra(expression="halved = A@t_rast_algebra * 0.5", basename="halved")
     print(tools.t_rast_list(input="halved", columns="name,mapset,min,max").text)
-    tools.g_mapset(mapset="t_rast_algebra")
     ```
 
     ```text
@@ -2081,6 +2104,30 @@ command returns to `t_rast_algebra` for the following examples.
     halved_1|t_rast_algebra_2|1.0|1.0
     halved_2|t_rast_algebra_2|1.5|1.5
     halved_3|t_rast_algebra_2|2.0|2.0
+    ```
+
+    ```python
+    tools.g_mapsets(operation="add", mapset="t_rast_algebra")
+    tools.t_rast_algebra(expression="doubled = A * 2", basename="doubled")
+    print(tools.t_rast_list(input="doubled", columns="name,mapset,min,max").text)
+    try:
+        tools.t_rast_algebra(
+            expression="doubled_c = A * 2", basename="doubled_c", flags="c"
+        )
+    except ToolError as error:
+        print(error.stderr.strip())
+        print("t.rast.algebra -c failed")
+    tools.g_mapset(mapset="t_rast_algebra")
+    ```
+
+    ```text
+    name|mapset|min|max
+    doubled_0|t_rast_algebra_2|2.0|2.0
+    doubled_1|t_rast_algebra_2|4.0|4.0
+    doubled_2|t_rast_algebra_2|6.0|6.0
+    doubled_3|t_rast_algebra_2|8.0|8.0
+    ERROR: Space time raster dataset <A@t_rast_algebra_2> not found
+    t.rast.algebra -c failed
     ```
 
 ### Catalog: select and combine maps by temporal relations
@@ -3230,12 +3277,12 @@ explicitly; it gives the same maps.
     complete neighbourhood and are left out, so the result has three maps, for
     March to May, with the values 32, 60 and 91, the start days of February,
     March and April. The new algebra also computes a map for February, but
-    `A[-2]` has no map there, so it is null everywhere and not registered; it
-    keeps the number 0, and the registered maps are `doy_1` to `doy_3`. With
-    **-n** the second block registers it as `doyn_0`, without minimum and
-    maximum. The classic algebra computes no map for February and numbers the
-    three maps `doyc_0` to `doyc_2`. The result is named `B`, which replaces
-    the dataset of the block before.
+    `A[-2]` has no map there, so it is null everywhere and not registered; the
+    registered maps take the numbers from 0, `doy_0` to `doy_2`. With **-n**
+    the second block registers it as `doyn_0`, without minimum and maximum, and
+    the others follow as `doyn_1` to `doyn_3`. The classic algebra computes no
+    map for February and numbers the three maps `doyc_0` to `doyc_2`. The
+    result is named `B`, which replaces the dataset of the block before.
 
     ```sh
     t.rast.algebra --overwrite \
@@ -3246,9 +3293,9 @@ explicitly; it gives the same maps.
 
     ```text
     name|start_time|end_time|min|max
-    doy_1|2001-03-01 00:00:00|2001-04-01 00:00:00|32.0|32.0
-    doy_2|2001-04-01 00:00:00|2001-05-01 00:00:00|60.0|60.0
-    doy_3|2001-05-01 00:00:00|2001-06-01 00:00:00|91.0|91.0
+    doy_0|2001-03-01 00:00:00|2001-04-01 00:00:00|32.0|32.0
+    doy_1|2001-04-01 00:00:00|2001-05-01 00:00:00|60.0|60.0
+    doy_2|2001-05-01 00:00:00|2001-06-01 00:00:00|91.0|91.0
     ```
 
     ```sh

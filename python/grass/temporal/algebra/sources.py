@@ -9,7 +9,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from grass.exceptions import FatalError
 from grass.temporal.factory import dataset_factory
-from grass.temporal.open_stds import _parse_id, open_old_stds
+from grass.temporal.open_stds import _parse_id, find_stds_id, open_old_stds
 from grass.temporal.state import get_current_mapset
 
 from .adapters import extent_of, space_of
@@ -67,7 +67,22 @@ def _slot_of(map_):
     return Slot(extent_of(map_), MapRef(map_.get_id()), space_of(map_), map_.get_id())
 
 
-def source(name, *, where=None, stds_type="strds", order="time"):
+def _in_search_path(name, stds_type):
+    """name@mapset of the dataset that a name without a mapset selects
+
+    The dataset is looked for in the current mapset and then in the search
+    path, as open_old_stds() does; for a strds the text after a dot is the
+    semantic label and stays. A dataset found nowhere gets the current
+    mapset, so that source() reports it as not found.
+    """
+    base, _mapset, label = _parse_id(name, stds_type)
+    found = find_stds_id(base, stds_type)
+    if label is None:
+        return found
+    return f"{base}.{label}@{found.split('@', 1)[1]}"
+
+
+def source(name, *, where=None, stds_type="strds", order="time", search_path=True):
     """The registered maps of a space time dataset as series
 
     Needs a GRASS session and a temporal database.
@@ -80,13 +95,20 @@ def source(name, *, where=None, stds_type="strds", order="time"):
         "start" (start only, see Series). With "start" maps of equal start
         stay in the order in which the temporal database lists them, as the
         classic algebra reads them, which the end time would override.
+    :param search_path: look for a name without a mapset in the current
+        mapset and then in the mapsets of the search path, as the other
+        temporal tools do; False looks in the current mapset only, as the
+        classic algebra does
     :raises FatalError: if the dataset does not exist
     :raises ValueError: for another stds_type or order
     """
     if stds_type not in KINDS_OF_STDS:
         msg = f"stds_type must be one of {', '.join(KINDS_OF_STDS)}, got {stds_type!r}"
         raise ValueError(msg)
-    ident = _qualified(name)
+    if search_path and "@" not in name:
+        ident = _in_search_path(name, stds_type)
+    else:
+        ident = _qualified(name)
     # "name.label" of a raster dataset names the dataset without the label;
     # open_old_stds() below applies the label to the registered maps.
     base, mapset, _label = _parse_id(ident, stds_type)

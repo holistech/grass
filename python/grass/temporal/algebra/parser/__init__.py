@@ -16,6 +16,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 from __future__ import annotations
 
 import functools
+import re
 
 from grass.exceptions import FatalError
 from grass.temporal.algebra import time_functions
@@ -32,8 +33,8 @@ from .translate import Translator
 
 __all__ = ["Translator", "evaluate", "parse"]
 
-# The public parser classes take "num" for numbered map names; the core takes
-# None.
+# The public parser classes take "num" or "num%NN" for numbered map names; the
+# core takes None, with the digits of "num%NN" as a separate option.
 _TIME_SUFFIXES = ("gran", "time")
 
 
@@ -130,6 +131,8 @@ def evaluate(
             copies_by_position=profile.copies_by_position,
             last_of_equal_names=profile.last_of_equal_names,
             absolute_granularity=profile.absolute_granularity,
+            digits=_suffix_digits(time_suffix) if profile.suffix_digits else None,
+            number_registered=profile.number_registered,
         )
         # A vector result without maps has no dataset, if the profile says so.
         # A selection always creates its dataset, as t.select.md promises for
@@ -222,6 +225,12 @@ class _TemporalTypes:
         return read
 
 
+def _suffix_digits(time_suffix):
+    """The number of digits that the suffix "num%NN" gives, None for another"""
+    match = re.fullmatch(r"num%(\d+)", time_suffix or "")
+    return int(match.group(1)) if match else None
+
+
 def _resolver(kind, profile, granularity, types):
     """The function that reads a dataset for the translator, or None for the
     one of the translator
@@ -233,11 +242,17 @@ def _resolver(kind, profile, granularity, types):
     watched = profile.one_temporal_type or profile.empty_result_type_from_input
     if granularity is not None:
         resolve = functools.partial(
-            _sampled_source, stds_type=STDS_TYPES[kind], granularity=granularity
+            _sampled_source,
+            stds_type=STDS_TYPES[kind],
+            granularity=granularity,
+            search_path=profile.search_path,
         )
-    elif order != "time" or watched:
+    elif order != "time" or watched or not profile.search_path:
         resolve = functools.partial(
-            translate.source, stds_type=STDS_TYPES[kind], order=order
+            translate.source,
+            stds_type=STDS_TYPES[kind],
+            order=order,
+            search_path=profile.search_path,
         )
     else:
         return None
@@ -266,9 +281,11 @@ def _classic_error(error):
     return None
 
 
-def _sampled_source(name, *, stds_type, granularity):
+def _sampled_source(name, *, stds_type, granularity, search_path):
     """The maps of a dataset on granules of the common granularity"""
-    return sample_by_granularity(source(name, stds_type=stds_type), granularity)
+    return sample_by_granularity(
+        source(name, stds_type=stds_type, search_path=search_path), granularity
+    )
 
 
 def _as_process_dict(call, overwrite):

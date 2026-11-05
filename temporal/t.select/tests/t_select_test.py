@@ -499,9 +499,14 @@ def test_select_from_dataset_in_other_mapset(series):
     assert run_select(series.session, "A : X@other") == [("a2", 10, 20), ("a4", 30, 40)]
 
 
-def test_select_from_dataset_in_other_mapset_needs_mapset_name(series):
-    """A dataset name without mapset refers to the current mapset only."""
-    select_fails(series.session, "A : X", match="not found")
+def test_select_from_dataset_in_other_mapset_needs_mapset_name(series, algebra):
+    """A dataset name without mapset refers to the current mapset only in the
+    classic algebra; the core also looks in the search path, which holds the
+    mapset "other" of X."""
+    if algebra == "classic":
+        select_fails(series.session, "A : X", match="not found")
+    else:
+        assert run_select(series.session, "A : X") == [("a2", 10, 20), ("a4", 30, 40)]
 
 
 def test_select_from_other_mapset_on_the_left(series):

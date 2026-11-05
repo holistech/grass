@@ -24,15 +24,16 @@ datasets, operators and functions of the temporal vector algebra described
 below. The tool needs the whole statement as one <b>quoted</b> value:
 <code>expression="sel_equal = A : B"</code>. A dataset in another mapset is named with
 its mapset (<code>A@t_vect_algebra</code>); a name without mapset is looked up in the
-current mapset only. The tool does not overwrite an existing result dataset
+current mapset first, then in the mapsets of the search path, and with
+<b>-c</b> in the current mapset only. The tool does not overwrite an existing
+result dataset
 unless the global flag <b>--overwrite</b> is given.</li>
 <li><b>basename</b> is the prefix of the names of the vector maps that the tool
 creates. A numerical suffix separated by an underscore makes the names
-unique: <code>sel_during_0</code>, <code>sel_during_1</code>. In the algebra core the number
-counts the maps that the expression computes, including a map that is left
-out because it has no primitives (see the NOTES), so a left-out map leaves
-a gap in the numbers; the classic algebra numbers the maps it registers
-without a gap.
+unique: <code>sel_during_0</code>, <code>sel_during_1</code>. The number counts the maps that
+are registered: a map that is left out because it has no primitives (see
+the NOTES) leaves no gap. The classic algebra numbers the maps it
+registers without a gap as well.
 A map that an expression leaves unchanged is registered in the result
 dataset as it is and gets no new name.</li>
 <li><b>-s</b> checks the spatial topology of temporally related maps: the algebra
@@ -558,7 +559,8 @@ without common area, is not registered. When an intermediate map of a longer
 expression has no areas, the tool leaves out the result map that depends on it
 and warns with the message "Result map <code>&lt;name&gt;</code> is left out: intermediate map
 <code>&lt;name&gt;</code> has no areas"; <code>A | (B &amp; A)</code> in the "Overlay operators" example does
-this for its third map. The numbers of the left-out maps stay unused.
+this for its third map. The computed maps after a left-out map take its
+number; a map registered unchanged keeps its name.
 
 <h3>Core and classic algebra</h3>
 
@@ -1590,16 +1592,16 @@ one point and one line, and <code>p2</code> and <code>l2</code>, two points and 
 has no partner in <code>L</code>.</li>
 <li><code>A {&amp;,during} W</code> intersects each map of <code>A</code> with the maps of <code>W</code> that
 contain it. <code>a2</code> does not touch <code>w1</code>, so its intersection has no areas and
-the result has the maps 0 and 2, the number 1 is not used. The classic
-algebra, in the second block with <b>-c</b>, numbers the two maps 0 and 1.</li>
+is left out, and the result has the maps 0 and 1. The classic algebra, in
+the second block with <b>-c</b>, numbers them in the same way.</li>
 <li>The temporal operator after the relation sets the time of the result maps.
 <b>r</b> takes the time of the map of <code>W</code>, 1 to 3 and 3 to 5 March; <b>u</b> takes
 the union of both times, the same here, as the maps of <code>A</code> lie in the maps of
 <code>W</code>; without an operator the time is that of the left map.</li>
 <li>With several related maps the operators aggregate: <code>W {&amp;,contains} A</code>
 overlays <code>w1</code> with <code>a1</code> and <code>a2</code> into one map, and <code>w2</code> with <code>a3</code>. The first
-has no area, as <code>a1</code> and <code>a2</code> do not touch, the second has the area 50, the
-square x = 45 to 50.</li>
+has no area, as <code>a1</code> and <code>a2</code> do not touch, and is left out; the second,
+<code>ov_agg_0</code>, has the area 50, the square x = 45 to 50.</li>
 <li>The overlay operators have the same precedence and are evaluated from left
 to right, so <code>A | B &amp; A</code> is <code>(A | B) &amp; A</code>: the union of each pair
 intersected with the map of <code>A</code>, with the areas 2, 2 and 1. With parentheses,
@@ -1692,7 +1694,7 @@ t.vect.list input=ov_during columns=name,start_time,end_time,areas
 <div class="code"><pre>
 name|start_time|end_time|areas
 ov_during_0|2026-03-01 00:00:00|2026-03-02 00:00:00|1
-ov_during_2|2026-03-03 00:00:00|2026-03-04 00:00:00|1
+ov_during_1|2026-03-03 00:00:00|2026-03-04 00:00:00|1
 </pre></div>
 
 <div class="code"><pre>
@@ -1717,21 +1719,21 @@ t.vect.list input=ov_union columns=name,start_time,end_time,areas
 <div class="code"><pre>
 name|start_time|end_time|areas
 ov_right_0|2026-03-01 00:00:00|2026-03-03 00:00:00|1
-ov_right_2|2026-03-03 00:00:00|2026-03-05 00:00:00|1
+ov_right_1|2026-03-03 00:00:00|2026-03-05 00:00:00|1
 name|start_time|end_time|areas
 ov_union_0|2026-03-01 00:00:00|2026-03-03 00:00:00|1
-ov_union_2|2026-03-03 00:00:00|2026-03-05 00:00:00|1
+ov_union_1|2026-03-03 00:00:00|2026-03-05 00:00:00|1
 </pre></div>
 
 <div class="code"><pre>
 t.vect.algebra expression="ov_agg = W {&amp;,contains} A" basename=ov_agg
 t.vect.list input=ov_agg columns=name,start_time,end_time,areas
-v.to.db -p map=ov_agg_1 option=area units=meters
+v.to.db -p map=ov_agg_0 option=area units=meters
 </pre></div>
 
 <div class="code"><pre>
 name|start_time|end_time|areas
-ov_agg_1|2026-03-03 00:00:00|2026-03-05 00:00:00|1
+ov_agg_0|2026-03-03 00:00:00|2026-03-05 00:00:00|1
 cat|area
 1|50
 </pre></div>
@@ -2112,8 +2114,9 @@ expression cannot mix the two temporal types.
 <p>
 The last blocks switch to a new mapset <code>t_vect_algebra_2</code>, set the region again
 and use the datasets of <code>t_vect_algebra</code>. A dataset name without mapset is
-looked up in the current mapset only, so <code>A</code> is not found, and
-<code>A@t_vect_algebra</code> names the dataset. The overlay creates its new maps in the
+looked up in the current mapset and then in the search path, which does not
+hold <code>t_vect_algebra</code>, so <code>A</code> is not found, and <code>A@t_vect_algebra</code> names the
+dataset. The overlay creates its new maps in the
 current mapset, <code>t_vect_algebra_2</code>. The selection registers the maps of
 <code>t_vect_algebra</code> as they are, so the result dataset in <code>t_vect_algebra_2</code> holds
 maps from <code>t_vect_algebra</code>.

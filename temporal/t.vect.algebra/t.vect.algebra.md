@@ -22,15 +22,16 @@ The tool has two required options and two flags:
     below. The tool needs the whole statement as one **quoted** value:
     `expression="sel_equal = A : B"`. A dataset in another mapset is named with
     its mapset (`A@t_vect_algebra`); a name without mapset is looked up in the
-    current mapset only. The tool does not overwrite an existing result dataset
+    current mapset first, then in the mapsets of the search path, and with
+    **-c** in the current mapset only. The tool does not overwrite an existing
+    result dataset
     unless the global flag **--overwrite** is given.
 - **basename** is the prefix of the names of the vector maps that the tool
     creates. A numerical suffix separated by an underscore makes the names
-    unique: `sel_during_0`, `sel_during_1`. In the algebra core the number
-    counts the maps that the expression computes, including a map that is left
-    out because it has no primitives (see the NOTES), so a left-out map leaves
-    a gap in the numbers; the classic algebra numbers the maps it registers
-    without a gap.
+    unique: `sel_during_0`, `sel_during_1`. The number counts the maps that
+    are registered: a map that is left out because it has no primitives (see
+    the NOTES) leaves no gap. The classic algebra numbers the maps it
+    registers without a gap as well.
     A map that an expression leaves unchanged is registered in the result
     dataset as it is and gets no new name.
 - **-s** checks the spatial topology of temporally related maps: the algebra
@@ -516,7 +517,8 @@ without common area, is not registered. When an intermediate map of a longer
 expression has no areas, the tool leaves out the result map that depends on it
 and warns with the message "Result map `<name>` is left out: intermediate map
 `<name>` has no areas"; `A | (B & A)` in the "Overlay operators" example does
-this for its third map. The numbers of the left-out maps stay unused.
+this for its third map. The computed maps after a left-out map take its
+number; a map registered unchanged keeps its name.
 
 ### Core and classic algebra
 
@@ -1543,16 +1545,16 @@ follow the order of the blocks; item 6 has two blocks.
     has no partner in `L`.
 6. `A {&,during} W` intersects each map of `A` with the maps of `W` that
     contain it. `a2` does not touch `w1`, so its intersection has no areas and
-    the result has the maps 0 and 2, the number 1 is not used. The classic
-    algebra, in the second block with **-c**, numbers the two maps 0 and 1.
+    is left out, and the result has the maps 0 and 1. The classic algebra, in
+    the second block with **-c**, numbers them in the same way.
 7. The temporal operator after the relation sets the time of the result maps.
     **r** takes the time of the map of `W`, 1 to 3 and 3 to 5 March; **u** takes
     the union of both times, the same here, as the maps of `A` lie in the maps of
     `W`; without an operator the time is that of the left map.
 8. With several related maps the operators aggregate: `W {&,contains} A`
     overlays `w1` with `a1` and `a2` into one map, and `w2` with `a3`. The first
-    has no area, as `a1` and `a2` do not touch, the second has the area 50, the
-    square x = 45 to 50.
+    has no area, as `a1` and `a2` do not touch, and is left out; the second,
+    `ov_agg_0`, has the area 50, the square x = 45 to 50.
 9. The overlay operators have the same precedence and are evaluated from left
     to right, so `A | B & A` is `(A | B) & A`: the union of each pair
     intersected with the map of `A`, with the areas 2, 2 and 1. With parentheses,
@@ -1644,7 +1646,7 @@ follow the order of the blocks; item 6 has two blocks.
     ```text
     name|start_time|end_time|areas
     ov_during_0|2026-03-01 00:00:00|2026-03-02 00:00:00|1
-    ov_during_2|2026-03-03 00:00:00|2026-03-04 00:00:00|1
+    ov_during_1|2026-03-03 00:00:00|2026-03-04 00:00:00|1
     ```
 
     ```sh
@@ -1669,21 +1671,21 @@ follow the order of the blocks; item 6 has two blocks.
     ```text
     name|start_time|end_time|areas
     ov_right_0|2026-03-01 00:00:00|2026-03-03 00:00:00|1
-    ov_right_2|2026-03-03 00:00:00|2026-03-05 00:00:00|1
+    ov_right_1|2026-03-03 00:00:00|2026-03-05 00:00:00|1
     name|start_time|end_time|areas
     ov_union_0|2026-03-01 00:00:00|2026-03-03 00:00:00|1
-    ov_union_2|2026-03-03 00:00:00|2026-03-05 00:00:00|1
+    ov_union_1|2026-03-03 00:00:00|2026-03-05 00:00:00|1
     ```
 
     ```sh
     t.vect.algebra expression="ov_agg = W {&,contains} A" basename=ov_agg
     t.vect.list input=ov_agg columns=name,start_time,end_time,areas
-    v.to.db -p map=ov_agg_1 option=area units=meters
+    v.to.db -p map=ov_agg_0 option=area units=meters
     ```
 
     ```text
     name|start_time|end_time|areas
-    ov_agg_1|2026-03-03 00:00:00|2026-03-05 00:00:00|1
+    ov_agg_0|2026-03-03 00:00:00|2026-03-05 00:00:00|1
     cat|area
     1|50
     ```
@@ -2063,8 +2065,9 @@ expression cannot mix the two temporal types.
 
 The last blocks switch to a new mapset `t_vect_algebra_2`, set the region again
 and use the datasets of `t_vect_algebra`. A dataset name without mapset is
-looked up in the current mapset only, so `A` is not found, and
-`A@t_vect_algebra` names the dataset. The overlay creates its new maps in the
+looked up in the current mapset and then in the search path, which does not
+hold `t_vect_algebra`, so `A` is not found, and `A@t_vect_algebra` names the
+dataset. The overlay creates its new maps in the
 current mapset, `t_vect_algebra_2`. The selection registers the maps of
 `t_vect_algebra` as they are, so the result dataset in `t_vect_algebra_2` holds
 maps from `t_vect_algebra`.

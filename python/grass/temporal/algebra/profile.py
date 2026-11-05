@@ -72,6 +72,9 @@ class Profile:
     :param database_order: read the maps of a dataset sorted by start only,
         so that maps with equal start keep the order of the temporal
         database (source())
+    :param search_path: look for a dataset name without a mapset in the
+        current mapset and then in the search path; False looks in the
+        current mapset only, as the reference does (source())
     :param neighbour_space: "neighbour" gives a map read at a time offset
         (A[1]) the spatial extent of the map it takes the cells from, where
         "own" keeps its own (translator)
@@ -85,6 +88,12 @@ class Profile:
     :param absolute_granularity: the function that computes the granularity
         of the result maps for the time suffix "gran" (plan()); the classic
         profile gives the copy of the classic algebra
+    :param suffix_digits: take the number of digits of numbered map names
+        from the suffix "num%NN"; False takes as many digits as the number of
+        maps has, also for "num%NN", as the reference does (plan())
+    :param number_registered: number only the result maps that are
+        registered, so that a map left out for having no valid cell leaves no
+        gap in the numbers; False keeps the gap, as the reference does (plan())
     """
 
     grammar: Any = None
@@ -99,11 +108,14 @@ class Profile:
     union_region_when_spatial: bool = False
     list_order: bool = False
     database_order: bool = False
+    search_path: bool = True
     last_of_equal_names: bool = False
     neighbour_space: str = "own"
     mixed_times: str = "error"
     classic_errors: bool = False
     absolute_granularity: Callable = compute_absolute_time_granularity
+    suffix_digits: bool = True
+    number_registered: bool = True
 
 
 CORE = Profile()

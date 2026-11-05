@@ -21,22 +21,26 @@ The option **expression** holds the statement `result = expression`. The
 name left of the equal sign is the new space time 3D raster dataset; it
 is created in the current mapset, and an existing dataset of that name is
 replaced only with **--overwrite**. A dataset of another mapset is named
-`name@mapset` in the expression; a name without mapset is searched only in the
-current mapset. The right side may contain space time
+`name@mapset` in the expression. A name without mapset is searched in the
+current mapset first, then in the mapsets of the search path; the classic
+algebra (**-c**) searches only the current mapset. The right side may contain
+space time
 3D raster datasets, single maps (`map()` and `tmap()`), temporal and
 raster operators and functions, as described below and in
 *[t.rast.algebra](t.rast.algebra.md)*.
 
 The option **basename** is required. The result maps are named `basename_0`,
 `basename_1` and so on, counted from 0 in the order in which the algebra
-computes them. This is not always the order of their time, and in the new
-algebra a number can be missing: a map that is null everywhere is not registered
-unless **-n** is given, but it keeps its number (see the example "Spatially
-related maps and empty maps"). The classic algebra (**-c**) does not compute a
-pair of maps that do not overlap in space at all, so it registers no empty map
-for it, even with **-n**, and its numbers have no gap. An expression that leaves
-no map to register ends with the warning "The expression produced no map, the
-result is empty", and the result is an empty dataset.
+computes them. This is not always the order of their time. A map that is null
+everywhere is not registered unless **-n** is given. The new algebra numbers
+only the registered maps, so such a map leaves no gap: the next registered map
+takes its number (see the example "Spatially related maps and empty maps").
+The classic algebra (**-c**) keeps the number of a map that it computes and
+does not register, so its numbers can have a gap; it does not compute a pair
+of maps that do not overlap in space at all, so it registers no empty map for
+it, even with **-n**. An expression that leaves no map to register ends with
+the warning "The expression produced no map, the result is empty", and the
+result is an empty dataset.
 
 The option **nprocs** is the number of *r3.mapcalc* processes that run at
 the same time. The default is 1. The result is the same for any number.
@@ -838,13 +842,13 @@ afterwards.
 
 The expression `A + P` is computed in the current region. The maps of the
 second day do not overlap in space, so the result for that day has no data in
-the region. By default a map without data is not registered, and the first
-block gives the maps `plain_0` (1 + 100 = 101) and `plain_2` (3 + 300 = 303);
-the number 1 is missing. **-n** registers the empty map as well: `with_null_1`
-has no minimum or maximum, which the list shows as `None`. With **-s** the
-maps of the second day are not related in space, so the algebra does not
-compute that pair, and with **-n** there is no empty map either: `spatial_0`
-and `spatial_1` hold 101 and 303 and the numbers are consecutive. This is the
+the region. By default a map without data is not registered, and the numbers
+count the registered maps only: the first block gives the maps `plain_0`
+(1 + 100 = 101) and `plain_1` (3 + 300 = 303). **-n** registers the empty map
+as well: `with_null_1` has no minimum or maximum, which the list shows as
+`None`. With **-s** the maps of the second day are not related in space, so
+the algebra does not compute that pair, and with **-n** there is no empty map
+either: `spatial_0` and `spatial_1` hold 101 and 303. This is the
 new algebra; the classic algebra gives the same two maps with or without **-n**
 and **-s**, see the last example of the catalog.
 
@@ -868,7 +872,7 @@ and **-s**, see the last example of the catalog.
     ```text
     name|start_time|end_time|min|max
     plain_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
-    plain_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
+    plain_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
     ```
 
     ```sh
@@ -943,7 +947,7 @@ and **-s**, see the last example of the catalog.
     ```text
     name|start_time|end_time|min|max
     plain_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
-    plain_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
+    plain_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
     ```
 
     ```python

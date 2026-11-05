@@ -126,8 +126,9 @@ def _dataset_name_pattern(names):
 def _qualified(name, dataset):
     """The name with the mapset of the dataset that was found for it
 
-    source() looks for a name without a mapset in the current mapset only,
-    while open_old_stds() also searched the search path.
+    open_old_stds() found the dataset; with its mapset source() reads the same
+    one, also an old dataset with a dot in its name, which source() does not
+    look up whole.
     """
     return name if "@" in name else f"{name}@{dataset.get_mapset()}"
 
