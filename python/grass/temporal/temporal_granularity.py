@@ -123,8 +123,7 @@ def _calendar_delta(start, end, on_grid):
     "12 months".
 
     The step between two firsts keeps compute_datetime_delta(), which counts
-    the months of a step over more than a year wrongly when the later month
-    is the larger one (1 January 2024 to 1 March 2025 gives 2 months).
+    its months the same way.
     """
     delta = compute_datetime_delta(start, end)
     if (start.day == 1 and end.day == 1) or not (on_grid(start) and on_grid(end)):

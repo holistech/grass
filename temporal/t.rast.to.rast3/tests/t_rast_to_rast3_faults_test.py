@@ -1,10 +1,12 @@
 """Test the layers, the end and the refusals of t.rast.to.rast3
 
 The series from 31 January has the granularity "1 month", so the cube has a
-layer per month, not per day. A dataset of a single time instance has no
-granularity and is refused with a message. The cube of time instants ends one
-granularity after the last instant, where its top is. Maps that overlap are
-refused, and so are more maps than the limit of open files allows.
+layer per month, not per day. Instants on the first of January 2024 and the
+first of March 2025 have the granularity "14 months" and a layer each. A
+dataset of a single time instance has no granularity and is refused with a
+message. The cube of time instants ends one granularity after the last
+instant, where its top is. Maps that overlap are refused, and so are more maps
+than the limit of open files allows.
 """
 
 import os
@@ -178,3 +180,20 @@ def test_open_file_limit(tools, prefix, tmp_path):
     assert f"Unable to create 3D raster map <{prefix}_cube>" in text
     assert inventory(tools) == before
     assert map_info(tools, "raster_3d", f"{prefix}_cube") is None
+
+
+def test_month_firsts_over_a_year_have_a_layer_each(tools, prefix):
+    """Before 05.11.2026 the granularity counted 2 months: eight layers of two
+    months, the cube ending on 1 May 2025"""
+    create_stds(
+        tools,
+        "strds",
+        prefix,
+        [
+            MapSpec(f"{prefix}_1", 1, D(2024, 1, 1)),
+            MapSpec(f"{prefix}_2", 2, D(2025, 3, 1)),
+        ],
+    )
+    tools.t_rast_to_rast3(input=prefix, output=f"{prefix}_cube")
+    info = tools.r3_info(map=f"{prefix}_cube", flags="g").keyval
+    assert (info["depths"], info["tbres"]) == (2, 14)

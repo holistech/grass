@@ -3,7 +3,9 @@
 The indicator marks the first map of a stretch with the start value and the
 last with the end value. A stretch of one map has only that one map, and it
 gets the start value, never the end value; so does a map that is alone in its
-cycle.
+cycle. Maps that start and end at the same time of the day other than
+midnight have a granularity in days, so the suffix gran names the new maps by
+the day.
 """
 
 from datetime import datetime
@@ -331,3 +333,37 @@ def test_a_negative_offset_of_another_unit_than_the_cycle_is_refused(tmp_path):
         )
         assert "Traceback" not in messages
         assert inventory(tools) == before
+
+
+def test_gran_suffix_of_maps_at_the_same_time_of_day_names_the_day(tools, prefix):
+    """Maps from 10:30 to 10:30 have the granularity "10 days"; before
+    05.11.2026 it was "14400 minutes" and the names ended with _10_30"""
+    small_region(tools, 1, 1)
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [
+            MapSpec(
+                f"{prefix}_c{number}",
+                20,
+                datetime(2026, 6, day, 10, 30),
+                datetime(2026, 6, day + 10, 10, 30),
+            )
+            for number, day in enumerate((1, 11), start=1)
+        ],
+    )
+
+    tools.t_rast_accdetect(
+        input=f"{prefix}_in",
+        start="2026-06-01 10:30",
+        cycle="20 days",
+        basename=f"{prefix}_b",
+        occurrence=f"{prefix}_occ",
+        range="10,50",
+    )
+
+    assert [row.name for row in list_maps(tools, "strds", f"{prefix}_occ")] == [
+        f"{prefix}_b_2026_06_01",
+        f"{prefix}_b_2026_06_11",
+    ]

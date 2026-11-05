@@ -25,6 +25,12 @@ the same.
 
 Every dataset has maps with constant values on a region of 3 x 3 cells, so
 the minimum and the maximum of a result map are its value.
+
+One correction of the library holds for the classic algebra too, by decision
+of 05.11.2026: compute_datetime_delta() counts the months between two firsts
+of a month over more than a year in full and a unit of the time of the day
+only where the two times differ in it or a finer unit. The copy computes the
+delta as the library does.
 """
 
 import datetime
@@ -32,6 +38,8 @@ from itertools import pairwise
 
 import pytest
 
+from grass.temporal import datetime_math
+from grass.temporal.classic import granularity as classic_granularity
 from grass.temporal.classic.granularity import dataset_granularity
 from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
@@ -360,3 +368,23 @@ def row(start, end=None):
 def test_the_granularity_of_a_dataset_comes_from_its_maps(dataset, expected):
     """dataset_granularity() decides from the rows, also when there is none"""
     assert dataset_granularity(dataset, dbif=None) == expected
+
+
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [
+        (datetime.datetime(2024, 1, 1), datetime.datetime(2025, 3, 1)),
+        (datetime.datetime(2024, 11, 1), datetime.datetime(2025, 2, 1)),
+        (datetime.datetime(2024, 3, 1), datetime.datetime(2026, 3, 1)),
+        (datetime.datetime(2024, 1, 1), datetime.datetime(2026, 1, 1)),
+        (datetime.datetime(2026, 6, 1, 10, 30), datetime.datetime(2026, 6, 11, 10, 30)),
+        (datetime.datetime(2026, 6, 1, 10, 30), datetime.datetime(2026, 6, 11, 11, 30)),
+        (datetime.datetime(2026, 6, 1, 10), datetime.datetime(2026, 6, 1, 10, 0, 30)),
+        (datetime.datetime(2026, 6, 1), datetime.datetime(2026, 6, 11)),
+    ],
+)
+def test_classic_copy_equals_library_delta(start, end):
+    """The copy of compute_datetime_delta() computes what the library does"""
+    assert classic_granularity.compute_datetime_delta(
+        start, end
+    ) == datetime_math.compute_datetime_delta(start, end)

@@ -388,6 +388,16 @@ def compute_datetime_delta(start: datetime, end: datetime) -> datetime_delta:
     """Return a dictionary with the accumulated delta in year, month, day,
     hour, minute and second
 
+    Between two firsts of a month the months count in full, 12 for each year
+    and the difference of the months (1 January 2024 to 1 March 2025 is 14
+    months); from January to January only the years count. An hour, a minute
+    or a second counts only where the two times of the day differ in that
+    unit or a finer one, and then counts the whole delta in that unit: two
+    times at 10:30 ten days apart are 10 days apart, 10:30 to 11:30 ten days
+    later is also 241 hours. An hour or a minute that is 0 at both times
+    does not count (00:30 to 00:45 ten days later has no hours, but 14415
+    minutes).
+
     Usage:
 
     .. code-block:: pycon
@@ -421,35 +431,37 @@ def compute_datetime_delta(start: datetime, end: datetime) -> datetime_delta:
     if start.month == 1 and end.month == 1:
         comp["month"] = 0
     elif start.day == 1 and end.day == 1:
-        d = end.month - start.month
-        if d < 0:
-            d += 12 * comp["year"]
-        elif d == 0:
-            d = 12 * comp["year"]
-        comp["month"] = d
+        comp["month"] = 12 * comp["year"] + end.month - start.month
 
     # Count full days
     comp["day"] = 0 if start.day == 1 and end.day == 1 else day_diff
 
     # Time. Each unit counts the whole interval in that unit, from the next
     # coarser unit that is not zero: the difference of the field plus all of
-    # the interval before it.
+    # the interval before it. A unit in which the two times of the day and all
+    # finer units are equal does not count, or two instants at 10:30 ten days
+    # apart would have a granularity in minutes. An hour or a minute that is 0
+    # at both ends does not count either, as it never did, even where a finer
+    # unit differs (00:30 to 00:45 ten days later has no hours): the minutes
+    # then hold the whole delta, so the granularity is the same.
+    start_time = (start.hour, start.minute, start.second)
+    end_time = (end.hour, end.minute, end.second)
     # Hours
-    if start.hour == 0 and end.hour == 0:
+    if (start.hour == 0 and end.hour == 0) or start_time == end_time:
         comp["hour"] = 0
     else:
         d = end.hour - start.hour
         comp["hour"] = d + 24 + 24 * day_diff if d < 0 else d + 24 * day_diff
 
     # Minutes
-    if start.minute == 0 and end.minute == 0:
+    if (start.minute == 0 and end.minute == 0) or start_time[1:] == end_time[1:]:
         comp["minute"] = 0
     else:
         before = 60 * comp["hour"] if comp["hour"] else 24 * 60 * day_diff
         comp["minute"] = end.minute - start.minute + before
 
     # Seconds
-    if start.second == 0 and end.second == 0:
+    if start.second == end.second:
         comp["second"] = 0
     else:
         if comp["minute"]:

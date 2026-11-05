@@ -55,9 +55,8 @@ the granularity of one month and gets year and month (<code>2026_01</code>). A d
 of a single time instant has no granularity; <code>gran</code> then takes the full
 start time, as <code>time</code> does. The suffix follows the granularity as
 <em><a href="t.info.html">t.info</a></em> shows it: two instants ten days apart at 10:30 are stored
-with the granularity <code>14400 minutes</code>, and the names end with <code>2026_06_11_10_30</code>
-and <code>2026_06_21_10_30</code>; the same instants at midnight are stored with <code>10 days</code>,
-and the names end with <code>2026_06_11</code> and <code>2026_06_21</code>.</li>
+with the granularity <code>10 days</code>, as the same instants at midnight, and the
+names end with <code>2026_06_11</code> and <code>2026_06_21</code>.</li>
 <li><code>time</code> takes the full start time: <code>2026_03_01T00_00_00</code>.</li>
 <li><code>num</code> numbers the selected maps from 1 in the order of their start time and
 map id, with five digits (<code>00001</code>); the number counts also the maps that come

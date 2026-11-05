@@ -39,8 +39,9 @@ turns January 31 into February 28 and then into March 1.
 
 The time of a dataset as a whole follows its maps: the start and the end of the
 dataset, and its granularity, are calculated again. A shift by 12 hours of a
-dataset with daily maps gives it the granularity `24 hours` instead of `1 day`,
-because the maps then start at noon and not at midnight.
+dataset with daily maps keeps the granularity `1 day`: the maps then start and
+end at noon, and a time of the day that is the same at both ends of a map does
+not count in the granularity.
 
 ### Relative time
 
@@ -99,9 +100,8 @@ region. *t.shift* changes times only, so the maps hold small constant values.
 
 Three maps of daily mean air temperature over North Carolina, 8, 9 and 10
 degrees Celsius in every cell, form the intervals March 1 to 4, 2026. The
-shift by `12 hours` moves each of them to noon. The dataset then has the
-granularity `24 hours`, while it had `1 day` before. A shift by `-12 hours`
-brings the maps back, and the granularity with them.
+shift by `12 hours` moves each of them to noon. The dataset keeps the
+granularity `1 day`. A shift by `-12 hours` brings the maps back.
 
 === "Command line"
 
@@ -143,7 +143,7 @@ brings the maps back, and the granularity with them.
     temperature_3|2026-03-03 12:00:00|2026-03-04 12:00:00
     start_time='2026-03-01 12:00:00'
     end_time='2026-03-04 12:00:00'
-    granularity='24 hours'
+    granularity='1 day'
     ```
 
     ```sh
@@ -215,7 +215,7 @@ brings the maps back, and the granularity with them.
     temperature_3|2026-03-03 12:00:00|2026-03-04 12:00:00
     start_time='2026-03-01 12:00:00'
     end_time='2026-03-04 12:00:00'
-    granularity='24 hours'
+    granularity='1 day'
     ```
 
     ```python

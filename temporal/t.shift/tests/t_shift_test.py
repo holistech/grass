@@ -124,14 +124,33 @@ def test_the_extent_of_the_dataset_follows_its_maps(tools, mixed):
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-def test_the_granularity_is_calculated_again(tools, make_stds):
+def test_the_granularity_is_calculated_again(tools, make_stds, prefix):
     maps, (name,) = make_stds(3)
     assert stds_info(tools, "strds", name)["granularity"] == "'1 day'"
 
     tools.t_shift(input=name, granularity="1 hour")
 
-    # The maps now start at 01:00:00, so the smallest unit is the hour.
-    assert stds_info(tools, "strds", name)["granularity"] == "'24 hours'"
+    # The maps now start and end at 01:00:00. The time of the day is the same
+    # at both ends of each map, so it does not count and the maps stay one
+    # day long.
+    assert stds_info(tools, "strds", name)["granularity"] == "'1 day'"
+
+    # A shift by a month changes the steps: the instants 31 January and
+    # 31 March are two months apart, 28 February and 30 April are 61 days.
+    months = create_timed_stds(
+        tools,
+        f"{prefix}_month_ends",
+        [(datetime(2001, 1, 31), None), (datetime(2001, 3, 31), None)],
+    )
+    assert stds_info(tools, "strds", months)["granularity"] == "'2 months'"
+
+    tools.t_shift(input=months, granularity="1 month")
+
+    assert _times(tools, months) == [
+        ("2001-02-28 00:00:00", None),
+        ("2001-04-30 00:00:00", None),
+    ]
+    assert stds_info(tools, "strds", months)["granularity"] == "'61 days'"
 
 
 def test_the_command_is_added_to_the_history(tools, mixed):
@@ -387,10 +406,25 @@ def test_a_list_updates_the_granularity_and_the_history(tools, prefix):
     tools.t_shift(input=name, granularity="1 days, 2 hours")
 
     # As after a shift by hours (test_the_granularity_is_calculated_again).
-    assert stds_info(tools, "strds", name)["granularity"] == "'24 hours'"
+    assert stds_info(tools, "strds", name)["granularity"] == "'1 day'"
     history = tools.t_info(type="strds", input=name, flags="h").stdout
     history = history.replace("\\\n", "")
     assert f't.shift input="{name}" granularity="1 days, 2 hours"' in history
+
+    # A list with a month changes the steps: the instants 31 January and
+    # 31 March are two months apart, 28 February and 30 April at 02:00 are
+    # 61 days.
+    months = create_timed_stds(
+        tools,
+        f"{prefix}_month_ends",
+        [(datetime(2001, 1, 31), None), (datetime(2001, 3, 31), None)],
+    )
+    tools.t_shift(input=months, granularity="1 months, 2 hours")
+    assert _times(tools, months) == [
+        ("2001-02-28 02:00:00", None),
+        ("2001-04-30 02:00:00", None),
+    ]
+    assert stds_info(tools, "strds", months)["granularity"] == "'61 days'"
 
 
 def test_a_list_is_not_possible_for_relative_time(tools, prefix):

@@ -1,5 +1,5 @@
 """Test the changes of r.contour as t.rast.contour shows them, and the suffix
-gran on a month series from a month end"""
+gran on a month series from a month end and on maps at a time of the day"""
 
 from datetime import datetime
 from itertools import pairwise
@@ -161,3 +161,32 @@ def test_same_time_suffix_gran_is_refused_first(tools, prefix):
     )
     assert "Traceback" not in text
     assert inventory(tools) == before
+
+
+def test_gran_suffix_of_maps_at_the_same_time_of_day_names_the_day(tools, prefix):
+    # Maps that start and end at 10:30 have the granularity "10 days": a time
+    # of the day that is the same at both ends of a step does not count.
+    # Before 05.11.2026 the granularity was "14400 minutes" and the names
+    # ended with _10_30.
+    small_region(tools, 4, 4)
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [
+            MapSpec(
+                f"{prefix}_in_{number}",
+                "double(col())",
+                datetime(2026, 6, day, 10, 30),
+                datetime(2026, 6, day + 10, 10, 30),
+            )
+            for number, day in enumerate((1, 11), start=1)
+        ],
+    )
+
+    tools.t_rast_contour(
+        input=f"{prefix}_in", output=prefix, basename=f"{prefix}_b", step=1
+    )
+
+    names = [row.name for row in list_maps(tools, "stvds", prefix)]
+    assert names == [f"{prefix}_b_2026_06_01", f"{prefix}_b_2026_06_11"]

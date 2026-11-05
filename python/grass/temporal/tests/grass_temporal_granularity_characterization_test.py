@@ -8,7 +8,9 @@ computed from one table of units, kept in data/granularity_characterization.json
 The common granule with start dates that differ in a finer unit than the
 granule was changed on purpose on 05.11.2026: it is one unit of the finest
 unit in which the starts differ (one day and starts that differ by five seconds
-give "1 second", before "1 day").
+give "1 second", before "1 day"). So was the granularity of a step from the
+first of January to the first of March of the next year: 14 months, before 2
+months.
 """
 
 import json

@@ -3369,13 +3369,13 @@
   "seconds interval": "15 seconds",
   "day and hours": "29 hours",
   "month and days": "41 days",
-  "year and months": "2 months",
+  "year and months": "14 months",
   "hour and minutes": "325 minutes",
   "minute and seconds": "200 seconds",
   "day hour minute": "1747 minutes",
   "gap day and hours": "29 hours",
   "gap month and days": "41 days",
-  "gap year and months": "2 months",
+  "gap year and months": "14 months",
   "gap with intervals": "1 hour"
  },
  "specs": {

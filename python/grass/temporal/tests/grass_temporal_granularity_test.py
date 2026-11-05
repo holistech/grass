@@ -58,7 +58,9 @@ def point_maps(start, increment, count):
         (datetime(2001, 1, 14), "14 days", 6, "14 days"),
         (datetime(2001, 6, 12), "6 hours", 20, "6 hours"),
         (datetime(2001, 1, 1), "20 minutes", 20, "20 minutes"),
-        (datetime(2001, 12, 31, 12, 30, 30), "3600 seconds", 24, "3600 seconds"),
+        # Each step keeps the minute and the second of the time, so neither
+        # counts.
+        (datetime(2001, 12, 31, 12, 30, 30), "3600 seconds", 24, "1 hour"),
         # Mixed units collapse to the finest unit that can express every
         # boundary. Months and days cannot be combined, so days remain.
         (datetime(2001, 3, 1), "1 month, 4 days", 20, "1 day"),
@@ -78,7 +80,9 @@ def test_granularity_of_intervals(start, increment, count, expected) -> None:
 @pytest.mark.parametrize(
     ("start", "increment", "count", "expected"),
     [
-        (datetime(2001, 12, 31, 12, 30, 30), "3600 seconds", 24, "3600 seconds"),
+        # Each step keeps the minute and the second of the time, so neither
+        # counts.
+        (datetime(2001, 12, 31, 12, 30, 30), "3600 seconds", 24, "1 hour"),
         (datetime(2001, 12, 31), "20 days", 24, "20 days"),
         (datetime(2001, 12, 1), "5 months", 24, "5 months"),
     ],
@@ -98,7 +102,7 @@ def test_granularity_of_time_points(start, increment, count, expected) -> None:
             datetime(2002, 2, 1, 12, 30, 30),
             "3600 seconds",
             24,
-            "3600 seconds",
+            "1 hour",
         ),
         (datetime(2001, 1, 1), datetime(2001, 2, 2), "2 days", 8, "2 days"),
     ],

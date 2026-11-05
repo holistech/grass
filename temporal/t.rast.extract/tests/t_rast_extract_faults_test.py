@@ -4,7 +4,7 @@ A month step that is cut to the end of a shorter month counts as a month, so
 the series from 31 January (28 February, 31 March) has the granularity
 "1 month" and the suffix gran names the new maps by the month. The suffix gran
 follows the granularity of the input dataset also for time instants, which have
-no end: the clock time of the instants decides that granularity.
+no end: instants at the same time of the day are named by the day.
 """
 
 from datetime import datetime
@@ -59,11 +59,10 @@ def test_gran_suffix_of_month_end_series_names_the_month(tools, prefix):
     [
         # Ten days at midnight: the unit of the granularity is the day.
         (0, "'10 days'", ["2026_06_11", "2026_06_21"]),
-        # Ten days at 10:30: compute_datetime_delta counts the hours and the
-        # minutes of such a step, so the granularity is "14400 minutes" and
-        # the names, which follow the unit of the granularity, carry the
-        # time of the day.
-        (10, "'14400 minutes'", ["2026_06_11_10_30", "2026_06_21_10_30"]),
+        # Ten days at 10:30: the time of the day is the same at both ends of
+        # the step, so the granularity is "10 days" and the names, which
+        # follow the unit of the granularity, carry the day only.
+        (10, "'10 days'", ["2026_06_11", "2026_06_21"]),
     ],
 )
 def test_suffix_gran_for_instants_with_time(tools, prefix, hour, granularity, suffixes):
@@ -123,3 +122,39 @@ def test_other_dataset_in_expression_is_refused(tools, prefix):
     assert f"Invalid map <{prefix}_other>" in text
     assert "Error in computation process" in text
     assert inventory(tools) == before
+
+
+INSTANTS_AT_HALF_PAST_TEN = [
+    datetime(2026, 6, 1, 10, 30),
+    datetime(2026, 6, 11, 10, 30),
+    datetime(2026, 7, 1, 10, 30),
+]
+
+
+def test_extract_suffix_gran_for_instants_with_time_names_days(tools, prefix):
+    """Instants at 10:30, 10 and 20 days apart, have the granularity "10 days",
+    and the suffix gran names the new maps by the day"""
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [
+            MapSpec(f"{prefix}_i{number}", number, start)
+            for number, start in enumerate(INSTANTS_AT_HALF_PAST_TEN, start=1)
+        ],
+    )
+    assert stds_info(tools, "strds", f"{prefix}_in")["granularity"] == "'10 days'"
+
+    tools.t_rast_extract(
+        input=f"{prefix}_in",
+        output=prefix,
+        basename=f"{prefix}_b",
+        expression=f"{prefix}_in * 2",
+    )
+
+    names = [row.name for row in list_maps(tools, "strds", prefix)]
+    assert names == [
+        f"{prefix}_b_2026_06_01",
+        f"{prefix}_b_2026_06_11",
+        f"{prefix}_b_2026_07_01",
+    ]

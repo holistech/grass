@@ -8,7 +8,9 @@ longer one leaves no gap behind it. The granules of a dataset reach to the
 latest end of its maps, not to the end of the map that starts last.
 
 The classic algebra keeps the old rules in copies of its own, see
-grass_temporal_classic_frozen_library_test.py.
+grass_temporal_classic_frozen_library_test.py. Both count a step between two
+firsts of a month over more than a year in full and the hours, minutes and
+seconds of a step only where the two times of the day differ in them.
 
 The common granule of datasets whose start times differ in a finer unit than
 the granule is one unit of the finest unit in which they differ.
@@ -23,6 +25,7 @@ import grass.temporal as tgis
 from grass.pygrass.messages import FatalError
 from grass.temporal.algebra.content import MapRef
 from grass.temporal.algebra.series import Extent, Series, Slot, Space
+from grass.temporal.classic import granularity as classic_granularity
 from grass.temporal.related_maps import with_gaps
 from grass.temporal.testing.data import MapSpec, create_stds
 from grass.tools import Tools
@@ -136,10 +139,47 @@ def test_month_end_series_has_one_month(session, starts, expected, instants):
 
 
 def test_month_steps_with_a_time_of_day_count_in_hours(session):
-    """The time of the day counts as before: a month series at 06:00 has the
-    greatest common step of its lengths in hours, 24 hours"""
+    """A month series at 06:00 has the granularity "1 month": the time of the
+    day is the same at both ends of each step, so the hours do not count.
+    Before 05.11.2026 they did, and the granularity was "24 hours"; the name
+    of the test is from that time."""
     starts = [moment.replace(hour=6) for moment in MONTH_ENDS]
-    assert tgis.compute_absolute_time_granularity(series_of(starts)) == "24 hours"
+    assert tgis.compute_absolute_time_granularity(series_of(starts)) == "1 month"
+
+
+# The library and the copy of the classic algebra count both alike.
+GRANULARITY_FUNCTIONS = pytest.mark.parametrize(
+    "granularity_of",
+    [
+        tgis.compute_absolute_time_granularity,
+        classic_granularity.compute_absolute_time_granularity,
+    ],
+    ids=["library", "classic"],
+)
+
+
+@GRANULARITY_FUNCTIONS
+@pytest.mark.parametrize("instants", [False, True], ids=["intervals", "instants"])
+def test_granularity_of_month_firsts_over_a_year(session, granularity_of, instants):
+    """A step from 1 January 2024 to 1 March 2025 is 14 months, not 2"""
+    starts = [D(2024, 1, 1), D(2025, 3, 1)]
+    assert granularity_of(series_of(starts, instants=instants)) == "14 months"
+
+
+@GRANULARITY_FUNCTIONS
+def test_granularity_of_instants_at_the_same_time_of_day(session, granularity_of):
+    """Instants at 10:30, ten days apart, are 10 days apart, not 14400
+    minutes"""
+    starts = [D(2026, 6, 1, 10, 30), D(2026, 6, 11, 10, 30)]
+    assert granularity_of(series_of(starts, instants=True)) == "10 days"
+
+
+@GRANULARITY_FUNCTIONS
+def test_granularity_of_instants_at_another_time_of_day(session, granularity_of):
+    """Instants at 10:30 and 11:30 ten days later are 241 hours apart: the
+    hours differ and count, the minutes are equal and do not"""
+    starts = [D(2026, 6, 1, 10, 30), D(2026, 6, 11, 11, 30)]
+    assert granularity_of(series_of(starts, instants=True)) == "241 hours"
 
 
 def test_registered_month_end_series_stores_one_month(tools, session):

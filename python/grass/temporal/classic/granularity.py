@@ -23,7 +23,12 @@ database, which the library computed when the maps were registered.
 
 The code of the copies is that of the library; only the calls between them
 are switched to the copies. Fix an error of the classic algebra here only
-with an explicit decision, as for every change of its results.
+with an explicit decision, as for every change of its results. One such
+decision, of 05.11.2026, brought the correction of compute_datetime_delta()
+of that day into the copy: it counts the months between two firsts of a
+month over more than a year in full and a unit of the time of the day only
+where the two times differ in it or a finer unit. The copy computes the
+delta as the library does.
 
 SPDX-FileCopyrightText: 2012-2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -176,35 +181,37 @@ def compute_datetime_delta(start: datetime, end: datetime) -> datetime_delta:
     if start.month == 1 and end.month == 1:
         comp["month"] = 0
     elif start.day == 1 and end.day == 1:
-        d = end.month - start.month
-        if d < 0:
-            d += 12 * comp["year"]
-        elif d == 0:
-            d = 12 * comp["year"]
-        comp["month"] = d
+        comp["month"] = 12 * comp["year"] + end.month - start.month
 
     # Count full days
     comp["day"] = 0 if start.day == 1 and end.day == 1 else day_diff
 
     # Time. Each unit counts the whole interval in that unit, from the next
     # coarser unit that is not zero: the difference of the field plus all of
-    # the interval before it.
+    # the interval before it. A unit in which the two times of the day and all
+    # finer units are equal does not count, or two instants at 10:30 ten days
+    # apart would have a granularity in minutes. An hour or a minute that is 0
+    # at both ends does not count either, as it never did, even where a finer
+    # unit differs (00:30 to 00:45 ten days later has no hours): the minutes
+    # then hold the whole delta, so the granularity is the same.
+    start_time = (start.hour, start.minute, start.second)
+    end_time = (end.hour, end.minute, end.second)
     # Hours
-    if start.hour == 0 and end.hour == 0:
+    if (start.hour == 0 and end.hour == 0) or start_time == end_time:
         comp["hour"] = 0
     else:
         d = end.hour - start.hour
         comp["hour"] = d + 24 + 24 * day_diff if d < 0 else d + 24 * day_diff
 
     # Minutes
-    if start.minute == 0 and end.minute == 0:
+    if (start.minute == 0 and end.minute == 0) or start_time[1:] == end_time[1:]:
         comp["minute"] = 0
     else:
         before = 60 * comp["hour"] if comp["hour"] else 24 * 60 * day_diff
         comp["minute"] = end.minute - start.minute + before
 
     # Seconds
-    if start.second == 0 and end.second == 0:
+    if start.second == end.second:
         comp["second"] = 0
     else:
         if comp["minute"]:

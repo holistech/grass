@@ -10,7 +10,10 @@ that the split changed no result. The golden values were recorded from the code
 before the split on 26.10.2026. One value was changed on purpose on 05.11.2026:
 a week granule starts on the Monday on or before the time, so 1 January 2004, a
 Thursday, moves to 29 December 2003 with "3 week" (the old code moved it
-forward to Sunday, 4 January 2004).
+forward to Sunday, 4 January 2004). Further values of the delta were changed
+on purpose on 05.11.2026: between two firsts of a month the months count 12 per
+year plus the difference of the months, and an hour, a minute or a second
+counts only where the two times of the day differ in it or a finer unit.
 """
 
 import builtins

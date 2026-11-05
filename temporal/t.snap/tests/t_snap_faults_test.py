@@ -5,6 +5,9 @@ The instants 31 January, 28 February and 31 March have the granularity
 counted on the series of the first map: an instant on 30 April in a series
 from 31 January ends on 31 May, and the snapped dataset keeps the granularity
 "1 month".
+
+The instants on the first of January 2024 and the first of March 2025 are
+14 months apart, so the last one ends 14 months later.
 """
 
 from datetime import datetime
@@ -66,3 +69,22 @@ def test_last_instant_ends_on_the_month_series_of_the_first(tools, starts, last_
         for start, end in zip(starts, ends, strict=True)
     ]
     assert tools.t_info(input=name, flags="g").keyval["granularity"] == "'1 month'"
+
+
+def test_last_instant_of_month_firsts_over_a_year_ends_14_months_later(tools, prefix):
+    """Before 05.11.2026 the granularity counted 2 months and the last
+    instant ended on 1 May 2025"""
+    create_stds(
+        tools,
+        "strds",
+        prefix,
+        [
+            MapSpec(f"{prefix}_1", 1, D(2024, 1, 1)),
+            MapSpec(f"{prefix}_2", 2, D(2025, 3, 1)),
+        ],
+    )
+    tools.t_snap(input=prefix)
+    assert [(row.start, row.end) for row in list_maps(tools, "strds", prefix)] == [
+        ("2024-01-01 00:00:00", "2025-03-01 00:00:00"),
+        ("2025-03-01 00:00:00", "2026-05-01 00:00:00"),
+    ]

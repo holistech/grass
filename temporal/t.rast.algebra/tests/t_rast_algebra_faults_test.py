@@ -6,7 +6,7 @@ has the granularity "1 month". The time suffix "gran" names its result maps
 by the month, the granularity mode (-g) has a granule per month, and tsnap()
 ends a last time instance one month later, on the month series of the first
 map. The classic algebra (-c, or GRASS_TEMPORAL_ALGEBRA=classic) keeps the
-granularity "1 day" of the releases before GRASS 8.6;
+granularity "1 day" for this series, as the releases before GRASS 8.6 did;
 grass_temporal_classic_frozen_library_test.py holds its results. In the
 granularity mode, datasets whose starts differ in a finer unit than their
 common granularity are sampled in granules of that finer unit in both

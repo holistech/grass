@@ -51,9 +51,8 @@ map keeps the semantic label.
   of a single time instant has no granularity; `gran` then takes the full
   start time, as `time` does. The suffix follows the granularity as
   *[t.info](t.info.md)* shows it: two instants ten days apart at 10:30 are stored
-  with the granularity `14400 minutes`, and the names end with `2026_06_11_10_30`
-  and `2026_06_21_10_30`; the same instants at midnight are stored with `10 days`,
-  and the names end with `2026_06_11` and `2026_06_21`.
+  with the granularity `10 days`, as the same instants at midnight, and the
+  names end with `2026_06_11` and `2026_06_21`.
 - `time` takes the full start time: `2026_03_01T00_00_00`.
 - `num` numbers the selected maps from 1 in the order of their start time and
   map id, with five digits (`00001`); the number counts also the maps that come

@@ -2,7 +2,9 @@
 
 A gap is time that no map covers: a map that ends inside a longer one leaves
 no gap behind it. A month step that is cut to the end of a shorter month
-counts as a month in the granularity.
+counts as a month in the granularity. A step between two firsts of a month
+counts all its months, and a time of the day that is the same at both ends of
+a step does not count.
 """
 
 import re
@@ -49,3 +51,27 @@ def test_month_end_series_has_one_month(tools):
         ],
     )
     assert summary(tools, "month_ends")["Granularity"] == "1 month"
+
+
+def test_granularity_of_month_firsts_over_a_year_and_of_a_time_of_day(tools, prefix):
+    """Before 05.11.2026 the granularities were 2 months and 14400 minutes"""
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_months",
+        [
+            MapSpec(f"{prefix}_m1", 1, D(2024, 1, 1)),
+            MapSpec(f"{prefix}_m2", 2, D(2025, 3, 1)),
+        ],
+    )
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_days",
+        [
+            MapSpec(f"{prefix}_d1", 1, D(2026, 6, 1, 10, 30), D(2026, 6, 11, 10, 30)),
+            MapSpec(f"{prefix}_d2", 2, D(2026, 6, 21, 10, 30), D(2026, 7, 1, 10, 30)),
+        ],
+    )
+    assert summary(tools, f"{prefix}_months")["Granularity"] == "14 months"
+    assert summary(tools, f"{prefix}_days")["Granularity"] == "10 days"
