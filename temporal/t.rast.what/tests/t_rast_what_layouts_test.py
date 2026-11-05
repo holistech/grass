@@ -1,16 +1,16 @@
 """Test the layouts and the columns of t.rast.what
 
-The data are described in conftest.py. The coordinates in the text of the row
-and column layouts have ten decimals (r.what), those of the timerow layout the
-shortest form; this was measured on 18.10.2026, the values are derived.
+The data are described in conftest.py. The coordinates in the text of the
+layouts are those that r.what writes, which are the ones given to the tool,
+without padded decimals. The values are derived.
 """
 
 import pytest
 
 SAMPLE = {
-    "p1": ("0.5000000000", "2.5000000000", ["11", "111", "211"]),
-    "p2": ("2.5000000000", "0.5000000000", ["33", "133", "233"]),
-    "p3": ("1.5000000000", "1.5000000000", ["22", "*", "222"]),
+    "p1": ("0.5", "2.5", ["11", "111", "211"]),
+    "p2": ("2.5", "0.5", ["33", "133", "233"]),
+    "p3": ("1.5", "1.5", ["22", "*", "222"]),
 }
 TIMES = [
     ("2001-01-01 00:00:00", "2001-01-02 00:00:00"),
@@ -60,7 +60,7 @@ def test_col_layout_has_a_line_per_map_and_a_column_per_point(tools, sampled):
     )
 
     assert _lines(result) == [
-        "start|end|0.5000000000,2.5000000000|2.5000000000,0.5000000000",
+        "start|end|0.5,2.5|2.5,0.5",
         "2001-01-01 00:00:00|2001-01-02 00:00:00|11|33",
         "2001-01-02 00:00:00|2001-01-03 00:00:00|111|133",
         "2001-01-03 00:00:00|2001-01-04 00:00:00|211|233",
@@ -105,8 +105,7 @@ def test_the_v_flag_puts_the_category_before_the_coordinates_in_the_col_layout(
     result = tools.t_rast_what(strds=sampled, points="wh_pts", flags="nv", layout="col")
 
     assert _lines(result) == [
-        "start|end|7,0.5000000000,2.5000000000|8,2.5000000000,0.5000000000"
-        "|9,1.5000000000,1.5000000000",
+        "start|end|7,0.5,2.5|8,2.5,0.5|9,1.5,1.5",
         "2001-01-01 00:00:00|2001-01-02 00:00:00|11|33|22",
         "2001-01-02 00:00:00|2001-01-03 00:00:00|111|133|*",
         "2001-01-03 00:00:00|2001-01-04 00:00:00|211|233|222",
@@ -160,8 +159,5 @@ def test_separator_applies_to_the_col_layout(tools, sampled):
         strds=sampled, coordinates=COORDINATES, layout="col", separator=";", flags="n"
     )
 
-    assert (
-        _lines(result)[0]
-        == "start;end;0.5000000000,2.5000000000;2.5000000000,0.5000000000"
-    )
+    assert _lines(result)[0] == "start;end;0.5,2.5;2.5,0.5"
     assert _lines(result)[1] == "2001-01-01 00:00:00;2001-01-02 00:00:00;11;33"

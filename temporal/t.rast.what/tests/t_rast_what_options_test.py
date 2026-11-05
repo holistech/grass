@@ -12,8 +12,8 @@ from grass.temporal.testing.readback import message
 from grass.tools import ToolError
 
 COORDINATES = "0.5,2.5,2.5,0.5"
-FIRST = "0.5000000000|2.5000000000"
-SECOND = "2.5000000000|0.5000000000"
+FIRST = "0.5|2.5"
+SECOND = "2.5|0.5"
 
 
 def _lines(result):
@@ -120,9 +120,7 @@ def test_the_name_of_the_site_is_part_of_the_column_title_in_the_col_layout(
         stdin=StringIO("0.5 2.5 siteA\n2.5 0.5 siteB\n"),
     )
 
-    assert _lines(result)[0] == (
-        "start|end|0.5000000000,2.5000000000,siteA|2.5000000000,0.5000000000,siteB"
-    )
+    assert _lines(result)[0] == ("start|end|0.5,2.5,siteA|2.5,0.5,siteB")
 
 
 def test_the_name_of_the_site_in_the_timerow_layout(tools, sampled):

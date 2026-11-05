@@ -118,8 +118,7 @@ def test_a_failing_r_what_is_reported_by_the_tool(tools, nprocs):
 
 
 NO_LOCATION_SAMPLED = (
-    "No location was sampled: r.what returned no line. "
-    "Check the locations and the separator."
+    "No location was sampled: r.what returned no line. Check the locations."
 )
 
 

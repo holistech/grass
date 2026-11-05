@@ -377,10 +377,7 @@ def check_sampled(output_files):
             if in_file.readline():
                 return
     gs.fatal(
-        _(
-            "No location was sampled: r.what returned no line. "
-            "Check the locations and the separator."
-        )
+        _("No location was sampled: r.what returned no line. Check the locations.")
     )
 
 
@@ -511,24 +508,29 @@ def one_point_per_row_output(
                             site = line[2]
                         values = line[3:]
 
+                    # The coordinates stay as r.what wrote them, that is as
+                    # the user gave them. A fixed number of decimals padded
+                    # 10.5 to 10.5000000000 and cut longer coordinates
+                    # (measured 05.11.2026 with 20.123456789012 in the layouts
+                    # row and col before this change; timerow never did it).
                     for i in range(len(values)):
                         start, end = map_list[i].get_temporal_extent_as_tuple()
                         cat_str = f"{cat}{separator}" if vcat else ""
                         if site_input:
                             coor_string = (
-                                "%(x)10.10f%(sep)s%(y)10.10f%(sep)s%(site_name)s%(sep)s"
+                                "%(x)s%(sep)s%(y)s%(sep)s%(site_name)s%(sep)s"
                                 % (
                                     {
-                                        "x": float(x),
-                                        "y": float(y),
+                                        "x": x,
+                                        "y": y,
                                         "site_name": str(site),
                                         "sep": separator,
                                     }
                                 )
                             )
                         else:
-                            coor_string = "%(x)10.10f%(sep)s%(y)10.10f%(sep)s" % (
-                                {"x": float(x), "y": float(y), "sep": separator}
+                            coor_string = "%(x)s%(sep)s%(y)s%(sep)s" % (
+                                {"x": x, "y": y, "sep": separator}
                             )
                         time_string = "%(start)s%(sep)s%(end)s%(sep)s%(val)s\n" % (
                             {
@@ -579,13 +581,11 @@ def one_point_per_col_output(
                         cat = row[0]
                         x = row[1]
                         y = row[2]
-                        out_str += f"{separator}{cat}{coor_sep}{float(x):10.10f}{coor_sep}{float(y):10.10f}"
+                        out_str += f"{separator}{cat}{coor_sep}{x}{coor_sep}{y}"
                     else:
                         x = row[0]
                         y = row[1]
-                        out_str += (
-                            f"{separator}{float(x):10.10f}{coor_sep}{float(y):10.10f}"
-                        )
+                        out_str += f"{separator}{x}{coor_sep}{y}"
                         if site_input:
                             site = row[2]
                             out_str += f"{coor_sep}{site}"
