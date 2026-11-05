@@ -99,24 +99,32 @@ int Rast3d_mask_open_old(void)
 
 /*--------------------------------------------------------------------------*/
 
-static float Rast3d_getMaskFloat(RASTER3D_Map *map, int x, int y, int z)
+/* The value of the mask at the centre of the cell (x, y, z) of the grid that
+ * cells describes: the current window or the region of a map. */
+static float mask_value_at_cell(const RASTER3D_Region *cells, int x, int y,
+                                int z)
 {
     double north, east, top;
     float value;
 
-    north = ((double)map->window.rows - y - 0.5) / (double)map->window.rows *
-                (map->window.north - map->window.south) +
-            map->window.south;
-    east = ((double)x + 0.5) / (double)map->window.cols *
-               (map->window.east - map->window.west) +
-           map->window.west;
-    top = ((double)z + 0.5) / (double)map->window.depths *
-              (map->window.top - map->window.bottom) +
-          map->window.bottom;
+    north = ((double)cells->rows - y - 0.5) / (double)cells->rows *
+                (cells->north - cells->south) +
+            cells->south;
+    east =
+        ((double)x + 0.5) / (double)cells->cols * (cells->east - cells->west) +
+        cells->west;
+    top = ((double)z + 0.5) / (double)cells->depths *
+              (cells->top - cells->bottom) +
+          cells->bottom;
 
     Rast3d_get_region_value(Rast3d_maskMap, north, east, top, &value,
                             FCELL_TYPE);
     return value;
+}
+
+static float Rast3d_getMaskFloat(RASTER3D_Map *map, int x, int y, int z)
+{
+    return mask_value_at_cell(&map->window, x, y, z);
 }
 
 /*--------------------------------------------------------------------------*/
@@ -250,8 +258,9 @@ void Rast3d_mask_double(RASTER3D_Map *map, int x, int y, int z, double *value)
 /*!
  * \brief
  *
- *  Replaces the values stored in <em>tile</em> (with <em>tileIndex</em>) for
- *  which <em>Rast3d_is_masked</em> returns 1 with NULL-values. Does not change
+ *  Replaces the values stored in <em>tile</em> (with <em>tileIndex</em>) with
+ *  NULL-values where the 3d-mask is NULL at the centre of the cell in the
+ *  region of <em>map</em>, whatever the current window. Does not change
  *  the remaining values. The values are assumed to be of <em>type</em>.
  *  Whether replacement is performed or not only depends on location of the
  *  cells of the tile and not on the status of the mask for <em>map</em>
@@ -267,6 +276,7 @@ void Rast3d_mask_tile(RASTER3D_Map *map, int tileIndex, void *tile, int type)
 {
     int nofNum, rows, cols, depths, xRedundant, yRedundant, zRedundant;
     int x, y, z, xLength, yLength, dx, dy, dz, length;
+    float maskValue;
 
     if (!Rast3d_maskMapExistsVar)
         return;
@@ -296,10 +306,17 @@ void Rast3d_mask_tile(RASTER3D_Map *map, int tileIndex, void *tile, int type)
     xLength = xRedundant * length;
     yLength = map->tileX * yRedundant * length;
 
+    /* The cells of a tile are cells of the map, not of the current window,
+     * so their location comes from the region of the map. With the window
+     * the mask was looked up at other locations whenever the window
+     * differed from the map (measured 04.11.2026 with r3.out.ascii -m: a
+     * mask of the upper of two layers hid nothing with tbres=0.5). */
     for (dz = z; dz < depths; dz++) {
         for (dy = y; dy < rows; dy++) {
             for (dx = x; dx < cols; dx++) {
-                RASTER3D_MASKNUM(map, dx, dy, dz, tile, type);
+                maskValue = mask_value_at_cell(&map->region, dx, dy, dz);
+                if (Rast3d_is_null_value_num(&maskValue, FCELL_TYPE))
+                    Rast3d_set_null_value(tile, 1, type);
                 tile = (char *)tile + length;
             }
 

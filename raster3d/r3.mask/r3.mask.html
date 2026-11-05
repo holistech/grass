@@ -13,6 +13,12 @@ Cells in the mask are marked as "mask out" if the corresponding cell in
 Before a new 3D-mask can be created the existing mask has to be removed
 with <em>g.remove</em>.
 
+<p>
+<em>r3.mask</em> writes the mask on the grid of <em>map</em>. For a map on the same
+grid, a tool that applies the mask hides the cells of the map where the
+mask is NULL, in any current region, also in one with another extent or
+resolution than the map.
+
 <h2>SEE ALSO</h2>
 
 <em>

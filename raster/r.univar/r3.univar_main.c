@@ -293,10 +293,11 @@ int main(int argc, char *argv[])
                  * like a cell whose zone is null. Rast3d_is_masked() takes
                  * the cell coordinates of the current region, the same as
                  * Rast3d_get_value(). Rast3d_mask_on() is not used: it masks
-                 * whole tiles in the cell coordinates of the map, which
-                 * misses masked cells when the region differs from the map
-                 * (04.11.2026: r3.out.ascii -m printed the masked upper
-                 * layer of a two layer map in a region with tbres=0.5). */
+                 * whole tiles at the centres of the cells of the map, which
+                 * gives other cells when the mask lies on another grid than
+                 * the map, finer or offset (05.11.2026: with a mask in half
+                 * of the upper layer of a two layer map and tbres=0.5,
+                 * r3.out.ascii -m masked nothing, r3.univar one cell). */
                 if (Rast3d_is_masked(map, x, y, z)) {
                     if (!zone_info.n_zones)
                         stats[zone].size++;

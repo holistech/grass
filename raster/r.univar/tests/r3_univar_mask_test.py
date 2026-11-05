@@ -84,8 +84,7 @@ def test_the_mask_follows_the_cells_of_the_current_region(tools):
 
 def test_the_mask_follows_a_finer_layer_resolution(tools):
     # Four layers of 0.5 in the region, two in each layer of the maps: the
-    # upper two are masked out, the lower two hold 1 to 6 twice. Masking whole
-    # tiles in the cell coordinates of the map would miss them.
+    # upper two are masked out, the lower two hold 1 to 6 twice.
     tools.r3_mask(map="layers", maskvalues=2)
 
     tools.g_region(tbres=0.5)
