@@ -55,7 +55,9 @@ more than one space time dataset moves in all of them. To shift a part of a
 dataset only, copy that part into new maps first:
 *[t.rast.extract](t.rast.extract.md)* with the option **expression** makes new
 maps in a new dataset, and the shift of that dataset does not touch the
-original maps.
+original maps. An extract without an expression makes no new maps: it registers
+the maps of the original, so shifting the extract moves them in the original
+too.
 
 *t.shift* computes the new time of every map before it changes the first one.
 A granularity that is refused, a shift that ends behind the year 9999 and a

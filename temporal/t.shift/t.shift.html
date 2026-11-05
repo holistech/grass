@@ -59,7 +59,9 @@ more than one space time dataset moves in all of them. To shift a part of a
 dataset only, copy that part into new maps first:
 <em><a href="t.rast.extract.html">t.rast.extract</a></em> with the option <b>expression</b> makes new
 maps in a new dataset, and the shift of that dataset does not touch the
-original maps.
+original maps. An extract without an expression makes no new maps: it registers
+the maps of the original, so shifting the extract moves them in the original
+too.
 
 <p>
 <em>t.shift</em> computes the new time of every map before it changes the first one.
