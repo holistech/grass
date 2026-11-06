@@ -17,8 +17,7 @@ from io import StringIO
 
 import pytest
 
-import grass.temporal as tgis
-from grass.temporal.testing.data import MapSpec, create_stds
+from grass.temporal.testing.data import MapSpec, create_stds, insert_old_stds
 from grass.temporal.testing.readback import inventory, list_maps, message
 from grass.temporal.testing.session import (
     mapset_session,
@@ -295,9 +294,7 @@ def old_dotted_dataset_tools(session):
     tools.g_region(n=1, s=0, e=1, w=0, res=1)
     for name, value in (("m1", 1), ("m2", 2)):
         tools.r_mapcalc(expression=f"{name} = {value}")
-    dataset = tgis.dataset_factory("strds", f"a.b@{tgis.get_current_mapset()}")
-    dataset.set_initial_values("absolute", "mean", "t", "d")
-    dataset.insert()
+    insert_old_stds("a.b")
     tools.t_register(input="a.b", maps="m1,m2", start="2001-01-01", increment="1 day")
     return tools
 

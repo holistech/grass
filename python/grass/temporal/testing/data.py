@@ -18,6 +18,8 @@ Which helper makes what:
   stamped with ``t.register maps=`` (``algebra_cases.single_map``) or with
   ``tgis.register_maps_in_space_time_dataset(type, None, name, start=...)``
   (``expressions_data``);
+- ``insert_old_stds`` makes an empty dataset with a dot in its name, as a
+  release before the ban of the dot made it;
 - ``register_file`` writes the input file of ``t.register`` and
   ``t.unregister``;
 - ``import_ascii_vector``, ``points_map``, ``square_area`` and
@@ -499,3 +501,17 @@ def create_timed_stds(tools, prefix, times, *, stds_type="strds", **options):
     ]
     create_stds(tools, stds_type, f"{prefix}_ds", maps, **options)
     return f"{prefix}_ds"
+
+
+def insert_old_stds(name, stds_type="strds", temporal_type="absolute"):
+    """Insert an empty dataset past the check of new names, as an older release did
+
+    Releases before the ban of the dot in the name of a new dataset made
+    datasets such as ``a.b``, and the readers must still open them. The checker
+    of new names refuses them now, so the dataset class inserts the row
+    directly. The dataset belongs to the current mapset of the process, which
+    must have called ``tgis.init()`` (a test in a ``temporal_session`` has).
+    """
+    dataset = tgis.dataset_factory(stds_type, f"{name}@{tgis.get_current_mapset()}")
+    dataset.set_initial_values(temporal_type, "mean", "t", "d")
+    dataset.insert()

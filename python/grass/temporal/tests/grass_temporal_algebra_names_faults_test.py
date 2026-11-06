@@ -90,10 +90,9 @@ def test_source_of_a_dataset_in_no_mapset_names_the_current_mapset(core_session)
 INSERT_IN_OWN_MAPSET = """
 import sys
 import grass.temporal as tgis
+from grass.temporal.testing.data import insert_old_stds
 tgis.init()
-dataset = tgis.dataset_factory("strds", f"{sys.argv[1]}@{tgis.get_current_mapset()}")
-dataset.set_initial_values("absolute", "mean", "t", "d")
-dataset.insert()
+insert_old_stds(sys.argv[1])
 """
 
 

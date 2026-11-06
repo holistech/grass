@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
+import grass.temporal as tgis
 from grass.exceptions import CalledModuleError
 
 from grass.temporal.testing.data import (
@@ -18,6 +19,7 @@ from grass.temporal.testing.data import (
     create_daily_stds,
     create_stds,
     day,
+    insert_old_stds,
     intervals,
     make_map,
     register_file,
@@ -533,3 +535,15 @@ def test_small_region_decides_the_cells_of_a_new_map(tools):
 
     info = tools.r_info(map="sr_map", flags="g").keyval
     assert (info["rows"], info["cols"]) == (3, 5)
+
+
+def test_insert_old_stds_is_read_whole(tmp_path):
+    with temporal_session(tmp_path / "project"):
+        insert_old_stds("a.b")
+        insert_old_stds("c.d", "str3ds", "relative")
+        stds = tgis.open_old_stds("a.b", "strds")
+        assert stds.get_id() == f"a.b@{stds.get_mapset()}"
+        assert stds.get_temporal_type() == "absolute"
+        stds3 = tgis.open_old_stds("c.d", "str3ds")
+        assert stds3.get_id() == f"c.d@{stds3.get_mapset()}"
+        assert stds3.get_temporal_type() == "relative"

@@ -9,6 +9,7 @@ import pytest
 from grass.exceptions import FatalError
 import grass.temporal as tgis
 from grass.temporal.open_stds import _parse_id, check_new_stds_name
+from grass.temporal.testing.data import insert_old_stds
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
 
@@ -66,9 +67,7 @@ def test_new_raster_dataset_with_dot_can_be_read_again(project_session):
     Such a dataset can only be made past the check of new names, here with
     the dataset class directly, as one made by an older release.
     """
-    old = tgis.dataset_factory("strds", f"a.b@{tgis.get_current_mapset()}")
-    old.set_initial_values("absolute", "mean", "t", "d")
-    old.insert()
+    insert_old_stds("a.b")
     sp = tgis.open_old_stds("a.b", "raster")
     assert sp.get_id() == f"a.b@{sp.get_mapset()}"
 
@@ -120,9 +119,7 @@ def test_a_label_after_a_dot_still_selects_maps_of_an_existing_dataset(
 def test_an_existing_dataset_with_a_dot_stays_usable(project_session):
     """A dataset made past the check can be read, listed and removed."""
     mapset = tgis.get_current_mapset()
-    old = tgis.dataset_factory("str3ds", f"old.name@{mapset}")
-    old.set_initial_values("absolute", "mean", "t", "d")
-    old.insert()
+    insert_old_stds("old.name", "str3ds")
 
     sp = tgis.open_old_stds("old.name", "str3ds")
     assert sp.get_id() == f"old.name@{mapset}"
@@ -136,9 +133,7 @@ def test_an_existing_dataset_with_a_dot_stays_usable(project_session):
 def test_the_tools_work_on_an_existing_dataset_with_a_dot(project_session, stds_type):
     """t.info and t.remove accept a dataset that was made past the check."""
     mapset = tgis.get_current_mapset()
-    old = tgis.dataset_factory(stds_type, f"old.name@{mapset}")
-    old.set_initial_values("absolute", "mean", "t", "d")
-    old.insert()
+    insert_old_stds("old.name", stds_type)
     tools = Tools(session=project_session)
 
     info = tools.t_info(input="old.name", type=stds_type)

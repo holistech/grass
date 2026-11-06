@@ -14,8 +14,7 @@ from datetime import datetime
 
 import pytest
 
-import grass.temporal as tgis
-from grass.temporal.testing.data import MapSpec, create_stds
+from grass.temporal.testing.data import MapSpec, create_stds, insert_old_stds
 from grass.temporal.testing.readback import inventory, message
 from grass.temporal.testing.session import (
     mapset_session,
@@ -255,11 +254,7 @@ def test_dotted_dataset_is_read(tmp_path):
             ("im", "c.d", "2001-01-02", None),
         ):
             tools.r_mapcalc(expression=f"{name} = 1")
-            stds = tgis.dataset_factory(
-                "strds", f"{dataset}@{tgis.get_current_mapset()}"
-            )
-            stds.set_initial_values("absolute", "mean", "t", "d")
-            stds.insert()
+            insert_old_stds(dataset)
             options = {"input": dataset, "maps": name, "start": start}
             if end:
                 options["end"] = end

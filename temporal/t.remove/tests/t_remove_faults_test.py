@@ -7,7 +7,7 @@ dataset class, as the older release did.
 
 import pytest
 
-import grass.temporal as tgis
+from grass.temporal.testing.data import insert_old_stds
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
 
@@ -19,11 +19,8 @@ def dotted(tmp_path):
         tools = Tools(
             session=session, consistent_return_value=True, capture_stderr=True
         )
-        mapset = tgis.get_current_mapset()
         for name in ("a.b", "plain"):
-            dataset = tgis.dataset_factory("strds", f"{name}@{mapset}")
-            dataset.set_initial_values("absolute", "mean", "t", "d")
-            dataset.insert()
+            insert_old_stds(name)
         yield tools
 
 

@@ -15,6 +15,7 @@ import grass.script as gs
 
 from grass.exceptions import FatalError
 import grass.temporal as tgis
+from grass.temporal.testing.data import insert_old_stds
 from grass.temporal.testing.session import mapset_session, temporal_session
 
 
@@ -24,31 +25,24 @@ def project_session(tmp_path):
         yield session
 
 
-def insert(name):
-    """Insert an empty strds past the check of new names, as an older release did"""
-    dataset = tgis.dataset_factory("strds", f"{name}@{tgis.get_current_mapset()}")
-    dataset.set_initial_values("absolute", "mean", "t", "d")
-    dataset.insert()
-
-
 @pytest.mark.parametrize("name", ["a.b", "a.b.c", "a.b@{mapset}"])
 def test_dataset_with_dot_is_opened_whole(project_session, name):
-    insert("a.b.c" if name.startswith("a.b.c") else "a.b")
+    insert_old_stds("a.b.c" if name.startswith("a.b.c") else "a.b")
     sp = tgis.open_old_stds(name.format(mapset=tgis.get_current_mapset()), "strds")
     assert sp.get_name(semantic_label=False) == name.split("@")[0]
     assert sp.semantic_label is None
 
 
 def test_label_still_selects_the_dataset_without_the_dot(project_session):
-    insert("a")
+    insert_old_stds("a")
     sp = tgis.open_old_stds("a.S2_8", "strds")
     assert sp.get_name(semantic_label=False) == "a"
     assert sp.semantic_label == "S2_8"
 
 
 def test_whole_name_wins_over_a_label(project_session):
-    insert("a")
-    insert("a.S2_8")
+    insert_old_stds("a")
+    insert_old_stds("a.S2_8")
     sp = tgis.open_old_stds("a.S2_8", "strds")
     assert sp.get_name(semantic_label=False) == "a.S2_8"
     assert sp.semantic_label is None
@@ -60,12 +54,12 @@ def test_missing_dataset_is_still_reported_by_its_name_without_label(project_ses
 
 
 def test_classic_algebra_still_splits_the_label_first(project_session):
-    insert("a")
-    insert("a.S2_8")
+    insert_old_stds("a")
+    insert_old_stds("a.S2_8")
     sp = tgis.open_old_stds("a.S2_8", "strds", whole_name_first=False)
     assert sp.get_name(semantic_label=False) == "a"
     assert sp.semantic_label == "S2_8"
-    insert("b.c")
+    insert_old_stds("b.c")
     with pytest.raises(FatalError, match="not found"):
         tgis.open_old_stds("b.c", "strds", whole_name_first=False)
 
@@ -73,10 +67,9 @@ def test_classic_algebra_still_splits_the_label_first(project_session):
 INSERT_IN_OWN_MAPSET = """
 import sys
 import grass.temporal as tgis
+from grass.temporal.testing.data import insert_old_stds
 tgis.init()
-dataset = tgis.dataset_factory("strds", f"{sys.argv[1]}@{tgis.get_current_mapset()}")
-dataset.set_initial_values("absolute", "mean", "t", "d")
-dataset.insert()
+insert_old_stds(sys.argv[1])
 """
 
 
@@ -87,7 +80,7 @@ def test_label_of_current_mapset_wins_over_whole_name_in_search_path(tmp_path):
     that mapset.
     """
     with temporal_session(tmp_path / "project", mapset="second") as session:
-        insert("a")
+        insert_old_stds("a")
         with mapset_session(session, "first") as first:
             subprocess.run(
                 [sys.executable, "-c", INSERT_IN_OWN_MAPSET, "a.S2"],
