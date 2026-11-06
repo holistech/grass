@@ -66,6 +66,15 @@ def check_identifier(ident: str) -> None:
         )
 
 
+def _whole_seconds(value):
+    """Cut the microseconds of a datetime and keep its time zone
+
+    The temporal database cannot hold them either. A value that is not a
+    datetime (None, or the text an old database may give) passes unchanged.
+    """
+    return value.replace(microsecond=0) if isinstance(value, datetime) else value
+
+
 class BaseRow(Row):
     """The basic information of a map or a space time dataset
 
@@ -244,12 +253,15 @@ class BaseRow(Row):
     def set_ctime(self, ctime=None) -> None:
         """Set the creation time of the dataset, if nothing set the current time is used
 
+        A datetime is kept in whole seconds, as the temporal database stores
+        it (see db_datetime()), so that a dataset made in this process shows
+        the same time as the one read back. Any other value is kept as it is.
+
         :param ctime: The current time of type datetime
         """
-        if ctime is None:
-            self.D["creation_time"] = datetime.today()
-        else:
-            self.D["creation_time"] = ctime
+        self.D["creation_time"] = _whole_seconds(
+            datetime.today() if ctime is None else ctime
+        )
 
     def set_ttype(self, ttype) -> None:
         """Set the temporal type of the dataset: absolute or relative.
@@ -266,12 +278,13 @@ class BaseRow(Row):
     def set_mtime(self, mtime=None) -> None:
         """Set the modification time of the space time dataset.
 
-        If nothing is set, the current time is used.
+        If nothing is set, the current time is used. A datetime is kept in
+        whole seconds like the creation time, see set_ctime(); any other
+        value is kept as it is.
         """
-        if mtime is None:
-            self.D["modification_time"] = datetime.now()
-        else:
-            self.D["modification_time"] = mtime
+        self.D["modification_time"] = _whole_seconds(
+            datetime.now() if mtime is None else mtime
+        )
 
     def get_map_id(self):
         """Convenient method to get the unique map identifier without layer information
