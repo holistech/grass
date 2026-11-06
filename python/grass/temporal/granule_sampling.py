@@ -91,7 +91,7 @@ def resample_maplist_by_granularity(maps, start, end, gran, anchor=None):
     .. code-block:: pycon
 
         >>> import grass.temporal as tgis
-    >>> from grass.temporal.granule_sampling import resample_maplist_by_granularity
+        >>> from grass.temporal.granule_sampling import resample_maplist_by_granularity
         >>> maps = []
         >>> for i in range(3):
         ...     map = tgis.RasterDataset("map%i@PERMANENT" % i)

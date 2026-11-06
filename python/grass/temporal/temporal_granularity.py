@@ -210,8 +210,7 @@ def check_granularity_string(granularity, temporal_type) -> bool:
 
 
 def get_time_tuple_function(maps):
-    """Helper function to return the appropriate function to get
-        time tuple from either TGIS DB rows or AbstractDataset object
+    """Return the function that gets the time tuple of a TGIS DB row or an AbstractDataset object.
 
     :param maps: a list of AbstractDataset objects or database rows
     :return: A function
@@ -226,8 +225,7 @@ def get_time_tuple_function(maps):
     """
 
     def _get_map_time_tuple(map_object):
-        """Sub-function to return time tuple
-        from AbstractDataset object"""
+        """Sub-function to return time tuple from AbstractDataset object"""
         if map_object.is_time_absolute():
             time_tuple = map_object.get_absolute_time()
         if map_object.is_time_relative():
@@ -235,8 +233,7 @@ def get_time_tuple_function(maps):
         return time_tuple[0:2]
 
     def _get_row_time_tuple(db_table_row):
-        """Sub-function to return time tuple
-        from database row"""
+        """Sub-function to return time tuple from database row"""
         return db_table_row["start_time"], db_table_row["end_time"]
 
     # Check if input is list of MapDataset objects or SQLite rows
@@ -246,9 +243,9 @@ def get_time_tuple_function(maps):
 
 
 def _is_after(start, start1, end1) -> bool:
-    """Helper function that checks if start timestamp is
-    temporally after the start1 and end1, where start1 and end1
-    represent a temporal extent.
+    """Check whether the start timestamp is temporally after a temporal extent.
+
+    The extent is given by start1 and end1.
 
     :param start: datetime object to check if it is after start1 and end1
     :param start1: datetime object for comparison
@@ -450,9 +447,10 @@ def compute_common_relative_time_granularity(gran_list):
 
 
 def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
-    """Compute the greatest common granule from a list of absolute time granules,
-    considering the start times of the related space time datasets in the
-    common granularity computation.
+    """Compute the greatest common granule from a list of absolute time granules.
+
+    The start times of the related space time datasets are considered in the common
+    granularity computation.
 
     The list of start dates is optional. If you use this function to compute a common
     granularity between space time datasets, then you should provide their start times
@@ -586,13 +584,14 @@ def gran_singular_unit(gran):
 
 
 def gran_to_gran(from_gran, to_gran="days", shell: bool = False):
-    """Converts the computed absolute granularity of a STDS to a smaller
-    granularity based on the Gregorian calendar hierarchy that 1 year
-    equals 12 months or 365.2425 days or 24 * 365.2425 hours or 86400 *
-    365.2425 seconds.
+    """Convert the computed absolute granularity of a STDS to a smaller granularity.
+
+    The conversion follows the Gregorian calendar hierarchy: 1 year equals 12 months or
+    365.2425 days or 24 * 365.2425 hours or 86400 * 365.2425 seconds.
 
     :param from_gran: input granularity, this should be bigger than to_gran
     :param to_gran: output granularity
+    :param shell: If True, return the bare number without the unit
     :return: The output granularity
 
     .. code-block:: pycon

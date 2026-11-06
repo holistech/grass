@@ -153,9 +153,9 @@ class SpatialExtent(Row):
         self.set_projection(proj)
 
     def overlapping_2d(self, extent) -> bool:
-        """Return True if this (A) and the provided spatial extent (B) overlaps
-        in two dimensional space.
-        Code is lend from wind_overlap.c in lib/gis
+        """Return True if this extent (A) overlaps the provided extent (B) in two dimensions.
+
+        The code is taken from wind_overlap.c in lib/gis.
 
         Overlapping includes the spatial relations:
 
@@ -179,8 +179,7 @@ class SpatialExtent(Row):
         return self._overlapping(extent)
 
     def overlapping(self, extent) -> bool:
-        """Return True if this (A) and the provided spatial
-        extent (B) overlaps in three dimensional space.
+        """Return True if this extent (A) overlaps the provided extent (B) in three dimensions.
 
         Overlapping includes the spatial relations:
 
@@ -210,8 +209,9 @@ class SpatialExtent(Row):
         return self._overlapping(extent, 3)
 
     def intersect_2d(self, extent):
-        """Return the two dimensional intersection as spatial_extent
-           object or None in case no intersection was found.
+        """Return the two dimensional intersection as a spatial_extent object.
+
+        The result is None if the extents have no intersection.
 
         :param extent: The spatial extent to intersect with
         :return: The intersection spatial extent
@@ -223,8 +223,9 @@ class SpatialExtent(Row):
         return self._merge(extent, 2, inner=True)
 
     def intersect(self, extent):
-        """Return the three dimensional intersection as spatial_extent
-        object or None in case no intersection was found.
+        """Return the three dimensional intersection as a spatial_extent object.
+
+        The result is None if the extents have no intersection.
 
         Usage:
 
@@ -257,8 +258,9 @@ class SpatialExtent(Row):
         return self._merge(extent, 3, inner=True)
 
     def union_2d(self, extent):
-        """Return the two dimensional union as spatial_extent
-           object or None in case the extents does not overlap or meet.
+        """Return the two dimensional union as a spatial_extent object.
+
+        The result is None if the extents do not overlap or meet.
 
         :param extent: The spatial extent to create a union with
         :return: The union spatial extent
@@ -277,8 +279,9 @@ class SpatialExtent(Row):
         return self._merge(extent, 2, inner=False)
 
     def union(self, extent):
-        """Return the three dimensional union as spatial_extent
-           object or None in case the extents does not overlap or meet.
+        """Return the three dimensional union as a spatial_extent object.
+
+        The result is None if the extents do not overlap or meet.
 
         :param extent: The spatial extent to create a union with
         :return: The union spatial extent
@@ -319,8 +322,7 @@ class SpatialExtent(Row):
         return self._merge(extent, 3, inner=False)
 
     def is_in_2d(self, extent) -> bool:
-        """Return True if this extent (A) is located in the provided spatial
-        extent (B) in two dimensions.
+        """Return True if this extent (A) is located in the provided extent (B) in two dimensions.
 
         ::
 
@@ -336,8 +338,7 @@ class SpatialExtent(Row):
         return self._is_in(extent, 2)
 
     def is_in(self, extent) -> bool:
-        """Return True if this extent (A) is located in the provided spatial
-        extent (B) in three dimensions.
+        """Return True if this extent (A) is located in the provided extent (B) in three dimensions.
 
         Usage:
 
@@ -358,8 +359,7 @@ class SpatialExtent(Row):
         return self._is_in(extent, 3)
 
     def contain_2d(self, extent):
-        """Return True if this extent (A) contains the provided spatial
-        extent (B) in two dimensions.
+        """Return True if this extent (A) contains the provided extent (B) in two dimensions.
 
         Usage:
 
@@ -376,8 +376,7 @@ class SpatialExtent(Row):
         return extent.is_in_2d(self)
 
     def contain(self, extent):
-        """Return True if this extent (A) contains the provided spatial
-        extent (B) in three dimensions.
+        """Return True if this extent (A) contains the provided extent (B) in three dimensions.
 
         Usage:
 
@@ -398,8 +397,7 @@ class SpatialExtent(Row):
         return extent.is_in(self)
 
     def equivalent_2d(self, extent) -> bool:
-        """Return True if this extent (A) is equal to the provided spatial
-        extent (B) in two dimensions.
+        """Return True if this extent (A) is equal to the provided extent (B) in two dimensions.
 
         Usage:
 
@@ -416,8 +414,7 @@ class SpatialExtent(Row):
         return self._equivalent(extent, 2)
 
     def equivalent(self, extent) -> bool:
-        """Return True if this extent (A) is equal to the provided spatial
-        extent (B) in three dimensions.
+        """Return True if this extent (A) is equal to the provided extent (B) in three dimensions.
 
         Usage:
 
@@ -438,8 +435,7 @@ class SpatialExtent(Row):
         return self._equivalent(extent, 3)
 
     def cover_2d(self, extent) -> bool:
-        """Return True if this extent (A) covers the provided spatial
-        extent (B) in two dimensions.
+        """Return True if this extent (A) covers the provided spatial extent (B) in two dimensions.
 
         ::
 
@@ -471,8 +467,7 @@ class SpatialExtent(Row):
         return self._cover(extent, 2, "cover_2d")
 
     def cover(self, extent) -> bool:
-        """Return True if this extent covers the provided spatial
-        extent in three dimensions.
+        """Return True if this extent covers the provided spatial extent in three dimensions.
 
         The following cases are excluded:
 
@@ -486,8 +481,7 @@ class SpatialExtent(Row):
         return self._cover(extent, 3, "cover")
 
     def covered_2d(self, extent):
-        """Return True if this extent is covered by the provided spatial
-        extent in two dimensions.
+        """Return True if this extent is covered by the provided spatial extent in two dimensions.
 
         The following cases are excluded:
 
@@ -502,8 +496,7 @@ class SpatialExtent(Row):
         return extent.cover_2d(self)
 
     def covered(self, extent):
-        """Return True if this extent is covered by the provided spatial
-        extent in three dimensions.
+        """Return True if this extent is covered by the provided spatial extent in three dimensions.
 
         The following cases are excluded:
 
@@ -518,9 +511,9 @@ class SpatialExtent(Row):
         return extent.cover(self)
 
     def overlap_2d(self, extent) -> bool:
-        """Return True if this extent (A) overlaps with the provided spatial
-        extent (B) in two dimensions.
-        Code is lend from wind_overlap.c in lib/gis
+        """Return True if this extent (A) overlaps the provided extent (B) in two dimensions.
+
+        The code is taken from wind_overlap.c in lib/gis.
 
         ::
 
@@ -545,8 +538,7 @@ class SpatialExtent(Row):
         return self._overlap(extent, 2)
 
     def overlap(self, extent) -> bool:
-        """Return True if this extent overlaps with the provided spatial
-        extent in three dimensions.
+        """Return True if this extent overlaps with the provided spatial extent in three dimensions.
 
         The following cases are excluded:
 
@@ -562,8 +554,7 @@ class SpatialExtent(Row):
         return self._overlap(extent, 3)
 
     def meet_2d(self, extent) -> bool:
-        """Return True if this extent (A) meets with the provided spatial
-        extent (B) in two dimensions.
+        """Return True if this extent (A) meets the provided extent (B) in two dimensions.
 
         ::
 
@@ -597,8 +588,7 @@ class SpatialExtent(Row):
         return self._meet(extent, 2)
 
     def meet(self, extent) -> bool:
-        """Return True if this extent meets with the provided spatial
-        extent in three dimensions.
+        """Return True if this extent meets with the provided spatial extent in three dimensions.
 
         :param extent: The spatial extent
         :return: True or False
@@ -606,8 +596,7 @@ class SpatialExtent(Row):
         return self._meet(extent, 3)
 
     def disjoint_2d(self, extent) -> bool:
-        """Return True if this extent (A) is disjoint with the provided spatial
-        extent (B) in two dimensions.
+        """Return True if this extent (A) is disjoint from the provided extent (B) in two dimensions.
 
         ::
 
@@ -625,8 +614,7 @@ class SpatialExtent(Row):
         return self._disjoint(extent, "_2d")
 
     def disjoint(self, extent) -> bool:
-        """Return True if this extent is disjoint with the provided spatial
-        extent in three dimensions.
+        """Return True if this extent is disjoint from the provided extent in three dimensions.
 
         :param extent: The spatial extent
         :return: True or False
@@ -856,8 +844,9 @@ class SpatialExtent(Row):
         "disjoint",
         "unknown",
     ]:
-        """Returns the two dimensional spatial relation between this
-        extent and the provided spatial extent in two dimensions.
+        """Return the spatial relation between this extent and the provided extent.
+
+        Both extents are compared in two dimensions.
 
         Spatial relations are:
 
@@ -887,8 +876,9 @@ class SpatialExtent(Row):
         "disjoint",
         "unknown",
     ]:
-        """Returns the two dimensional spatial relation between this
-        extent and the provided spatial extent in three dimensions.
+        """Return the spatial relation between this extent and the provided extent.
+
+        The extents are compared in three dimensions.
 
         Spatial relations are:
 
@@ -952,8 +942,9 @@ class SpatialExtent(Row):
         self.set_bottom(spatial_extent.get_bottom())
 
     def set_projection(self, proj) -> None:
-        """Set the projection of the spatial extent it should be XY or LL.
-        As default the projection is XY
+        """Set the projection of the spatial extent, XY or LL.
+
+        The default projection is XY.
         """
         if proj is None or (proj not in {"XY", "LL"}):
             self.D["proj"] = "XY"
@@ -978,8 +969,7 @@ class SpatialExtent(Row):
         return x * y
 
     def get_spatial_extent_as_tuple(self):
-        """Return a tuple (north, south, east, west, top, bottom)
-        of the spatial extent"""
+        """Return a tuple (north, south, east, west, top, bottom) of the spatial extent"""
 
         return (self.north, self.south, self.east, self.west, self.top, self.bottom)
 

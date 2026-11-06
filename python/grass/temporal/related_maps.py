@@ -84,8 +84,9 @@ _METHOD_GROUPS = {
 
 
 def method_relations(method, any_relation: bool = False):
-    """The relation names of a list of sampling method names, in the order in
-    which sample_by_dataset() tries them
+    """Return the relation names of a list of sampling method names.
+
+    The names come in the order in which sample_by_dataset() tries them.
 
     The plain names come first, in the order of the list, then the groups
     "start", "overlap" and "contain", each as far as not yet in the list. The
@@ -181,6 +182,7 @@ def related_per_granule(granules, names, inputs, *, spatial=False):
     :param granules: the Series of the granules, gap slots included
     :param names: relation names, see method_relations()
     :param inputs: the Series whose maps are sampled
+    :param spatial: True to relate only maps that also touch the granule in 2D
     :returns: one list of slots of inputs per granule, empty where nothing
         relates
     """
@@ -260,6 +262,7 @@ def sampler_refused(sampler, dataset, msgr):
 
     :param sampler: the sampler space time dataset object
     :param dataset: the space time dataset object to sample
+    :param msgr: the messenger that receives the message as an error
     """
     refusal = sampler_refusal(sampler, dataset)
     if refusal is None:

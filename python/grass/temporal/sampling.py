@@ -142,9 +142,9 @@ def sample_stds_by_stds_topology(
     spatial: bool = False,
     print_only: bool = True,
 ):
-    """Sample the input space time datasets with a sample
-    space time dataset, return the created map matrix and optionally
-    print the result to stdout
+    """Sample the input space time datasets with a sample space time dataset.
+
+    Return the created map matrix and optionally print the result to stdout.
 
      In case multiple maps are located in the current granule,
      the map names are separated by comma.

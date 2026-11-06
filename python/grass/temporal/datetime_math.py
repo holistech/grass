@@ -55,10 +55,10 @@ def _unit_of(word: str) -> str | None:
 def decrement_datetime_by_string(
     mydate: datetime, increment: str, mult=1
 ) -> datetime | None:
-    """Return a new datetime object decremented with the provided
-    relative dates specified as string.
-    Additional a multiplier can be specified to multiply the increment
-    before adding to the provided datetime object.
+    """Return a new datetime object decremented with the provided relative dates.
+
+    The relative dates are specified as a string. A multiplier can be specified to
+    multiply the increment before it is applied to the provided datetime object.
 
     Usage:
 
@@ -86,10 +86,10 @@ def decrement_datetime_by_string(
 def increment_datetime_by_string(
     mydate: datetime, increment: str, mult=1
 ) -> datetime | None:
-    """Return a new datetime object incremented with the provided
-    relative dates specified as string.
-    Additional a multiplier can be specified to multiply the increment
-    before adding to the provided datetime object.
+    """Return a new datetime object incremented with the provided relative dates.
+
+    The relative dates are specified as a string. A multiplier can be specified to
+    multiply the increment before it is added to the provided datetime object.
 
     Usage:
 
@@ -117,10 +117,10 @@ def increment_datetime_by_string(
 def modify_datetime_by_string(
     mydate: datetime, increment: str, mult=1, sign: int = 1
 ) -> datetime | None:
-    """Return a new datetime object incremented with the provided
-    relative dates specified as string.
-    Additional a multiplier can be specified to multiply the increment
-    before adding to the provided datetime object.
+    """Return a new datetime object incremented with the provided relative dates.
+
+    The relative dates are specified as a string. A multiplier can be specified to
+    multiply the increment before it is added to the provided datetime object.
 
     :param mydate: A datetime object to incremented
     :param increment: A string providing increment information:
@@ -170,8 +170,7 @@ def _replace_year_month(mydate: datetime, year: int, month: int) -> datetime:
 def modify_datetime(
     mydate: datetime, years=0, months=0, weeks=0, days=0, hours=0, minutes=0, seconds=0
 ) -> datetime:
-    """Return a new datetime object incremented with the provided
-    relative dates and times
+    """Return a new datetime object incremented with the provided relative dates and times
 
     A month or year step that ends behind the last day of the target month
     ends on that last day. Years and months form one calendar step of
@@ -372,8 +371,9 @@ def adjust_datetime_to_granularity(mydate: datetime, granularity):
 
 
 class datetime_delta(TypedDict):
-    """Typed dictionary to return the accumulated delta in year, month, day,
-    hour, minute and second as well as max_days. At runtime, it is a plain dict."""
+    """Typed dictionary with the accumulated delta in year, month, day, hour, minute and second.
+
+    It also holds max_days. At runtime, it is a plain dict."""
 
     year: int
     month: int
@@ -385,8 +385,7 @@ class datetime_delta(TypedDict):
 
 
 def compute_datetime_delta(start: datetime, end: datetime) -> datetime_delta:
-    """Return a dictionary with the accumulated delta in year, month, day,
-    hour, minute and second
+    """Return a dictionary with the accumulated delta in year, month, day, hour, minute and second
 
     Between two firsts of a month the months count in full, 12 for each year
     and the difference of the months (1 January 2024 to 1 March 2025 is 14
@@ -662,9 +661,10 @@ def datetime_to_grass_datetime_string(dt: datetime | None) -> str:
 
 
 def create_suffix_from_datetime(start_time: datetime, granularity: str) -> str:
-    """Create a datetime string based on a datetime object and a provided
-    granularity that can be used as suffix for map names. The largest
-    granularity determines the suffix. E.g.:
+    """Create a datetime string based on a datetime object and a provided granularity.
+
+    The string can be used as suffix for map names. The largest granularity determines
+    the suffix. E.g.:
 
     datetime=2001-01-01 00:00:00, granularity="1 month" returns "2001_01"
     datetime=2001-01-01 00:00:00, granularity="1 year 1 month" returns "2001"
