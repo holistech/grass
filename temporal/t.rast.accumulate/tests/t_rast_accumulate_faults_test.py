@@ -167,7 +167,7 @@ def test_suffix_gran_follows_granularity_option(tools, prefix, ends, first, last
     ],
     ids=["from the first of the month", "from the end of the month"],
 )
-def test_default_granularity_message(tools, prefix, ends):
+def test_default_granularity_gives_one_name_per_day(tools, prefix, ends):
     """Without the option granularity, a monthly input gets one name per day
 
     The default granularity is one day, so the run goes through and every

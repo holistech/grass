@@ -13,7 +13,7 @@ from grass.temporal.testing.readback import inventory, list_maps, message
 from grass.tools import ToolError
 
 
-def test_a_single_time_instant_gets_the_time_suffix(tools, prefix):
+def test_a_single_time_instant_is_named_by_the_day_of_its_granule(tools, prefix):
     # The input dataset of one instant has no granularity. gran cuts the
     # start of the granule to the unit of the option granularity, here a day,
     # so the granule that holds the instant 2001-01-02 is named by that day.
