@@ -119,6 +119,7 @@ static int Rast3d_readTileCompressed(RASTER3D_Map *map, int tileIndex,
                      "Rast3d_fpcompress_read_xdr_nums");
         return 0;
     }
+    Rast3d_fpcompress_swap_for_packing(map, xdr, nofNum);
 
     return 1;
 }

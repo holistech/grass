@@ -53,6 +53,73 @@ static unsigned char clearMask[9] = {255, 128, 192, 224, 240,
 
 /*--------------------------------------------------------------------------*/
 
+/* The first version of the map layout whose values of a reduced precision
+   reach the packing in big-endian order, see RASTER3D_MAP_VERSION. */
+#define FIRST_VERSION_PACKED_BIG_ENDIAN 3
+
+/*!
+ * \brief Tells whether a precision keeps all bits of a value
+ *
+ * At full precision the packing stores every byte of a value, in the order
+ * it gets the bytes; below it, it keeps the leading bits only. The swap of
+ * the byte order around the packing,
+ * Rast3d_fpcompress_swap_for_packing(), depends on the same limit.
+ *
+ * \param precision the number of mantissa bits to keep, -1 for all
+ * \param isFloat 1 for a float, 0 for a double
+ * \return 1 for full precision, 0 otherwise
+ */
+int Rast3d_fpcompress_is_full_precision(int precision, int isFloat)
+{
+    return precision == RASTER3D_MAX_PRECISION ||
+           precision >= (isFloat ? 23 : 52);
+}
+
+/*!
+ * \brief Swaps the bytes of the values of a tile around the packing
+ *
+ * The packing of a reduced precision takes the first byte of each value as
+ * sign and exponent, so it needs the big-endian order of XDR. A map without
+ * XDR has its values in the byte order of the host. On a little-endian host
+ * this function therefore reverses the bytes of each value before the
+ * packing, and once more after the unpacking to restore the order of the
+ * host. Before GRASS 8.6 nothing swapped, and the packing kept the least
+ * significant bytes; a map of a version below 3 keeps its bytes as written,
+ * so that it reads as before.
+ *
+ * The values of full precision and uncompressed tiles do not pass the
+ * packing of the leading bits and stay unswapped, so their files keep
+ * their bytes. A null value has all bits set and is the same in either
+ * order.
+ *
+ * \param map the map of the tile
+ * \param nums the values of the tile in the type of the file
+ * \param nofNum the number of values
+ */
+void Rast3d_fpcompress_swap_for_packing(RASTER3D_Map *map, char *nums,
+                                        int nofNum)
+{
+    int length, i, j;
+    char byte;
+
+    if (!G_is_little_endian() || map->useXdr != RASTER3D_NO_XDR ||
+        map->compression == RASTER3D_NO_COMPRESSION ||
+        map->version < FIRST_VERSION_PACKED_BIG_ENDIAN ||
+        Rast3d_fpcompress_is_full_precision(map->precision,
+                                            map->type == FCELL_TYPE))
+        return;
+
+    length = (map->type == FCELL_TYPE ? XDR_FLOAT_LENGTH : XDR_DOUBLE_LENGTH);
+    for (i = 0; i < nofNum; i++, nums += length)
+        for (j = 0; j < length / 2; j++) {
+            byte = nums[j];
+            nums[j] = nums[length - 1 - j];
+            nums[length - 1 - j] = byte;
+        }
+}
+
+/*--------------------------------------------------------------------------*/
+
 #define ALL_NULL_CODE  2
 #define ZERO_NULL_CODE 1
 #define SOME_NULL_CODE 0
@@ -73,7 +140,7 @@ static void G_fpcompress_rearrangeEncodeFloats(unsigned char *src, int size,
 
     srcStop = src + size * XDR_FLOAT_LENGTH;
 
-    if ((precision >= 23) || (precision == -1)) {
+    if (Rast3d_fpcompress_is_full_precision(precision, 1)) {
         cp3 = dst;
         cp2 = cp3 + size;
         cp1 = cp2 + size;
@@ -220,7 +287,7 @@ static void G_fpcompress_rearrangeEncodeDoubles(unsigned char *src, int size,
 
     srcStop = src + size * XDR_DOUBLE_LENGTH;
 
-    if ((precision >= 52) || (precision == -1)) {
+    if (Rast3d_fpcompress_is_full_precision(precision, 0)) {
         cp7 = dst;
         cp6 = cp7 + size;
         cp5 = cp6 + size;
@@ -408,7 +475,7 @@ static void G_fpcompress_rearrangeDecodeFloats(unsigned char *src, int size,
 
     dstStop = dst + size * XDR_FLOAT_LENGTH;
 
-    if ((precision >= 23) || (precision == -1)) {
+    if (Rast3d_fpcompress_is_full_precision(precision, 1)) {
         cp3 = src;
         cp2 = cp3 + size;
         cp1 = cp2 + size;
@@ -540,7 +607,7 @@ static void G_fpcompress_rearrangeDecodeDoubles(unsigned char *src, int size,
 
     dstStop = dst + size * XDR_DOUBLE_LENGTH;
 
-    if ((precision >= 52) || (precision == -1)) {
+    if (Rast3d_fpcompress_is_full_precision(precision, 0)) {
         cp7 = src;
         cp6 = cp7 + size;
         cp5 = cp6 + size;

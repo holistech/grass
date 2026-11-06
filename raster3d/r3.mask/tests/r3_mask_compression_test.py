@@ -157,14 +157,12 @@ def test_reduced_precision_map_is_readable(
     # zlib is the only compression of 3D raster maps. Tiles of 8 x 8 x 2
     # cells cut the map into four tiles, all clipped by its edges. zlib
     # shrinks at least one tile of the map in every case (each case failed
-    # with the library before the change, 2026-11-06). The writer hands the
-    # packing the values in the byte order of the host, while the packing
-    # expects the big-endian order of XDR, so on a little-endian host the
-    # map keeps other bits than the precision says (measured 2026-11-06 in
-    # a dump of the cell file of a map of r3.in.ascii). The values are
-    # therefore compared with the same map in tiles of 2 x 2 x 2 cells,
-    # which zlib does not shrink (they read back with the library before
-    # the change): both read what the file holds.
+    # with the library before the change, 2026-11-06). The values are
+    # compared with the same map in tiles of 2 x 2 x 2 cells, which zlib
+    # does not shrink (they read back with the library before the change):
+    # the test is about reading a tile that zlib shrank, while the values
+    # that a reduced precision keeps are the subject of the tests of the 3D
+    # raster library.
     values = _input_values(with_nulls, repeating=True)
     options = {"type": cell_type, "precision": precision, "compression": "zip"}
     _import(tools, tmp_path, "small_tiles", values, tiledimension="2x2x2", **options)

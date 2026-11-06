@@ -4,9 +4,17 @@
 #include <grass/gis.h>
 #include <grass/raster.h>
 
-/* Second version of the raster 3D map layout. Old maps without version
- information are defined as version == 1 when reading the header. */
-#define RASTER3D_MAP_VERSION            2
+/*!
+   \brief Version of the raster 3D map layout that new maps get
+
+   A map without version information in its header reads as version 1.
+   From version 3 on (GRASS 8.6) the library hands the packing of a
+   compressed tile of a reduced precision each value in big-endian order,
+   which the packing expects. Maps of version 1 or 2 written without XDR on
+   a little-endian host hold the least significant bytes of such values
+   instead; the library reads them as they were written.
+ */
+#define RASTER3D_MAP_VERSION            3
 
 #define RASTER3D_TILE_SAME_AS_FILE      2
 

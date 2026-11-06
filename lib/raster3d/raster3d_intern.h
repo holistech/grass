@@ -74,6 +74,8 @@ extern int Rast3d_read_tile_into_buffer(RASTER3D_Map *, int, void *);
 extern int Rast3d_mask_applies_to(RASTER3D_Map *);
 extern int Rast3d_mask_is_null_at_cell(const RASTER3D_Region *, int, int, int);
 extern int Rast3d_mask_is_null_at_location(double, double, double);
+extern int Rast3d_fpcompress_is_full_precision(int, int);
+extern void Rast3d_fpcompress_swap_for_packing(RASTER3D_Map *, char *, int);
 
 /*---------------------------------------------------------------------------*/
 
