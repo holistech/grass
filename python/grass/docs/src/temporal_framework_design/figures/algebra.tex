@@ -44,7 +44,8 @@
 \attribute{bottom}
 \end{class}
 \composition{Slot}{extent}{1}{Extent}
-\composition{Slot}{space}{1}{Space}
+% Near the end, the label space ran into the box of Space.
+\composition[near end/.style={pos=0.35}]{Slot}{space}{1}{Space}
 \begin{class}[text width=2.4cm]{Relation}{3.6,3.0}
 \attribute{temporal}
 \attribute{spatial}

@@ -31,7 +31,8 @@
 \attribute{writable : bool}
 \attribute{default}
 \end{class}
-\composition{Row}{columns}{*}{Column}
+% Near the end, the label columns touched the box of Column.
+\composition[near end/.style={pos=0.5}]{Row}{columns}{*}{Column}
 \begin{class}[text width=3.8cm]{Kind}{6.2,-1.6}
 \attribute{name : str}
 \attribute{aliases : tuple}
@@ -54,7 +55,9 @@
 \attribute{semantic_type}
 \attribute{mtime}
 \end{class}
-\begin{class}[text width=2.4cm]{RegisterRow}{-4.2,-10.6}
+% Lower than its neighbours: at their height the line from BaseRow to Row
+% crossed this box and seemed to start from it.
+\begin{class}[text width=2.4cm]{RegisterRow}{-4.2,-12.0}
 \inherit{Row}
 \attribute{kind : Kind}
 \attribute{registered_stds}

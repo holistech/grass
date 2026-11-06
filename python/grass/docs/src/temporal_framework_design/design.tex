@@ -45,8 +45,12 @@
 \renewcommand{\umlfillcolor}{gray!8}
 
 % A figure file uses plain underscores in names of classes and members.
+% The underscore of the roman font is one and a half letters wide, so that
+% _PlanarExtentMethods looked like __PlanarExtentMethods, a mangled name in
+% Python. In the typewriter font, as in the text and the listings, it is as
+% wide as a letter.
 \newcommand{\umlfigure}[1]{%
-  \begingroup\catcode`\_=12 \input{figures/#1}\endgroup}
+  \begingroup\catcode`\_=12 \ttfamily\input{figures/#1}\endgroup}
 
 % Code that a reader copies from the PDF must run: monospaced, straight
 % quotes, spaces kept, no line breaks or numbers added. A space of a listing
