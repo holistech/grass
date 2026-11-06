@@ -155,6 +155,11 @@ def _checked_increment(series, increment):
 def retime(series, *, shift=None, buffer=None, snap=False, snap_maps=None):
     """Shift, buffer or snap the time stamps; the contents stay
 
+    Exactly one of shift, buffer and snap must be given. A series without
+    slots is returned as it is, because its temporal type is unknown.
+
+    :param series: the Series whose time stamps change; it may not be a map
+        without time stamp
     :param shift: e.g. "1 day" for absolute time, a number of the time unit
         for relative time
     :param buffer: the same, taken off the start and added to the end. A
@@ -261,11 +266,15 @@ def _shrink(series, buffer):
 
 
 def neighbour(series, offset, *, space="own"):
-    """Each slot with the content of the slot offset positions away
+    """Give each slot the content of the slot offset positions away
 
     Slots without such a neighbour are left out, as A[1] and A[-1] of the
     algebra do.
 
+    :param series: the Series whose slots are in time order
+    :param offset: the whole number of positions to move in the series: 1 takes
+        the content of the next slot and -1 that of the previous one; the time
+        stamps stay with the slots
     :param space: the spatial extent of a slot: its own ("own") or that of the
         neighbour whose content it takes ("neighbour")
     :raises ValueError: for another space

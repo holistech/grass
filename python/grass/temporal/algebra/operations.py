@@ -207,6 +207,15 @@ def select(
     if none exists. Content stays as it is. select(L, R, X) and
     select(L, R, X, related=False) are disjoint and together are L.
 
+    :param left: the Series whose slots are kept or dropped; the result is
+        made of its slots, so it has its map type, sort and order
+    :param relation: the Relation "R" that the slot l must (or, with
+        related=False, must not) have to some slot of other
+    :param other: the Series whose slots are searched for partners; only their
+        time stamps (and boxes, for a spatial relation) are used, never their
+        content
+    :param related: True keeps the slots that have a partner, False those
+        that have none
     :param extent: the time stamp of a kept slot: its own ("left"), or its own
         combined with the time stamps of its partners one after the other:
         the union, intersection or disjoint union, or "right", the time stamp
@@ -273,8 +282,12 @@ def pairs(
     last_only=False,
     mixed_times="error",
 ):
-    """One slot per pair (l, x) with "l R x"
+    """Make one slot per pair (l, x) with "l R x"
 
+    :param left: the Series whose slots l are paired; the result has its map
+        type, spatial flag and order
+    :param relation: the Relation "R" that a pair must satisfy
+    :param other: the Series whose slots x are paired with l
     :param extent: the time stamp of a slot: that of l ("left"), of x
         ("right"), or the union, intersection or disjoint union of both; a
         pair without intersection is left out
@@ -535,6 +548,10 @@ def gather(
 
     The result has at most one slot per target slot.
 
+    :param target: the Series whose slots t are kept, with the combined
+        content of their partners
+    :param relation: the Relation "R" that the slots x must have to t
+    :param other: the Series whose slots x are related to t and reduced
     :param reduce: how the related slots are combined: "sum", "prod", "min",
         "max", "mean", "count", "all", "any", "and", "or", "first", "last",
         fold(op), compare(symbol, join), series_method(method), or None to
@@ -655,10 +672,9 @@ def gather(
 
 
 def _grown(space, distance):
-    """The box of space grown by distance on all six sides, as
-    AbstractMapDataset.spatial_buffer() does
+    """Return the box of space grown by distance on all six sides
 
-    A negative distance shrinks areas in v.buffer; the box stays, since it
+    It does what AbstractMapDataset.spatial_buffer() does. A negative distance shrinks areas in v.buffer; the box stays, since it
     still contains the result.
     """
     if space is None or distance <= 0:
@@ -676,6 +692,7 @@ def _grown(space, distance):
 def buffer(series, distance, *, features="area"):
     """Buffer the features of each vector map, as v.buffer does
 
+    :param series: the Series of vector maps to buffer
     :param distance: the buffer distance in map units; v.buffer shrinks
         areas for a negative distance
     :param features: the feature type to buffer: "point", "line" or "area"
@@ -724,6 +741,11 @@ def choose(condition, then, otherwise=None, *, mixed_times="error"):
     builds them. A condition without time stamp decides for every slot of
     every branch, as a map without time stamp does in apply().
 
+    :param condition: the scalar Series of the truth values; a zero is false,
+        a null leaves the slot out
+    :param then: the Series whose slots are kept where the condition is true
+    :param otherwise: the Series whose slots are kept where the condition is
+        false; None keeps none of them, so only then is chosen
     :param mixed_times: "error" refuses a branch of another temporal type or
         unit than the condition; "unrelated" leaves out its slots, which no
         condition belongs to
@@ -800,7 +822,7 @@ def where(condition, then, otherwise=0):
 
 
 def merge(*series, keep_first_repeats=False):
-    """The union of series
+    """Return the union of series
 
     Identical slots are kept once with a warning, so that a later reduction
     does not count a map twice. Slots are identical if they agree in time
@@ -808,6 +830,8 @@ def merge(*series, keep_first_repeats=False):
     kept. The slots of the result are ranked in the order of the call, first
     the maps of the first series, see Series.listed().
 
+    :param series: the Series to join, at least one; they must agree in sort,
+        map type, temporal type and unit
     :param keep_first_repeats: keep identical slots of the first series, and
         drop only those of the later series that an earlier slot has already.
         Computed slots lose the map they came from, so two of them can look

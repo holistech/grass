@@ -103,7 +103,7 @@ def _found_id(name, stds_type, search_path):
 
 
 def source(name, *, where=None, stds_type="strds", order="time", search_path=True):
-    """The registered maps of a space time dataset as series
+    """Return the registered maps of a space time dataset as a series
 
     Needs a GRASS session and a temporal database.
 
@@ -120,7 +120,7 @@ def source(name, *, where=None, stds_type="strds", order="time", search_path=Tru
         mapset and then in the mapsets of the search path, as the other
         temporal tools do; False looks in the current mapset only, as the
         classic algebra does
-    :raises FatalError: if the dataset does not exist
+    :raises grass.exceptions.FatalError: if the dataset does not exist
     :raises ValueError: for another stds_type or order
     """
     if stds_type not in KINDS_OF_STDS:
@@ -142,7 +142,7 @@ def source(name, *, where=None, stds_type="strds", order="time", search_path=Tru
 
 
 def source_map(name, *, timestamp=True, kind="raster"):
-    """A single map as series
+    """Return a single map as a series of one slot
 
     With timestamp, the map has its time stamp: the registered one if the map
     is in the temporal database, otherwise the one read from the GRASS
@@ -150,9 +150,14 @@ def source_map(name, *, timestamp=True, kind="raster"):
     stamped with r.timestamp is usable without registration. Without
     timestamp, the map has none and apply() uses it in every slot.
 
+    :param name: the map, as "name" or "name@mapset"; a name without a mapset
+        is looked up in the current mapset
+    :param timestamp: True gives the slot the time stamp of the map, False
+        gives it none, so that apply() uses the map in every slot of another
+        series
     :param kind: "raster", "raster3d" or "vector"
-    :raises FatalError: if the map does not exist, or with timestamp if it has
-        no time stamp at all
+    :raises grass.exceptions.FatalError: if the map does not exist, or with
+        timestamp if it has no time stamp at all
     :raises ValueError: for another kind
     """
     if kind not in MAP_CLASSES:

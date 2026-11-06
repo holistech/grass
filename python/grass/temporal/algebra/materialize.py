@@ -302,8 +302,14 @@ def plan(
     type, so a selection copies retimed raster maps with g.copy as the classic
     algebra does, not with r.mapcalc.
 
-    :param name: the space time dataset to create
+    :param series: the Series whose slots become maps; its kind decides the
+        type of the dataset and of the maps
+    :param name: the space time dataset to create, without a mapset; it must
+        not contain "@", nor "." for a raster dataset
     :param basename: the prefix of the map names, by default the name
+    :param selection: plan a selection, see above; False plans r.mapcalc,
+        r.series, r3.mapcalc or v.* calls for every slot that is not a
+        registered map
     :param time_suffix: None for numbered maps, "gran" or "time" for a
         suffix from the start time (absolute time only)
     :param names: one finished map name per slot, used instead of basename and
@@ -475,10 +481,10 @@ def _kind(chain):
 
 
 def _check_absent_classic(chain, mapset, dbif, with_dataset):
-    """Stop before anything is computed if a result exists, in the order and
-    with the words of the reference implementation (grass.temporal.classic)
+    """Stop before anything is computed if a result exists, as the classic code
 
-    It looks at the result maps first, and only at the files of the maps
+    Order and words are those of the reference implementation
+    (grass.temporal.classic). It looks at the result maps first, and only at the files of the maps
     (not at a row of the temporal database), then at the dataset. The
     reference finds the dataset only after the maps are computed; this
     check is made before, as the one of the core, so that nothing is lost.
@@ -486,7 +492,7 @@ def _check_absent_classic(chain, mapset, dbif, with_dataset):
     2026-10-16 with an existing dataset and no existing map: the dry run
     passes, the run stops), so with_dataset is False there.
 
-    :raises FatalError: if a result map or, with_dataset, the dataset exists
+    :raises grass.exceptions.FatalError: if a result map or, with_dataset, the dataset exists
     """
     for planned in chain.maps:
         if not planned.calls:
@@ -519,7 +525,7 @@ def _check_absent(chain, mapset, dbif, classic=False, dry_run=False):
     classic selects the check of _check_absent_classic(), which depends on
     dry_run; the check of the core does not.
 
-    :raises FatalError: if the dataset or a result map exists
+    :raises grass.exceptions.FatalError: if the dataset or a result map exists
     """
     if classic:
         _check_absent_classic(chain, mapset, dbif, not dry_run)
@@ -552,10 +558,12 @@ def check_absent(chain, *, classic=False):
     materialize() does this check itself when not overwriting; a dry run
     calls it to fail where the run would fail.
 
+    :param chain: the ProcessChain that plan() made, whose result dataset and
+        map names are looked up in the current mapset
     :param classic: look at the result maps first and report in the words of
         the reference, see materialize(); like the dry run of the reference,
         do not look at the dataset
-    :raises FatalError: if the dataset or a result map exists
+    :raises grass.exceptions.FatalError: if the dataset or a result map exists
     """
     with connection(None) as dbif:
         _check_absent(chain, get_current_mapset(), dbif, classic, dry_run=True)
@@ -597,7 +605,7 @@ def _overlay_inputs_usable(call, produced, mapset, result):
     from an overlay whose inputs do not meet; the result map is then empty
     and dropped, as in the classic algebra.
 
-    :raises FatalError: for a missing input, and for an input of the
+    :raises grass.exceptions.FatalError: for a missing input, and for an input of the
         expression without areas
     """
     for name in (call.parameters["ainput"], call.parameters["binput"]):
@@ -629,8 +637,10 @@ def _overlay_inputs_usable(call, produced, mapset, result):
 
 
 def _run_vector(chain, overwrite):
-    """Compute vector maps one call after another, checking the inputs of
-    each overlay first"""
+    """Compute vector maps one call after another
+
+    The inputs of each overlay are checked first.
+    """
     mapset = get_current_mapset()
     msgr = get_tgis_message_interface()
     # Only the temporary maps are intermediate. A result map that is a
@@ -746,18 +756,19 @@ def _remove(names, kind):
 
 
 def _is_empty(map_, kind):
-    """Tell whether a computed map holds nothing: no valid cell, or no
-    feature for a vector map"""
+    """Tell whether a computed map holds nothing
+
+    That is no valid cell, or no feature for a vector map.
+    """
     if kind == "vector":
         return not map_.metadata.get_number_of_primitives()
     return map_.metadata.get_min() is None and map_.metadata.get_max() is None
 
 
 def _emptied_by_region(planned, kind):
-    """Tell whether an empty computed map copies a raster or 3D raster map
-    that has data
+    """Tell whether an empty computed map copies a map that has data
 
-    A computed map can be empty by right, as if(A > 1000, A) of small values
+    Only raster and 3D raster maps are meant. A computed map can be empty by right, as if(A > 1000, A) of small values
     is. A copy of a map with data is empty only because r.mapcalc and
     r3.mapcalc compute it in the current region, whose extent (or
     resolution) can miss the data of the map.
@@ -771,16 +782,17 @@ def _emptied_by_region(planned, kind):
 
 
 def _forget(ident, kind, dbif):
-    """Delete a map from the temporal database, which also unregisters it
-    from the datasets"""
+    """Delete a map from the temporal database
+
+    That also unregisters it from the datasets.
+    """
     MAP_CLASSES[kind](ident).delete(dbif)
 
 
 def _register_results(chain, dataset, mapset, dbif, keep_empty, dropped, overwrite):
-    """Register the maps of chain in dataset and return the names of the
-    empty ones
+    """Register the maps of chain in dataset and return the empty ones
 
-    A map in dropped was not computed, and an empty map is not registered
+    The result holds the names of the empty maps. A map in dropped was not computed, and an empty map is not registered
     unless keep_empty is set; their old entries in the temporal database are
     deleted and the maps are removed. A map that the chain computes no call
     for is registered as it is, also from another mapset. With renumber the
@@ -849,10 +861,9 @@ def _register_results(chain, dataset, mapset, dbif, keep_empty, dropped, overwri
 
 
 def _renumbered(chain, kept, mapset, dbif):
-    """Give the computed maps of kept the planned names of the computed maps
-    in order, so that the maps left out leave no gap
+    """Give the computed maps of kept the planned names, in order
 
-    Only the names of maps with calls are given, which the check for
+    The maps left out then leave no gap. Only the names of maps with calls are given, which the check for
     existing maps has seen; a map registered unchanged keeps its name, also
     when it looks like a number of the result, and takes none. A kept map
     takes a name of an earlier or the same position, which is that of a map
@@ -968,11 +979,54 @@ def materialize(
     Callers that need exceptions instead of a process exit for unforeseen
     database errors call ``tgis.init(raise_fatal_error=True)``.
 
+    :param series: the Series whose slots become maps; its kind decides the
+        type of the dataset and of the maps
+    :param name: the new space time dataset, without a mapset (the current
+        mapset is meant); it must not contain "@", nor "." for a raster dataset
+    :param basename: the prefix of the map names, by default the name; see
+        plan()
+    :param overwrite: replace result maps and a dataset that exist, and pass
+        --overwrite on to every module call. If False, an existing result map
+        or dataset stops the run before any map is computed.
+    :param register_null: also register maps without a valid cell or, for a
+        vector result, without primitives; by default they are removed, with
+        their entries in the temporal database
+    :param nprocs: the number of module processes that run at once; 1 runs the
+        calls one after another in this process, and a vector result needs 1
+    :param time_suffix: None for numbered maps, "gran" or "time" for a name
+        from the start time of the slot (absolute time only); see plan()
+    :param selection: register the registered maps unchanged and copy retimed
+        ones, without computing a map; see plan()
+    :param names: one finished map name per slot instead of basename and
+        time_suffix; see plan()
+    :param mapcalc: how the r.mapcalc text is written, see MapcalcStyle
+    :param union_region: compute every raster map in the union of the regions
+        of its inputs; see plan()
+    :param list_order: take the slots in the list order of the series, not the
+        time order; see plan()
+    :param copies_by_position: number the copies of a selection by the position
+        of the slot among all slots; see plan()
+    :param temporal_type: the temporal type of a result without slots, None
+        meaning "absolute"; see plan()
+    :param last_of_equal_names: let the maps that get the same name from
+        time_suffix overwrite each other, the last of them winning; see plan()
+    :param absolute_granularity: the function that computes the granularity of
+        the result maps for time_suffix "gran"; see plan()
+    :param digits: the number of digits of a numbered map name, None for as
+        many as the number of slots needs; see plan()
+    :param number_registered: renumber only the maps that are registered, so
+        that a map left out leaves no gap; see plan()
+    :param classic_absence_check: look for existing result maps before the
+        dataset and report in the words of the reference, see check_absent()
+    :param keep_empty_vector_maps: register a computed vector map without
+        primitives, as register_null does for vector maps
+    :param vector_dataset_if_empty: with False a vector result without any map
+        creates no dataset and no warning, and the result is None
     :param chain: the chain that plan() made of series and name, which is run
         instead of planning again; the options of plan() are then not given
-    :raises FatalError: if the dataset or a result map exists and overwrite
-        is False; nothing is computed then. Also if a module fails; the
-        message names the module and its return code
+    :raises grass.exceptions.FatalError: if the dataset or a result map exists
+        and overwrite is False; nothing is computed then. Also if a module
+        fails; the message names the module and its return code
     :raises ValueError: as plan(), for nprocs other than 1 with vector
         maps, or for a chain together with options of plan(), or with
         another name or map type

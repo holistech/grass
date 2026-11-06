@@ -287,6 +287,9 @@ def series_reduce(method, contents):
     """Return the reduction of contents that skips null, folded if constant
 
     :param method: "sum" or "average", the method names of r.series
+    :param contents: the Content objects to reduce, one for each map; if all
+        are constants the result is folded into one constant, otherwise a
+        SeriesReduce node is returned
     """
     if not all(isinstance(content, Const) for content in contents):
         return SeriesReduce(method, tuple(contents))

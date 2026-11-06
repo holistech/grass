@@ -139,8 +139,11 @@ def _literal(value, written_integers=False):
 
 
 def _quote(name, quote_names=True):
-    """Quote a map name: GRASS allows names that r.mapcalc would read as an
-    expression, such as a-b or 5 (measured 2026-10-11)"""
+    """Quote a map name for r.mapcalc
+
+    GRASS allows names that r.mapcalc would read as an expression, such as a-b
+    or 5 (measured 2026-10-11).
+    """
     if not quote_names:
         return name
     if '"' in name:
@@ -183,6 +186,7 @@ class RasterBackend:
         It is fully parenthesized, so the precedence of r.mapcalc never
         matters, unless style asks for bare comparisons.
 
+        :param content: the Content tree to write as r.mapcalc text
         :param style: how names, integers and comparisons are written
         :raises ValueError: for an operator or function that r.mapcalc does
             not have, or that is given the wrong number of operands

@@ -184,6 +184,8 @@ def related(left, relation_, other, *, dimension="2D", order="sorted", unique=Tr
     otherwise.
 
     :param left: sequence of slots
+    :param relation_: the Relation "R" to test; it may name temporal and
+        spatial relations, and a spatial one needs the box of every slot
     :param other: sequence of slots
     :param dimension: "2D" relates the spatial extents as rectangles, "3D"
         as boxes; only used if the relation has a spatial part

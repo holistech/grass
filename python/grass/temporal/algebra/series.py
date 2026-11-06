@@ -121,8 +121,8 @@ class Series:
     for a comparison of contents, and a series is not hashable because it has
     no value-based equality to hash; compare the slots to compare contents.
 
-    For vector maps, &, |, ^, + and - are the overlays and, or, xor, disor
-    and not; ^ is xor() of r.mapcalc for raster maps.
+    For vector maps, ``&``, ``|``, ``^``, ``+`` and ``-`` are the overlays
+    and, or, xor, disor and not; ``^`` is xor() of r.mapcalc for raster maps.
     """
 
     slots: tuple[Slot, ...] = ()
