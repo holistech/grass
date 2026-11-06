@@ -1,0 +1,53 @@
+% The classes of the three space time dataset types, built like the map
+% classes; a dataset has a register of its maps instead of a register of
+% the datasets it is in.
+\begin{tikzpicture}[font=\scriptsize]
+\begin{class}[text width=3.6cm]{StdsDataset}{1.2,-1.8}
+\operation{get_new_map_instance()}
+\operation{get_map_register()}
+\end{class}
+\begin{class}[text width=3.4cm]{_PlanarExtentMethods}{5.0,0.6}
+\operation{spatial_relation()}
+\operation{spatial_intersection()}
+\operation{spatial_union()}
+\end{class}
+\begin{class}[text width=3.4cm]{_VolumeExtentMethods}{5.0,-2.6}
+\operation{spatial_relation()}
+\operation{spatial_intersection()}
+\operation{spatial_union()}
+\end{class}
+\begin{class}[text width=3.6cm]{SpaceTimeRasterDataset}{-3.7,-6.6}
+\inherit{_PlanarExtentMethods}
+\inherit{StdsDataset}
+\attribute{kind : Kind}
+\operation{set_semantic_label()}
+\end{class}
+\begin{class}[text width=3.9cm]{SpaceTimeRaster3DDataset}{5.3,-6.6}
+\inherit{_VolumeExtentMethods}
+\inherit{StdsDataset}
+\attribute{kind : Kind}
+\end{class}
+\begin{class}[text width=3.4cm]{SpaceTimeVectorDataset}{1.0,-6.6}
+\inherit{_PlanarExtentMethods}
+\inherit{StdsDataset}
+\attribute{kind : Kind}
+\end{class}
+\begin{class}[text width=2.7cm]{BaseRow}{-6.5,1.4}
+\end{class}
+\begin{class}[text width=2.7cm]{AbsoluteTimeRow}{-6.5,0.15}
+\end{class}
+\begin{class}[text width=2.7cm]{RelativeTimeRow}{-6.5,-1.1}
+\end{class}
+\begin{class}[text width=2.7cm]{SpatialExtentRow}{-6.5,-2.35}
+\end{class}
+\begin{class}[text width=2.7cm]{MetadataRow}{-6.5,-3.6}
+\end{class}
+\begin{class}[text width=2.7cm]{StdsMapRegister}{-6.5,-4.85}
+\end{class}
+\composition{StdsDataset}{base}{1}{BaseRow}
+\composition{StdsDataset}{absolute_time}{1}{AbsoluteTimeRow}
+\composition{StdsDataset}{relative_time}{1}{RelativeTimeRow}
+\composition{StdsDataset}{spatial_extent}{1}{SpatialExtentRow}
+\composition{StdsDataset}{metadata}{1}{MetadataRow}
+\composition{StdsDataset}{map_register}{1}{StdsMapRegister}
+\end{tikzpicture}

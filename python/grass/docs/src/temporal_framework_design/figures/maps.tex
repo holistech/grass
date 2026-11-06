@@ -1,0 +1,56 @@
+% The classes of the three map types: a mixin for the dimension of the
+% spatial extent, MapDataset for the work common to all maps, and the rows
+% that hold the content of a map.
+\begin{tikzpicture}[font=\scriptsize]
+\begin{class}[text width=3.6cm]{MapDataset}{1.2,-1.8}
+\operation{load()}
+\operation{map_exists()}
+\operation{get_new_stds_instance()}
+\end{class}
+\begin{class}[text width=3.4cm]{_PlanarExtentMethods}{5.0,0.6}
+\operation{spatial_relation()}
+\operation{spatial_intersection()}
+\operation{spatial_union()}
+\end{class}
+\begin{class}[text width=3.4cm]{_VolumeExtentMethods}{5.0,-2.6}
+\operation{spatial_relation()}
+\operation{spatial_intersection()}
+\operation{spatial_union()}
+\end{class}
+\begin{class}[text width=4.4cm]{RasterDataset}{-3.7,-6.6}
+\inherit{_PlanarExtentMethods}
+\inherit{MapDataset}
+\attribute{kind : Kind}
+\operation{read_semantic_label_from_grass()}
+\operation{set_semantic_label()}
+\end{class}
+\begin{class}[text width=3.0cm]{Raster3DDataset}{5.3,-6.6}
+\inherit{_VolumeExtentMethods}
+\inherit{MapDataset}
+\attribute{kind : Kind}
+\end{class}
+\begin{class}[text width=3.0cm]{VectorDataset}{1.0,-6.6}
+\inherit{_PlanarExtentMethods}
+\inherit{MapDataset}
+\attribute{kind : Kind}
+\operation{get_layer()}
+\end{class}
+\begin{class}[text width=2.7cm]{BaseRow}{-6.5,1.4}
+\end{class}
+\begin{class}[text width=2.7cm]{AbsoluteTimeRow}{-6.5,0.15}
+\end{class}
+\begin{class}[text width=2.7cm]{RelativeTimeRow}{-6.5,-1.1}
+\end{class}
+\begin{class}[text width=2.7cm]{SpatialExtentRow}{-6.5,-2.35}
+\end{class}
+\begin{class}[text width=2.7cm]{MetadataRow}{-6.5,-3.6}
+\end{class}
+\begin{class}[text width=2.7cm]{RegisterRow}{-6.5,-4.85}
+\end{class}
+\composition{MapDataset}{base}{1}{BaseRow}
+\composition{MapDataset}{absolute_time}{1}{AbsoluteTimeRow}
+\composition{MapDataset}{relative_time}{1}{RelativeTimeRow}
+\composition{MapDataset}{spatial_extent}{1}{SpatialExtentRow}
+\composition{MapDataset}{metadata}{1}{MetadataRow}
+\composition{MapDataset}{stds_register}{1}{RegisterRow}
+\end{tikzpicture}

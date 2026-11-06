@@ -1,0 +1,21 @@
+% The list of map objects with gaps of the dataset of maps_as_objects.tex.
+\begin{tikzpicture}[font=\scriptsize,x=1.25cm,
+    map/.style={draw,fill=gray!15,minimum height=0.8cm,inner sep=1pt},
+    gap/.style={draw,dashed,minimum height=0.8cm,inner sep=1pt},
+    order/.style={->,thick}]
+\node[anchor=west] at (0,1.9)
+  {\texttt{SpaceTimeRasterDataset.get_registered_maps_as_objects_with_gaps()}};
+\draw[->] (0,0) -- (11.3,0);
+\foreach \day in {19,...,29} {
+  \draw (\day-19,0.08) -- (\day-19,-0.08) node[below] {\day};
+}
+\node[map,minimum width=2.5cm] (A) at (2,0.8) {A};
+\node[gap,minimum width=2.5cm] (G1) at (4,0.8) {gap};
+\node[map,minimum width=3.75cm] (B) at (6.5,0.8) {B};
+\node[gap,minimum width=1.25cm] (G2) at (8.5,0.8) {gap};
+\node[map,minimum width=1.25cm] (C) at (9.5,0.8) {C};
+\draw[order] (A) to[bend left=35] (G1);
+\draw[order] (G1) to[bend left=35] (B);
+\draw[order] (B) to[bend left=35] (G2);
+\draw[order] (G2) to[bend left=35] (C);
+\end{tikzpicture}

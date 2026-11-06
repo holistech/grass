@@ -40,6 +40,7 @@
    "base": "repo",
    "metadata": "addons+repo",
    "relative_time": "repo",
+   "spatial_extent": "docs",
    "temporal_extent": "repo"
   }
  },
@@ -614,6 +615,9 @@
    "unit": "repo",
    "update": "addons+repo",
    "update_all": "addons+repo"
+  },
+  "VectorDataset.spatial_extent": {
+   "get_spatial_extent_as_tuple": "docs"
   }
  },
  "methods": {
@@ -776,7 +780,8 @@
    "update": "addons+repo",
    "update_all": "addons+repo",
    "update_command_string": "repo",
-   "update_from_registered_maps": "addons+repo"
+   "update_from_registered_maps": "addons+repo",
+   "snap_map_list": "docs"
   },
   "CLibrariesInterface": {
    "available_mapsets": "addons+repo",
@@ -1089,6 +1094,7 @@
   "SpatialExtent": {
    "clear": "repo",
    "delete": "repo",
+   "get_area": "docs",
    "get_id": "addons+repo",
    "insert": "addons+repo",
    "is_in_db": "addons+repo",
@@ -1107,6 +1113,7 @@
    "clear": "repo",
    "contains": "repo",
    "delete": "repo",
+   "get_end_time": "docs",
    "get_id": "addons+repo",
    "get_start_time": "repo",
    "insert": "addons+repo",
@@ -1141,6 +1148,7 @@
    "get_registered_stds": "repo",
    "get_relative_time": "addons+repo",
    "get_relative_time_unit": "addons+repo",
+   "get_spatial_relations": "docs",
    "get_temporal_extent": "addons+repo",
    "get_temporal_extent_as_tuple": "addons+repo",
    "get_temporal_relations": "repo",
@@ -1161,7 +1169,11 @@
    "set_id": "repo",
    "set_relative_time": "repo",
    "set_semantic_label": "repo",
+   "set_spatial_extent_from_values": "docs",
    "set_temporal_extent": "addons+repo",
+   "spatial_buffer_2d": "docs",
+   "spatial_intersection": "docs",
+   "temporal_intersection": "docs",
    "temporal_relation": "addons",
    "update": "addons+repo",
    "update_all": "addons+repo"
@@ -1186,20 +1198,23 @@
    "names": {
     "apply": "repo",
     "buffer": "repo",
+    "contains": "docs",
     "equal": "repo",
     "fold": "repo",
     "gather": "repo",
     "granules": "repo",
+    "materialize": "docs",
     "merge": "repo",
     "pairs": "repo",
     "plan": "repo",
     "relation": "repo",
     "select": "repo",
+    "series_method": "docs",
     "source": "repo",
     "source_map": "repo",
     "where": "repo"
    },
-   "origins": "repo"
+   "origins": "docs+repo"
   },
   "grass.temporal.algebra.backends": {
    "names": {

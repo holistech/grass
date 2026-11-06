@@ -1,0 +1,15 @@
+Granularity: 1 day
+get_registered_maps_as_objects():
+A 01-20..01-22, B 01-24..01-27, C 01-28..01-29
+get_registered_maps_as_objects_with_gaps():
+A 01-20..01-22, gap 01-22..01-24, B 01-24..01-27, gap 01-27..01-28, C 01-28..01-29
+get_registered_maps_as_objects_by_granularity():
+[A 01-20..01-21]
+[A 01-21..01-22]
+[gap 01-22..01-23]
+[gap 01-23..01-24]
+[B 01-24..01-25]
+[B 01-25..01-26]
+[B 01-26..01-27]
+[gap 01-27..01-28]
+[C 01-28..01-29]

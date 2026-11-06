@@ -1,0 +1,95 @@
+% The algebra core: the functions of the package, the immutable values they
+% work on, and what plan() and materialize() turn them into. The box algebra
+% is the package grass.temporal.algebra, not a class.
+\begin{tikzpicture}[font=\scriptsize]
+\begin{class}[text width=3.2cm]{algebra}{-5.6,1.0}
+\operation{source()}
+\operation{granules()}
+\operation{select()}
+\operation{pairs()}
+\operation{gather()}
+\operation{apply()}
+\operation{where()}
+\operation{choose()}
+\operation{merge()}
+\operation{buffer()}
+\operation{plan()}
+\operation{materialize()}
+\end{class}
+\begin{class}[text width=2.8cm]{Series}{-0.8,1.0}
+\attribute{slots : Slot[*]}
+\attribute{kind : str}
+\attribute{order : str}
+\attribute{times}
+\end{class}
+\begin{class}[text width=2.8cm]{Slot}{-0.8,-2.4}
+\attribute{extent : Extent}
+\attribute{content}
+\attribute{space : Space}
+\attribute{origin}
+\attribute{rank}
+\end{class}
+\composition{Series}{slots}{*}{Slot}
+\begin{class}[text width=2.4cm]{Extent}{3.6,-1.4}
+\attribute{start}
+\attribute{end}
+\attribute{unit}
+\end{class}
+\begin{class}[text width=2.4cm]{Space}{3.6,-3.6}
+\attribute{north}
+\attribute{south}
+\attribute{east}
+\attribute{west}
+\attribute{top}
+\attribute{bottom}
+\end{class}
+\composition{Slot}{extent}{1}{Extent}
+\composition{Slot}{space}{1}{Space}
+\begin{class}[text width=2.4cm]{Relation}{3.6,3.0}
+\attribute{temporal}
+\attribute{spatial}
+\end{class}
+\begin{class}[text width=1.9cm]{MapRef}{-6.6,-7.0}
+\attribute{ident}
+\attribute{offset}
+\end{class}
+\begin{class}[text width=1.6cm]{Const}{-4.3,-7.0}
+\attribute{value}
+\end{class}
+\begin{class}[text width=1.7cm]{Call}{-2.2,-7.0}
+\attribute{function}
+\attribute{args}
+\end{class}
+\begin{class}[text width=2.1cm]{SeriesReduce}{0.2,-7.0}
+\attribute{method}
+\attribute{args}
+\end{class}
+\begin{class}[text width=2.3cm]{SeriesAggregate}{2.8,-7.0}
+\attribute{method}
+\attribute{args}
+\attribute{file_limit}
+\end{class}
+\node[draw,dashed,fit=(MapRef) (SeriesAggregate),inner sep=6pt,
+      label={[anchor=south west]north west:content of a slot}] (contents) {};
+\draw[->,dashed] (Slot) -- (contents);
+\begin{class}[text width=3.2cm]{ProcessChain}{-5.6,-3.4}
+\attribute{processes}
+\attribute{register}
+\end{class}
+\begin{class}[text width=2.4cm]{Profile}{6.4,-7.0}
+\attribute{grammar}
+\attribute{translator}
+\attribute{mapcalc}
+\attribute{...}
+\end{class}
+\begin{class}[text width=4.2cm]{TemporalRasterAlgebraParser}{3.0,-10.2}
+\operation{parse()}
+\end{class}
+\draw[->,dashed] (algebra) -- node[above,sloped]{works on} (Series);
+\draw[->,dashed] (algebra) -- node[right]{plan()} (ProcessChain);
+\draw[->,dashed] (algebra.north) |- node[pos=0.75,above]{relates by} (Relation);
+\draw[->,dashed] (TemporalRasterAlgebraParser) -- node[right]{CORE, CLASSIC} (Profile);
+\draw[->,dashed] (TemporalRasterAlgebraParser.west)
+  -- node[above]{calls} ($(TemporalRasterAlgebraParser.west)+(-1.6,0)$)
+  -| ($(algebra.west)+(-0.8,0)$) -- (algebra.west);
+\end{tikzpicture}

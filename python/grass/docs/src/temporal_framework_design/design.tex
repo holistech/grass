@@ -1,0 +1,560 @@
+% The GRASS Temporal Framework: Object oriented code design with examples.
+% Build with make (see README.md); the examples run as tests in
+% temporal/tests/temporal_framework_design_test.py.
+\documentclass[10pt,a4paper]{article}
+
+% A plain info dictionary, so that the test reads /Keywords from the bytes of
+% the PDF, and no date or random identifier, so that the same sources give
+% the same PDF.
+\pdfobjcompresslevel=0
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\pdfsuppressptexinfo=-1
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{listings}
+\usepackage[numbers]{natbib}
+\usepackage[simplified]{pgf-umlcd}
+\usetikzlibrary{fit,calc}
+% PDFDocEncoding writes the digest of the keywords as plain ASCII.
+\usepackage[pdfencoding=pdfdoc]{hyperref}
+
+\InputIfFileExists{digest.tex}{}{\newcommand{\sourcedigest}{unknown}}
+
+\hypersetup{
+  pdftitle={The GRASS Temporal Framework: Object oriented code design with
+    examples},
+  pdfauthor={S\"oren Gebbert},
+  pdfkeywords={\sourcedigest},
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=blue!50!black,
+}
+
+\renewcommand{\umldrawcolor}{black}
+\renewcommand{\umlfillcolor}{gray!8}
+
+% A figure file uses plain underscores in names of classes and members.
+\newcommand{\umlfigure}[1]{%
+  \begingroup\catcode`\_=12 \input{figures/#1}\endgroup}
+
+% Code that a reader copies from the PDF must run: monospaced, straight
+% quotes, spaces kept, no line breaks or numbers added.
+\lstdefinestyle{example}{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  columns=fullflexible,
+  keepspaces=true,
+  upquote=true,
+  showstringspaces=false,
+  breaklines=false,
+  frame=lines,
+  keywordstyle=\color{blue!50!black},
+  commentstyle=\color{gray!70!black},
+  stringstyle=\color{green!35!black},
+}
+\lstdefinestyle{output}{
+  basicstyle=\ttfamily\small,
+  columns=fullflexible,
+  keepspaces=true,
+  upquote=true,
+  breaklines=false,
+  frame=single,
+  rulecolor=\color{gray},
+}
+\renewcommand{\lstlistingname}{Listing}
+
+\newcommand{\code}[1]{\texttt{#1}}
+% Long names in \texttt do not break; let the lines around them stretch.
+\setlength{\emergencystretch}{3em}
+
+\title{The GRASS Temporal Framework:\\
+  Object oriented code design with examples}
+\author{S\"oren Gebbert}
+\date{GRASS 8.6, 6 November 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent This document is a revised version of the supplementary material of
+S\"oren Gebbert and Edzer Pebesma: The GRASS GIS temporal framework.
+International Journal of Geographical Information Science 31(7), 1273--1292,
+2017, doi:10.1080/13658816.2017.1306862 \citep{gebbert2017}. It describes the
+code as it is in GRASS 8.6. The version of 2017, by S\"oren Gebbert and Edzer
+Pebesma, lies unchanged next to this document as
+\code{Temporal-Framework-API-Description.pdf}; it shows the code of 2017.
+\end{abstract}
+
+\tableofcontents
+
+\section{Introduction}
+
+The temporal framework of GRASS manages time series of raster, 3D raster and
+vector maps \citep{gebbert2014,gebbert2017}. A map gets a time stamp, and
+maps with time stamps are registered in space time datasets: space time
+raster datasets (STRDS), space time 3D raster datasets (STR3DS) and space time
+vector datasets (STVDS). The time stamps and the spatial extents of maps and
+datasets are kept in a temporal database, by default an SQLite database in the
+mapset (\code{tgis/sqlite.db}). The temporal tools (\code{t.*}) are written in
+Python on top of the Python package \code{grass.temporal}, except
+\code{t.connect}, which is written in C.
+
+This document describes the classes of \code{grass.temporal}
+(section~\ref{sec:design}), the database layer below them
+(section~\ref{sec:database}) and the algebra core, which computes the
+temporal algebra and the aggregations (section~\ref{sec:algebra}).
+Section~\ref{sec:examples} shows Python examples: the registration of maps,
+temporal aggregation, the same aggregation with the algebra core, sampling at
+vector points, the spatio-temporal intersection of trajectories and a
+benchmark.
+
+Every example is a Python file next to the source of this document. The
+examples run in the North Carolina sample dataset \code{nc\_spm\_08\_grass7}
+\citep{neteler2008}, available from \url{https://grass.osgeo.org/download/data/},
+in a new mapset \code{temporal\_design}. They make their own data from maps of
+the dataset and never write into its mapset \code{PERMANENT}. To run them, save
+the files and start them in the order of section~\ref{sec:examples}, the first
+one with \code{-c}, which creates the mapset:
+
+\begin{lstlisting}[style=output]
+grass -c ~/grassdata/nc_spm_08_grass7/temporal_design --exec python3 register.py
+grass ~/grassdata/nc_spm_08_grass7/temporal_design --exec python3 aggregate.py
+\end{lstlisting}
+
+\noindent The tests of GRASS run each example in such a mapset and compare its
+output with the output that this document shows; they check also that each
+class and member that a figure draws exists in the code.
+
+\section{Object oriented code design}
+\label{sec:design}
+
+Maps and space time datasets are Python objects whose content is stored in
+the temporal database. Each object keeps its content in rows, one row per
+table: the base information, the absolute or relative time, the spatial
+extent, the metadata and a register. The figures of this section show the
+classes in UML, simplified: they show the members that a user of the class
+needs most, not all of them.
+
+\subsection{Rows of the temporal database}
+
+Figure~\ref{fig:rows} shows the classes of the rows. \code{DictSQLSerializer}
+holds the content of a row in the dictionary \code{D} and turns it into the
+SELECT, INSERT and UPDATE statements of a table and back.
+\code{SQLDatabaseInterface} names the table and the identifier of the row and
+runs the statements: \code{select()}, \code{insert()}, \code{update()},
+\code{update\_all()}, \code{delete()} and \code{is\_in\_db()}. The identifier of a
+map is \code{name@mapset}, of a vector map with a layer \code{name:layer@mapset},
+because a time stamp can be given to each layer of a vector map.
+
+\code{Row} lists its columns once, as \code{Column} objects in the class
+attribute \code{columns}; the getter, the setter and the property of each
+column are generated when the class is created. The rows of a map or dataset
+are \code{BaseRow} (identifier, name, mapset, creator, creation time, temporal
+type), \code{RegisterRow} (the datasets a map is registered in),
+\code{AbsoluteTimeRow} or \code{RelativeTimeRow} (the time stamp),
+\code{SpatialExtentRow} (the spatial extent) and a metadata row. One class
+serves all six types of maps and datasets: a \code{Kind} (\code{kinds.py})
+tells the row its table and which columns it has. The modification time and
+the semantic type of \code{BaseRow}, and the granularity and the temporal type
+of the maps (\code{map\_time}) of the time rows, are columns of space time
+datasets only.
+
+\code{TemporalExtent} computes the temporal relations between two time
+stamps (the relations of \citet{allen1983} and their names in GRASS, such as
+\code{starts()}, \code{during()}, \code{follows()} or \code{overlaps()},
+together with \code{temporal\_relation()}, which names the relation), and the
+intersection and the unions of two time stamps.
+\code{SpatialExtent} does the same for spatial extents in two and three
+dimensions; the methods with \code{\_2d} use north, south, east and west only.
+
+\begin{figure}[p]
+\centering
+\umlfigure{rows}
+\caption{The row classes. Every row has the identifier of its map or dataset
+and the name of its table; a \code{Kind} chooses table and columns, so one
+class serves raster, 3D raster and vector maps and their space time
+datasets.}
+\label{fig:rows}
+\end{figure}
+
+The metadata differ by type (figure~\ref{fig:metadata}). The six metadata
+classes are generated from tables of columns in \code{metadata.py};
+\code{MetadataRow(kind)} returns an object of the class of the kind, so that a
+raster map has no number of points and a vector map no semantic label. The
+metadata of a space time dataset hold the extremes of the metadata of its maps:
+the smallest and largest minimum (\code{min\_min}, \code{min\_max}), the
+smallest and largest maximum (\code{max\_min}, \code{max\_max}) and the
+smallest and largest resolution in each direction (\code{nsres\_min} to
+\code{tbres\_max}), because maps of different resolution can be registered in
+one dataset. The mixins \code{\_SpaceTimeMetadata} and
+\code{\_SemanticLabelsMetadata} add what the datasets share.
+
+\begin{figure}[ht]
+\centering
+\umlfigure{metadata}
+\caption{The metadata classes, generated from tables of columns. A list of
+columns that ends in ``\ldots'' is shortened.}
+\label{fig:metadata}
+\end{figure}
+
+\subsection{Abstract datasets and the topology}
+
+Maps and space time datasets share an abstract base class,
+\code{AbstractDataset} (figure~\ref{fig:datasets}). It reads the time stamp and
+the spatial extent of an object, computes temporal relations and
+intersections, and selects, inserts, updates and deletes the object in the
+temporal database. The spatial methods are abstract: two mixins implement them
+for two- and three-dimensional extents (figures~\ref{fig:maps}
+and~\ref{fig:stds}).
+
+\code{AbstractDataset} inherits from \code{TopologyLinks}, which keeps the
+links of an object to the objects it is temporally and spatially related to:
+one dictionary per kind of relation, with a list of objects for each relation,
+and the temporal successor and predecessor (\code{next()}, \code{prev()}).
+The \code{SpatioTemporalTopologyBuilder} sets these links. It builds the
+topology of one list of objects, or between two lists, with the R*-tree of the
+GRASS vector library, and it links the objects of each list in the order of
+their start times by \code{next()} and \code{prev()}. An object that starts or finishes another
+one is also entered as during it, and an object that is started or finished by
+another one also contains it, so \code{get\_contains()} of a month lists every
+day of the month, the first and the last day included.
+
+\code{AbstractMapDataset} sets the time stamp of a map, buffers its time stamp
+and its spatial extent, and keeps the register of the datasets a map is
+registered in (\code{get\_registered\_stds()}, \code{add\_stds\_to\_register()},
+\code{remove\_stds\_from\_register()}); \code{delete()} removes a map from every
+dataset it is registered in. \code{MapDataset} implements the methods that
+read a map: \code{load()} asks the C library for the metadata of the map, in a
+separate process (\code{c\_libraries\_interface.py}), so that an error of the C
+library does not end the caller.
+
+\code{AbstractSpaceTimeDataset} registers and unregisters maps,
+updates the dataset from its maps (\code{update\_from\_registered\_maps()}),
+computes the granularity and the temporal topology of its maps, and shifts and
+snaps their time stamps. Shifting moves all time stamps by a granule, such as
+one year, two weeks or five minutes. Snapping sets the end of each map to the
+start of the next one; the last map ends one granularity after its start. The
+register of the maps of a dataset is a table of its own, which
+\code{StdsMapRegister} creates, fills and reads.
+
+\begin{figure}[p]
+\centering
+\umlfigure{datasets}
+\caption{The abstract dataset classes. Abstract methods are in italics. The
+topology builder links the objects of one or two lists; the register of the
+maps of a space time dataset is a table of its own.}
+\label{fig:datasets}
+\end{figure}
+
+\subsection{Registered maps as lists of objects}
+
+Three methods of a space time dataset return its maps as objects. The
+objects carry the identifier, the time stamp and the spatial extent of a map,
+which is what the topology needs; \code{select()} reads the rest.
+Figures~\ref{fig:as-objects} to~\ref{fig:by-granularity} show the result
+for a dataset of three maps of absolute time with gaps between them: A from
+20 to 22 January 2010, B from 24 to 27 January and C from 28 to 29 January.
+The granularity of the dataset is one day. The arrows show the order of the
+list. They are not links between the objects: these methods set no
+\code{next()} or \code{prev()}. Listing~\ref{lst:map-lists} creates the dataset
+and prints the three lists.
+
+\begin{figure}[ht]
+\centering
+\umlfigure{maps_as_objects}
+\caption{The maps of the dataset ordered by start time.}
+\label{fig:as-objects}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\umlfigure{maps_with_gaps}
+\caption{The maps with a gap object for each gap. A gap is an object of the
+class of the maps, here \code{RasterDataset}, with the identifier
+\code{None} and the time of the gap.}
+\label{fig:with-gaps}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\umlfigure{maps_by_granularity}
+\caption{One list per granule of the granularity. Each list holds a new object
+for each map in the granule, with the identifier and the spatial extent of the
+map and the time of the granule, or a gap object. The method needs a valid
+temporal topology: maps must not overlap or contain each other.}
+\label{fig:by-granularity}
+\end{figure}
+
+\lstinputlisting[style=example,caption={The dataset of
+figures~\ref{fig:as-objects} to~\ref{fig:by-granularity}
+(\code{map\_lists.py})},label=lst:map-lists]{examples/map_lists.py}
+
+\lstinputlisting[style=output,caption={Output of
+\code{map\_lists.py}}]{examples/map_lists.txt}
+
+\subsection{Map and space time dataset classes}
+
+The classes of the three map types and of the three space time dataset types
+(figures~\ref{fig:maps} and~\ref{fig:stds}) combine \code{MapDataset} or
+\code{StdsDataset} with a mixin for the spatial extent, \code{\_PlanarExtentMethods}
+for two dimensions or \code{\_VolumeExtentMethods} for three. A class sets its
+\code{Kind}; a map class also copies what the C library reports about a map of
+its type into the metadata. The rows are made by \code{reset()}, which the
+constructor calls with the identifier. Of the classes of these figures, the
+six classes of the types are exported from \code{grass.temporal};
+\code{MapDataset}, \code{StdsDataset} and the mixins are not.
+
+\begin{figure}[ht]
+\centering
+\umlfigure{maps}
+\caption{The map classes and the rows of a map.}
+\label{fig:maps}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\umlfigure{stds}
+\caption{The space time dataset classes and the rows of a dataset. A dataset
+has the register of its maps instead of a register of datasets.}
+\label{fig:stds}
+\end{figure}
+
+\section{The database layer}
+\label{sec:database}
+
+Below the rows lie five modules:
+
+\begin{description}
+\item[\code{state}] \code{init()} finds out everything about the session
+  once: the database backend, the database, the mapset, the messenger and the
+  C library interface. It creates the temporal database if it does not exist.
+  All of it lives in one object, \code{STATE}; the functions \code{get\_*()}
+  read it, and nothing but \code{init()} writes it. Every script calls
+  \code{init()} before it uses the framework.
+\item[\code{db}] \code{SQLDatabaseInterfaceConnection} holds the connections
+  to the temporal databases of the mapsets in the search path, one
+  \code{DBConnection} per database; a mapset outside the search path joins
+  when a dataset or map named with it is first read. The backend is SQLite
+  (\code{sqlite3}) or PostgreSQL (\code{psycopg2}). The functions
+  \code{sql\_identifier()} and \code{sql\_statement()} check every table,
+  view and column name that goes into the text of a statement; values are
+  passed as parameters or quoted by \code{sql\_literal()}.
+\item[\code{schema}] creates the tables and views of the temporal database
+  from the SQL templates, checks its version and upgrades it.
+\item[\code{kinds}] names the six types in one place: the names a user may
+  type, the tables and views of each type, the prefix of the functions of the
+  C library interface, the type of \code{g.remove} and the module that
+  computes a map of the type from an expression.
+\item[\code{rows}] the row classes of figure~\ref{fig:rows}.
+\end{description}
+
+\noindent A method that reads or writes the database takes an optional
+\code{dbif}. Without it, the method opens a connection, runs its statements and
+closes the connection again; a script that runs many statements opens one
+connection and passes it on (listing~\ref{lst:register}).
+\code{register\_maps\_in\_space\_time\_dataset()} opens a connection of its
+own.
+
+\section{The algebra core and the classic algebra}
+\label{sec:algebra}
+
+The algebra core is the package \code{grass.temporal.algebra}. It computes the
+expressions of \code{t.rast.algebra}, \code{t.rast3d.algebra}, \code{t.vect.algebra} and
+\code{t.select} and the aggregations of \code{t.rast.aggregate} and
+\code{t.rast.aggregate.ds} (figure~\ref{fig:algebra}). A series is an
+immutable, time ordered sequence of slots. A slot has a time stamp
+(\code{Extent}), optionally a spatial extent (\code{Space}), and a content tree
+that says what the map of the slot contains: an existing map (\code{MapRef}),
+a constant (\code{Const}), a function of the raster algebra (\code{Call}) or a
+reduction of several maps (\code{SeriesReduce}, \code{SeriesAggregate}).
+Building a series computes no map.
+
+The operations are functions from series to series: \code{select()} keeps the
+slots that are related to slots of another series, \code{pairs()} combines
+related slots, \code{gather()} reduces the slots related to each slot of a
+target, \code{apply()} and \code{where()} combine series slot by slot. A
+\code{Relation}, such as \code{contains} or \code{during|starts}, says which
+slots are related; the core asks the topology builder of
+\code{grass.temporal}. \code{source()} reads a space time dataset as a series
+and \code{granules()} makes empty slots on a regular grid of time. Only
+\code{materialize()} computes maps: it turns the content trees into calls of
+\code{r.mapcalc}, \code{r3.mapcalc}, \code{r.series}, \code{g.copy},
+\code{v.overlay}, \code{v.patch} or \code{v.buffer} and registers the maps in
+a new space time dataset. \code{plan()} returns the same calls as a
+\code{ProcessChain} without running them.
+
+The parser classes of the tools, such as \code{TemporalRasterAlgebraParser},
+read an expression with a grammar and a translator, which turns the syntax
+tree into calls of the operations. A \code{Profile} collects the rules of a
+language: \code{CORE} for the core, \code{CLASSIC} for the classic algebra.
+
+The classic algebra is the language of the temporal algebra as the manuals and
+the publications define it. It is selected with the flag \code{-c} of the
+algebra tools and \code{t.select} or with \code{GRASS\_TEMPORAL\_ALGEBRA=classic}, and it is
+computed on the core by the profile \code{CLASSIC}. The implementation that is
+older than the core stays in \code{grass.temporal.classic} as the reference
+implementation, because published results rely on it; the tests compare the
+classic profile with it. It changes only together with documented corrections
+of the classic algebra.
+
+Listing~\ref{lst:algebra} computes the monthly means of
+listing~\ref{lst:aggregate} with the core.
+
+\begin{figure}[ht]
+\centering
+\umlfigure{algebra}
+\caption{The algebra core. The box \code{algebra} is the package
+\code{grass.temporal.algebra} with some of its functions; the other boxes are
+classes. Series, slots and content trees are immutable values.}
+\label{fig:algebra}
+\end{figure}
+
+\section{Code examples}
+\label{sec:examples}
+
+The examples run in the mapset \code{temporal\_design} of the North Carolina
+sample dataset, in the order of this section; an example names the examples
+it needs in its docstring. Run times depend on the computer; the output does
+not, except for the times that the benchmark writes to standard error. The
+tests compare the output of each example with the output shown here.
+
+\subsection{Registration of raster maps}
+
+Listing~\ref{lst:register} computes 366 maps of the daily mean air
+temperature of 2020 with one call of \code{r.mapcalc}. The values are
+generated, not measured, and stored as whole hundredths of a degree Celsius,
+as the gridded E-OBS data that the version of 2017 used. Each map is loaded as
+a \code{RasterDataset}, gets its day as time stamp, is inserted into the
+temporal database and registered in a new STRDS. One database connection
+serves all statements.
+
+\lstinputlisting[style=example,caption={Registration of daily temperature
+maps (\code{register.py})},label=lst:register]{examples/register.py}
+
+\lstinputlisting[style=output,caption={Output of
+\code{register.py}}]{examples/register.txt}
+
+\subsection{Temporal aggregation}
+
+Listing~\ref{lst:aggregate} aggregates the daily maps to monthly means in
+degree Celsius. A granule is a \code{RasterDataset} without a map: it has only
+a time stamp, here one month. The topology builder relates the twelve granules
+to the daily maps, \code{r.series} averages the days that a granule contains,
+and \code{r.mapcalc} divides by 100. Each result map gets the time stamp of
+its granule and is registered in a new STRDS. The objects of
+\code{get\_registered\_maps\_as\_objects()} carry the identifier and the
+extents only, so the script reads the metadata with \code{select()} before
+it prints the range of each month.
+
+\lstinputlisting[style=example,caption={Aggregation of daily to monthly
+temperature (\code{aggregate.py})},label=lst:aggregate]{examples/aggregate.py}
+
+\lstinputlisting[style=output,caption={Output of
+\code{aggregate.py}}]{examples/aggregate.txt}
+
+\subsection{Aggregation with the algebra core}
+
+Listing~\ref{lst:algebra} computes the same monthly means with the algebra
+core: \code{granules()} gives the months, \code{gather()} averages the days
+that each month contains with \code{r.series}, and the division by 100 is a
+slot by slot operation. \code{materialize()} computes the maps and registers
+them. The values are the same as those of listing~\ref{lst:aggregate}.
+
+\lstinputlisting[style=example,caption={Monthly means with the algebra core
+(\code{algebra.py})},label=lst:algebra]{examples/algebra.py}
+
+\lstinputlisting[style=output,caption={Output of
+\code{algebra.py}}]{examples/algebra.txt}
+
+\subsection{Sampling a raster time series at vector points}
+
+Listing~\ref{lst:sample} samples the monthly means at three climate stations of
+the dataset: on the coast, in the Piedmont and in the mountains. It copies the
+stations into the mapset with \code{v.extract}, reads their coordinates with
+pygrass and reads the raster cell under each station directly from each
+monthly map.
+
+\lstinputlisting[style=example,caption={Sampling at climate stations
+(\code{sample.py})},label=lst:sample]{examples/sample.py}
+
+\lstinputlisting[style=output,caption={Output of
+\code{sample.py}}]{examples/sample.txt}
+
+\subsection{Spatio-temporal intersection of trajectories}
+
+The version of 2017 intersected the GPS tracks of two zebras. Here the tracks
+are generated from the dataset: two field crews sample the five stream gauges
+of Crabtree Creek in Raleigh (\code{usgsgages}) on one morning in opposite
+order, so that they meet on the way (listing~\ref{lst:tracks}). The positions
+are used directly, without vector maps: each becomes a \code{VectorDataset}
+without a map, whose time stamp is the time of the position and whose spatial
+extent is the position (listing~\ref{lst:trajectories}). Snapping makes each
+position last until the next one, buffering widens it by half the distance to
+the next position, at least by 50~m. The topology builder relates the
+positions of the two crews in two dimensions; a pair that is related in space
+and in time is a meeting, printed with the time and the area of the
+intersection.
+
+\lstinputlisting[style=example,caption={The tracks of two field crews
+(\code{tracks.py})},label=lst:tracks]{examples/tracks.py}
+
+\lstinputlisting[style=output,caption={Output of
+\code{tracks.py}}]{examples/tracks.txt}
+
+\lstinputlisting[style=example,caption={Where and when the crews met
+(\code{trajectories.py})},label=lst:trajectories]{examples/trajectories.py}
+
+\lstinputlisting[style=output,caption={Output of
+\code{trajectories.py}}]{examples/trajectories.txt}
+
+\subsection{Benchmark}
+
+Listing~\ref{lst:benchmark} measures typical operations: the registration of
+maps, the selection of maps by SQL as rows and as objects, and the temporal
+topology with the count of the relations. The number of maps is the first
+argument; the output shown is that of 50 maps, as the tests run it. The
+counts go to standard output, the times to standard error.
+
+\lstinputlisting[style=example,caption={Benchmark
+(\code{benchmark.py})},label=lst:benchmark]{examples/benchmark.py}
+
+\lstinputlisting[style=output,caption={Output of \code{benchmark.py 50}}]%
+{examples/benchmark.txt}
+
+Table~\ref{tab:benchmark} gives the times of \code{benchmark.py 1000},
+measured on 6 November 2026 on an Intel Core Ultra 9 285T with 24 cores,
+GRASS 8.6.0dev, Python 3.12 and SQLite 3.45: the median of three runs, each in
+a new mapset of the dataset. They show the order of magnitude on one computer,
+not a property of the framework.
+
+\begin{table}[ht]
+\centering
+\caption{Times of \code{benchmark.py 1000}, median of three runs}
+\label{tab:benchmark}
+\begin{tabular}{lr}
+\toprule
+Operation & Time [s] \\
+\midrule
+Registration & 19.4 \\
+SQL selection & 0.011 \\
+Selection as objects & 0.026 \\
+Topology and counting & 0.026 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

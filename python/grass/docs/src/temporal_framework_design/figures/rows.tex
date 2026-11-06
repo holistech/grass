@@ -1,0 +1,117 @@
+% The row classes: every table of the temporal database as a Python object.
+\begin{tikzpicture}[font=\scriptsize]
+\begin{class}[text width=4.2cm]{DictSQLSerializer}{0,0}
+\attribute{D : dict}
+\operation{serialize()}
+\operation{deserialize()}
+\end{class}
+\begin{class}[text width=4.2cm]{SQLDatabaseInterface}{0,-2.6}
+\inherit{DictSQLSerializer}
+\attribute{table : str}
+\attribute{ident : str}
+\operation{select()}
+\operation{insert()}
+\operation{update()}
+\operation{update_all()}
+\operation{delete()}
+\operation{is_in_db()}
+\operation{get_select_statement()}
+\operation{get_insert_statement()}
+\end{class}
+\begin{class}[text width=4.2cm]{Row}{0,-7.0}
+\inherit{SQLDatabaseInterface}
+\attribute{columns : Column[*]}
+\operation{get_id()}
+\operation{set_id()}
+\end{class}
+\begin{class}[text width=3.6cm]{Column}{6.2,-7.0}
+\attribute{name : str}
+\attribute{alias : str}
+\attribute{convert : callable}
+\attribute{writable : bool}
+\attribute{default}
+\end{class}
+\composition{Row}{columns}{*}{Column}
+\begin{class}[text width=3.8cm]{Kind}{6.2,-1.6}
+\attribute{name : str}
+\attribute{aliases : tuple}
+\attribute{is_stds : bool}
+\attribute{map_kind : str}
+\attribute{stds_kind : str}
+\attribute{table_prefix : str}
+\attribute{has_layer : bool}
+\operation{table()}
+\end{class}
+\begin{class}[text width=2.4cm]{BaseRow}{-6.9,-10.6}
+\inherit{Row}
+\attribute{kind : Kind}
+\attribute{name}
+\attribute{mapset}
+\attribute{layer}
+\attribute{creator}
+\attribute{ctime}
+\attribute{ttype}
+\attribute{semantic_type}
+\attribute{mtime}
+\end{class}
+\begin{class}[text width=2.4cm]{RegisterRow}{-4.2,-10.6}
+\inherit{Row}
+\attribute{kind : Kind}
+\attribute{registered_stds}
+\end{class}
+\begin{class}[text width=3.0cm]{TemporalExtent}{-1.0,-10.6}
+\inherit{Row}
+\attribute{start_time}
+\attribute{end_time}
+\operation{temporal_relation()}
+\operation{intersect()}
+\operation{union()}
+\operation{disjoint_union()}
+\operation{starts()}
+\operation{during()}
+\operation{follows()}
+\operation{overlaps()}
+\end{class}
+\begin{class}[text width=3.0cm]{SpatialExtent}{2.6,-10.6}
+\inherit{Row}
+\attribute{north}
+\attribute{south}
+\attribute{east}
+\attribute{west}
+\attribute{top}
+\attribute{bottom}
+\operation{spatial_relation()}
+\operation{spatial_relation_2d()}
+\operation{intersect()}
+\operation{union()}
+\operation{get_area()}
+\end{class}
+\begin{class}[text width=2.4cm]{MetadataRow}{6.0,-10.6}
+\inherit{Row}
+\attribute{kind : Kind}
+\operation{print_info()}
+\end{class}
+\begin{class}[text width=3.5cm]{AbsoluteTemporalExtent}{-3.2,-15.4}
+\inherit{TemporalExtent}
+\end{class}
+\begin{class}[text width=3.5cm]{RelativeTemporalExtent}{0.7,-15.4}
+\inherit{TemporalExtent}
+\attribute{unit}
+\end{class}
+\begin{class}[text width=3.5cm]{AbsoluteTimeRow}{-3.2,-17.4}
+\inherit{AbsoluteTemporalExtent}
+\attribute{kind : Kind}
+\attribute{granularity}
+\attribute{map_time}
+\end{class}
+\begin{class}[text width=3.5cm]{RelativeTimeRow}{0.7,-17.4}
+\inherit{RelativeTemporalExtent}
+\attribute{kind : Kind}
+\attribute{granularity}
+\attribute{map_time}
+\end{class}
+\begin{class}[text width=2.6cm]{SpatialExtentRow}{4.6,-15.4}
+\inherit{SpatialExtent}
+\attribute{kind : Kind}
+\end{class}
+\end{tikzpicture}

@@ -1,0 +1,2 @@
+crew_a.csv: 34 positions from 2020-07-15 08:00:00 to 2020-07-15 10:45:00
+crew_b.csv: 34 positions from 2020-07-15 08:10:00 to 2020-07-15 10:55:00

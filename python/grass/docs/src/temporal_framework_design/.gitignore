@@ -1,0 +1,8 @@
+# Residues of make; digest.tex is checked in with the PDF.
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.toc
+design.pdf

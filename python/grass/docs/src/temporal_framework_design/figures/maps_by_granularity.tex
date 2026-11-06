@@ -1,0 +1,22 @@
+% The map objects of the dataset of maps_as_objects.tex, one list per
+% granule of one day.
+\begin{tikzpicture}[font=\scriptsize,x=1.25cm,
+    map/.style={draw,fill=gray!15,minimum height=0.8cm,minimum width=1.25cm,
+      inner sep=1pt},
+    gap/.style={draw,dashed,minimum height=0.8cm,minimum width=1.25cm,
+      inner sep=1pt},
+    order/.style={->,thick}]
+\node[anchor=west] at (0,1.9)
+  {\texttt{SpaceTimeRasterDataset.get_registered_maps_as_objects_by_granularity()}};
+\draw[->] (0,0) -- (11.3,0);
+\foreach \day in {19,...,29} {
+  \draw (\day-19,0.08) -- (\day-19,-0.08) node[below] {\day};
+}
+\foreach \name/\style [count=\n] in
+    {A/map,A/map,gap/gap,gap/gap,B/map,B/map,B/map,gap/gap,C/map} {
+  \node[\style] (g\n) at (\n+0.5,0.8) {[\name]};
+}
+\foreach \n [evaluate=\n as \next using int(\n+1)] in {1,...,8} {
+  \draw[order] (g\n) to[bend left=50] (g\next);
+}
+\end{tikzpicture}
