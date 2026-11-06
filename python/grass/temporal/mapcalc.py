@@ -435,7 +435,14 @@ def dataset_mapcalculator(
                 msgr,
             )
             return 0
-        refusal = sampler_refusal(first_dataset, datasets[others[0]])
+        # A sampler without registered maps has no map time (get_map_time()
+        # gives None), which the interval check would refuse as time instants.
+        # A sampler that where emptied still has its maps and keeps the check.
+        refusal = sampler_refusal(
+            first_dataset,
+            datasets[others[0]],
+            check_map_time=first_dataset.get_map_time() is not None,
+        )
         if refusal is not None:
             msgr.fatal(refusal)
         _warn_nothing_selected(

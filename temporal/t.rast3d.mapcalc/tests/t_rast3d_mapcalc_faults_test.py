@@ -286,3 +286,45 @@ def test_where_with_maps_gives_no_warning(tools, prefix, inputs):
     assert [row.min for row in list_maps(tools, "str3ds", f"{prefix}_out")] == [
         11.0 if "," in names else 1.0
     ]
+
+
+def test_empty_sampler_warns(tools, prefix):
+    """A sampler without maps has no granules: a warning, not a refusal
+
+    It has no map time either, so the check for interval time must not
+    fire. Nothing is computed and no dataset is made.
+    """
+    make_where_datasets(tools, prefix)
+    before = inventory(tools)
+    result = tools.t_rast3d_mapcalc(
+        inputs=f"{prefix}_e,{prefix}_p",
+        expression=f"{prefix}_e + {prefix}_p",
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+    )
+    assert result.returncode == 0
+    assert "WARNING: No samples found for map calculation" in message(result)
+    assert "must be interval" not in message(result)
+    assert inventory(tools) == before
+
+
+def test_empty_sampler_of_other_temporal_type_is_refused(tools, prefix):
+    """The refusal for another temporal type holds without maps in the sampler"""
+    make_where_datasets(tools, prefix)
+    create_stds(
+        tools,
+        "str3ds",
+        f"{prefix}_r",
+        [MapSpec(f"{prefix}_r1", 2, 0, 1)],
+        temporaltype="relative",
+        unit="days",
+    )
+    text = refused(
+        tools,
+        inputs=f"{prefix}_e,{prefix}_r",
+        expression=f"{prefix}_e + {prefix}_r",
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+    )
+    assert "The space time datasets must be of the same temporal type" in text
+    assert "No samples found" not in text

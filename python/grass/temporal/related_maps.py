@@ -233,7 +233,7 @@ def with_gaps(series):
     return Series(tuple(out), series.kind, series.sort, series.spatial)
 
 
-def sampler_refusal(sampler, dataset):
+def sampler_refusal(sampler, dataset, check_map_time=True):
     """The classic message why sampler cannot sample dataset, or None
 
     These are the two guards at the top of sample_by_dataset(): the temporal
@@ -241,10 +241,12 @@ def sampler_refusal(sampler, dataset):
 
     :param sampler: the sampler space time dataset object
     :param dataset: the space time dataset object to sample
+    :param check_map_time: False skips the interval check, for a sampler
+        without registered maps, which has no map time to check
     """
     if dataset.get_temporal_type() != sampler.get_temporal_type():
         return _("The space time datasets must be of the same temporal type")
-    if sampler.get_map_time() != "interval":
+    if check_map_time and sampler.get_map_time() != "interval":
         return _("The temporal map type of the sample dataset must be interval")
     return None
 

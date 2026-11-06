@@ -208,7 +208,9 @@ instants, or the datasets have different temporal types, the first dataset
 cannot sample the others: the tool stops before it computes any map, with "The
 temporal map type of the sample dataset must be interval" or "The space time
 datasets must be of the same temporal type". A call with one dataset needs no
-sampling, so time instants work there.
+sampling, so time instants work there. If the sampler has no maps and the
+datasets have the same temporal type, the tool warns "No samples found for map
+calculation", makes no dataset <b>output</b> and ends with status 0.
 
 <h2>EXAMPLES</h2>
 

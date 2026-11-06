@@ -211,10 +211,11 @@ work as in the fifth example; if **where** leaves no map, the tool gives the
 same warning, and if the dataset has no maps and no **where** is given, it
 warns "No maps registered in input dataset ...". Labels of one dataset, as in
 `bands.S2_8,bands.S2_4`, are not sampled either: if a later label has no map,
-the tool warns in the same way and names that label. If a label without maps
-samples another dataset and no **where** is given, the tool warns "No samples
-found for map calculation". In these cases it makes no dataset **output** and
-ends with status 0. If **where** leaves no map in another dataset that the
+the tool warns in the same way and names that label. If a sampler without
+maps (a label without maps, or a dataset without maps) samples another dataset
+of the same temporal type and no **where** is given, the tool warns "No samples
+found for map calculation". In these cases it makes no dataset **output**
+and ends with status 0. If **where** leaves no map in another dataset that the
 sampler samples, no granule has a partner, and the tool makes an **output**
 without maps.
 

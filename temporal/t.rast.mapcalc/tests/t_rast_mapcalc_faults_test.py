@@ -500,3 +500,70 @@ def test_label_without_maps_as_sampler_warns(tools, prefix):
     assert result.returncode == 0
     assert "WARNING: No samples found for map calculation" in message(result)
     assert inventory(tools) == before
+
+
+def test_empty_sampler_warns(tools, prefix):
+    """A sampler without maps has no granules: a warning, not a refusal
+
+    It has no map time either, so the check for interval time must not
+    fire. Nothing is computed and no dataset is made.
+    """
+    make_where_datasets(tools, prefix)
+    before = inventory(tools)
+    result = tools.t_rast_mapcalc(
+        inputs=f"{prefix}_e,{prefix}_p",
+        expression=f"{prefix}_e + {prefix}_p",
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+    )
+    assert result.returncode == 0
+    assert "WARNING: No samples found for map calculation" in message(result)
+    assert "must be interval" not in message(result)
+    assert inventory(tools) == before
+
+
+def test_empty_sampler_of_other_temporal_type_is_refused(tools, prefix):
+    """The refusal for another temporal type holds without maps in the sampler"""
+    make_where_datasets(tools, prefix)
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_r",
+        [MapSpec(f"{prefix}_r1", 2, 0, 1)],
+        temporaltype="relative",
+        unit="days",
+    )
+    text = refused(
+        tools,
+        inputs=f"{prefix}_e,{prefix}_r",
+        expression=f"{prefix}_e + {prefix}_r",
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+    )
+    assert "The space time datasets must be of the same temporal type" in text
+    assert "No samples found" not in text
+
+
+def test_where_emptied_sampler_of_instants_is_still_refused(tools, prefix):
+    """A sampler of time instants that where empties keeps its map type
+
+    The interval check is dropped only for a sampler without registered
+    maps; this one has maps, so the refusal stays.
+    """
+    make_where_datasets(tools, prefix)
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_i",
+        [MapSpec(f"{prefix}_i{k}", k, D(2026, 1, k)) for k in (1, 2)],
+    )
+    text = refused(
+        tools,
+        inputs=f"{prefix}_i,{prefix}_p",
+        expression=f"{prefix}_i + {prefix}_p",
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+        where="start_time >= '2027-01-01'",
+    )
+    assert "The temporal map type of the sample dataset must be interval" in text
+    assert "No samples found" not in text
