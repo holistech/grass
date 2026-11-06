@@ -287,8 +287,9 @@ _METADATA_ROW = "INSERT INTO tgis_metadata (key, value) VALUES ({key} , {value})
 
 
 def _create_tgis_metadata_table(content, dbif=None) -> None:
-    """!Create the temporal gis metadata table which stores all metadata
-    information about the temporal database.
+    """Create the temporal gis metadata table.
+
+    The table stores all metadata information about the temporal database.
 
     :param content: The dictionary that stores the key:value metadata
                    that should be stored in the metadata table

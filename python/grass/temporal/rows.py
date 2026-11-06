@@ -110,9 +110,9 @@ class DictSQLSerializer:
         self.dbmi_paramstyle = get_tgis_dbmi_paramstyle()
 
     def serialize(self, type, table, where=None, where_args=(), dbif=None, mapset=None):
-        """Convert the internal dictionary into a string of semicolon
-        separated SQL statements The keys are the column names and
-        the values are the row entries
+        """Convert the internal dictionary into a string of semicolon separated SQL statements.
+
+        The keys are the column names and the values are the row entries.
 
         Usage:
 
@@ -183,8 +183,7 @@ class DictSQLSerializer:
         return list(self.D)
 
     def deserialize(self, row) -> None:
-        """Convert the content of the dbmi dictionary like row into the
-        internal dictionary
+        """Convert the content of the dbmi dictionary like row into the internal dictionary
 
         :param row: The dictionary like row to store in the internal dict
         """
@@ -272,8 +271,7 @@ class SQLDatabaseInterface(DictSQLSerializer):
         return get_tgis_message_interface()
 
     def get_table_name(self):
-        """Return the name of the table in which the internal
-        data are inserted, updated or selected
+        """Return the name of the table in which the internal data are inserted, updated or selected
 
         :return: The name of the table
         """
@@ -311,8 +309,9 @@ class SQLDatabaseInterface(DictSQLSerializer):
             dbif.execute(sql, args, mapset=mapset)
 
     def get_is_in_db_statement(self):
-        """Return the selection string that checks if this object is registered in the
-        temporal database
+        """Return the selection string that checks if this object is registered.
+
+        The check runs against the temporal database.
 
         :return: The SELECT string and the argument list
         """
@@ -346,8 +345,7 @@ class SQLDatabaseInterface(DictSQLSerializer):
         return row is not None
 
     def get_select_statement(self, dbif=None, mapset=None):
-        """Return the sql statement and the argument list in
-        database specific style
+        """Return the sql statement and the argument list in database specific style
 
         :param dbif: The interface that will run it, see serialize()
         :param mapset: The mapset whose database will run it
@@ -377,11 +375,15 @@ class SQLDatabaseInterface(DictSQLSerializer):
         )
 
     def select(self, dbif=None, mapset=None) -> bool:
-        """Select the content from the temporal database and store it
-        in the internal dictionary structure
+        """Select the content from the temporal database.
+
+        The content is stored in the internal dictionary structure.
 
         :param dbif: The database interface to be used,
                      if None a temporary connection will be established
+        :param mapset: The mapset of the temporal database to select from,
+                       None for the mapset of this map
+        :return: True if the entry was found, False otherwise
         """
         # default: use the temporal database in the mapset of this map
         if mapset is None:
@@ -407,8 +409,7 @@ class SQLDatabaseInterface(DictSQLSerializer):
         return True
 
     def get_insert_statement(self):
-        """Return the sql statement and the argument
-        list in database specific style
+        """Return the sql statement and the argument list in database specific style
 
         :return: The INSERT string
         """
@@ -430,8 +431,9 @@ class SQLDatabaseInterface(DictSQLSerializer):
         return dbif.mogrify_sql_statement(self.get_insert_statement(), mapset=mapset)
 
     def insert(self, dbif=None) -> None:
-        """Serialize the content of this object and store it in the temporal
-        database using the internal identifier
+        """Serialize the content of this object and store it in the temporal database.
+
+        The internal identifier is used.
 
         :param dbif: The database interface to be used,
                      if None a temporary connection will be established
@@ -445,8 +447,7 @@ class SQLDatabaseInterface(DictSQLSerializer):
             dbif.execute(sql, args, mapset=mapset)
 
     def get_update_statement(self, ident=None):
-        """Return the sql statement and the argument list
-        in database specific style
+        """Return the sql statement and the argument list in database specific style
 
         :param ident: The identifier to be updated, useful for renaming
         :return: The UPDATE string
@@ -475,8 +476,9 @@ class SQLDatabaseInterface(DictSQLSerializer):
         )
 
     def update(self, dbif=None, ident=None) -> None:
-        """Serialize the content of this object and update it in the temporal
-        database using the internal identifier
+        """Serialize the content of this object and update it in the temporal database.
+
+        The internal identifier is used.
 
         Only object entries which are exists (not None) are updated
 
@@ -496,8 +498,7 @@ class SQLDatabaseInterface(DictSQLSerializer):
             dbif.execute(sql, args, mapset=mapset)
 
     def get_update_all_statement(self, ident=None):
-        """Return the sql statement and the argument
-        list in database specific style
+        """Return the sql statement and the argument list in database specific style
 
         :param ident: The identifier to be updated, useful for renaming
         :return: The UPDATE string
@@ -520,8 +521,9 @@ class SQLDatabaseInterface(DictSQLSerializer):
         return dbif.mogrify_sql_statement(self.get_update_all_statement(ident))
 
     def update_all(self, dbif=None, ident=None) -> None:
-        """Serialize the content of this object, including None objects,
-        and update it in the temporal database using the internal identifier
+        """Serialize the content of this object, including None objects, and update it in the database.
+
+        The internal identifier is used.
 
         :param dbif: The database interface to be used,
                     if None a temporary connection will be established

@@ -122,8 +122,9 @@ def get_current_mapset() -> str | None:
 
 
 def get_enable_mapset_check():
-    """Return True if the mapsets should be checked while insert, update,
-    delete requests and space time dataset registration.
+    """Return True if the mapsets should be checked in insert, update and delete requests.
+
+    This includes the registration of space time datasets.
 
     If this switch is True, then maps can only be registered
     in space time datasets with the same mapset. In addition, only maps in
@@ -142,8 +143,7 @@ def get_enable_mapset_check():
 
 
 def get_enable_timestamp_write():
-    """Return True if the map timestamps should be written to the spatial
-    database metadata as well.
+    """Return True if the map timestamps should be written to the spatial database metadata as well.
 
     If this switch is True, the timestamps of maps will be
     written as textfiles for each map that will be inserted or updated in
@@ -193,8 +193,7 @@ def _init_tgis_message_interface(raise_on_error: bool = False) -> None:
 
 
 def get_tgis_message_interface():
-    """Return the temporal GIS message interface which is of type
-    grass.pygrass.message.Messenger()
+    """Return the temporal GIS message interface which is of type grass.pygrass.message.Messenger()
 
     Use this message interface to print messages to stderr using the
     GRASS C-library messaging system.
@@ -209,16 +208,16 @@ def _init_tgis_c_library_interface() -> None:
 
 
 def get_tgis_c_library_interface():
-    """Return the C-library interface that
-    provides a fast and exit safe interface to the C-library libgis,
-    libraster, libraster3d and libvector functions
+    """Return the C-library interface.
+
+    It provides a fast and exit safe interface to the functions of libgis, libraster,
+    libraster3d and libvector.
     """
     return STATE.c_library_interface
 
 
 def set_raise_on_error(raise_exp: bool = True):
-    """Define behavior on fatal error, invoked using the tgis messenger
-    interface (msgr.fatal())
+    """Define behavior on fatal error, invoked using the tgis messenger interface (msgr.fatal())
 
     The messenger interface will be restarted using the new error policy
 
@@ -260,8 +259,9 @@ def set_raise_on_error(raise_exp: bool = True):
 
 
 def get_raise_on_error():
-    """Return True if a FatalError exception is raised instead of calling
-    sys.exit(1) in case a fatal error was invoked with msgr.fatal()
+    """Return True if a FatalError exception is raised instead of calling sys.exit(1).
+
+    This applies when a fatal error was invoked with msgr.fatal().
     """
     return STATE.raise_on_error
 
@@ -283,9 +283,7 @@ def get_tgis_db_version():
 
 
 def stop_subprocesses() -> None:
-    """Stop the messenger and C-interface subprocesses
-    that are started by tgis.init()
-    """
+    """Stop the messenger and C-interface subprocesses that are started by tgis.init()"""
     if STATE.message_interface:
         STATE.message_interface.stop()
     if STATE.c_library_interface:
@@ -477,7 +475,7 @@ def _check_versions(dbif) -> None:
     """Refuse a temporal database of a version this framework does not read
 
     :param dbif: A database interface that is not connected
-    :raises FatalError: for another framework version or a database format
+    :raises ~grass.exceptions.FatalError: for another framework version or a database format
                         that is not supported (or exits, see raise_on_error)
     """
     from .schema import (  # noqa: PLC0415

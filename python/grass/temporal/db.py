@@ -222,8 +222,9 @@ class SQLDatabaseInterfaceConnection:
 
     def rollback(self, mapset=None) -> None:
         """
-        Roll back the last transaction. This must be called
-        in case a new query should be performed after a db error.
+        Roll back the last transaction.
+
+        This must be called in case a new query should be performed after a db error.
 
         This is only relevant for postgresql database.
         """
@@ -272,9 +273,10 @@ class SQLDatabaseInterfaceConnection:
         self.connected = False
 
     def add_mapset(self, mapset):
-        """Ensure the temporal database of the given mapset is part of this
-        connection, so datasets can be accessed by fully qualified name
-        (name@mapset) even when the mapset is not on the current search path.
+        """Add the temporal database of the given mapset to this connection.
+
+        Datasets can then be accessed by fully qualified name (name@mapset) even when
+        the mapset is not on the current search path.
 
         The method is idempotent: mapsets already known to the connection are
         left untouched. If the mapset has no accessible temporal database, it
@@ -354,8 +356,10 @@ class SQLDatabaseInterfaceConnection:
         ).check_table(table_name)
 
     def execute(self, statement, args=None, mapset=None):
-        """
+        """Execute an SQL statement on the connection of the mapset.
 
+        :param statement: The SQL statement to execute
+        :param args: The arguments of the statement, None for no arguments
         :param mapset: The mapset of the abstract dataset or temporal
                        database location, if None the current mapset
                        will be used
@@ -383,6 +387,9 @@ class SQLDatabaseInterfaceConnection:
         to the sql statement
 
         :param statement: The executable SQL statement or SQL script
+        :param mapset: The mapset of the abstract dataset or temporal
+                       database location, if None the current mapset
+                       will be used
         """
         return self._connection_of(
             mapset, _("Unable to execute transaction. {reason}")
@@ -399,8 +406,7 @@ class SQLDatabaseInterfaceConnection:
 
 
 class DBConnection:
-    """This class represents the database interface connection
-    and provides access to the chosen backend modules.
+    """Database interface connection with access to the chosen backend modules.
 
     The following DBMS are supported:
 
@@ -453,8 +459,9 @@ class DBConnection:
 
     def rollback(self) -> None:
         """
-        Roll back the last transaction. This must be called
-        in case a new query should be performed after a db error.
+        Roll back the last transaction.
+
+        This must be called in case a new query should be performed after a db error.
 
         This is only relevant for postgresql database.
         """
@@ -635,6 +642,7 @@ class DBConnection:
         """Execute a SQL statement
 
         :param statement: The executable SQL statement or SQL script
+        :param args: The arguments of the statement, None or empty for none
         """
         connected = False
         if not self.connected:
@@ -675,6 +683,9 @@ class DBConnection:
         to the sql statement
 
         :param statement: The executable SQL statement or SQL script
+        :param mapset: Not used; a connection holds one database, and the
+                       parameter keeps the signature of
+                       SQLDatabaseInterfaceConnection.execute_transaction()
         """
         connected = False
         if not self.connected:
@@ -703,10 +714,11 @@ class DBConnection:
 
 
 def init_dbif(dbif):
-    """This method checks if the database interface connection exists,
-    if not a new one will be created, connected and True will be returned.
-    If the database interface exists but is not connected, the connection
-    will be established.
+    """Return the database interface and whether its connection state changed.
+
+    If the database interface connection does not exist, a new one is created, connected
+    and True is returned. If the database interface exists but is not connected, the
+    connection is established.
 
     Library code uses connection(), which closes what it opened even if the
     block ends with an error; this function stays for scripts and tools that
@@ -801,7 +813,7 @@ def refuse_time_zone(value: datetime) -> None:
     Callers check before the first write; _pg_args() is the net below them.
 
     :param value: A datetime that is about to be sent to PostgreSQL
-    :raises FatalError: if the time has a time zone
+    :raises ~grass.exceptions.FatalError: if the time has a time zone
     """
     if value.tzinfo is not None:
         get_tgis_message_interface().fatal(

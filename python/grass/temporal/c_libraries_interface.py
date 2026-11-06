@@ -1,12 +1,11 @@
 """
-Fast and exit-safe interface to GRASS C-library functions
-using ctypes and multiprocessing
+Fast and exit-safe interface to GRASS C-library functions using ctypes and multiprocessing
 
 The C-library functions run in a subprocess, so that a G_fatal_error() ends
 the subprocess and not the caller. A request is a tuple of the name of a
 function, the kind of the map, its name, mapset and layer, and a dictionary
 of further arguments. Every function the server offers is registered under
-its name with the decorator :func:`_handler`.
+its name with the decorator ``_handler``.
 
 SPDX-FileCopyrightText: 2013-2024 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -88,8 +87,7 @@ def _handler(
 
 
 def _read_raster_info(name, mapset):
-    """Read the raster map info from the file system and store the content
-    into a dictionary
+    """Read the raster map info from the file system and store the content into a dictionary
 
     This method uses the ctypes interface to the gis and raster libraries
     to read the map metadata information
@@ -160,8 +158,7 @@ def _read_raster_info(name, mapset):
 
 
 def _read_raster3d_info(name, mapset):
-    """Read the 3D raster map info from the file system and store the content
-    into a dictionary
+    """Read the 3D raster map info from the file system and store the content into a dictionary
 
     This method uses the ctypes interface to the gis and raster3d libraries
     to read the map metadata information
@@ -245,8 +242,7 @@ def _read_raster3d_info(name, mapset):
 
 
 def _read_vector_info(name, mapset):
-    """Read the vector map info from the file system and store the content
-    into a dictionary
+    """Read the vector map info from the file system and store the content into a dictionary
 
     This method uses the ctypes interface to the vector libraries
     to read the map metadata information
@@ -351,8 +347,7 @@ def _read_vector_info(name, mapset):
 
 
 def _read_raster_history(name, mapset):
-    """Read the raster history from the file system and store the content
-    into a dictionary
+    """Read the raster history from the file system and store the content into a dictionary
 
     This method uses the ctypes interface to the gis and raster libraries
     to read the map history
@@ -385,8 +380,7 @@ def _read_raster_history(name, mapset):
 
 
 def _read_raster3d_history(name, mapset):
-    """Read the 3D raster map info from the file system and store the content
-    into a dictionary
+    """Read the 3D raster map info from the file system and store the content into a dictionary
 
     This method uses the ctypes interface to the gis and raster3d libraries
     to read the map metadata information
@@ -419,8 +413,7 @@ def _read_raster3d_history(name, mapset):
 
 
 def _read_vector_history(name, mapset):
-    """Read the vector history from the file system and store the content
-    into a dictionary
+    """Read the vector history from the file system and store the content into a dictionary
 
     This method uses the ctypes interface to the gis and raster libraries
     to read the map history
@@ -482,8 +475,7 @@ def _relative_value(datetime_):
 
 
 def _convert_timestamp_from_grass(ts):
-    """Convert a GRASS file based timestamp into the temporal framework
-    format datetime or integer.
+    """Convert a GRASS file based timestamp into the temporal framework format datetime or integer.
 
     A tuple of two datetime objects (start, end) is returned in case of
     absolute time.
@@ -781,8 +773,7 @@ _HISTORY_READERS = {
 
 
 def c_library_server(lock: _LockLike, conn: Connection) -> None:
-    """The GRASS C-libraries server function designed to be a target for
-    multiprocessing.Process
+    """Run the GRASS C-libraries server as a target for multiprocessing.Process.
 
     The server answers every request with exactly one message: the result of
     the handler registered under the name in the request, or a FatalError
@@ -1092,7 +1083,7 @@ class CLibrariesInterface(RPCServerBase):
         :param layer: The layer of a vector map
         :param extra: Further arguments of the function
         :returns: The answer of the function
-        :raises FatalError: If the server has no such function or was
+        :raises ~grass.exceptions.FatalError: If the server has no such function or was
                             terminated by a fatal error
         """
         self.check_server()
