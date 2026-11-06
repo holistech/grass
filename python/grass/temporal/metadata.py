@@ -456,9 +456,7 @@ class _SpaceTimeMetadata:
                     print(" | " + str(token))
 
     def print_history(self) -> None:
-        """Print history information about this class in human readable
-        shell style
-        """
+        """Print history information about this class in human readable shell style"""
         #      0123456789012345678901234567890
         print("# Title:")
         print("# " + str(self.get_title()))
@@ -482,9 +480,10 @@ class _SemanticLabelsMetadata:
     """What only the metadata of a space time raster dataset has"""
 
     def get_semantic_labels(self, dbif=None):
-        """Get the distinct semantic labels of registered maps
-           The distinct semantic labels are not stored in the metadata table
-           and fetched on-the-fly
+        """Get the distinct semantic labels of the registered maps.
+
+        The distinct semantic labels are not stored in the metadata table and are
+        fetched on the fly.
 
         :param dbif: The database interface to be used, if None a
                      connection is opened for this call and closed again

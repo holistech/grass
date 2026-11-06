@@ -1,6 +1,7 @@
 """
-The abstract_dataset module provides the AbstractDataset class
-that is the base class for all map layer and Space Time Datasets.
+Base class of all datasets: map layers and space time datasets.
+
+The abstract_dataset module provides the AbstractDataset class.
 
 SPDX-FileCopyrightText: 2011-2013 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -24,8 +25,7 @@ from .topology import (
 
 
 class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
-    """This is the base class for all datasets
-    (raster, vector, raster3d, strds, stvds, str3ds)"""
+    """This is the base class for all datasets (raster, vector, raster3d, strds, stvds, str3ds)"""
 
     def __init__(self) -> None:
         super().__init__()
@@ -41,8 +41,7 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         return get_tgis_message_interface()
 
     def get_number_of_relations(self):
-        """Return a dictionary in which the keys are the relation names and the
-        value are the number of relations.
+        """Return the number of maps per temporal relation name.
 
         The following relations are available:
 
@@ -175,8 +174,9 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
 
     @abstractmethod
     def spatial_intersection(self, dataset):
-        """Return the spatial intersection as spatial_extent
-        object or None in case no intersection was found.
+        """Return the spatial intersection as a spatial_extent object.
+
+        The result is None if the extents have no intersection.
 
         :param dataset: The abstract dataset to intersect with
         :return: The intersection spatial extent
@@ -184,8 +184,9 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
 
     @abstractmethod
     def spatial_union(self, dataset):
-        """Return the spatial union as spatial_extent
-        object or None in case the extents does not overlap or meet.
+        """Return the spatial union as a spatial_extent object.
+
+        The result is None if the extents do not overlap or meet.
 
         :param dataset: The abstract dataset to create a union with
         :return: The union spatial extent
@@ -263,8 +264,7 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         return (start, end)
 
     def get_absolute_time(self):
-        """Returns the start time, the end
-        time of the map as tuple
+        """Returns the start time, the end time of the map as tuple
 
         The start time is of type datetime.
 
@@ -280,8 +280,7 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         return (start, end)
 
     def get_relative_time(self):
-        """Returns the start time, the end
-        time and the temporal unit of the dataset as tuple
+        """Returns the start time, the end time and the temporal unit of the dataset as tuple
 
         The start time is of type integer.
 
@@ -305,8 +304,7 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         return self.relative_time.get_unit()
 
     def check_relative_time_unit(self, unit) -> bool:
-        """Check if unit is of type  year(s), month(s), day(s), hour(s),
-        minute(s) or second(s)
+        """Check that the unit is year(s), month(s), day(s), hour(s), minute(s) or second(s).
 
         :param unit: The unit string
         :return: True if success, False otherwise
@@ -352,8 +350,7 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         return self.spatial_extent
 
     def select(self, dbif=None, mapset=None) -> None:
-        """Select temporal dataset entry from database and fill
-        the internal structure
+        """Select temporal dataset entry from database and fill the internal structure
 
         The content of every dataset is stored in the temporal database.
         This method must be used to fill this object with the content
@@ -426,8 +423,9 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
             return statement
 
     def update(self, dbif=None, execute: bool = True, ident=None):
-        """Update the dataset entry in the database from the internal structure
-        excluding None variables
+        """Update the dataset entry in the database from the internal structure.
+
+        Variables that are None are excluded from the update.
 
         :param dbif: The database interface to be used
         :param execute: If True the SQL statements will be executed.
@@ -459,8 +457,9 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
             return statement
 
     def update_all(self, dbif=None, execute: bool = True, ident=None):
-        """Update the dataset entry in the database from the internal structure
-        and include None variables.
+        """Update the dataset entry in the database from the internal structure.
+
+        Variables that are None are included in the update.
 
         :param dbif: The database interface to be used
         :param execute: If True the SQL statements will be executed.
@@ -529,8 +528,9 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         return self.temporal_extent.temporal_relation(dataset.temporal_extent)
 
     def temporal_intersection(self, dataset):
-        """Intersect self with the provided dataset and
-        return a new temporal extent with the new start and end time
+        """Intersect self with the provided dataset.
+
+        Return a new temporal extent with the new start and end time.
 
         :param dataset: The abstract dataset to temporal intersect with
         :return: The new temporal extent with start and end time,
@@ -539,8 +539,9 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         return self.temporal_extent.intersect(dataset.temporal_extent)
 
     def temporal_union(self, dataset):
-        """Creates a union with the provided dataset and
-        return a new temporal extent with the new start and end time.
+        """Create a union of self with the provided dataset.
+
+        Return a new temporal extent with the new start and end time.
 
         :param dataset: The abstract dataset to create temporal union with
         :return: The new temporal extent with start and end time,
@@ -549,8 +550,9 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         return self.temporal_extent.union(dataset.temporal_extent)
 
     def temporal_disjoint_union(self, dataset):
-        """Creates a union with the provided dataset and
-        return a new temporal extent with the new start and end time.
+        """Create a disjoint union of self with the provided dataset.
+
+        Return a new temporal extent with the new start and end time.
 
         :param dataset: The abstract dataset to create temporal union with
         :return: The new temporal extent with start and end time
@@ -559,8 +561,7 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
 
 
 class AbstractDatasetComparisonKeyStartTime:
-    """This comparison key can be used to sort lists of abstract datasets
-    by start time
+    """This comparison key can be used to sort lists of abstract datasets by start time
 
     :Example:
       .. code-block:: python
@@ -607,8 +608,7 @@ class AbstractDatasetComparisonKeyStartTime:
 
 
 class AbstractDatasetComparisonKeyEndTime:
-    """This comparison key can be used to sort lists of abstract datasets
-    by end time
+    """This comparison key can be used to sort lists of abstract datasets by end time
 
     :Example:
       .. code-block:: python

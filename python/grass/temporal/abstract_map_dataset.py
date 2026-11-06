@@ -1,6 +1,7 @@
 """
-The abstract_map_dataset module provides the AbstractMapDataset class
-that is the base class for all map layer.
+Base class of all map layers.
+
+The abstract_map_dataset module provides the AbstractMapDataset class.
 
 SPDX-FileCopyrightText: 2011-2013 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -121,8 +122,9 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
     @abstractmethod
     def get_new_stds_instance(self, ident):
-        """Return a new space time dataset instance that store maps with the
-        type of this map object (raster, raster_3d or vector)
+        """Return a new space time dataset instance for maps of the type of this map object.
+
+        The map type is raster, raster_3d or vector.
 
         :param ident: The identifier of the space time dataset
         :return: The new space time dataset instance
@@ -138,23 +140,22 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
     @abstractmethod
     def write_timestamp_to_grass(self):
-        """Write the timestamp of this map into the map metadata
-        in the grass file system based spatial database.
+        """Write the timestamp of this map into the map metadata.
+
+        The metadata live in the GRASS file system based spatial database.
         """
 
     @abstractmethod
     def read_timestamp_from_grass(self):
-        """Read the timestamp of this map from the map metadata
-        in the grass file system based spatial database and
-        set the internal time stamp that should be insert/updated
-        in the temporal database.
+        """Read the timestamp of this map from the map metadata.
+
+        The metadata live in the GRASS file system based spatial database. The internal
+        time stamp that is inserted or updated in the temporal database is set from it.
         """
 
     @abstractmethod
     def remove_timestamp_from_grass(self):
-        """Remove the timestamp from the grass file
-        system based spatial database
-        """
+        """Remove the timestamp from the grass file system based spatial database"""
 
     @abstractmethod
     def map_exists(self):
@@ -165,12 +166,10 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
     @abstractmethod
     def load(self):
-        """Load the content of this object from the grass
-        file system based database"""
+        """Load the content of this object from the grass file system based database"""
 
     def _convert_timestamp(self):
-        """Convert the valid time into a grass datetime library
-        compatible timestamp string
+        """Convert the valid time into a grass datetime library compatible timestamp string
 
         This methods works for relative and absolute time
 
@@ -194,11 +193,12 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         return start
 
     def get_map_id(self):
-        """Return the map id. The map id is the unique identifier
-        in grass and must not be equal to the
-        primary key identifier (id) of the map in the database.
-        Since vector maps may have layer information,
-        the unique id is a combination of name, layer and mapset.
+        """Return the map id.
+
+        The map id is the unique identifier in grass and must not be equal to the
+        primary key identifier (id) of the map in the database. Since vector maps may
+        have layer information, the unique id is a combination of name, layer and
+        mapset.
 
         Use get_map_id() every time your need to access the grass map
         in the file system but not to identify
@@ -210,11 +210,11 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
     @staticmethod
     def split_name(name: str, layer=None, mapset=None):
-        """Convenient method to split a map name into three potentially
-        contained parts: map name, map layer and mapset. For the layer and
-        mapset, default keyword arguments can be given if not present in
-        the name. Layer and mapset present in the name will overwrite
-        the keyword arguments.
+        """Split a map name into the map name, the map layer and the mapset.
+
+        Default keyword arguments can be given for the layer and the mapset if they are
+        not present in the name. A layer and a mapset present in the name overwrite the
+        keyword arguments.
 
         :param name: The name of the map
         :param layer: The layer of the vector map, use None in case no layer exists
@@ -238,8 +238,9 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
     @staticmethod
     def build_id_from_search_path(name: str, element) -> str:
-        """Convenient method to build the unique identifier while
-        checking the current search path for the correct mapset.
+        """Build the unique identifier of a map.
+
+        The current search path is checked for the correct mapset.
 
         Existing mapset definitions in the name string will be reused.
 
@@ -385,8 +386,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             self.print_topology_shell_info()
 
     def insert(self, dbif=None, execute: bool = True):
-        """Insert the map content into the database from the internal
-        structure
+        """Insert the map content into the database from the internal structure
 
         This functions assures that the timestamp is written to the
         grass file system based database in addition to the temporal
@@ -411,8 +411,9 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         return AbstractDataset.insert(self, dbif=dbif, execute=execute)
 
     def update(self, dbif=None, execute: bool = True):
-        """Update the map content in the database from the internal structure
-        excluding None variables
+        """Update the map content in the database from the internal structure.
+
+        Variables that are None are excluded from the update.
 
         This functions assures that the timestamp is written to the
         grass file system based database in addition to the temporal
@@ -430,8 +431,9 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         return AbstractDataset.update(self, dbif, execute)
 
     def update_all(self, dbif=None, execute: bool = True):
-        """Update the map content in the database from the internal structure
-        including None variables
+        """Update the map content in the database from the internal structure.
+
+        Variables that are None are included in the update.
 
         This functions assures that the timestamp is written to the
         grass file system based database in addition to the temporal
@@ -692,8 +694,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             self._store_time(self.relative_time, dbif)
 
     def set_temporal_extent(self, extent) -> None:
-        """Convenient method to set the temporal extent from a temporal extent
-        object
+        """Convenient method to set the temporal extent from a temporal extent object
 
         :param extent: The temporal extent that should be set for this object
 
@@ -763,6 +764,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         :param update: Perform an immediate database update to store the
                        modified temporal extent, otherwise only this object
                        will be modified
+        :param dbif: The database interface to be used for the update
 
         Usage:
 
@@ -894,8 +896,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         self.spatial_extent.set_spatial_extent(spatial_extent)
 
     def spatial_buffer(self, size, update: bool = False, dbif=None) -> None:
-        """Buffer the spatial extent by a given size in all
-        spatial directions.
+        """Buffer the spatial extent by a given size in all spatial directions.
 
         :param size: The buffer size, using the unit of the grass region
         :param update: If True perform an immediate database update, otherwise only the
@@ -926,8 +927,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             self.spatial_extent.update(dbif)
 
     def spatial_buffer_2d(self, size, update: bool = False, dbif=None) -> None:
-        """Buffer the spatial extent by a given size in 2d
-        spatial directions.
+        """Buffer the spatial extent by a given size in 2d spatial directions.
 
         :param size: The buffer size, using the unit of the grass region
         :param update: If True perform an immediate database update, otherwise only the
@@ -956,7 +956,9 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             self.spatial_extent.update(dbif)
 
     def check_for_correct_time(self) -> bool:
-        """Check for correct time
+        """Check that the start time is set and lies before the end time.
+
+        An error message names the map if the time is incorrect.
 
         :return: True in case of success, False otherwise
         """
@@ -1069,8 +1071,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             return statement
 
     def unregister(self, dbif=None, update: bool = True, execute: bool = True):
-        """Remove the map entry in each space time dataset in which this map
-        is registered
+        """Remove the map entry in each space time dataset in which this map is registered
 
         :param dbif: The database interface to be used
         :param update: Call for each unregister statement the update from
@@ -1124,11 +1125,14 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             return statement
 
     def get_registered_stds(self, dbif=None, mapset=None):
-        """Return all space time dataset ids in which this map is registered
-        as as a list of strings, or None if this map is not
-        registered in any space time dataset.
+        """Return the ids of all space time datasets in which this map is registered.
+
+        The ids are a list of strings. The result is None if this map is not registered
+        in any space time dataset.
 
         :param dbif: The database interface to be used
+        :param mapset: The mapset of the temporal database that holds the
+                       register of the map, None for the mapset of the map
         :return: A list of ids of all space time datasets in
                      which this map is registered
         """
@@ -1229,10 +1233,11 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             return statement
 
     def read_semantic_label_from_grass(self) -> None:
-        """Read the band identifier of this map from the map metadata
-        in the GRASS file system based spatial database and
-        set the internal band identifier that should be insert/updated
-        in the temporal database.
+        """Read the band identifier of this map from the map metadata.
+
+        The metadata live in the GRASS file system based spatial database. The internal
+        band identifier that is inserted or updated in the temporal database is set from
+        it.
 
         Currently only implemented in RasterDataset. Otherwise
         silently pass.

@@ -1,6 +1,7 @@
 """
-The abstract_space_time_dataset module provides the AbstractSpaceTimeDataset
-class that is the base class for all space time datasets.
+Base class of all space time datasets.
+
+The abstract_space_time_dataset module provides the AbstractSpaceTimeDataset class.
 
 SPDX-FileCopyrightText: 2011-2024 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -85,8 +86,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
 
     @abstractmethod
     def get_new_map_instance(self, ident=None):
-        """Return a new instance of a map which is associated
-        with the type of this object
+        """Return a new instance of a map which is associated with the type of this object
 
         :param ident: The unique identifier of the new object
         """
@@ -158,9 +158,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         self.metadata.print_shell_info()
 
     def print_history(self) -> None:
-        """Print history information about this class in human readable
-        shell style
-        """
+        """Print history information about this class in human readable shell style"""
         self.metadata.print_history()
 
     def set_initial_values(
@@ -209,8 +207,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         self.metadata.set_aggregation_type(aggregation_type)
 
     def update_command_string(self, dbif=None) -> None:
-        """Append the current command string to any existing command string
-        in the metadata class and calls metadata update
+        """Append the current command string to the existing command string.
+
+        The command string is kept in the metadata class, whose update method is called.
 
         :param dbif: The database interface to be used
         """
@@ -224,8 +223,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         self.metadata.update(dbif=dbif)
 
     def create_command_string(self):
-        """Create the command string that was used to create this
-        space time dataset.
+        """Create the command string that was used to create this space time dataset.
 
         The command string should be set with self.metadata.set_command()
 
@@ -276,8 +274,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         return self.base.get_semantic_type()
 
     def get_initial_values(self):
-        """Return the initial values: temporal_type,
-        semantic_type, title, description"""
+        """Return the initial values: temporal_type, semantic_type, title, description"""
 
         temporal_type = self.get_temporal_type()
         semantic_type = self.base.get_semantic_type()
@@ -332,8 +329,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         self.temporal_extent.set_granularity(granularity)
 
     def set_relative_time_unit(self, unit) -> None:
-        """Set the relative time unit which may be of type:
-        years, months, days, hours, minutes or seconds
+        """Set the relative time unit.
+
+        The unit is one of years, months, days, hours, minutes or seconds.
 
         All maps registered in a (relative time)
         space time dataset must have the same unit
@@ -352,8 +350,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
             self.relative_time.set_unit(unit)
 
     def insert(self, dbif=None, execute: bool = True):
-        """Insert the space time dataset content into the database from the internal
-        structure
+        """Insert the space time dataset content into the database from the internal structure
 
         The map register table will be created, so that maps
         can be registered.
@@ -426,8 +423,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
     def print_spatio_temporal_relationships(
         self, maps=None, spatial=None, dbif=None
     ) -> None:
-        """Print the spatio-temporal relationships for each map of the space
-        time dataset or for each map of the optional list of maps
+        """Print the spatio-temporal relationships of the maps of the space time dataset.
+
+        The maps are all maps of the dataset or the maps of the optional list.
 
         :param maps: a ordered by start_time list of map objects, if None
                      the registered maps of the space time dataset are used
@@ -469,8 +467,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         return count_temporal_topology_relationships(maps1=maps, dbif=dbif)
 
     def check_temporal_topology(self, maps=None, dbif=None) -> bool:
-        """Check the temporal topology of all maps of the current space time
-        dataset or of an optional list of maps
+        """Check the temporal topology of the maps of the space time dataset.
+
+        The maps are all maps of the current dataset or the maps of the optional list.
 
         Correct topology means, that time intervals are not overlap or
         that intervals does not contain other intervals.
@@ -519,8 +518,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
     def get_registered_maps_as_objects_by_granularity(
         self, gran: str | None = None, where: str | None = None, dbif=None
     ):
-        """Return all registered maps as ordered (by start_time) object list
-        with "gap" map objects (id==None) for spatio-temporal topological
+        """Return all registered maps ordered by start time, with gap map objects.
+
+        A gap map object has id None. The result serves spatio-temporal topological
         operations that require the temporal extent only.
 
         Each list entry is a list of AbstractMapDatasets objects
@@ -596,9 +596,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
     def get_registered_maps_as_objects_with_gaps(
         self, where=None, dbif=None, spatial_extent=None, spatial_relation=None
     ):
-        """Return all or a subset of the registered maps as
-        ordered (by start_time) object list with
-        "gap" map objects (id==None) for spatio-temporal topological
+        """Return all or a subset of the registered maps ordered by start time, with gap map objects.
+
+        A gap map object has id None. The result serves spatio-temporal topological
         operations that require the spatio-temporal extent only.
 
         Gaps between maps are identified as maps with id==None
@@ -671,9 +671,10 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         spatial_extent=None,
         spatial_relation=None,
     ):
-        """Return all or a subset of the registered maps as ordered object
-        list for spatio-temporal topological operations that require the
-        spatio-temporal extent only
+        """Return all or a subset of the registered maps as an ordered object list.
+
+        The result serves spatio-temporal topological operations that require the
+        spatio-temporal extent only.
 
         The objects are initialized with their id's' and the spatio-temporal
         extent (temporal type, start time, end time, west, east, south,
@@ -973,6 +974,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                         default is "*" or "id" if group is given.
         :param where: The SQL where statement to select a subset
                       of the registered maps without "WHERE"
+        :param order: The columns to order the maps by as SQL compliant
+                      string, e.g. "start_time", default is no ordering
+                      (see the group option for the order of groups)
         :param group: The names of the columns to group by as a comma
                       separated string; expressions such as "start_time DESC"
                       are not supported
@@ -1029,8 +1033,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
 
     @staticmethod
     def snap_map_list(maps):
-        """For each map in the list snap the end time to the start time of its
-        temporal nearest neighbor in the future.
+        """Snap the end time of each map in the list to the start time of its temporal nearest neighbor in the future.
 
         Maps with equal time stamps are not snapped. This method does not
         perform any temporal database operations. See
@@ -1043,8 +1046,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         return stds_time_edit.snap_map_list(maps)
 
     def snap(self, dbif=None) -> None:
-        """For each registered map snap the end time to the start time of
-        its temporal nearest neighbor in the future
+        """Snap the end time of each registered map to the start time of its temporal nearest neighbor in the future.
 
         Maps with equal time stamps are not snapped
 
@@ -1054,8 +1056,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         stds_time_edit.snap(self, dbif)
 
     def update_map_timestamps(self, maps, date_list, dbif) -> None:
-        """Update the timestamps of maps with the start and end time
-        stored in the date_list.
+        """Update the timestamps of maps with the start and end time stored in the date_list.
 
         The number of dates in the list must be equal to the number
         of maps. The datasets the maps are registered in are updated too.
@@ -1237,10 +1238,10 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         return self.map_register.unregister(map, dbif, execute)
 
     def update_from_registered_maps(self, dbif=None) -> None:
-        """This methods updates the modification time, the spatial and
-        temporal extent as well as type specific metadata. It should always
-        been called after maps are registered or unregistered/deleted from
-        the space time dataset.
+        """Update the modification time, the spatial and temporal extent and the type specific metadata.
+
+        It should always be called after maps are registered, unregistered or deleted
+        from the space time dataset.
 
         The update of the temporal extent checks if the end time is set
         correctly.

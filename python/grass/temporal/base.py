@@ -242,8 +242,7 @@ class BaseRow(Row):
             self.set_name(name)
 
     def set_ctime(self, ctime=None) -> None:
-        """Set the creation time of the dataset,
-        if nothing set the current time is used
+        """Set the creation time of the dataset, if nothing set the current time is used
 
         :param ctime: The current time of type datetime
         """
@@ -253,8 +252,9 @@ class BaseRow(Row):
             self.D["creation_time"] = ctime
 
     def set_ttype(self, ttype) -> None:
-        """Set the temporal type of the dataset: absolute or relative,
-        if nothing set absolute time will assumed
+        """Set the temporal type of the dataset: absolute or relative.
+
+        If nothing is set, absolute time is assumed.
 
         :param ttype: The temporal type of the dataset "absolute or relative"
         """
@@ -264,8 +264,9 @@ class BaseRow(Row):
             self.D["temporal_type"] = ttype
 
     def set_mtime(self, mtime=None) -> None:
-        """Set the modification time of the space time dataset, if nothing set
-        the current time is used
+        """Set the modification time of the space time dataset.
+
+        If nothing is set, the current time is used.
         """
         if mtime is None:
             self.D["modification_time"] = datetime.now()
@@ -273,8 +274,7 @@ class BaseRow(Row):
             self.D["modification_time"] = mtime
 
     def get_map_id(self):
-        """Convenient method to get the unique map identifier
-        without layer information
+        """Convenient method to get the unique map identifier without layer information
 
         :return: The name of the vector map as "name@mapset"
                or None in case the id was not set

@@ -1,5 +1,5 @@
 """
-Object factory
+Factory function that creates space time and map datasets by type name.
 
 SPDX-FileCopyrightText: 2012-2024 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later

@@ -32,8 +32,9 @@ class _PlanarExtentMethods:
         return self.spatial_extent.spatial_relation_2d(dataset.spatial_extent)
 
     def spatial_intersection(self, dataset):
-        """Return the two dimensional intersection as spatial_extent
-        object or None in case no intersection was found.
+        """Return the two dimensional intersection as a spatial_extent object.
+
+        The result is None if the extents have no intersection.
 
         :param dataset: The abstract dataset to intersect with
         :return: The intersection spatial extent or None
@@ -41,8 +42,9 @@ class _PlanarExtentMethods:
         return self.spatial_extent.intersect_2d(dataset.spatial_extent)
 
     def spatial_union(self, dataset):
-        """Return the two dimensional union as spatial_extent
-        object or None in case the extents does not overlap or meet.
+        """Return the two dimensional union as a spatial_extent object.
+
+        The result is None if the extents do not overlap or meet.
 
         :param dataset: The abstract dataset to create a union with
         :return: The union spatial extent or None
@@ -84,8 +86,9 @@ class _VolumeExtentMethods:
         return self.spatial_extent.spatial_relation_2d(dataset.spatial_extent)
 
     def spatial_intersection(self, dataset):
-        """Return the three or two dimensional intersection as spatial_extent
-        object or None in case no intersection was found.
+        """Return the three or two dimensional intersection as a spatial_extent object.
+
+        The result is None if the extents have no intersection.
 
         :param dataset: The abstract dataset to intersect with
         :return: The intersection spatial extent or None
@@ -95,8 +98,9 @@ class _VolumeExtentMethods:
         return self.spatial_extent.intersect_2d(dataset.spatial_extent)
 
     def spatial_union(self, dataset):
-        """Return the three or two dimensional union as spatial_extent
-        object or None in case the extents does not overlap or meet.
+        """Return the three or two dimensional union as a spatial_extent object.
+
+        The result is None if the extents do not overlap or meet.
 
         :param dataset: The abstract dataset to create a union with
         :return: The union spatial extent or None
@@ -229,10 +233,11 @@ class RasterDataset(_PlanarExtentMethods, MapDataset):
     kind = KINDS["raster"]
 
     def read_semantic_label_from_grass(self) -> bool:
-        """Read the semantic label of this map from the map metadata
-        in the GRASS file system based spatial database and
-        set the internal semantic label that should be inserted/updated
-        in the temporal database.
+        """Read the semantic label of this map from the map metadata.
+
+        The metadata live in the GRASS file system based spatial database. The internal
+        semantic label that is inserted or updated in the temporal database is set from
+        it.
 
         :return: True if success, False if semantic labels could not be
                  read (due to an error or because not being present)
@@ -250,8 +255,9 @@ class RasterDataset(_PlanarExtentMethods, MapDataset):
         return True
 
     def write_semantic_label_to_grass(self) -> bool:
-        """Write the semantic label of this map into the map metadata in
-        the GRASS file system based spatial database.
+        """Write the semantic label of this map into the map metadata.
+
+        The metadata live in the GRASS file system based spatial database.
 
         Internally the libgis API functions are used for writing
 
@@ -639,7 +645,7 @@ class SpaceTimeRasterDataset(_PlanarExtentMethods, StdsDataset):
     kind = KINDS["strds"]
 
     def set_semantic_label(self, semantic_label) -> None:
-        """Set semantic label
+        """Store the semantic label on this space time dataset.
 
         :param str semantic_label: semantic label (eg. S2_1)
         """

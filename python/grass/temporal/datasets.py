@@ -171,8 +171,7 @@ class MapDataset(AbstractMapDataset):
         return _CLASSES[self.kind.name](ident)
 
     def get_new_stds_instance(self, ident):
-        """Return a new space time dataset instance in which maps
-        are stored with the type of this class"""
+        """Return a new space time dataset instance for maps of the type of this class."""
         return _CLASSES[self.kind.stds_kind](ident)
 
     def reset(self, ident) -> None:
@@ -207,10 +206,10 @@ class MapDataset(AbstractMapDataset):
         return self._call("has_timestamp", self._layer())
 
     def read_timestamp_from_grass(self) -> bool:
-        """Read the timestamp of this map from the map metadata
-        in the grass file system based spatial database and
-        set the internal time stamp that should be inserted/updated
-        in the temporal database.
+        """Read the timestamp of this map from the map metadata.
+
+        The metadata live in the GRASS file system based spatial database. The internal
+        time stamp that is inserted or updated in the temporal database is set from it.
 
         A stored timestamp that is no valid absolute or relative time ends
         with a fatal message that names the map and the stored text.
@@ -251,8 +250,9 @@ class MapDataset(AbstractMapDataset):
         return True
 
     def write_timestamp_to_grass(self) -> bool:
-        """Write the timestamp of this map into the map metadata in
-        the grass file system based spatial database.
+        """Write the timestamp of this map into the map metadata.
+
+        The metadata live in the GRASS file system based spatial database.
 
         Internally the libgis API functions are used for writing
 
@@ -279,8 +279,7 @@ class MapDataset(AbstractMapDataset):
         return True
 
     def remove_timestamp_from_grass(self) -> bool:
-        """Remove the timestamp from the grass file system based
-        spatial database
+        """Remove the timestamp from the grass file system based spatial database
 
         Internally the libgis API functions are used for removal
 
@@ -369,8 +368,7 @@ class StdsDataset(AbstractSpaceTimeDataset):
         return _CLASSES[self.kind.name](ident)
 
     def get_new_map_instance(self, ident):
-        """Return a new instance of a map dataset which is associated
-        with the type of this class"""
+        """Return a new instance of a map dataset which is associated with the type of this class"""
         return _CLASSES[self.kind.map_kind](ident)
 
     def get_map_register(self):
