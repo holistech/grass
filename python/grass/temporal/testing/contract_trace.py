@@ -259,8 +259,10 @@ def _allowed_methods(contract_text: str) -> frozenset[str]:
     """
     contract = json.loads(contract_text)
     allowed: set[str] = set()
-    for class_name, names in {**contract["methods"], **contract["attributes"]}.items():
-        _allow(allowed, class_named(class_name), names)
+    # Two loops, not a merged dict: a class is a key in both categories.
+    for category in ("methods", "attributes"):
+        for class_name, names in contract[category].items():
+            _allow(allowed, class_named(class_name), names)
     for path, names in contract["members"].items():
         class_name, attribute = path.split(".")
         # The datasets build their rows without a database, so this needs no

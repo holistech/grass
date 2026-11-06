@@ -77,3 +77,18 @@ def test_a_copy_of_a_top_name_in_another_module_is_not_covered():
 
     assert missing_from_contract({exported}) == []
     assert missing_from_contract({copy}) == [copy]
+
+
+def test_methods_of_a_class_that_also_has_contract_attributes_stay_covered():
+    # RasterDataset has entries under "methods" and under "attributes"; one
+    # category must not replace the other.
+    method = "grass.temporal.datasets.MapDataset.load"
+    contract = {
+        "top_names": {},
+        "module_paths": {},
+        "methods": {"RasterDataset": {"load": "docs"}},
+        "attributes": {"RasterDataset": {"base": "docs"}},
+        "members": {},
+    }
+
+    assert missing_from_contract({method}, contract=contract) == []
