@@ -142,8 +142,9 @@ def _cells(text):
 def _read(tools, name, flags="h"):
     """The cells of a map from r3.out.ascii with 20 decimal places
 
-    That gives each value exactly whose magnitude is at least 0.001, as are
-    VALUES and their truncations; smaller values lose digits or read as 0.
+    That gives each value exactly whose magnitude is at least 0.0001, as are
+    VALUES and their truncations (the smallest is about 0.00098); smaller
+    values lose digits or read as 0.
     """
     return _cells(tools.r3_out_ascii(input=name, flags=flags, precision=20).text)
 
@@ -376,7 +377,7 @@ def test_map_of_the_former_library_reads_as_before(tools, session, tmp_path, cel
 
 
 @little_endian_only
-def test_header_rewrite_keeps_the_former_reading(tools, session):
+def test_header_rewrite_keeps_the_former_reading(tools, session, tmp_path):
     # r3.support writes the header of a map with a new unit through
     # Rast3d_rewrite_header(), which keeps the version of the map.
     _copy_former(tools, session, "float", "former")
@@ -389,6 +390,11 @@ def test_header_rewrite_keeps_the_former_reading(tools, session):
         _former_output(session, "former")
         == (DATA / f"{FORMER['float'][0]}.ref").read_text()
     )
+    # r3.out.ascii prints too few digits to show the small values.
+    assert _exact_values(session, tmp_path, "former") == [
+        _kept(value, "float", FORMER["float"][1], byteorder="<")
+        for value in _values(4 * 5 * 3, nulls=True)
+    ]
 
 
 def test_new_map_has_version_3(tools, session, tmp_path):
@@ -423,7 +429,7 @@ def test_full_precision_and_uncompressed_maps_keep_their_values(
 
 
 @little_endian_only
-def test_rewriting_a_former_map_sets_its_values_to_zero(tools, session):
+def test_rewriting_a_former_map_sets_its_values_to_zero(tools, session, tmp_path):
     # r3.null writes the map anew with its precision 7. It reads the values
     # of the former map: the two least significant bytes of each float,
     # with sign and exponent 0. The new packing keeps sign, exponent and the
@@ -439,7 +445,10 @@ def test_rewriting_a_former_map_sets_its_values_to_zero(tools, session):
     ]
     assert [value for value in expected if value is not None] == [0.0] * 51
     assert "Version: 3" in _header(session, "rewritten")
+    assert "Precision: 7" in _header(session, "rewritten")
     assert _read(tools, "rewritten") == expected
+    # 20 decimal places hide values below 5e-21, such as the old 7.3e-41.
+    assert _exact_values(session, tmp_path, "rewritten") == expected
 
 
 FLOAT_ROWS_SCRIPT = """\
