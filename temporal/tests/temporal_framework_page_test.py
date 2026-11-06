@@ -62,10 +62,12 @@ def code_blocks():
     return parse_code_blocks(PAGE.read_text().splitlines())
 
 
-# The directives that show code, and a paragraph ending in two colons, which
-# starts a literal block.
-CODE_DIRECTIVE = re.compile(r"^\.\.\s+(code-block|code|sourcecode)::")
-LITERAL_BLOCK = re.compile(r"^\s*[^.\s].*::\s*$")
+# The directives that show or run code, a line ending in two colons (alone or
+# behind a paragraph), which starts a literal block, and a doctest block, which
+# needs no directive.
+CODE_DIRECTIVE = re.compile(
+    r"^\.\.\s+(code-block|code|sourcecode|literalinclude|doctest|testcode)::"
+)
 
 
 def refuse_other_code_forms(line):
@@ -77,7 +79,9 @@ def refuse_other_code_forms(line):
     """
     if line.strip() == ".. code-block:: python":
         return
-    if CODE_DIRECTIVE.match(line.strip()) or LITERAL_BLOCK.match(line):
+    stripped = line.strip()
+    literal_block = stripped.endswith("::") and not stripped.startswith("..")
+    if CODE_DIRECTIVE.match(stripped) or literal_block or stripped.startswith(">>>"):
         msg = (
             f"Unrecognised form of code on the page: {line.strip()!r}. "
             "Write Python examples as '.. code-block:: python', the only form "
@@ -217,6 +221,11 @@ def test_page_has_code_blocks():
         ".. code-block:: pycon",
         ".. code-block::",
         "Run this::",
+        "::",
+        ".. literalinclude:: example.py",
+        ".. doctest::",
+        ".. testcode::",
+        ">>> print(1)",
     ],
 )
 def test_other_forms_of_code_are_not_skipped_silently(form):
