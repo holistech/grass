@@ -622,7 +622,7 @@ class TemporalExtent(Row):
         )
 
     def overlaps(self, extent) -> bool:
-        """Return True if extent A overlapped extent B.
+        """Return True if extent A overlaps extent B.
 
         A is this extent, B the provided extent.
 
@@ -655,7 +655,7 @@ class TemporalExtent(Row):
         )
 
     def overlapped(self, extent) -> bool:
-        """Return True if extent A overlaps extent B.
+        """Return True if extent A is overlapped by extent B.
 
         A is this extent, B the provided extent.
 

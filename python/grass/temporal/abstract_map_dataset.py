@@ -126,8 +126,6 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
         The map type is raster, raster_3d or vector.
 
-        The map type is raster, raster_3d or vector.
-
         :param ident: The identifier of the space time dataset
         :return: The new space time dataset instance
         """
@@ -171,9 +169,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         """Load the content of this object from the grass file system based database"""
 
     def _convert_timestamp(self):
-        """Convert the valid time into a grass datetime library timestamp string
-
-        The string is compatible with the grass datetime library.
+        """Convert the valid time into a timestamp string of the grass datetime library
 
         This methods works for relative and absolute time
 
@@ -243,8 +239,6 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
     @staticmethod
     def build_id_from_search_path(name: str, element) -> str:
         """Build the unique identifier of a map.
-
-        The current search path is checked for the correct mapset.
 
         Existing mapset definitions in the name string will be reused.
 

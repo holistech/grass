@@ -312,22 +312,14 @@ class TopologyLinks:
         self._links["temporal"]["PREV"] = map
 
     def next(self):
-        """Return the map starting after the start time of this map.
-
-        The map is temporally located after and closer than other maps.
-
-        The map is temporally closer than other maps.
+        """Return the map that starts after this map and is closer than other maps.
 
         :return: A map object or None
         """
         return self._links["temporal"].get("NEXT")
 
     def prev(self):
-        """Return the map starting before the start time of this map.
-
-        The map is temporally located before and closer than other maps.
-
-        The map is temporally closer than other maps.
+        """Return the map that starts before this map and is closer than other maps.
 
         :return: A map object or None
         """

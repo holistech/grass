@@ -382,10 +382,10 @@ def _read_raster_history(name, mapset):
 
 
 def _read_raster3d_history(name, mapset):
-    """Read the 3D raster map info from the file system into a dictionary
+    """Read the 3D raster history from the file system into a dictionary
 
     This method uses the ctypes interface to the gis and raster3d libraries
-    to read the map metadata information
+    to read the map history
 
     :param name: The name of the map
     :param mapset: The mapset of the map
@@ -477,9 +477,7 @@ def _relative_value(datetime_):
 
 
 def _convert_timestamp_from_grass(ts):
-    """Convert a GRASS file based timestamp into datetime or integer.
-
-    The result is in the format of the temporal framework.
+    """Convert a GRASS file based timestamp into the format of the temporal framework.
 
     A tuple of two datetime objects (start, end) is returned in case of
     absolute time.

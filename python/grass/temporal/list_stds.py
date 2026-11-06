@@ -400,8 +400,6 @@ def get_dataset_list(
 
     The maps or datasets are registered in the temporal database.
 
-    The maps or datasets are registered in the temporal database.
-
     This method returns a dictionary, the keys are the available mapsets,
     the values are the rows from the SQL database query.
 

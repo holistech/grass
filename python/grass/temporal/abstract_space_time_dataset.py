@@ -430,7 +430,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
     ) -> None:
         """Print the spatio-temporal relationships of the maps of the dataset.
 
-        The maps are all maps of the dataset or the maps of the optional list.
+        The maps are those of the optional list, or all maps of the dataset.
 
         :param maps: a ordered by start_time list of map objects, if None
                      the registered maps of the space time dataset are used
@@ -474,7 +474,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
     def check_temporal_topology(self, maps=None, dbif=None) -> bool:
         """Check the temporal topology of the maps of the space time dataset.
 
-        The maps are all maps of the current dataset or the maps of the optional list.
+        The maps are those of the optional list, or all maps of the dataset.
 
         Correct topology means, that time intervals are not overlap or
         that intervals does not contain other intervals.
@@ -523,10 +523,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
     def get_registered_maps_as_objects_by_granularity(
         self, gran: str | None = None, where: str | None = None, dbif=None
     ):
-        """Return all registered maps ordered by start time, with gap map objects.
-
-        A gap map object has id None. The result serves spatio-temporal topological
-        operations that require the temporal extent only.
+        """Return the registered maps as lists of maps, one list for each granule.
 
         Each list entry is a list of AbstractMapDatasets objects
         which are potentially equal the actual granule, contain the
@@ -603,10 +600,8 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
     ):
         """Return all or a subset of the registered maps with gap map objects.
 
-        The maps are ordered by start time.
-
-        A gap map object has id None. The result serves spatio-temporal topological
-        operations that require the spatio-temporal extent only.
+        The maps are ordered by start time. The result serves spatio-temporal
+        topological operations that require the spatio-temporal extent only.
 
         Gaps between maps are identified as maps with id==None
 
@@ -1249,9 +1244,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         return self.map_register.unregister(map, dbif, execute)
 
     def update_from_registered_maps(self, dbif=None) -> None:
-        """Update the modification time and the extents and the type specific metadata.
-
-        The spatial and temporal extent are updated.
+        """Update the modification time, the extents and the type specific metadata.
 
         It should always be called after maps are registered, unregistered or deleted
         from the space time dataset.

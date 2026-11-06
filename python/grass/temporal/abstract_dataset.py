@@ -283,9 +283,7 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         return (start, end)
 
     def get_relative_time(self):
-        """Returns the start time, the end time and the temporal unit as tuple
-
-        The tuple describes the dataset.
+        """Return the start time, end time and temporal unit of the dataset as a tuple
 
         The start time is of type integer.
 

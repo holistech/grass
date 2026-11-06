@@ -126,8 +126,6 @@ def get_enable_mapset_check():
 
     This includes the registration of space time datasets.
 
-    This includes the registration of space time datasets.
-
     If this switch is True, then maps can only be registered
     in space time datasets with the same mapset. In addition, only maps in
     the current mapset can be inserted, updated or deleted from the temporal
@@ -145,9 +143,7 @@ def get_enable_mapset_check():
 
 
 def get_enable_timestamp_write():
-    """Return True if the map timestamps should also be written to the metadata.
-
-    The metadata are those of the spatial database.
+    """Return True if timestamps should also be written to the spatial database.
 
     If this switch is True, the timestamps of maps will be
     written as textfiles for each map that will be inserted or updated in
@@ -223,9 +219,7 @@ def get_tgis_c_library_interface():
 
 
 def set_raise_on_error(raise_exp: bool = True):
-    """Define the behavior on fatal error, invoked via msgr.fatal()
-
-    The call goes through the tgis messenger interface.
+    """Define the behavior of msgr.fatal() of the tgis messenger interface.
 
     The messenger interface will be restarted using the new error policy
 
