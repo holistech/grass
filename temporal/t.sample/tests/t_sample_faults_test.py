@@ -392,3 +392,77 @@ def test_label_without_maps_as_sampler_lists_nothing(tools, prefix):
     )
     assert (returncode, stdout) == (0, "")
     assert "ERROR" not in stderr
+
+
+def input_and_empty_sampler(tools, prefix, samtype="strds", **create_options):
+    """A dataset with one map and a sampler of the given type without maps"""
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [MapSpec(f"{prefix}_i", 1, D(2026, 1, 1), D(2026, 1, 2))],
+    )
+    tools.t_create(
+        output=f"{prefix}_empty",
+        type=samtype,
+        title="t",
+        description="t",
+        **create_options,
+    )
+
+
+@pytest.mark.parametrize("flags", ["", "c"])
+def test_empty_sampler_prints_nothing(tools, prefix, flags):
+    """A sampler without maps has no granules, like a sampler label without maps
+
+    It has no map time either, which the check for intervals used to take for
+    time instants. With -c the header stays out as well.
+    """
+    input_and_empty_sampler(tools, prefix)
+    returncode, stdout, stderr = outcome(
+        tools, inputs=f"{prefix}_in", sample=f"{prefix}_empty", flags=flags
+    )
+    assert (returncode, stdout) == (0, "")
+    assert "ERROR" not in stderr
+    assert "WARNING" not in stderr
+
+
+@pytest.mark.parametrize("samtype", ["str3ds", "stvds"])
+def test_empty_sampler_of_each_type_prints_nothing(tools, prefix, samtype):
+    input_and_empty_sampler(tools, prefix, samtype)
+    returncode, stdout, stderr = outcome(
+        tools,
+        inputs=f"{prefix}_in",
+        sample=f"{prefix}_empty",
+        samtype=samtype,
+        flags="c",
+    )
+    assert (returncode, stdout) == (0, "")
+    assert "ERROR" not in stderr
+    assert "WARNING" not in stderr
+
+
+def test_empty_sampler_of_another_temporal_type_is_refused(tools, prefix):
+    """Only the check of the map type goes, not the one of the temporal type
+
+    A relative sampler without maps still cannot sample an absolute input.
+    """
+    input_and_empty_sampler(tools, prefix, temporaltype="relative")
+    text = refused(tools, inputs=f"{prefix}_in", sample=f"{prefix}_empty")
+    assert "The space time datasets must be of the same temporal type" in text
+    assert text.count("ERROR") == 1
+
+
+def test_label_without_maps_of_an_instant_sampler_is_refused(tools, prefix):
+    """A sampler with maps of time instants stays refused, whatever its label"""
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_inst",
+        [MapSpec(f"{prefix}_i{k}", k, D(2026, 1, k), None, "B4") for k in (1, 2)],
+    )
+    text = refused(
+        tools, inputs=f"{prefix}_inst", sample=f"{prefix}_inst.B9", flags="c"
+    )
+    assert "The temporal map type of the sample dataset must be interval" in text
+    assert text.count("ERROR") == 1

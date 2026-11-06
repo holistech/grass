@@ -101,7 +101,9 @@ maps with that label, in **inputs** and in **sample**: only they are listed in
 a row or make granules, and with the flag **-c** the first row names the
 dataset with its label. As an input, a label that no map has behaves like a
 dataset without maps. As the sampler, such a label gives no granules, so the
-tool prints nothing, not even the header, and ends with return code 0. A name
+tool prints nothing, not even the header, and ends with return code 0. A
+sampler dataset without any registered map behaves the same way, whatever its
+type. A name
 of a dataset of an older release that has a dot in it is read as a whole.
 
 The tool checks every dataset before it prints anything. A dataset that is not
@@ -110,11 +112,12 @@ ends the tool with the error `Space time dataset <name> of type <type> not
 found` and return code 1; the name in the message has no mapset.
 
 The two other refusals end the tool with an error and return code 1 as well,
-before anything is printed. If the sampler has time instances instead of
-intervals, the error is `The temporal map type of the sample dataset must be
+before anything is printed. If the sampler has maps with time instances instead
+of intervals, the error is `The temporal map type of the sample dataset must be
 interval`. If an input has another temporal type than the sampler, absolute or
 relative, the error is `The space time datasets must be of the same temporal
-type`, also when other inputs could be sampled.
+type`, also when other inputs could be sampled and also when the sampler has no
+maps.
 
 Maps outside the time of the sampler get no row of their own. With the default
 method a map before the first granule, or starting at or after the end of the

@@ -113,8 +113,11 @@ def main():
     columns = []
     for stds in input_stds:
         # A refusal ends the run with an error, so that a script sees that
-        # the input was not sampled.
-        refusal = sampler_refusal(sampler_stds, stds)
+        # the input was not sampled. A sampler without maps has no map time
+        # to check; it has no granules and the run prints nothing.
+        refusal = sampler_refusal(
+            sampler_stds, stds, check_map_time=sampler_stds.get_map_time() is not None
+        )
         if refusal is not None:
             gs.fatal(refusal)
         # Only an interval sampler can be given gaps, so this waits for the
