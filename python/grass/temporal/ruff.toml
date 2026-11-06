@@ -13,6 +13,9 @@
 # 2026-10-27 with the same command for S608: 17 hits before the names were
 # routed through sql_identifier() and sql_statement() of db.py, 0 after; with
 # --ignore-noqa 2, the two lines that put in the SQL options of the caller.
+# D205 (a docstring has a one-line summary, then a blank line) had 218 hits on
+# 2026-11-06, counted with `ruff check --isolated --select D205` over the
+# library without classic/, ply/ and tests/, and has none now.
 extend = "../../../pyproject.toml"
 
 [lint]
@@ -20,6 +23,7 @@ extend-select = [
     "A001",    # builtin-variable-shadowing
     "BLE001",  # blind-except
     "C901",    # complex-structure
+    "D205",    # missing-blank-line-after-summary
     "PERF401", # manual-list-comprehension
     "PLW0602", # global-variable-not-assigned
     "PLW0603", # global-statement
@@ -40,5 +44,5 @@ max-complexity = 15
 [lint.extend-per-file-ignores]
 # The reference implementation is what publications cite: its content is
 # not changed for style. The tests are outside this clean-up.
-"classic/*" = ["A001", "BLE001", "C901", "PERF401", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP031", "UP032"]
-"tests/**" = ["A001", "BLE001", "C901", "PERF401", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP031", "UP032"]
+"classic/*" = ["D205", "A001", "BLE001", "C901", "PERF401", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP031", "UP032"]
+"tests/**" = ["D205", "A001", "BLE001", "C901", "PERF401", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP031", "UP032"]
