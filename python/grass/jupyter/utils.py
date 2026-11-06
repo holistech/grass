@@ -310,7 +310,7 @@ def setup_location(name, path, epsg, src_env):
     same computational region as source location
 
     :param str name: name of new location
-    :param path path: path to new location's database
+    :param str path: path to new location's database
     :param str epsg: EPSG code
     :param dict src_env: source environment
 
