@@ -24,6 +24,7 @@ from pathlib import Path
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.testing.contract_trace import class_named
 
 CONTRACT = json.loads(
     Path(__file__).with_name("data").joinpath("public_contract.json").read_text()
@@ -45,28 +46,6 @@ def _has(obj, name):
     the session an earlier test left behind.
     """
     return inspect.getattr_static(obj, name, _ABSENT) is not _ABSENT
-
-
-# Classes whose methods the contract lists although code outside reaches them
-# through other objects (a map's spatial_extent, a dataset's temporal_extent)
-# and does not import them: they are not exported by the package.
-_MODULE_OF_UNEXPORTED_CLASS = {
-    "AbstractDataset": "abstract_dataset",
-    "AbstractMapDataset": "abstract_map_dataset",
-    "CLibrariesInterface": "c_libraries_interface",
-    "SpatialExtent": "spatial_extent",
-    "TemporalExtent": "temporal_extent",
-}
-
-
-def _class_named(name):
-    """The class of a contract entry, exported or from its module"""
-    if hasattr(tgis, name):
-        return getattr(tgis, name)
-    module = importlib.import_module(
-        f"grass.temporal.{_MODULE_OF_UNEXPORTED_CLASS[name]}"
-    )
-    return getattr(module, name)
 
 
 def _report(missing):
@@ -116,7 +95,7 @@ def test_module_attributes():
 def test_methods_exist():
     missing = []
     for class_name, methods in CONTRACT["methods"].items():
-        cls = _class_named(class_name)
+        cls = class_named(class_name)
         if cls is None:
             missing.append((f"grass.temporal.{class_name}", "all its methods"))
             continue
@@ -132,7 +111,7 @@ def test_methods_exist():
 def test_instance_attributes_exist():
     missing = []
     for class_name, attributes in CONTRACT["attributes"].items():
-        obj = _class_named(class_name)("contract@test")
+        obj = class_named(class_name)("contract@test")
         missing.extend(
             (f"{class_name}().{name}", origin)
             for name, origin in attributes.items()
@@ -148,7 +127,7 @@ def test_member_methods_exist():
     missing = []
     for path, members in CONTRACT["members"].items():
         class_name, attribute = path.split(".")
-        member = getattr(_class_named(class_name)("contract@test"), attribute, None)
+        member = getattr(class_named(class_name)("contract@test"), attribute, None)
         missing.extend(
             (f"{class_name}().{attribute}.{name}", origin)
             for name, origin in members.items()

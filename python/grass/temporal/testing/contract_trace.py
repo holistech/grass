@@ -64,6 +64,13 @@ def called_names(script: Path, *, env: dict, cwd: Path) -> set[str]:
                 import grass.temporal and, for a script that needs one, hold
                 the GRASS session variables
     :param cwd: The working directory of the child process
+
+    The trace is a floor, not a proof. Only calls of functions and methods
+    show: a constructor (``__init__`` is private), a plain attribute read, a
+    constant and a call made through a thread leave no name, so this check
+    does not replace reading the example. A property whose getter has a name of
+    its own is reported under the getter (``get_temporal_extent``, not
+    ``temporal_extent``), because the profiler sees the getter's code.
     :raises RuntimeError: If the script ends with a return code other than 0;
                           the message holds its stderr
     """
@@ -208,24 +215,27 @@ def _find_contract_file() -> Path:
     raise FileNotFoundError(msg)
 
 
-def _class_named(name: str):
-    """The class of a contract entry, exported or found in the modules of the package"""
+# Classes whose methods the contract lists although code outside reaches them
+# through other objects (a map's spatial_extent, a dataset's temporal_extent)
+# and does not import them: the package does not export them. The module that
+# defines each is named here, once, for the contract test and the trace.
+MODULE_OF_UNEXPORTED_CLASS = {
+    "AbstractDataset": "abstract_dataset",
+    "AbstractMapDataset": "abstract_map_dataset",
+    "CLibrariesInterface": "c_libraries_interface",
+    "SpatialExtent": "spatial_extent",
+    "TemporalExtent": "temporal_extent",
+}
+
+
+def class_named(name: str):
+    """The class of a contract entry, exported or from its module"""
     import grass.temporal as tgis
 
     if hasattr(tgis, name):
         return getattr(tgis, name)
-    for module_name in (
-        "abstract_dataset",
-        "abstract_map_dataset",
-        "c_libraries_interface",
-        "spatial_extent",
-        "temporal_extent",
-    ):
-        module = importlib.import_module(f"{PACKAGE}.{module_name}")
-        if hasattr(module, name):
-            return getattr(module, name)
-    msg = f"The contract names the class {name}, which grass.temporal does not have"
-    raise LookupError(msg)
+    module = importlib.import_module(f"{PACKAGE}.{MODULE_OF_UNEXPORTED_CLASS[name]}")
+    return getattr(module, name)
 
 
 def _qualified(cls, name: str) -> str:
@@ -250,12 +260,12 @@ def _allowed_methods(contract_text: str) -> frozenset[str]:
     contract = json.loads(contract_text)
     allowed: set[str] = set()
     for class_name, names in {**contract["methods"], **contract["attributes"]}.items():
-        _allow(allowed, _class_named(class_name), names)
+        _allow(allowed, class_named(class_name), names)
     for path, names in contract["members"].items():
         class_name, attribute = path.split(".")
         # The datasets build their rows without a database, so this needs no
         # session (checked on 2026-11-06 in a process that never called init()).
-        member = getattr(_class_named(class_name)("contract@trace"), attribute)
+        member = getattr(class_named(class_name)("contract@trace"), attribute)
         _allow(allowed, type(member), names)
     return frozenset(allowed)
 
@@ -277,6 +287,41 @@ def _split(name: str) -> tuple[str, list[str]]:
         module = f"{module}.{parts[end]}"
         end += 1
     return module, parts[end:]
+
+
+@cache
+def _modules_of_exports() -> dict[str, str]:
+    """The module that grass/temporal/__init__.py imports each name from
+
+    The source is read, not the namespace: a test session may replace a
+    function of the package by a wrapper, and the wrapper has another
+    __module__ than the code that ran.
+    """
+    import ast
+
+    import grass.temporal as tgis
+
+    tree = ast.parse(Path(tgis.__file__).read_text())
+    modules = {}
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.level == 1 and node.module:
+            for alias in node.names:
+                modules[alias.asname or alias.name] = f"{PACKAGE}.{node.module}"
+    return modules
+
+
+def _is_top_name(function: str, module: str, contract: dict) -> bool:
+    """Tell whether the contract's top name is this very function
+
+    A bare name match would let a copy of the same name elsewhere in the
+    package pass (classic.granularity keeps its own copies of functions), so
+    the module that grass.temporal imports the name from must be the module
+    that defines the called code.
+    """
+    return (
+        function in contract["top_names"]
+        and _modules_of_exports().get(function) == module
+    )
 
 
 def missing_from_contract(
@@ -304,7 +349,7 @@ def missing_from_contract(
         module, qualname = _split(name)
         if len(qualname) == 1:
             function = qualname[0]
-            covered = function in contract["top_names"] or any(
+            covered = _is_top_name(function, module, contract) or any(
                 function in entry["names"]
                 and (module == path or module.startswith(f"{path}."))
                 for path, entry in contract["module_paths"].items()
