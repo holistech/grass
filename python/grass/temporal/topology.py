@@ -931,22 +931,22 @@ def count_temporal_topology_relationships(maps1, maps2=None, dbif=None):
     :param maps2: A list of abstract_dataset
                 objects with initiated temporal extent
     :param dbif: The database interface to be used
-    :return: A dictionary with counted temporal relationships
+    :return: A dictionary with counted temporal relationships. For no maps
+             it holds the same relation names as for any other list, each
+             counted as 0. Only the temporal topology is built, so the
+             spatial relations are not part of it.
     """
 
     tb = SpatioTemporalTopologyBuilder()
     tb.build(maps1, maps2)
 
     with connection(dbif) as dbif:
-        relations = None
+        relations = dict.fromkeys(INVERSE_TEMPORAL_RELATION, 0)
 
         for map_ in tb:
-            if relations is not None:
-                r = map_.get_number_of_relations()
-                for k in r:
-                    relations[k] += r[k]
-            else:
-                relations = map_.get_number_of_relations()
+            counted = map_.get_number_of_relations()
+            for name in relations:
+                relations[name] += counted[name]
 
         return relations
 
@@ -977,7 +977,7 @@ def has_correct_temporal_topology(relations, map_time) -> bool:
     """Check counted temporal relations against the topology rules
 
     :param relations: The dictionary of count_temporal_topology_relationships(),
-                      None if no relation was counted
+                      None if nothing was counted
     :param map_time: The map time of the dataset: "interval", "point" or
                      "mixed"
     :return: True if none of the relations that the map time forbids was

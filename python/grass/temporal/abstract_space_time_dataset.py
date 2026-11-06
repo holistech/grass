@@ -456,7 +456,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
 
         :param maps: A sorted (start_time) list of AbstractDataset objects
         :param dbif: The database interface to be used
-        :return: A dictionary with counted temporal relationships
+        :return: A dictionary with counted temporal relationships. For no
+                 maps (an empty dataset or an empty list) every relation
+                 is counted as 0.
         """
 
         if maps is None:
@@ -497,12 +499,18 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         :param maps: An optional list of AbstractDataset objects, in case of
                     None all maps of the space time dataset are checked
         :param dbif: The database interface to be used
-        :return: True if topology is correct
+        :return: True if topology is correct; False for no maps, which
+                 have no relation to check
         """
         if maps is None:
             maps = self.get_registered_maps_as_objects(
                 where=None, order="start_time", dbif=dbif
             )
+
+        # Zero counts for no maps would read as "correct". Callers, among
+        # them the GUI and the granularity mode of the algebra, rely on False.
+        if not maps:
+            return False
 
         relations = count_temporal_topology_relationships(maps1=maps, dbif=dbif)
 

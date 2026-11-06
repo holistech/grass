@@ -120,8 +120,8 @@ def print_relations(sp, maps):
         " +-------------------- Topological relations ---------------------------------+"  # noqa: E501
     )
     relations = sp.count_temporal_relations(maps)
-    # Without maps there are no counts at all, and no line.
-    if relations:
+    # Without maps the counts are all zero, and the summary prints no line.
+    if maps:
         print_counts(relations, RELATION_LINES)
     print(
         "+----------------------------------------------------------------------------+"  # noqa: E501

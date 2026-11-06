@@ -579,6 +579,26 @@ def test_topology_of_a_dataset_without_maps_is_wrong(pair):
     assert stds_of(pair, "other").check_temporal_topology() is False
 
 
+def test_count_temporal_relations_of_no_maps_is_all_zero(pair):
+    one_pair = [timed_map("t0", day(1), day(2)), timed_map("t1", day(2), day(3))]
+    stds = stds_of(pair, "abs")
+    keys = set(stds.count_temporal_relations(one_pair))
+
+    assert keys
+    expected = dict.fromkeys(keys, 0)
+    assert topology.count_temporal_topology_relationships([]) == expected
+    assert stds.count_temporal_relations([]) == expected
+    assert stds_of(pair, "other").count_temporal_relations() == expected
+
+
+def test_check_temporal_topology_of_no_maps_is_false(pair):
+    # Counting no relations as zeros must not turn "no maps" into "correct";
+    # the tools and the GUI read False as "nothing to show or compute".
+    stds = stds_of(pair, "abs")
+
+    assert stds.check_temporal_topology(maps=[]) is False
+
+
 @pytest.mark.parametrize(
     "name",
     [
