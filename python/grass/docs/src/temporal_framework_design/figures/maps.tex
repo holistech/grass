@@ -2,17 +2,20 @@
 % spatial extent, MapDataset for the work common to all maps, and the rows
 % that hold the content of a map.
 \begin{tikzpicture}[font=\scriptsize]
-\begin{class}[text width=3.6cm]{MapDataset}{1.2,-1.8}
+% The mixins stand apart, the one for volumes above and to the right: below
+% MapDataset or below each other, the line of one class to a mixin ran under
+% another box and seemed to start there.
+\begin{class}[text width=3.2cm]{MapDataset}{0.8,-1.8}
 \operation{load()}
 \operation{map_exists()}
 \operation{get_new_stds_instance()}
 \end{class}
-\begin{class}[text width=3.4cm]{_PlanarExtentMethods}{5.0,0.6}
+\begin{class}[text width=2.9cm]{_PlanarExtentMethods}{4.4,-2.2}
 \operation{spatial_relation()}
 \operation{spatial_intersection()}
 \operation{spatial_union()}
 \end{class}
-\begin{class}[text width=3.4cm]{_VolumeExtentMethods}{5.0,-2.6}
+\begin{class}[text width=2.9cm]{_VolumeExtentMethods}{6.9,0.6}
 \operation{spatial_relation()}
 \operation{spatial_intersection()}
 \operation{spatial_union()}
@@ -24,7 +27,7 @@
 \operation{read_semantic_label_from_grass()}
 \operation{set_semantic_label()}
 \end{class}
-\begin{class}[text width=3.0cm]{Raster3DDataset}{5.3,-6.6}
+\begin{class}[text width=3.0cm]{Raster3DDataset}{6.6,-6.6}
 \inherit{_VolumeExtentMethods}
 \inherit{MapDataset}
 \attribute{kind : Kind}

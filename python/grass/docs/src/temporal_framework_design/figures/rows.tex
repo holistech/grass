@@ -43,7 +43,7 @@
 \attribute{has_layer : bool}
 \operation{table()}
 \end{class}
-\begin{class}[text width=2.4cm]{BaseRow}{-6.9,-10.6}
+\begin{class}[text width=2.4cm]{BaseRow}{-4.2,-11.8}
 \inherit{Row}
 \attribute{kind : Kind}
 \attribute{name}
@@ -55,14 +55,15 @@
 \attribute{semantic_type}
 \attribute{mtime}
 \end{class}
-% Lower than its neighbours: at their height the line from BaseRow to Row
-% crossed this box and seemed to start from it.
-\begin{class}[text width=2.4cm]{RegisterRow}{-4.2,-12.0}
+% The row of the subclasses stands low, and RegisterRow, the short box, at
+% its end: at the height of the other boxes, a line to Row ran under a
+% neighbouring box and seemed to start there.
+\begin{class}[text width=2.4cm]{RegisterRow}{-6.9,-11.8}
 \inherit{Row}
 \attribute{kind : Kind}
 \attribute{registered_stds}
 \end{class}
-\begin{class}[text width=3.0cm]{TemporalExtent}{-1.0,-10.6}
+\begin{class}[text width=3.0cm]{TemporalExtent}{-1.0,-11.8}
 \inherit{Row}
 \attribute{start_time}
 \attribute{end_time}
@@ -75,7 +76,7 @@
 \operation{follows()}
 \operation{overlaps()}
 \end{class}
-\begin{class}[text width=3.0cm]{SpatialExtent}{2.6,-10.6}
+\begin{class}[text width=3.0cm]{SpatialExtent}{2.6,-11.8}
 \inherit{Row}
 \attribute{north}
 \attribute{south}
@@ -89,31 +90,31 @@
 \operation{union()}
 \operation{get_area()}
 \end{class}
-\begin{class}[text width=2.4cm]{MetadataRow}{6.0,-10.6}
+\begin{class}[text width=2.4cm]{MetadataRow}{6.0,-11.8}
 \inherit{Row}
 \attribute{kind : Kind}
 \operation{print_info()}
 \end{class}
-\begin{class}[text width=3.5cm]{AbsoluteTemporalExtent}{-3.2,-15.4}
+\begin{class}[text width=3.5cm]{AbsoluteTemporalExtent}{-3.2,-16.6}
 \inherit{TemporalExtent}
 \end{class}
-\begin{class}[text width=3.5cm]{RelativeTemporalExtent}{0.7,-15.4}
+\begin{class}[text width=3.5cm]{RelativeTemporalExtent}{0.7,-16.6}
 \inherit{TemporalExtent}
 \attribute{unit}
 \end{class}
-\begin{class}[text width=3.5cm]{AbsoluteTimeRow}{-3.2,-17.4}
+\begin{class}[text width=3.5cm]{AbsoluteTimeRow}{-3.2,-18.6}
 \inherit{AbsoluteTemporalExtent}
 \attribute{kind : Kind}
 \attribute{granularity}
 \attribute{map_time}
 \end{class}
-\begin{class}[text width=3.5cm]{RelativeTimeRow}{0.7,-17.4}
+\begin{class}[text width=3.5cm]{RelativeTimeRow}{0.7,-18.6}
 \inherit{RelativeTemporalExtent}
 \attribute{kind : Kind}
 \attribute{granularity}
 \attribute{map_time}
 \end{class}
-\begin{class}[text width=2.6cm]{SpatialExtentRow}{4.6,-15.4}
+\begin{class}[text width=2.6cm]{SpatialExtentRow}{4.6,-16.6}
 \inherit{SpatialExtent}
 \attribute{kind : Kind}
 \end{class}
