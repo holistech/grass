@@ -62,7 +62,9 @@ from .sampling import sample_stds_by_stds_topology
 from .space_time_datasets import (
     Raster3DDataset,
     RasterDataset,
+    SpaceTimeRaster3DDataset,
     SpaceTimeRasterDataset,
+    SpaceTimeVectorDataset,
     VectorDataset,
 )
 from .topology import SpatioTemporalTopologyBuilder
@@ -102,7 +104,9 @@ __all__ = [
     "RelativeTemporalExtent",
     "SQLDatabaseInterfaceConnection",
     "SQLStatementError",
+    "SpaceTimeRaster3DDataset",
     "SpaceTimeRasterDataset",
+    "SpaceTimeVectorDataset",
     "SpatioTemporalTopologyBuilder",
     "TemporalRaster3DAlgebraParser",
     "TemporalRasterAlgebraLexer",

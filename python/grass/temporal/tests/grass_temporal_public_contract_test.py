@@ -1,9 +1,11 @@
 """Pin the names, module paths and methods that code outside the library uses
 
 The data file lists everything that the repository (tools, GUI, scripts, tests
-of other packages) and the OSGeo grass-addons use from grass.temporal, with the
-origin ("repo", "addons" or "addons+repo") of each entry. It was measured on
-2026-10-25 by a read-only AST scan of both trees. Methods and members are an
+of other packages), the OSGeo grass-addons and the examples of the
+documentation use from grass.temporal, with the origin ("repo", "addons",
+"addons+repo" or "docs") of each entry. The first three were measured on
+2026-10-25 by a read-only AST scan of both trees; "docs" entries were added
+with the examples that need them. Methods and members are an
 upper bound: every attribute name seen outside that a class (or the object
 behind an instance attribute such as metadata) has today is listed, because
 the scan cannot tell which object a name was called on.
@@ -52,8 +54,6 @@ _MODULE_OF_UNEXPORTED_CLASS = {
     "AbstractDataset": "abstract_dataset",
     "AbstractMapDataset": "abstract_map_dataset",
     "CLibrariesInterface": "c_libraries_interface",
-    "SpaceTimeRaster3DDataset": "space_time_datasets",
-    "SpaceTimeVectorDataset": "space_time_datasets",
     "SpatialExtent": "spatial_extent",
     "TemporalExtent": "temporal_extent",
 }
@@ -70,7 +70,13 @@ def _class_named(name):
 
 
 def _report(missing):
-    return "\n".join(f"{what} (used by {origin})" for what, origin in missing)
+    lines = [f"{what} (used by {origin})" for what, origin in missing]
+    if any("docs" in origin.split("+") for _what, origin in missing):
+        lines.append(
+            'Entries used by "docs": an example of the documentation breaks; '
+            "adapt it in the same commit."
+        )
+    return "\n".join(lines)
 
 
 def test_top_names_resolve():
@@ -160,8 +166,22 @@ def test_contract_is_not_empty():
     assert any("addons" in o for o in CONTRACT["top_names"].values())
 
 
+def test_space_time_dataset_classes_are_exported():
+    """The documentation names all three dataset classes, so all are exported"""
+    for name in (
+        "SpaceTimeRasterDataset",
+        "SpaceTimeRaster3DDataset",
+        "SpaceTimeVectorDataset",
+    ):
+        assert name in tgis.__all__
+        assert hasattr(tgis, name)
+
+
 def test_the_package_exports_the_contract_and_nothing_else():
-    """``__all__`` is the used names plus the modules code reaches as attributes"""
+    """``__all__`` is the used names plus the modules code reaches as attributes
+
+    An example of the documentation counts as use.
+    """
     expected = sorted({*CONTRACT["top_names"], *CONTRACT["module_attributes"]})
     assert sorted(tgis.__all__) == expected
 
