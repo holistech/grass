@@ -14,10 +14,17 @@ Before a new 3D-mask can be created the existing mask has to be removed
 with <em>g.remove</em>.
 
 <p>
-<em>r3.mask</em> writes the mask on the grid of <em>map</em>. For a map on the same
-grid, a tool that applies the mask hides the cells of the map where the
-mask is NULL, in any current region, also in one with another extent or
-resolution than the map.
+<em>r3.mask</em> writes the mask on the grid of <em>map</em>. A tool that applies the
+mask hides a value where the mask is NULL at the location of that value:
+at the centre of the cell of the current region for the tools that read
+the map in the current region, such as <em>r3.out.ascii</em>, <em>r3.to.rast</em>,
+<em>r3.univar</em> and <em>r3.mapcalc</em>, and at the location of the cell of the
+cross section for <em>r3.cross.rast</em>. This holds in any current region and
+for a map on any grid. For a map on the grid of the mask, the cells of
+the map where the mask is NULL are hidden. With a mask on a finer or a
+shifted grid, two cells of the current region that lie in the same cell
+of the map can differ: one is hidden, the other shows the value of the
+map.
 
 <h2>SEE ALSO</h2>
 
