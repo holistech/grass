@@ -285,7 +285,7 @@ def pairs(
     """Make one slot per pair (l, x) with "l R x"
 
     :param left: the Series whose slots l are paired; the result has its map
-        type, spatial flag and order
+        type and order, and is spatial if either series or the relation is
     :param relation: the Relation "R" that a pair must satisfy
     :param other: the Series whose slots x are paired with l
     :param extent: the time stamp of a slot: that of l ("left"), of x
@@ -548,8 +548,9 @@ def gather(
 
     The result has at most one slot per target slot.
 
-    :param target: the Series whose slots t are kept, with the combined
-        content of their partners
+    :param target: the Series whose slots t each give at most one slot of the
+        result; the content of that slot combines the contents of the
+        partners of t
     :param relation: the Relation "R" that the slots x must have to t
     :param other: the Series whose slots x are related to t and reduced
     :param reduce: how the related slots are combined: "sum", "prod", "min",
@@ -674,8 +675,9 @@ def gather(
 def _grown(space, distance):
     """Return the box of space grown by distance on all six sides
 
-    It does what AbstractMapDataset.spatial_buffer() does. A negative distance shrinks areas in v.buffer; the box stays, since it
-    still contains the result.
+    It does what AbstractMapDataset.spatial_buffer() does. A negative distance
+    shrinks areas in v.buffer; the box stays, since it still contains the
+    result.
     """
     if space is None or distance <= 0:
         return space
@@ -745,7 +747,7 @@ def choose(condition, then, otherwise=None, *, mixed_times="error"):
         a null leaves the slot out
     :param then: the Series whose slots are kept where the condition is true
     :param otherwise: the Series whose slots are kept where the condition is
-        false; None keeps none of them, so only then is chosen
+        false; None chooses nothing where the condition is false
     :param mixed_times: "error" refuses a branch of another temporal type or
         unit than the condition; "unrelated" leaves out its slots, which no
         condition belongs to

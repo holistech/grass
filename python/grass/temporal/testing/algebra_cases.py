@@ -251,7 +251,8 @@ def spatial_topology(tools):
     A a1..a4 and B b1..b4, map k holding k, all eight at the instant
     January 1; the maps k cover (west, east, south, north) 0-30, 20-50,
     25-40 and 40-60 (the same extent in A and B); singletmap = 100 at the
-    instant; singlemap = 1000"""
+    instant; singlemap = 1000.
+    """
     extents = {1: (0, 30, 0, 30), 2: (20, 50, 20, 50), 3: (25, 40, 25, 40)}
     extents[4] = (40, 60, 40, 60)
     for k, (west, east, south, north) in extents.items():

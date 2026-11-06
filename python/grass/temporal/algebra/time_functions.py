@@ -271,7 +271,8 @@ def neighbour(series, offset, *, space="own"):
     Slots without such a neighbour are left out, as A[1] and A[-1] of the
     algebra do.
 
-    :param series: the Series whose slots are in time order
+    :param series: the Series whose slots take over the content of a
+        neighbour, counted in the order of its slots
     :param offset: the whole number of positions to move in the series: 1 takes
         the content of the next slot and -1 that of the previous one; the time
         stamps stay with the slots

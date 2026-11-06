@@ -121,8 +121,8 @@ def evaluate(
     :raises SyntaxError: for an error in the expression
     :raises ValueError, TypeError: as the core operations, for an expression
         that cannot be computed
-    :raises grass.exceptions.FatalError: for a missing dataset or map, and without overwrite
-        for an existing result dataset or map
+    :raises grass.exceptions.FatalError: for a missing dataset or map, and
+        without overwrite for an existing result dataset or map
     """
     grammar = profile.grammar
     if hasattr(grammar, "for_kind"):

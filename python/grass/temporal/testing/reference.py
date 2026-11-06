@@ -117,8 +117,9 @@ def setup_granularity(parser, kind, expression):
     :param kind: ``"raster"``, ``"raster3d"`` or ``"vector"``; the tool for
         vector maps has no such mode, the parser has
     :param expression: The whole statement, ``"R = A + B"``
-    :raises grass.exceptions.FatalError: when no common granularity exists (the tool stops with
-        "Unable to process the expression in granularity algebra mode")
+    :raises grass.exceptions.FatalError: when no common granularity exists
+        (the tool stops with "Unable to process the expression in granularity
+        algebra mode")
     :raises ValueError: for kind ``"select"``, which has no such mode
     """
     from grass.exceptions import FatalError

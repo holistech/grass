@@ -307,9 +307,9 @@ def plan(
     :param name: the space time dataset to create, without a mapset; it must
         not contain "@", nor "." for a raster dataset
     :param basename: the prefix of the map names, by default the name
-    :param selection: plan a selection, see above; False plans r.mapcalc,
-        r.series, r3.mapcalc or v.* calls for every slot that is not a
-        registered map
+    :param selection: plan a selection, see above; False plans module calls
+        for every slot, and only a vector map that reaches the result
+        unchanged is registered as it is
     :param time_suffix: None for numbered maps, "gran" or "time" for a
         suffix from the start time (absolute time only)
     :param names: one finished map name per slot, used instead of basename and
@@ -481,18 +481,20 @@ def _kind(chain):
 
 
 def _check_absent_classic(chain, mapset, dbif, with_dataset):
-    """Stop before anything is computed if a result exists, as the classic code
+    """Stop before computing if a result exists, as the reference implementation does
 
     Order and words are those of the reference implementation
-    (grass.temporal.classic). It looks at the result maps first, and only at the files of the maps
-    (not at a row of the temporal database), then at the dataset. The
+    (grass.temporal.classic). It looks at the result maps first, and only at
+    the files of the maps (not at a row of the temporal database), then at the
+    dataset. The
     reference finds the dataset only after the maps are computed; this
     check is made before, as the one of the core, so that nothing is lost.
     A dry run of the reference never looks at the dataset (measured
     2026-10-16 with an existing dataset and no existing map: the dry run
     passes, the run stops), so with_dataset is False there.
 
-    :raises grass.exceptions.FatalError: if a result map or, with_dataset, the dataset exists
+    :raises grass.exceptions.FatalError: if a result map or, with_dataset, the
+        dataset exists
     """
     for planned in chain.maps:
         if not planned.calls:
@@ -768,8 +770,8 @@ def _is_empty(map_, kind):
 def _emptied_by_region(planned, kind):
     """Tell whether an empty computed map copies a map that has data
 
-    Only raster and 3D raster maps are meant. A computed map can be empty by right, as if(A > 1000, A) of small values
-    is. A copy of a map with data is empty only because r.mapcalc and
+    Only raster and 3D raster maps are meant. A computed map can be empty by
+    right, as if(A > 1000, A) of small values is. A copy of a map with data is empty only because r.mapcalc and
     r3.mapcalc compute it in the current region, whose extent (or
     resolution) can miss the data of the map.
     g.copy, which copies a vector map and any map of a selection, takes the
@@ -792,8 +794,8 @@ def _forget(ident, kind, dbif):
 def _register_results(chain, dataset, mapset, dbif, keep_empty, dropped, overwrite):
     """Register the maps of chain in dataset and return the empty ones
 
-    The result holds the names of the empty maps. A map in dropped was not computed, and an empty map is not registered
-    unless keep_empty is set; their old entries in the temporal database are
+    The result holds the names of the empty maps. A map in dropped was not
+    computed, and an empty map is not registered unless keep_empty is set; their old entries in the temporal database are
     deleted and the maps are removed. A map that the chain computes no call
     for is registered as it is, also from another mapset. With renumber the
     registered computed maps are renamed, see _renumbered().
@@ -863,8 +865,8 @@ def _register_results(chain, dataset, mapset, dbif, keep_empty, dropped, overwri
 def _renumbered(chain, kept, mapset, dbif):
     """Give the computed maps of kept the planned names, in order
 
-    The maps left out then leave no gap. Only the names of maps with calls are given, which the check for
-    existing maps has seen; a map registered unchanged keeps its name, also
+    The maps left out then leave no gap. Only the names of maps with calls are
+    given, which the check for existing maps has seen; a map registered unchanged keeps its name, also
     when it looks like a number of the result, and takes none. A kept map
     takes a name of an earlier or the same position, which is that of a map
     left out, removed before, or of a kept map renamed before it.

@@ -484,7 +484,8 @@ def accepted_error_pair(kind, expression, first, second, **options):
 
     :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``
     :param expression: Right hand side of the statement that both outcomes
-        come from; it decides whether it is invalid on its own
+        come from; it is run on the reference without computing to see whether
+        the reference rejects it as a syntax error
     :param first: The outcome of the reference
     :param second: The outcome of the classic profile
     :param options: The options of the runs. The granularity mode is left
