@@ -7,8 +7,8 @@ Usage:
 
     import grass.temporal as tgis
 
-    tgis.aggregate_raster_maps(
-        dataset, mapset, inputs, base, start, end, count, method, register_null, dbif
+    new_map = tgis.aggregate_raster_maps(
+        inputs, base, start, end, count, method, register_null, dbif
     )
 
 SPDX-FileCopyrightText: 2012-2013 GRASS Development Team

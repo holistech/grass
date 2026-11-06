@@ -13,9 +13,9 @@ Usage:
 
 .. code-block:: python
 
-    import grass.temporal as tgis
+    from grass.temporal.topology import print_spatio_temporal_topology_relationships
 
-    tgis.print_temporal_relations(maps)
+    print_spatio_temporal_topology_relationships(maps)
 
 
 SPDX-FileCopyrightText: 2012-2026 GRASS Development Team

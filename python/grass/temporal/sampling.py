@@ -7,7 +7,16 @@ Usage:
 
     import grass.temporal as tgis
 
-    tgis.register_maps_in_space_time_dataset(type, name, maps)
+    matrix = tgis.sample_stds_by_stds_topology(
+        "strds",
+        "strds",
+        "A",
+        "B",
+        header=False,
+        separator="|",
+        method="equal",
+        print_only=False,
+    )
 
 SPDX-FileCopyrightText: 2012-2013 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later

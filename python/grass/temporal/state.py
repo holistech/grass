@@ -2,7 +2,7 @@
 
 All what init() finds out about the session lives in one object, STATE: the
 database backend, the mapset, the messenger and the C interface. The functions
-get_*() of this module read it; nothing else writes to it.
+get_*() of this module read it; only init() and set_raise_on_error() write it.
 
 SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later

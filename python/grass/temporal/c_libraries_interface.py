@@ -398,7 +398,7 @@ def _read_raster3d_history(name, mapset):
     if not libgis.G_find_raster3d(name, mapset):
         return None
 
-    # Read the region information
+    # Read the history of the map
     hist = libraster.History()
     ret = libraster3d.Rast3d_read_history(name, mapset, byref(hist))
     if ret < 0:

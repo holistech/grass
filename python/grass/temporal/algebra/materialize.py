@@ -771,9 +771,9 @@ def _emptied_by_region(planned, kind):
     """Tell whether an empty computed map copies a map that has data
 
     Only raster and 3D raster maps are meant. A computed map can be empty by
-    right, as if(A > 1000, A) of small values is. A copy of a map with data is empty only because r.mapcalc and
-    r3.mapcalc compute it in the current region, whose extent (or
-    resolution) can miss the data of the map.
+    right, as if(A > 1000, A) of small values is. A copy of a map with data is
+    empty only because r.mapcalc and r3.mapcalc compute it in the current
+    region, whose extent (or resolution) can miss the data of the map.
     g.copy, which copies a vector map and any map of a selection, takes the
     whole map, and its copy is never empty for this reason.
     """
@@ -795,8 +795,9 @@ def _register_results(chain, dataset, mapset, dbif, keep_empty, dropped, overwri
     """Register the maps of chain in dataset and return the empty ones
 
     The result holds the names of the empty maps. A map in dropped was not
-    computed, and an empty map is not registered unless keep_empty is set; their old entries in the temporal database are
-    deleted and the maps are removed. A map that the chain computes no call
+    computed, and an empty map is not registered unless keep_empty is set;
+    their old entries in the temporal database are deleted and the maps are
+    removed. A map that the chain computes no call
     for is registered as it is, also from another mapset. With renumber the
     registered computed maps are renamed, see _renumbered().
     """
@@ -866,8 +867,9 @@ def _renumbered(chain, kept, mapset, dbif):
     """Give the computed maps of kept the planned names, in order
 
     The maps left out then leave no gap. Only the names of maps with calls are
-    given, which the check for existing maps has seen; a map registered unchanged keeps its name, also
-    when it looks like a number of the result, and takes none. A kept map
+    given, which the check for existing maps has seen; a map registered
+    unchanged keeps its name, also when it looks like a number of the result,
+    and takes none. A kept map
     takes a name of an earlier or the same position, which is that of a map
     left out, removed before, or of a kept map renamed before it.
 
