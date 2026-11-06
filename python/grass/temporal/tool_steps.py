@@ -297,7 +297,7 @@ def first_related_map_id(map_):
     topology of ``map_`` with the other maps must be built
     (SpatioTemporalTopologyBuilder.build(maps, other_maps)).
 
-    :param map_: A map with its temporal relations built
+    :param map\\_: A map with its temporal relations built
     :return: The id of the selected map, None when no relation holds a map
     """
     relations = map_.get_temporal_relations()

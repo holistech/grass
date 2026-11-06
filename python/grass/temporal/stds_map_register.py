@@ -316,7 +316,7 @@ class StdsMapRegister:
         relative dataset sets the unit. A map that is registered already
         gives a warning and False.
 
-        :param map_: The AbstractMapDataset object
+        :param map\\_: The AbstractMapDataset object
         :param dbif: The database interface to be used
         :return: True if the map has been registered, False if it was
             registered already
@@ -430,7 +430,7 @@ class StdsMapRegister:
     def unregister(self, map_, dbif=None, execute: bool = True):
         """Unregister a map from the dataset
 
-        :param map_: The map object to unregister
+        :param map\\_: The map object to unregister
         :param dbif: The database interface to be used
         :param execute: If True the SQL DELETE statement is executed. If
             False the prepared statement is returned and the caller must

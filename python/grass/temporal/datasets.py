@@ -171,7 +171,7 @@ class MapDataset(AbstractMapDataset):
         return _CLASSES[self.kind.name](ident)
 
     def get_new_stds_instance(self, ident):
-        """Return a new space time dataset instance for maps of the type of this class."""
+        """Return a new space time dataset instance for maps of this class type."""
         return _CLASSES[self.kind.stds_kind](ident)
 
     def reset(self, ident) -> None:
@@ -368,7 +368,7 @@ class StdsDataset(AbstractSpaceTimeDataset):
         return _CLASSES[self.kind.name](ident)
 
     def get_new_map_instance(self, ident):
-        """Return a new instance of a map dataset which is associated with the type of this class"""
+        """Return a new map dataset instance associated with the type of this class"""
         return _CLASSES[self.kind.map_kind](ident)
 
     def get_map_register(self):

@@ -335,7 +335,7 @@ def check_new_map_dataset(
     overwrite: bool = False,
     dbif=None,
 ):
-    """Check if a new map dataset of a specific type can be created in the temporal database
+    """Check if a new map dataset of a type can be created in the temporal database
 
     :param name: The name of the new map dataset
     :param layer: The layer of the new map dataset

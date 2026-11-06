@@ -396,7 +396,9 @@ def get_dataset_list(
     order=None,
     dbif=None,
 ):
-    """Return a list of time stamped maps or space time datasets of a specific temporal type.
+    """Return a list of time stamped maps or space time datasets of one temporal type.
+
+    The maps or datasets are registered in the temporal database.
 
     The maps or datasets are registered in the temporal database.
 

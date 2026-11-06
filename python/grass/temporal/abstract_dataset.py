@@ -25,7 +25,10 @@ from .topology import (
 
 
 class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
-    """This is the base class for all datasets (raster, vector, raster3d, strds, stvds, str3ds)"""
+    """Base class of all datasets.
+
+    The datasets are raster, vector, raster3d, strds, stvds and str3ds.
+    """
 
     def __init__(self) -> None:
         super().__init__()
@@ -41,7 +44,7 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         return get_tgis_message_interface()
 
     def get_number_of_relations(self):
-        """Return the number of maps per temporal relation name.
+        """Return the number of related maps per spatial and temporal relation name.
 
         The following relations are available:
 
@@ -280,7 +283,9 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         return (start, end)
 
     def get_relative_time(self):
-        """Returns the start time, the end time and the temporal unit of the dataset as tuple
+        """Returns the start time, the end time and the temporal unit as tuple
+
+        The tuple describes the dataset.
 
         The start time is of type integer.
 
@@ -304,7 +309,9 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         return self.relative_time.get_unit()
 
     def check_relative_time_unit(self, unit) -> bool:
-        """Check that the unit is year(s), month(s), day(s), hour(s), minute(s) or second(s).
+        """Check that the unit is a valid time unit.
+
+        Valid units are year(s), month(s), day(s), hour(s), minute(s) and second(s).
 
         :param unit: The unit string
         :return: True if success, False otherwise

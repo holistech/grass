@@ -1,5 +1,7 @@
 """
-Topology of datasets: the links a map keeps to its related maps and the builder that finds them
+Topology of datasets: the links of a map to its related maps
+
+The module also holds the builder that finds them.
 
 A map links to the maps it is temporally and spatially related to. The
 relations come in pairs, because A follows B exactly when B precedes A; the
@@ -310,7 +312,9 @@ class TopologyLinks:
         self._links["temporal"]["PREV"] = map
 
     def next(self):
-        """Return the map with a start time temporally located after the start time of this map.
+        """Return the map starting after the start time of this map.
+
+        The map is temporally located after and closer than other maps.
 
         The map is temporally closer than other maps.
 
@@ -319,7 +323,9 @@ class TopologyLinks:
         return self._links["temporal"].get("NEXT")
 
     def prev(self):
-        """Return the map with a start time temporally located before the start time of this map.
+        """Return the map starting before the start time of this map.
+
+        The map is temporally located before and closer than other maps.
 
         The map is temporally closer than other maps.
 
@@ -438,7 +444,7 @@ def reversed_map_ids(maps) -> set[str]:
 
 
 class SpatioTemporalTopologyBuilder:
-    """Build the spatio-temporal topology of spatio-temporally related abstract dataset objects.
+    """Build the spatio-temporal topology of related abstract dataset objects.
 
     The abstract dataset objects must be provided as a single list, or in
     two lists.
@@ -601,7 +607,9 @@ class SpatioTemporalTopologyBuilder:
                 map_.set_spatial_topology_build_true()
 
     def _map_to_rect(self, tree, map_, spatial=None):
-        """Use the spatio-temporal extent of a map to create and return a RTree rectangle
+        """Create and return a RTree rectangle from the extent of a map.
+
+        The spatio-temporal extent of the map is used.
 
         :param spatial: This indicates if the spatial topology is created
                         as well: spatial can be None (no spatial topology),
@@ -668,7 +676,9 @@ class SpatioTemporalTopologyBuilder:
         return tree
 
     def build(self, mapsA, mapsB=None, spatial=None) -> None:
-        """Build the spatio-temporal topology structure between one or two unordered lists of abstract dataset objects.
+        """Build the spatio-temporal topology between one or two lists of datasets.
+
+        The lists are unordered lists of abstract dataset objects.
 
         This method builds the temporal or spatio-temporal topology from
         mapsA to mapsB and vice verse. The spatio-temporal topology
@@ -918,7 +928,7 @@ def count_gaps(maps) -> int:
 
 
 def count_temporal_topology_relationships(maps1, maps2=None, dbif=None):
-    """Count the temporal relations of a single list of maps or between two lists of maps
+    """Count the temporal relations of one list of maps or between two lists.
 
     :param maps1: A list of abstract_dataset
                 objects with initiated temporal extent
@@ -1001,7 +1011,9 @@ def create_temporal_relation_sql_where_statement(
     use_follows: bool = False,
     use_precedes: bool = False,
 ):
-    """Create a SQL WHERE statement for temporal relation selection of maps in space time datasets
+    """Create a SQL WHERE statement to select maps by temporal relation.
+
+    The maps are those of space time datasets.
 
     :param start: The start time
     :param end: The end time

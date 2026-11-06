@@ -44,5 +44,5 @@ max-complexity = 15
 [lint.extend-per-file-ignores]
 # The reference implementation is what publications cite: its content is
 # not changed for style. The tests are outside this clean-up.
-"classic/*" = ["D205", "A001", "BLE001", "C901", "PERF401", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP031", "UP032"]
-"tests/**" = ["D205", "A001", "BLE001", "C901", "PERF401", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP031", "UP032"]
+"classic/*" = ["A001", "BLE001", "C901", "D205", "PERF401", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP031", "UP032"]
+"tests/**" = ["A001", "BLE001", "C901", "D205", "PERF401", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP031", "UP032"]

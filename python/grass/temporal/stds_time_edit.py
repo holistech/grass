@@ -162,7 +162,9 @@ def shift_map_list(maps, gran):
 
 
 def snap_map_list(maps):
-    """Snap the end time of each map in the list to the start time of its temporal nearest neighbor in the future.
+    """Snap the end time of each map in the list to the next map in the future.
+
+    The end time becomes the start time of the temporal nearest neighbor.
 
     Maps with equal time stamps are not snapped.
 
@@ -373,7 +375,9 @@ def shift(stds, gran, dbif=None) -> bool:
 
 
 def snap(stds, dbif=None) -> None:
-    """Snap the end time of each registered map to the start time of its temporal nearest neighbor in the future.
+    """Snap the end time of each registered map to the next map in the future.
+
+    The end time becomes the start time of the temporal nearest neighbor.
 
     Maps with equal time stamps are not snapped. The last map gets the
     granularity of the dataset as length if it is a time instance.

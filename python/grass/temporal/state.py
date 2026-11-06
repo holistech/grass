@@ -122,7 +122,9 @@ def get_current_mapset() -> str | None:
 
 
 def get_enable_mapset_check():
-    """Return True if the mapsets should be checked in insert, update and delete requests.
+    """Return True if the mapsets should be checked in insert, update and delete.
+
+    This includes the registration of space time datasets.
 
     This includes the registration of space time datasets.
 
@@ -143,7 +145,9 @@ def get_enable_mapset_check():
 
 
 def get_enable_timestamp_write():
-    """Return True if the map timestamps should be written to the spatial database metadata as well.
+    """Return True if the map timestamps should also be written to the metadata.
+
+    The metadata are those of the spatial database.
 
     If this switch is True, the timestamps of maps will be
     written as textfiles for each map that will be inserted or updated in
@@ -193,7 +197,9 @@ def _init_tgis_message_interface(raise_on_error: bool = False) -> None:
 
 
 def get_tgis_message_interface():
-    """Return the temporal GIS message interface which is of type grass.pygrass.message.Messenger()
+    """Return the temporal GIS message interface.
+
+    The interface is of type grass.pygrass.message.Messenger().
 
     Use this message interface to print messages to stderr using the
     GRASS C-library messaging system.
@@ -217,7 +223,9 @@ def get_tgis_c_library_interface():
 
 
 def set_raise_on_error(raise_exp: bool = True):
-    """Define behavior on fatal error, invoked using the tgis messenger interface (msgr.fatal())
+    """Define the behavior on fatal error, invoked via msgr.fatal()
+
+    The call goes through the tgis messenger interface.
 
     The messenger interface will be restarted using the new error policy
 
@@ -283,7 +291,7 @@ def get_tgis_db_version():
 
 
 def stop_subprocesses() -> None:
-    """Stop the messenger and C-interface subprocesses that are started by tgis.init()"""
+    """Stop the messenger and C-interface subprocesses started by tgis.init()"""
     if STATE.message_interface:
         STATE.message_interface.stop()
     if STATE.c_library_interface:

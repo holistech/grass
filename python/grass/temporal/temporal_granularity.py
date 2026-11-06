@@ -210,7 +210,9 @@ def check_granularity_string(granularity, temporal_type) -> bool:
 
 
 def get_time_tuple_function(maps):
-    """Return the function that gets the time tuple of a TGIS DB row or an AbstractDataset object.
+    """Return the function that gets the time tuple of a row or a dataset.
+
+    The row is a TGIS DB row, the dataset an AbstractDataset object.
 
     :param maps: a list of AbstractDataset objects or database rows
     :return: A function

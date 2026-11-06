@@ -110,7 +110,7 @@ class DictSQLSerializer:
         self.dbmi_paramstyle = get_tgis_dbmi_paramstyle()
 
     def serialize(self, type, table, where=None, where_args=(), dbif=None, mapset=None):
-        """Convert the internal dictionary into a string of semicolon separated SQL statements.
+        """Convert the internal dictionary into semicolon separated SQL statements.
 
         The keys are the column names and the values are the row entries.
 
@@ -183,7 +183,7 @@ class DictSQLSerializer:
         return list(self.D)
 
     def deserialize(self, row) -> None:
-        """Convert the content of the dbmi dictionary like row into the internal dictionary
+        """Convert the content of the dbmi dictionary like row into the internal one
 
         :param row: The dictionary like row to store in the internal dict
         """
@@ -271,7 +271,7 @@ class SQLDatabaseInterface(DictSQLSerializer):
         return get_tgis_message_interface()
 
     def get_table_name(self):
-        """Return the name of the table in which the internal data are inserted, updated or selected
+        """Return the name of the table that is inserted into, updated or selected from
 
         :return: The name of the table
         """
@@ -521,7 +521,7 @@ class SQLDatabaseInterface(DictSQLSerializer):
         return dbif.mogrify_sql_statement(self.get_update_all_statement(ident))
 
     def update_all(self, dbif=None, ident=None) -> None:
-        """Serialize the content of this object, including None objects, and update it in the database.
+        """Serialize this object, including None objects, and update the database.
 
         The internal identifier is used.
 
@@ -570,7 +570,7 @@ class Column:
 
     @property
     def accessor(self) -> str:
-        """The name that get_, set_ and the property are built from"""
+        """The name that ``get_``, ``set_`` and the property are built from"""
         return self.alias or self.name
 
 

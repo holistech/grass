@@ -86,7 +86,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
 
     @abstractmethod
     def get_new_map_instance(self, ident=None):
-        """Return a new instance of a map which is associated with the type of this object
+        """Return a new instance of a map of the type of this object
 
         :param ident: The unique identifier of the new object
         """
@@ -274,7 +274,10 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         return self.base.get_semantic_type()
 
     def get_initial_values(self):
-        """Return the initial values: temporal_type, semantic_type, title, description"""
+        """Return the initial values.
+
+        The values are temporal_type, semantic_type, title and description.
+        """
 
         temporal_type = self.get_temporal_type()
         semantic_type = self.base.get_semantic_type()
@@ -350,7 +353,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
             self.relative_time.set_unit(unit)
 
     def insert(self, dbif=None, execute: bool = True):
-        """Insert the space time dataset content into the database from the internal structure
+        """Insert the space time dataset content into the database
+
+        The content comes from the internal structure.
 
         The map register table will be created, so that maps
         can be registered.
@@ -423,7 +428,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
     def print_spatio_temporal_relationships(
         self, maps=None, spatial=None, dbif=None
     ) -> None:
-        """Print the spatio-temporal relationships of the maps of the space time dataset.
+        """Print the spatio-temporal relationships of the maps of the dataset.
 
         The maps are all maps of the dataset or the maps of the optional list.
 
@@ -596,7 +601,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
     def get_registered_maps_as_objects_with_gaps(
         self, where=None, dbif=None, spatial_extent=None, spatial_relation=None
     ):
-        """Return all or a subset of the registered maps ordered by start time, with gap map objects.
+        """Return all or a subset of the registered maps with gap map objects.
+
+        The maps are ordered by start time.
 
         A gap map object has id None. The result serves spatio-temporal topological
         operations that require the spatio-temporal extent only.
@@ -1033,7 +1040,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
 
     @staticmethod
     def snap_map_list(maps):
-        """Snap the end time of each map in the list to the start time of its temporal nearest neighbor in the future.
+        """Snap the end time of each map in the list to the next map in the future.
+
+        The end time becomes the start time of the temporal nearest neighbor.
 
         Maps with equal time stamps are not snapped. This method does not
         perform any temporal database operations. See
@@ -1046,7 +1055,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         return stds_time_edit.snap_map_list(maps)
 
     def snap(self, dbif=None) -> None:
-        """Snap the end time of each registered map to the start time of its temporal nearest neighbor in the future.
+        """Snap the end time of each registered map to the next map in the future.
+
+        The end time becomes the start time of the temporal nearest neighbor.
 
         Maps with equal time stamps are not snapped
 
@@ -1056,7 +1067,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         stds_time_edit.snap(self, dbif)
 
     def update_map_timestamps(self, maps, date_list, dbif) -> None:
-        """Update the timestamps of maps with the start and end time stored in the date_list.
+        """Update the timestamps of maps with the times stored in the date_list.
 
         The number of dates in the list must be equal to the number
         of maps. The datasets the maps are registered in are updated too.
@@ -1238,7 +1249,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         return self.map_register.unregister(map, dbif, execute)
 
     def update_from_registered_maps(self, dbif=None) -> None:
-        """Update the modification time, the spatial and temporal extent and the type specific metadata.
+        """Update the modification time and the extents and the type specific metadata.
+
+        The spatial and temporal extent are updated.
 
         It should always be called after maps are registered, unregistered or deleted
         from the space time dataset.

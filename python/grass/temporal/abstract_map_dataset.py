@@ -122,7 +122,9 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
     @abstractmethod
     def get_new_stds_instance(self, ident):
-        """Return a new space time dataset instance for maps of the type of this map object.
+        """Return a new space time dataset instance for maps of this map type.
+
+        The map type is raster, raster_3d or vector.
 
         The map type is raster, raster_3d or vector.
 
@@ -169,7 +171,9 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         """Load the content of this object from the grass file system based database"""
 
     def _convert_timestamp(self):
-        """Convert the valid time into a grass datetime library compatible timestamp string
+        """Convert the valid time into a grass datetime library timestamp string
+
+        The string is compatible with the grass datetime library.
 
         This methods works for relative and absolute time
 
@@ -1071,7 +1075,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             return statement
 
     def unregister(self, dbif=None, update: bool = True, execute: bool = True):
-        """Remove the map entry in each space time dataset in which this map is registered
+        """Remove the map entry from each space time dataset that registers this map
 
         :param dbif: The database interface to be used
         :param update: Call for each unregister statement the update from

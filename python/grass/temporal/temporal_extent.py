@@ -274,7 +274,9 @@ class TemporalExtent(Row):
         return self.disjoint_union(extent)
 
     def starts(self, extent) -> bool:
-        """Return True if this temporal extent (A) starts at the start of the provided extent (B) and finishes within it.
+        """Return True if A starts at the start of B and finishes within it.
+
+        A is this temporal extent, B the provided one.
 
         ::
 
@@ -304,7 +306,9 @@ class TemporalExtent(Row):
         )
 
     def started(self, extent) -> bool:
-        """Return True if this temporal extent (A) starts at the start of the provided extent (B) and finishes after it.
+        """Return True if A starts at the start of B and finishes after it.
+
+        A is this temporal extent, B the provided one.
 
         ::
 
@@ -333,7 +337,9 @@ class TemporalExtent(Row):
         )
 
     def finishes(self, extent) -> bool:
-        """Return True if this temporal extent (A) starts after the start of the provided extent (B) and finishes with it.
+        """Return True if A starts after the start of B and finishes with it.
+
+        A is this temporal extent, B the provided one.
 
         ::
 
@@ -362,7 +368,9 @@ class TemporalExtent(Row):
         )
 
     def finished(self, extent) -> bool:
-        """Return True if this temporal extent (A) starts before the start of the provided extent (B) and finishes with it.
+        """Return True if A starts before the start of B and finishes with it.
+
+        A is this temporal extent, B the provided one.
 
         ::
 
@@ -391,7 +399,9 @@ class TemporalExtent(Row):
         )
 
     def after(self, extent) -> bool:
-        """Return True if this temporal extent (A) is located after the provided temporal extent (B)
+        """Return True if extent A is located after extent B.
+
+        A is this extent, B the provided extent.
 
         ::
 
@@ -417,7 +427,9 @@ class TemporalExtent(Row):
         return self.D["start_time"] > extent.D["end_time"]
 
     def before(self, extent):
-        """Return True if this temporal extent (A) is located before the provided temporal extent (B).
+        """Return True if extent A is located before extent B.
+
+        A is this extent, B the provided extent.
 
         ::
 
@@ -443,7 +455,9 @@ class TemporalExtent(Row):
         return self.D["end_time"] < extent.D["start_time"]
 
     def follows(self, extent) -> bool:
-        """Return True if this temporal extent (A) follows the provided temporal extent (B)
+        """Return True if extent A follows extent B.
+
+        A is this extent, B the provided extent.
 
         ::
 
@@ -469,7 +483,9 @@ class TemporalExtent(Row):
         )
 
     def precedes(self, extent) -> bool:
-        """Return True if this temporal extent (A) precedes the provided temporal extent (B)
+        """Return True if extent A precedes extent B.
+
+        A is this extent, B the provided extent.
 
         ::
 
@@ -497,7 +513,9 @@ class TemporalExtent(Row):
         )
 
     def during(self, extent) -> bool:
-        """Return True if this temporal extent (A) is located during the provided extent (B).
+        """Return True if extent A is located during extent B.
+
+        A is this extent, B the provided extent.
 
         ::
 
@@ -532,7 +550,9 @@ class TemporalExtent(Row):
         )
 
     def contains(self, extent) -> bool:
-        """Return True if this temporal extent (A) contains the provided temporal extent (B)
+        """Return True if extent A contains extent B.
+
+        A is this extent, B the provided extent.
 
         ::
 
@@ -568,7 +588,9 @@ class TemporalExtent(Row):
         )
 
     def equal(self, extent) -> bool:
-        """Return True if this temporal extent (A) is equal to the provided temporal extent (B)
+        """Return True if extent A is equal to extent B.
+
+        A is this extent, B the provided extent.
 
         ::
 
@@ -600,7 +622,9 @@ class TemporalExtent(Row):
         )
 
     def overlaps(self, extent) -> bool:
-        """Return True if this temporal extent (A) overlapped the provided temporal extent (B)
+        """Return True if extent A overlapped extent B.
+
+        A is this extent, B the provided extent.
 
         ::
 
@@ -631,7 +655,9 @@ class TemporalExtent(Row):
         )
 
     def overlapped(self, extent) -> bool:
-        """Return True if this temporal extent (A) overlaps the provided temporal extent (B)
+        """Return True if extent A overlaps extent B.
+
+        A is this extent, B the provided extent.
 
         ::
 

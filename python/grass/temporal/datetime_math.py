@@ -170,7 +170,7 @@ def _replace_year_month(mydate: datetime, year: int, month: int) -> datetime:
 def modify_datetime(
     mydate: datetime, years=0, months=0, weeks=0, days=0, hours=0, minutes=0, seconds=0
 ) -> datetime:
-    """Return a new datetime object incremented with the provided relative dates and times
+    """Return a new datetime object incremented with relative dates and times
 
     A month or year step that ends behind the last day of the target month
     ends on that last day. Years and months form one calendar step of
@@ -371,9 +371,11 @@ def adjust_datetime_to_granularity(mydate: datetime, granularity):
 
 
 class datetime_delta(TypedDict):
-    """Typed dictionary with the accumulated delta in year, month, day, hour, minute and second.
+    """Typed dictionary with the accumulated delta of a datetime difference.
 
-    It also holds max_days. At runtime, it is a plain dict."""
+    The keys are year, month, day, hour, minute, second and max_days. At runtime,
+    it is a plain dict.
+    """
 
     year: int
     month: int
@@ -385,7 +387,9 @@ class datetime_delta(TypedDict):
 
 
 def compute_datetime_delta(start: datetime, end: datetime) -> datetime_delta:
-    """Return a dictionary with the accumulated delta in year, month, day, hour, minute and second
+    """Return the accumulated delta of two datetimes as a dictionary.
+
+    The delta is given in year, month, day, hour, minute and second.
 
     Between two firsts of a month the months count in full, 12 for each year
     and the difference of the months (1 January 2024 to 1 March 2025 is 14

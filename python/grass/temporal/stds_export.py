@@ -133,7 +133,7 @@ def _gdal_tif_options(
     """Return the flags and options of r.out.gdal besides the files and format
 
     :param datatype: The data type of the map
-    :param type_: The data type that was forced, None to choose one
+    :param type\\_: The data type that was forced, None to choose one
     :param min_val: The minimum of the map, None for a map without a valid cell
     :param max_val: The maximum of the map
     :param kwargs: The options of the caller, without those that are None
@@ -626,7 +626,10 @@ def export_stds(
           A space time 3D raster dataset cannot be exported, GRASS has no
           module to pack a 3D raster map.
     :param datatype: Force the output datatype for r.out.gdal
-    :param kwargs: Accepted and ignored
+    :param kwargs: Further options of r.out.gdal for the formats GTiff and
+                   AAIGrid, e.g. nodata; options whose value is None are
+                   dropped, and an option given here replaces the one the
+                   export would choose itself. The other formats ignore them.
     """
 
     # open_old_stds() also takes the name of the map type, "raster" for a space

@@ -1,5 +1,7 @@
 """
-Fast and exit-safe interface to GRASS C-library functions using ctypes and multiprocessing
+Fast and exit-safe interface to GRASS C-library functions
+
+The interface uses ctypes and multiprocessing.
 
 The C-library functions run in a subprocess, so that a G_fatal_error() ends
 the subprocess and not the caller. A request is a tuple of the name of a
@@ -87,7 +89,7 @@ def _handler(
 
 
 def _read_raster_info(name, mapset):
-    """Read the raster map info from the file system and store the content into a dictionary
+    """Read the raster map info from the file system into a dictionary
 
     This method uses the ctypes interface to the gis and raster libraries
     to read the map metadata information
@@ -158,7 +160,7 @@ def _read_raster_info(name, mapset):
 
 
 def _read_raster3d_info(name, mapset):
-    """Read the 3D raster map info from the file system and store the content into a dictionary
+    """Read the 3D raster map info from the file system into a dictionary
 
     This method uses the ctypes interface to the gis and raster3d libraries
     to read the map metadata information
@@ -242,7 +244,7 @@ def _read_raster3d_info(name, mapset):
 
 
 def _read_vector_info(name, mapset):
-    """Read the vector map info from the file system and store the content into a dictionary
+    """Read the vector map info from the file system into a dictionary
 
     This method uses the ctypes interface to the vector libraries
     to read the map metadata information
@@ -347,7 +349,7 @@ def _read_vector_info(name, mapset):
 
 
 def _read_raster_history(name, mapset):
-    """Read the raster history from the file system and store the content into a dictionary
+    """Read the raster history from the file system into a dictionary
 
     This method uses the ctypes interface to the gis and raster libraries
     to read the map history
@@ -380,7 +382,7 @@ def _read_raster_history(name, mapset):
 
 
 def _read_raster3d_history(name, mapset):
-    """Read the 3D raster map info from the file system and store the content into a dictionary
+    """Read the 3D raster map info from the file system into a dictionary
 
     This method uses the ctypes interface to the gis and raster3d libraries
     to read the map metadata information
@@ -413,7 +415,7 @@ def _read_raster3d_history(name, mapset):
 
 
 def _read_vector_history(name, mapset):
-    """Read the vector history from the file system and store the content into a dictionary
+    """Read the vector history from the file system into a dictionary
 
     This method uses the ctypes interface to the gis and raster libraries
     to read the map history
@@ -475,7 +477,9 @@ def _relative_value(datetime_):
 
 
 def _convert_timestamp_from_grass(ts):
-    """Convert a GRASS file based timestamp into the temporal framework format datetime or integer.
+    """Convert a GRASS file based timestamp into datetime or integer.
+
+    The result is in the format of the temporal framework.
 
     A tuple of two datetime objects (start, end) is returned in case of
     absolute time.
