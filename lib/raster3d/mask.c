@@ -99,13 +99,25 @@ int Rast3d_mask_open_old(void)
 
 /*--------------------------------------------------------------------------*/
 
+/* The value of the mask at the location (north, east, top). */
+static float mask_value_at_location(double north, double east, double top)
+{
+    float value;
+
+    Rast3d_get_region_value(Rast3d_maskMap, north, east, top, &value,
+                            FCELL_TYPE);
+    return value;
+}
+
 /* The value of the mask at the centre of the cell (x, y, z) of the grid that
- * cells describes: the current window or the region of a map. */
+ * cells describes. Used for the cells of the map: the value read there is
+ * the value of that cell, and for a mask on the grid of the map its centre
+ * lies inside the cell of the mask with the same number, never on a
+ * border. */
 static float mask_value_at_cell(const RASTER3D_Region *cells, int x, int y,
                                 int z)
 {
     double north, east, top;
-    float value;
 
     north = ((double)cells->rows - y - 0.5) / (double)cells->rows *
                 (cells->north - cells->south) +
@@ -117,14 +129,57 @@ static float mask_value_at_cell(const RASTER3D_Region *cells, int x, int y,
               (cells->top - cells->bottom) +
           cells->bottom;
 
-    Rast3d_get_region_value(Rast3d_maskMap, north, east, top, &value,
-                            FCELL_TYPE);
-    return value;
+    return mask_value_at_location(north, east, top);
 }
 
+/* The value of the mask at the centre of the cell (x, y, z) of the window of
+ * map. The centre comes from Rast3d_coord2location(), the arithmetic with
+ * which Rast3d_nearest_neighbor() finds the cell of the map whose value it
+ * reads: on a border between two cells of the map, the formula of
+ * mask_value_at_cell() could round to the other side, and a mask on the grid
+ * of the map then hid a value by the mask of the neighbouring cell
+ * (measured 2026-11-06 with cells of 0.1 and a region shifted by half a
+ * cell: the cell of value 5 was hidden by the mask of the cell of 4). */
 static float Rast3d_getMaskFloat(RASTER3D_Map *map, int x, int y, int z)
 {
-    return mask_value_at_cell(&map->window, x, y, z);
+    double north, east, top;
+
+    Rast3d_coord2location(&map->window, (double)x + 0.5, (double)y + 0.5,
+                          (double)z + 0.5, &north, &east, &top);
+    return mask_value_at_location(north, east, top);
+}
+
+/*--------------------------------------------------------------------------*/
+
+/* Returns 1 if the read functions mask the values they read from map: the
+ * mask is loaded and turned on for map, and map is open for reading. A map
+ * open for writing keeps the former behaviour, in which only a tile read
+ * back from its file is masked (Rast3d_read_tile()), because masking the
+ * values a tool reads back from its own output would write the mask into
+ * the output where the tool keeps an earlier value. */
+int Rast3d_mask_applies_to(RASTER3D_Map *map)
+{
+    return Rast3d_maskMapExistsVar && map->useMask &&
+           map->operation == RASTER3D_READ_DATA;
+}
+
+/* Returns 1 if the mask is null at the centre of the cell (x, y, z) of the
+ * grid that cells describes. The mask has to be loaded. */
+int Rast3d_mask_is_null_at_cell(const RASTER3D_Region *cells, int x, int y,
+                                int z)
+{
+    float value = mask_value_at_cell(cells, x, y, z);
+
+    return Rast3d_is_null_value_num(&value, FCELL_TYPE);
+}
+
+/* Returns 1 if the mask is null at the location (north, east, top). The
+ * mask has to be loaded. */
+int Rast3d_mask_is_null_at_location(double north, double east, double top)
+{
+    float value = mask_value_at_location(north, east, top);
+
+    return Rast3d_is_null_value_num(&value, FCELL_TYPE);
 }
 
 /*--------------------------------------------------------------------------*/
@@ -169,8 +224,12 @@ int Rast3d_mask_reopen(int cache)
 /*!
  * \brief
  *
- *  Returns 1 if the cell with cell-coordinates <em>(x, y, z)</em> is masked
- *  out. Returns 0 otherwise.
+ *  Returns 1 if the cell with cell-coordinates <em>(x, y, z)</em> of the
+ *  current window of <em>map</em> is masked out, that is if the 3d-mask is
+ *  NULL at the centre of that cell, computed as Rast3d_nearest_neighbor()
+ *  computes it, so that the mask and the value come from the same location.
+ *  Returns 0 otherwise. This is the rule that Rast3d_get_value() applies for
+ *  a map with the mask turned on.
  *
  *  \param x
  *  \param y
@@ -266,6 +325,10 @@ void Rast3d_mask_double(RASTER3D_Map *map, int x, int y, int z, double *value)
  *  cells of the tile and not on the status of the mask for <em>map</em>
  *  (i.e. turned on or off).
  *
+ *  Rast3d_read_tile() calls it for a map with the mask turned on. The tiles
+ *  that a map open for reading keeps in its cache are not masked: the read
+ *  functions apply the mask to each value they read (see Rast3d_mask_on()).
+ *
  *  \param map
  *  \param tileIndex
  *  \param tile
@@ -331,9 +394,23 @@ void Rast3d_mask_tile(RASTER3D_Map *map, int tileIndex, void *tile, int type)
 /*!
  * \brief
  *
- *  Turns on the mask for <em>map</em>. Do
- * not invoke this function after the first tile has been read since the result
- * might be inconsistent cell-values.
+ *  Turns on the mask for <em>map</em>.
+ *
+ *  For a map open for reading, the read functions then replace a value with
+ *  the NULL-value where the 3d-mask is NULL at the location of the value
+ *  read: Rast3d_get_value() and the functions based on it at the centre of
+ *  the cell of the current window, Rast3d_get_window_value() at the centre of
+ *  the cell of the current window that holds the location,
+ *  Rast3d_get_region_value() at the location itself, and
+ *  Rast3d_get_value_region(), Rast3d_get_float_region(),
+ *  Rast3d_get_double_region() and Rast3d_get_block() at the centre of the
+ *  cell of the map. Rast3d_read_tile() masks the tile at the centres of the
+ *  cells of the map. The mask can be turned on and off at any time.
+ *
+ *  For a map open for writing, only a tile read back from the file is
+ *  masked, at the centres of the cells of the map. Do not invoke this
+ *  function after the first tile has been read since the result might be
+ *  inconsistent cell-values.
  *
  *  \param map
  *  \return void
@@ -347,8 +424,9 @@ void Rast3d_mask_on(RASTER3D_Map *map)
  * \brief
  *
  *  Turns off the mask for <em>map</em>.
- * This is the default.  Do not invoke this function after the first tile has
- * been read since the result might be inconsistent cell-values.
+ * This is the default. For a map open for writing, do not invoke this
+ * function after the first tile has been read since the result might be
+ * inconsistent cell-values (see Rast3d_mask_on()).
  *
  *  \param map
  *  \return void

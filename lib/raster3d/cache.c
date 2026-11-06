@@ -11,8 +11,9 @@ static int cacheRead_readFun(int tileIndex, void *tileBuf, void *closure)
 {
     RASTER3D_Map *map = closure;
 
-    if (!Rast3d_read_tile(map, tileIndex, tileBuf, map->typeIntern)) {
-        Rast3d_error("cacheRead_readFun: error in Rast3d_read_tile");
+    if (!Rast3d_read_tile_into_buffer(map, tileIndex, tileBuf)) {
+        Rast3d_error(
+            "cacheRead_readFun: error in Rast3d_read_tile_into_buffer");
         return 0;
     }
     return 1;
@@ -64,10 +65,10 @@ static int cacheWrite_readFun(int tileIndex, void *tileBuf, void *closure)
 
     pos = map->index[tileIndex];
 
-    /* tile has already been flushed onto output file or does not exist yet */
-    if (pos >=
-        -1) { /* note, Rast3d_read_tile takes care of the case pos == -1 */
-        Rast3d_read_tile(map, tileIndex, tileBuf, map->typeIntern);
+    /* tile has already been flushed onto output file or does not exist yet;
+     * Rast3d_read_tile_into_buffer takes care of the case pos == -1 */
+    if (pos >= -1) {
+        Rast3d_read_tile_into_buffer(map, tileIndex, tileBuf);
         return 1;
     }
 

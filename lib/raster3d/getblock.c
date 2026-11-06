@@ -89,7 +89,10 @@ void Rast3d_get_block_nocache(RASTER3D_Map *map, int x0, int y0, int z0, int nx,
  * Copies the cells contained in the block (cube) with vertices
  * <em>(x0, y0, z0)</em> and <em>(x0 + nx - 1, y0 + ny - 1, z0 + nz - 1)</em>
  * into <em>block</em>. The cell-values in <em>block</em> are of <em>type</em>.
- * The source code can be found in <em>getblock.c</em>.
+ * The coordinates are cell coordinates of the map, as in
+ * Rast3d_get_value_region(); if the mask is turned on for <em>map</em>, a
+ * value is the NULL-value where the 3d-mask is NULL at the centre of the cell
+ * of the map. The source code can be found in <em>getblock.c</em>.
  *
  *  \param map
  *  \param x0

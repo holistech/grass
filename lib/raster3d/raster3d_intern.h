@@ -70,6 +70,11 @@ extern void Rast3d_fatal_error_noargs(const char * /* msg */);
 
 /*---------------------------------------------------------------------------*/
 
+extern int Rast3d_read_tile_into_buffer(RASTER3D_Map *, int, void *);
+extern int Rast3d_mask_applies_to(RASTER3D_Map *);
+extern int Rast3d_mask_is_null_at_cell(const RASTER3D_Region *, int, int, int);
+extern int Rast3d_mask_is_null_at_location(double, double, double);
+
 /*---------------------------------------------------------------------------*/
 
 #define RASTER3D_REGION_NORTH        "North"

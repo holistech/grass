@@ -1,9 +1,9 @@
 """Test that the 3D raster mask hides the cells at its location in any region
 
 The tools read a 3D raster map tile by tile in the cells of the map and
-resample them into the current region. The mask has to be looked up at the
-location of the cells of the map, so that the current region changes which
-cells are shown but not which are masked.
+resample them into the current region. For a mask on the grid of the map,
+the current region changes which cells are shown but not which are masked.
+r3_mask_grid_test.py tests a mask on another grid.
 """
 
 import math

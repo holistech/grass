@@ -125,29 +125,10 @@ static int Rast3d_readTileCompressed(RASTER3D_Map *map, int tileIndex,
 
 /*---------------------------------------------------------------------------*/
 
-/*---------------------------------------------------------------------------*/
-/* EXPORTED FUNCTIONS */
-
-/*---------------------------------------------------------------------------*/
-
-/*!
- * \brief
- *
- *
- * Reads tile with index <em>tileIndex</em> into the <em>tile</em> buffer. The
- * cells are stored with type <em>type</em> which must be one of FCELL_TYPE and
- * DCELL_TYPE. If the tile with <em>tileIndex</em> is not stored on the file
- * corresponding to <em>map</em>, and <em>tileIndex</em> is a valid index
- * <em>tile</em> is filled with NULL-values.
- *
- *  \param map
- *  \param tileIndex
- *  \param tile
- *  \param type
- *  \return 1 ... if successful,
- *          0 ... otherwise
- */
-int Rast3d_read_tile(RASTER3D_Map *map, int tileIndex, void *tile, int type)
+/* Reads the tile of map with tileIndex into tile, in type, and masks it at
+ * the centres of the cells of the map if apply_mask is set. */
+static int read_tile(RASTER3D_Map *map, int tileIndex, void *tile, int type,
+                     int apply_mask)
 {
     int nofNum, rows, cols, depths, xRedundant, yRedundant, zRedundant;
 
@@ -186,11 +167,55 @@ int Rast3d_read_tile(RASTER3D_Map *map, int tileIndex, void *tile, int type)
         return 0;
     }
 
-    if (Rast3d_mask_is_off(map))
+    if (!apply_mask)
         return 1;
 
     Rast3d_mask_tile(map, tileIndex, tile, type);
     return 1;
+}
+
+/* Reads the tile of map with tileIndex into the tile buffer of map, its
+ * cache or its single tile, in the internal type. For a map open for reading
+ * the buffer keeps the values of the file, because the read functions apply
+ * the mask at the location of each value read: a value masked in the buffer
+ * could no longer be read for another location in the same cell of the map.
+ * For a map open for writing it reads as Rast3d_read_tile() does. */
+int Rast3d_read_tile_into_buffer(RASTER3D_Map *map, int tileIndex, void *tile)
+{
+    return read_tile(map, tileIndex, tile, map->typeIntern,
+                     map->operation == RASTER3D_WRITE_DATA &&
+                         Rast3d_mask_is_on(map));
+}
+
+/*---------------------------------------------------------------------------*/
+
+/*---------------------------------------------------------------------------*/
+/* EXPORTED FUNCTIONS */
+
+/*---------------------------------------------------------------------------*/
+
+/*!
+ * \brief
+ *
+ *
+ * Reads tile with index <em>tileIndex</em> into the <em>tile</em> buffer. The
+ * cells are stored with type <em>type</em> which must be one of FCELL_TYPE and
+ * DCELL_TYPE. If the tile with <em>tileIndex</em> is not stored on the file
+ * corresponding to <em>map</em>, and <em>tileIndex</em> is a valid index
+ * <em>tile</em> is filled with NULL-values. If the mask is turned on for
+ * <em>map</em>, the cells are masked at their centres (see
+ * Rast3d_mask_tile()).
+ *
+ *  \param map
+ *  \param tileIndex
+ *  \param tile
+ *  \param type
+ *  \return 1 ... if successful,
+ *          0 ... otherwise
+ */
+int Rast3d_read_tile(RASTER3D_Map *map, int tileIndex, void *tile, int type)
+{
+    return read_tile(map, tileIndex, tile, type, Rast3d_mask_is_on(map));
 }
 
 /*---------------------------------------------------------------------------*/

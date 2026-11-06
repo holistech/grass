@@ -290,14 +290,14 @@ int main(int argc, char *argv[])
                 }
                 /* As in r.univar, a cell outside the 3D raster mask is a null
                  * cell of the map, and with zones it belongs to no zone,
-                 * like a cell whose zone is null. Rast3d_is_masked() takes
-                 * the cell coordinates of the current region, the same as
-                 * Rast3d_get_value(). Rast3d_mask_on() is not used: it masks
-                 * whole tiles at the centres of the cells of the map, which
-                 * gives other cells when the mask lies on another grid than
-                 * the map, finer or offset (05.11.2026: with a mask in half
-                 * of the upper layer of a two layer map and tbres=0.5,
-                 * r3.out.ascii -m masked nothing, r3.univar one cell). */
+                 * like a cell whose zone is null. The mask is asked here
+                 * instead of turned on with Rast3d_mask_on(), with which
+                 * Rast3d_get_value() would return a null value that counts
+                 * as a null cell of its zone. Rast3d_is_masked() takes the
+                 * cell coordinates of the current region, the same as
+                 * Rast3d_get_value(), and asks the mask at the centre of
+                 * the cell of the region, as the library does for a map
+                 * with the mask turned on. */
                 if (Rast3d_is_masked(map, x, y, z)) {
                     if (!zone_info.n_zones)
                         stats[zone].size++;
