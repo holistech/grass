@@ -64,7 +64,14 @@ _SHOWN = 300
 
 
 def result_text(function: Callable, *args) -> str:
-    """Return repr() of the result of function(*args), or the exception"""
+    """Return the repr() of ``function(*args)``, or the exception as text
+
+    An exception, also SystemExit, is a result to record and does not
+    escape: the text is "raise <class name>: <message>".
+
+    :param function: the callable to run
+    :param args: the arguments for it
+    """
     try:
         return repr(function(*args))
     # Every exception is a result to record, so none may escape.

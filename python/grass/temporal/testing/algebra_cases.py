@@ -51,8 +51,10 @@ def january(number):
 
 
 def single_map(tools, kind, name, value, start=None, end=None):
-    """A map in no dataset; with start it gets that time stamp (an instant
-    without end)"""
+    """Make a map that is in no dataset
+
+    With start it gets that time stamp, an instant if end is None.
+    """
     map_type = MAP_TYPE_OF_STDS[STDS_TYPE_OF_KIND[kind]]
     make_map(tools, map_type, name, value, overwrite=True)
     if start is not None:
@@ -63,9 +65,12 @@ def single_map(tools, kind, name, value, start=None, end=None):
 
 
 def daily_datasets(tools, kind="raster"):
-    """A a1..a4 = 1..4 daily from January 1; B b1 = 5 and b2 = 6 on two days
+    """Make the daily datasets A, B, C and D
+
+    A a1..a4 = 1..4 daily from January 1; B b1 = 5 and b2 = 6 on two days
     each from January 1; C c1 = 7 on January 2 and 3; D d1..d3 = 8..10 daily
-    from January 3"""
+    from January 3.
+    """
     for name, values, first, length in (
         ("A", [1, 2, 3, 4], 1, 1),
         ("B", [5, 6], 1, 2),
@@ -102,8 +107,11 @@ def raster_algebra(tools):
 
 
 def monthly_datasets(tools):
-    """A a1..a6 = 1..6 on the months January to June; B b1 = 7 for January to
-    March and b2 = 8 for April to June; C c1 = 9 for the year 2001"""
+    """Make the monthly datasets A, B and C
+
+    A a1..a6 = 1..6 on the months January to June; B b1 = 7 for January to
+    March and b2 = 8 for April to June; C c1 = 9 for the year 2001.
+    """
     create_stds(
         tools,
         "strds",
@@ -120,8 +128,11 @@ def monthly_datasets(tools):
 
 
 def algebra_granularity(tools):
-    """The monthly datasets; D d1..d3 = 10, 11, 12 for 31 days from the
-    first of January, March and May; singletmap"""
+    """Make the monthly datasets for the granularity cases
+
+    Dataset D d1..d3 = 10, 11, 12 for 31 days from the first of January,
+    March and May; singletmap.
+    """
     small_region(tools, 3, 3)
     monthly_datasets(tools)
     create_stds(
@@ -137,9 +148,12 @@ def algebra_granularity(tools):
 
 
 def raster_granularity(tools):
-    """The monthly datasets; D d1..d3 = 10, 11, 12 for five days from the
-    first of January, March and May; singletmap = 99 for March; nullmap, a
-    null map for January to June"""
+    """Make the monthly datasets for the raster granularity cases
+
+    Dataset D d1..d3 = 10, 11, 12 for five days from the first of January,
+    March and May; singletmap = 99 for March; nullmap, a null map for
+    January to June.
+    """
     small_region(tools, 3, 3)
     monthly_datasets(tools)
     create_stds(
@@ -156,9 +170,12 @@ def raster_granularity(tools):
 
 
 def mixed_types(tools):
-    """A (str3ds) a1..a4 = 1..4 daily from January 1, B (strds) b1 = 5 and
+    """Make one dataset each of a 3D raster, a raster and a vector type
+
+    A (str3ds) a1..a4 = 1..4 daily from January 1, B (strds) b1 = 5 and
     b2 = 6 on two days each, C (stvds) c1 = 20 random points on January 2
-    and 3"""
+    and 3.
+    """
     small_region(tools, 3, 3, depths=3)
     create_stds(
         tools,
@@ -180,8 +197,11 @@ def mixed_types(tools):
 
 
 def conditionals(tools):
-    """The daily datasets, E e1..e3 = 11..13 on two days each from
-    December 31, 2000, and singletmap = 99"""
+    """Make the daily datasets and the datasets for the conditional cases
+
+    Dataset E e1..e3 = 11..13 on two days each from December 31, 2000, and
+    singletmap = 99.
+    """
     algebra(tools)
     start = when(12, 31, 2000)
     create_stds(
@@ -212,8 +232,11 @@ def raster3d_algebra(tools):
 
 
 def equal_time_stamps(tools):
-    """A a1..a4 = 1..4, all four at the instant January 1; singletmap = 100
-    at that instant; singlemap = 1000 without time"""
+    """Make a dataset whose maps share one instant
+
+    A a1..a4 = 1..4, all four at the instant January 1; singletmap = 100 at
+    that instant; singlemap = 1000 without time.
+    """
     small_region(tools, 3, 3)
     create_stds(
         tools, "strds", "A", [MapSpec(f"a{k}", k, january(1)) for k in range(1, 5)]
@@ -223,7 +246,9 @@ def equal_time_stamps(tools):
 
 
 def spatial_topology(tools):
-    """A a1..a4 and B b1..b4, map k holding k, all eight at the instant
+    """Make two datasets of maps that overlap in space at one instant
+
+    A a1..a4 and B b1..b4, map k holding k, all eight at the instant
     January 1; the maps k cover (west, east, south, north) 0-30, 20-50,
     25-40 and 40-60 (the same extent in A and B); singletmap = 100 at the
     instant; singlemap = 1000"""
@@ -246,8 +271,11 @@ def spatial_topology(tools):
 
 
 def conditional_complement(tools):
-    """A a1..a6 = 1..6 daily from January 1; B b1 = 7 on January 2 and 3,
-    b2 = 8 on January 4 and 5"""
+    """Make the datasets for the complement of a conditional
+
+    A a1..a6 = 1..6 daily from January 1; B b1 = 7 on January 2 and 3,
+    b2 = 8 on January 4 and 5.
+    """
     small_region(tools, 3, 3)
     create_stds(
         tools,
@@ -280,10 +308,12 @@ def raster_conditionals(tools):
 
 
 def vector_algebra(tools):
-    """The daily datasets as vector maps of 20 random points each, with the
-    seed 1 (A), 2 (B), 3 (C) and 4 (D), so the maps of a dataset are copies
-    of each other; singletmap (seed 5) on January 3; singlemap (seed 6)
-    without time"""
+    """Make the daily datasets as vector maps
+
+    Each map has 20 random points, with the seed 1 (A), 2 (B), 3 (C) and 4
+    (D), so the maps of a dataset are copies of each other; singletmap
+    (seed 5) on January 3; singlemap (seed 6) without time.
+    """
     tools.g_region(n=80, s=0, e=120, w=0, res=10)
     datasets = {
         "A": (1, 4, 1, 1),

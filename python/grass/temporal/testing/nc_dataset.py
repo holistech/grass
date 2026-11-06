@@ -388,8 +388,11 @@ def snapshot(dataset: Path) -> dict[str, tuple[int, int]]:
 
 
 def differences(expected: dict, found: dict) -> list[str]:
-    """Return "missing: key", "new: key" or "changed: key" for each key that
-    differs, in the order of the keys"""
+    """List the keys in which two snapshots differ
+
+    Each line is "missing: key", "new: key" or "changed: key", in the order of
+    the keys.
+    """
     lines = []
     for key in sorted(expected.keys() | found.keys()):
         if key not in found:

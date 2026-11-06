@@ -293,7 +293,11 @@ def outcome(kind, expression, runner, *, basename="fz", **options):
 def outcome_of_runner(kind, expression, runner, basename, **options):
     """``outcome`` of the runner that ``RUNNERS`` names, with option ``-n``
 
+    :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``
+    :param expression: Right hand side of the statement
     :param runner: Key of ``RUNNERS``
+    :param basename: Prefix of the new maps and suffix of the result dataset,
+        as for ``outcome``; two runs that are compared need different ones
     :param options: Options for the runner; ``register_null=True`` is set here
         unless an option says otherwise, because a map that is null everywhere
         is a result worth comparing.
@@ -478,6 +482,9 @@ def accepted_error_pair(kind, expression, first, second, **options):
       syntax error when it runs without computing
       (``corpus.reference_rejects_syntax``).
 
+    :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``
+    :param expression: Right hand side of the statement that both outcomes
+        come from; it decides whether it is invalid on its own
     :param first: The outcome of the reference
     :param second: The outcome of the classic profile
     :param options: The options of the runs. The granularity mode is left
@@ -558,6 +565,8 @@ def check_difference_seen(kind, expression, **options):
 def prepare(kind, session, directory):
     """Create the datasets of a kind and return the ``Tools`` of the session
 
+    :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``;
+        decides which datasets are built
     :param session: A ``temporal_session``
     :param directory: Existing directory for scratch files
     """

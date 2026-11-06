@@ -86,6 +86,9 @@ from .reference import KINDS
 def check_seed(kind, seed, **generate_options):
     """``check_agreement`` for the expression and options of a seed
 
+    :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``
+    :param seed: Non-negative whole number; the failure message names it, so
+        the run can be repeated
     :param generate_options: Arguments of ``generate`` such as
         ``granularity_share``
     """
@@ -130,10 +133,18 @@ def run_batch(
     which is no difference, see ``accepted_error_pair``, else None). The lines
     depend only on the seed and the code.
 
+    :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``
+    :param seeds: The seeds to run, an iterable of non-negative whole numbers
     :param runner: A runner as for ``outcome``
+    :param out: Path of the file to write; an existing file is replaced
     :param against: A second runner to compare with
     :param timeout: Seconds per outcome (SIGALRM, main thread only)
-    :param depth: See ``generate``, as are the two shares
+    :param depth: See ``generate``, as are the three shares
+    :param spatial_share: Share of the seeds that run with ``spatial=True``
+    :param granularity_share: Share of the seeds that run in the granularity
+        mode; 0 draws none, and a kind without that mode needs 0
+    :param paper_share: Share of the seeds that draw the forms of the
+        published paper
     :return: The number of differences when ``against`` is set, else 0
     """
     differences = 0

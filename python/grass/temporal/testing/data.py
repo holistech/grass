@@ -331,7 +331,7 @@ _SQL_TYPE = {int: "integer", float: "double precision", str: "text"}
 def import_ascii_vector(tools, directory, name, format_, body, **options):
     """Write body to <directory>/<name>.txt and import it with v.in.ascii
 
-    format_ is "standard" (the GRASS ASCII format with its boundaries and
+    ``format_`` is "standard" (the GRASS ASCII format with its boundaries and
     centroids; pass ``flags="n"`` because the body has no header) or "point".
     """
     path = Path(directory) / f"{name}.txt"

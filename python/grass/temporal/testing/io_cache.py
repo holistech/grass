@@ -139,7 +139,7 @@ def _replaced(owner_names):
 
 @contextlib.contextmanager
 def mapsets_cache(key=mapsets_key, cache=None):
-    """Memoise grass.temporal.db.get_available_temporal_mapsets
+    """Cache the answers of grass.temporal.db.get_available_temporal_mapsets
 
     Replaces the module attribute in grass.temporal.db, which is where the
     library calls it (SQLDatabaseInterfaceConnection and its add_mapset), and

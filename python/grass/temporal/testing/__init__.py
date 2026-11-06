@@ -1,6 +1,7 @@
 """Helpers for tests of the temporal framework
 
-The modules do not import pytest. The shared fixtures that use them live in
+No module imports pytest when it is imported; ``postgresql`` imports it
+inside ``server_or_skip()`` only. The shared fixtures that use them live in
 temporal/conftest.py and python/grass/temporal/tests/conftest.py; the test
 directories of the tools add their own in their conftest.py.
 doc/development/testing.md describes how the tests use them.
@@ -53,6 +54,29 @@ recordings
 database_image
     Record and compare the temporal database that the library writes and
     what it reads back from it.
+
+Optional services and other versions:
+
+postgresql
+    Run temporal tests against a PostgreSQL server that the person who runs
+    them starts, and compare the two database backends row by row.
+versions
+    Turn a current temporal database into one of an older version, for the
+    tests of t.upgrade and of the version check.
+
+The manuals and the North Carolina sample dataset:
+
+nc_dataset
+    Find the North Carolina sample dataset, make projects that link its
+    PERMANENT mapset read-only, and record the mapset to show that a run
+    wrote nothing into it.
+manual_examples
+    Read the examples of a tool manual (the Command line and Python
+    (grass.tools) tabs, the shown output, the control comments), run them
+    and compare the output with the manual after normalising it.
+manual_coverage
+    Check that the examples of a manual show every option of the tool and
+    that its .md and .html files agree.
 
 Documentation:
 

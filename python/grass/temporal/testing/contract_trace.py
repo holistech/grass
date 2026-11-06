@@ -59,18 +59,18 @@ def called_names(script: Path, *, env: dict, cwd: Path) -> set[str]:
     ``grass.temporal.<module>.<Class>.<method>``, with the module and class
     that define the code.
 
-    :param script: The Python file to run
-    :param env: The environment of the child process; it must let the child
-                import grass.temporal and, for a script that needs one, hold
-                the GRASS session variables
-    :param cwd: The working directory of the child process
-
     The trace is a floor, not a proof. Only calls of functions and methods
     show: a constructor (``__init__`` is private), a plain attribute read, a
     constant and a call made through a thread leave no name, so this check
     does not replace reading the example. A property whose getter has a name of
     its own is reported under the getter (``get_temporal_extent``, not
     ``temporal_extent``), because the profiler sees the getter's code.
+
+    :param script: The Python file to run
+    :param env: The environment of the child process; it must let the child
+                import grass.temporal and, for a script that needs one, hold
+                the GRASS session variables
+    :param cwd: The working directory of the child process
     :raises RuntimeError: If the script ends with a return code other than 0;
                           the message holds its stderr
     """

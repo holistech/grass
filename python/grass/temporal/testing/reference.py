@@ -117,7 +117,7 @@ def setup_granularity(parser, kind, expression):
     :param kind: ``"raster"``, ``"raster3d"`` or ``"vector"``; the tool for
         vector maps has no such mode, the parser has
     :param expression: The whole statement, ``"R = A + B"``
-    :raises FatalError: when no common granularity exists (the tool stops with
+    :raises grass.exceptions.FatalError: when no common granularity exists (the tool stops with
         "Unable to process the expression in granularity algebra mode")
     :raises ValueError: for kind ``"select"``, which has no such mode
     """
@@ -154,7 +154,7 @@ def run_reference(kind, expression, *, basename, overwrite=False, **options):
     :return: The process chain dictionary, like ``parse()``
     :raises SyntaxError: for expressions that the grammar of the reference
         rejects
-    :raises FatalError: see ``setup_granularity``
+    :raises grass.exceptions.FatalError: see ``setup_granularity``
     """
     granularity = options.pop("granularity", False)
     parser = reference_parser(kind, **options)
