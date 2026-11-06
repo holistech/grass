@@ -290,11 +290,11 @@ _SELECTING_RELATIONS = ("EQUAL", "DURING", "OVERLAPS", "OVERLAPPED", "CONTAINS")
 
 
 def first_related_map_id(map_):
-    """The id of the map of another dataset that map_ selects, or None
+    """The id of the map of another dataset that ``map_`` selects, or None
 
     The relations EQUAL, DURING, OVERLAPS, OVERLAPPED and CONTAINS are tried
     in this order; of the first that holds maps, the first map counts. The
-    topology of map_ with the other maps must be built
+    topology of ``map_`` with the other maps must be built
     (SpatioTemporalTopologyBuilder.build(maps, other_maps)).
 
     :param map_: A map with its temporal relations built
