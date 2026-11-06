@@ -69,7 +69,7 @@ static unsigned char clearMask[9] = {255, 128, 192, 224, 240,
  * \param isFloat 1 for a float, 0 for a double
  * \return 1 for full precision, 0 otherwise
  */
-int Rast3d_fpcompress_is_full_precision(int precision, int isFloat)
+static int is_full_precision(int precision, int isFloat)
 {
     return precision == RASTER3D_MAX_PRECISION ||
            precision >= (isFloat ? 23 : 52);
@@ -105,8 +105,7 @@ void Rast3d_fpcompress_swap_for_packing(RASTER3D_Map *map, char *nums,
     if (!G_is_little_endian() || map->useXdr != RASTER3D_NO_XDR ||
         map->compression == RASTER3D_NO_COMPRESSION ||
         map->version < FIRST_VERSION_PACKED_BIG_ENDIAN ||
-        Rast3d_fpcompress_is_full_precision(map->precision,
-                                            map->type == FCELL_TYPE))
+        is_full_precision(map->precision, map->type == FCELL_TYPE))
         return;
 
     length = (map->type == FCELL_TYPE ? XDR_FLOAT_LENGTH : XDR_DOUBLE_LENGTH);
@@ -140,7 +139,7 @@ static void G_fpcompress_rearrangeEncodeFloats(unsigned char *src, int size,
 
     srcStop = src + size * XDR_FLOAT_LENGTH;
 
-    if (Rast3d_fpcompress_is_full_precision(precision, 1)) {
+    if (is_full_precision(precision, 1)) {
         cp3 = dst;
         cp2 = cp3 + size;
         cp1 = cp2 + size;
@@ -287,7 +286,7 @@ static void G_fpcompress_rearrangeEncodeDoubles(unsigned char *src, int size,
 
     srcStop = src + size * XDR_DOUBLE_LENGTH;
 
-    if (Rast3d_fpcompress_is_full_precision(precision, 0)) {
+    if (is_full_precision(precision, 0)) {
         cp7 = dst;
         cp6 = cp7 + size;
         cp5 = cp6 + size;
@@ -475,7 +474,7 @@ static void G_fpcompress_rearrangeDecodeFloats(unsigned char *src, int size,
 
     dstStop = dst + size * XDR_FLOAT_LENGTH;
 
-    if (Rast3d_fpcompress_is_full_precision(precision, 1)) {
+    if (is_full_precision(precision, 1)) {
         cp3 = src;
         cp2 = cp3 + size;
         cp1 = cp2 + size;
@@ -607,7 +606,7 @@ static void G_fpcompress_rearrangeDecodeDoubles(unsigned char *src, int size,
 
     dstStop = dst + size * XDR_DOUBLE_LENGTH;
 
-    if (Rast3d_fpcompress_is_full_precision(precision, 0)) {
+    if (is_full_precision(precision, 0)) {
         cp7 = src;
         cp6 = cp7 + size;
         cp5 = cp6 + size;

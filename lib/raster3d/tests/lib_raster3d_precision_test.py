@@ -140,8 +140,10 @@ def _cells(text):
 
 
 def _read(tools, name, flags="h"):
-    """The cells of a map with enough decimal places to give each value of
-    the map exactly
+    """The cells of a map from r3.out.ascii with 20 decimal places
+
+    That gives each value exactly whose magnitude is at least 0.001, as are
+    VALUES and their truncations; smaller values lose digits or read as 0.
     """
     return _cells(tools.r3_out_ascii(input=name, flags=flags, precision=20).text)
 
@@ -286,9 +288,65 @@ def test_environment_precision_truncates_like_the_option(tools, session, tmp_pat
     assert _read(tools, "option") == expected
 
 
+EXACT_VALUES_SCRIPT = """\
+import sys
+from ctypes import POINTER, byref, c_double, cast
+
+from grass.lib.gis import G_gisinit, G_mapset
+from grass.lib.raster import DCELL_TYPE
+from grass.lib.raster3d import (
+    RASTER3D_USE_CACHE_DEFAULT,
+    RASTER3D_Map,
+    Rast3d_close,
+    Rast3d_get_double,
+    Rast3d_init_defaults,
+    Rast3d_is_null_value_num,
+    Rast3d_open_cell_old,
+)
+
+G_gisinit("test")
+Rast3d_init_defaults()
+handle = Rast3d_open_cell_old(
+    sys.argv[1], G_mapset(), None, DCELL_TYPE, RASTER3D_USE_CACHE_DEFAULT
+)
+if not handle:
+    sys.exit("Rast3d_open_cell_old failed")
+map_ptr = cast(handle, POINTER(RASTER3D_Map))
+region = map_ptr.contents.region
+for depth in range(region.depths):
+    for row in range(region.rows):
+        for col in range(region.cols):
+            value = c_double(Rast3d_get_double(map_ptr, col, row, depth))
+            null = Rast3d_is_null_value_num(byref(value), DCELL_TYPE)
+            print("*" if null else repr(value.value))
+if not Rast3d_close(map_ptr):
+    sys.exit("Rast3d_close failed")
+"""
+
+
+def _exact_values(session, tmp_path, name):
+    """The values of the 3D raster map read through the library, exactly
+
+    The script runs in a process of its own and prints repr() of each value
+    as a double, in the order of r3.out.ascii -h, None for a null cell.
+    """
+    script = tmp_path / "exact_values.py"
+    script.write_text(EXACT_VALUES_SCRIPT, encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(script), name],
+        env=session.env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    return [None if word == "*" else float(word) for word in result.stdout.split()]
+
+
 @little_endian_only
 @pytest.mark.parametrize("cell_type", ["float", "double"])
-def test_map_of_the_former_library_reads_as_before(tools, session, cell_type):
+def test_map_of_the_former_library_reads_as_before(tools, session, tmp_path, cell_type):
     """A map of version 2 and a reduced precision reads as before
 
     The test data are a map of 4 rows, 5 columns and 3 layers, one tile,
@@ -297,14 +355,24 @@ def test_map_of_the_former_library_reads_as_before(tools, session, cell_type):
     precision=7 and type=double precision=20, compression=zip, and the
     library before the change on x86_64 (little-endian), 2026-11-06. The
     files .ref are the output of r3.out.ascii -h precision=17 of these maps
-    with the same library. A library that swapped the bytes of these maps
-    too would read their kept bytes as sign and exponent.
+    with the same library; they show the null cells, while every other
+    value is too small for 17 decimal places.
+
+    The exact values are those of the former packing, which kept the
+    leading bits of the little-endian bytes (_kept with byteorder "<").
+    That this is what the library before the change reads from these files
+    was measured on 2026-11-06: the same comparison, run with that library
+    installed in place of the new one, matched in all 60 cells of each map.
     """
     _copy_former(tools, session, cell_type, "former")
-    name = FORMER[cell_type][0]
+    name, precision = FORMER[cell_type]
 
     assert "Version: 2" in _header(session, "former")
     assert _former_output(session, "former") == (DATA / f"{name}.ref").read_text()
+    assert _exact_values(session, tmp_path, "former") == [
+        _kept(value, cell_type, precision, byteorder="<")
+        for value in _values(4 * 5 * 3, nulls=True)
+    ]
 
 
 @little_endian_only
