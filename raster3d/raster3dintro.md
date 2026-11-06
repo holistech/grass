@@ -176,6 +176,31 @@ Alternatively, GRASS 3D raster maps can be imported and exported from/to
 3D raster's single-precision data type is most often called "FCELL" or
 "float", and the double-precision one "DCELL" or "double".
 
+## Precision of 3D raster maps
+
+By default, 3D raster maps store their values at full precision. The
+**precision** option of import tools such as [r3.in.ascii](r3.in.ascii.md)
+and the environment variable `RASTER3D_PRECISION` make a tool store only
+the given number of mantissa bits of each value: 0 to 23 for float and 0
+to 52 for double maps. A smaller precision makes the compressed map
+smaller. Each value keeps its sign and exponent, while the remaining
+mantissa bits are set to 0, so the magnitude is truncated, not rounded:
+with precision 4, the value 8.875 is stored as 8.5. Null cells stay null.
+Maps without compression always store the full precision.
+
+Maps of a reduced precision written by releases before GRASS 8.6 on a
+little-endian computer (such as x86-64 or ARM) hold other values: the
+library kept the least significant bits of each value instead of the
+leading ones. Up to precision 16 for float and 45 for double maps the
+stored values are close to zero; at a higher precision, values can be off
+by a power of two. GRASS reads such maps as they were written, since the
+lost bits cannot be recovered. A tool that writes such a map anew with
+its precision, as [r3.null](r3.null.md) does, stores the wrong values it
+reads, truncated to that precision. Releases before GRASS 8.6 read a map
+of a reduced precision written by GRASS 8.6 or later on a little-endian
+computer with wrong values as well. Maps of full precision, maps without
+compression and the 3D mask are not affected.
+
 ## See also
 
 - [Introduction into raster data processing](rasterintro.md)
