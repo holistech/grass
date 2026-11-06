@@ -103,8 +103,8 @@ dataset with its label. As an input, a label that no map has behaves like a
 dataset without maps. As the sampler, such a label gives no granules, so the
 tool prints nothing, not even the header, and ends with return code 0. A
 sampler dataset without any registered map behaves the same way, whatever its
-type. A name
-of a dataset of an older release that has a dot in it is read as a whole.
+**samtype**. A name of a dataset of an older release that has a dot in it is
+read as a whole.
 
 The tool checks every dataset before it prints anything. A dataset that is not
 found, an unknown name or a name of another type than **intype** or **samtype**,
