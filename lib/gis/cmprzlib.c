@@ -207,17 +207,12 @@ int G_zlib_expand(unsigned char *src, int src_sz, unsigned char *dst,
         return -1;
     }
 
-    /* Number of bytes inflated to output stream is
-     * updated buffer size
-     */
-
-    if (dst_sz < 0 || nbytes != (unsigned int)dst_sz) {
-        /* TODO: it is not an error if destination is larger than needed */
-        G_warning(_("Got uncompressed size %d, expected %d"), (int)nbytes,
-                  dst_sz);
-        return -1;
-    }
-
+    /* uncompress() sets nbytes to the number of bytes inflated. Fewer
+     * bytes than dst_sz are not an error, as before this function used
+     * uncompress(): G_read_compressed() returns the number of bytes
+     * decompressed, and the 3D raster library reads tiles of reduced
+     * precision through it, whose length depends on their null cells. A
+     * destination too small for the data fails above with Z_BUF_ERROR. */
     return (int)nbytes;
 } /* G_zlib_expand() */
 
