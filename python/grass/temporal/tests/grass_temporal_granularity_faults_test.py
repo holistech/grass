@@ -138,11 +138,10 @@ def test_month_end_series_has_one_month(session, starts, expected, instants):
     assert tgis.compute_absolute_time_granularity(maps) == expected
 
 
-def test_month_steps_with_a_time_of_day_count_in_hours(session):
+def test_month_steps_with_a_time_of_day_are_months(session):
     """A month series at 06:00 has the granularity "1 month": the time of the
     day is the same at both ends of each step, so the hours do not count.
-    Before 05.11.2026 they did, and the granularity was "24 hours"; the name
-    of the test is from that time."""
+    Before 05.11.2026 they did, and the granularity was "24 hours"."""
     starts = [moment.replace(hour=6) for moment in MONTH_ENDS]
     assert tgis.compute_absolute_time_granularity(series_of(starts)) == "1 month"
 
