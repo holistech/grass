@@ -129,7 +129,25 @@ def test_dataset_with_fractional_stored_times_still_reads(temporal_module_sessio
     stds = tgis.open_old_stds(f"fractional@{tgis.get_current_mapset()}", "strds")
     stds.select()
     stds.print_info()
-    assert stds.base.get_ctime() is not None
+    # select() fills the row directly and bypasses the setters. The reader
+    # cuts the stored fraction (measured 2026-11-07 with this test: it returns
+    # a datetime in whole seconds), so the value read equals the stored one
+    # without its fraction. That value also shows that the UPDATE hit the row:
+    # a new dataset would carry the time of the test run.
+    assert stds.base.get_ctime() == datetime(2020, 1, 1, 6, 30, 3)
+    assert stds.base.get_mtime() == datetime(2020, 1, 1, 6, 30, 4)
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+    try:
+        dbif.execute(
+            "SELECT CAST(creation_time AS TEXT) FROM strds_base "
+            "WHERE name = 'fractional';"
+        )
+        assert [tuple(row) for row in dbif.fetchall()] == [
+            ("2020-01-01 06:30:03.071134",)
+        ]
+    finally:
+        dbif.close()
 
 
 def test_t_info_shows_whole_seconds(temporal_module_session):
