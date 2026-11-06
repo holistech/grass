@@ -33,6 +33,14 @@ GRID = {"s": 0, "n": 4, "w": 0, "e": 4, "b": 0, "t": 3, "res": 1, "res3": 1}
 GRID_NUMBER = "100 * depth() + 10 * row() + col()"
 MASKED = "(row() + col() + depth()) % 2 || (row() == 1 && col() == 2 && depth() == 1)"
 
+# The same numbers and mask on a map of 8 columns, 8 rows, 6 layers, whose
+# mask is cut into eight tiles of 4 x 4 x 3 cells that zlib shrinks (the
+# mask did not read back with the library before 2026-11-06), so that a
+# region of another resolution looks the mask up across the borders of
+# compressed tiles.
+LARGE_GRID = {"s": 0, "n": 8, "w": 0, "e": 8, "b": 0, "t": 6, "res": 1, "res3": 1}
+LARGE_GRID_TILES = "4x4x3"
+
 # Regions whose cell centres lie inside the cells of the map, never on their
 # edges, where the cell that a lookup finds would depend on rounding.
 OTHER_REGIONS = {
@@ -100,36 +108,45 @@ def _region_cells(region):
     ]
 
 
-def _expected_grid_cell(x, y, z):
-    """The value shown at (x, y, z): null outside the map and where MASKED
-    is true, else the value of the cell of the map there
+def _expected_cell(grid, x, y, z):
+    """The value shown at (x, y, z) over a map of GRID_NUMBER on the grid:
+    null outside the map and where MASKED is true, else the value of the
+    cell of the map there
     """
-    column = math.floor(x - GRID["w"]) + 1
-    row = math.floor(GRID["n"] - y) + 1
-    depth = math.floor(z - GRID["b"]) + 1
-    if not (1 <= column <= 4 and 1 <= row <= 4 and 1 <= depth <= 3):
+    column = math.floor(x - grid["w"]) + 1
+    row = math.floor(grid["n"] - y) + 1
+    depth = math.floor(z - grid["b"]) + 1
+    columns = round(grid["e"] - grid["w"])
+    rows = round(grid["n"] - grid["s"])
+    layers = round(grid["t"] - grid["b"])
+    if not (1 <= column <= columns and 1 <= row <= rows and 1 <= depth <= layers):
         return None
     if (row + column + depth) % 2 or (row, column, depth) == (1, 2, 1):
         return None
     return float(100 * depth + 10 * row + column)
 
 
-def _grid_maps(tools):
+def _expected_grid_cell(x, y, z):
+    """The value shown at (x, y, z) over the map of GRID"""
+    return _expected_cell(GRID, x, y, z)
+
+
+def _grid_maps(tools, tiledimension=None):
     """Create the map values and the mask in the current region
 
-    Both maps get tiles of 2 x 2 x 2 cells, because a mask of 3 x 3 x 3
-    cells or more in one tile cannot be read back (measured 2026-11-05 in a
-    project of grass --tmp-project: a mask of 3 x 5 x 3 cells fails with
-    "Got uncompressed size 33, expected 181"). r3.mask stores the mask with
-    precision 0, and the reader expects the length of the full precision
-    when zlib expands a tile. zlib does not shrink tiles this small, so they
-    are stored uncompressed (masks of 3 x 5 x 3 to 6 x 6 x 6 cells in such
-    tiles read back the same day).
+    Both maps get tiles of the given dimension, or the default tiles of the
+    library, one tile for maps this small.
     """
-    tools.r3_mapcalc(expression=f"whole = {GRID_NUMBER}")
-    tools.r3_retile(input="whole", output="values", tiledimension="2x2x2")
-    tools.r3_mapcalc(expression=f"whole_masked = {MASKED}")
-    tools.r3_retile(input="whole_masked", output="masked", tiledimension="2x2x2")
+    if tiledimension:
+        tools.r3_mapcalc(expression=f"whole = {GRID_NUMBER}")
+        tools.r3_retile(input="whole", output="values", tiledimension=tiledimension)
+        tools.r3_mapcalc(expression=f"whole_masked = {MASKED}")
+        tools.r3_retile(
+            input="whole_masked", output="masked", tiledimension=tiledimension
+        )
+    else:
+        tools.r3_mapcalc(expression=f"values = {GRID_NUMBER}")
+        tools.r3_mapcalc(expression=f"masked = {MASKED}")
     tools.r3_mask(map="masked", maskvalues=1)
 
 
@@ -169,7 +186,7 @@ def test_mask_with_region_equal_to_map_is_unchanged(tools):
     # map of 5 x 3 x 3 cells into tiles of every size, so the loop over the
     # cells of a tile that the map clips is part of the comparison.
     tools.g_region(**{**GRID, "n": 3, "e": 5})
-    _grid_maps(tools)
+    _grid_maps(tools, tiledimension="2x2x2")
 
     text = tools.r3_out_ascii(input="values", flags="m").stdout
 
@@ -187,4 +204,26 @@ def test_mask_with_other_resolution(tools, name):
 
     assert _cells(text) == [
         _expected_grid_cell(*cell) for cell in _region_cells(region)
+    ]
+
+
+# Regions of another resolution over LARGE_GRID, with cell centres inside
+# the cells of the map as in OTHER_REGIONS.
+LARGE_REGIONS = {
+    "finer": {**LARGE_GRID, "res": 0.5, "res3": 0.5},
+    "coarser": {**LARGE_GRID, "n": 9, "e": 9, "res": 1.5, "res3": 1.5},
+}
+
+
+@pytest.mark.parametrize("name", LARGE_REGIONS)
+def test_mask_of_several_compressed_tiles_with_other_resolution(tools, name):
+    region = LARGE_REGIONS[name]
+    tools.g_region(**LARGE_GRID)
+    _grid_maps(tools, tiledimension=LARGE_GRID_TILES)
+    tools.g_region(**region)
+
+    text = tools.r3_out_ascii(input="values", flags="hm").text
+
+    assert _cells(text) == [
+        _expected_cell(LARGE_GRID, *cell) for cell in _region_cells(region)
     ]
