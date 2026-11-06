@@ -122,8 +122,9 @@ def find_stds_id(name: str, type: str, dbif=None) -> str:
 
 
 def open_old_stds(name, type, dbif=None, *, whole_name_first=True):
-    """This function opens an existing space time dataset and return the
-    created and initialized object of the specified type.
+    """Open an existing space time dataset.
+
+    Return the created and initialized object of the specified type.
 
     This function will call exit() or raise a
     grass.pygrass.messages.FatalError in case the type is wrong,
@@ -334,8 +335,7 @@ def check_new_map_dataset(
     overwrite: bool = False,
     dbif=None,
 ):
-    """Check if a new map dataset of a specific type can be created in
-     the temporal database
+    """Check if a new map dataset of a specific type can be created in the temporal database
 
     :param name: The name of the new map dataset
     :param layer: The layer of the new map dataset
@@ -375,12 +375,15 @@ def open_new_map_dataset(
     overwrite: bool = False,
     dbif=None,
 ):
-    """Create a new map dataset object of a specific type that can be
-     registered in the temporal database
+    """Create a new map dataset object of a specific type.
+
+    The object can be registered in the temporal database.
 
     :param name: The name of the new map dataset
     :param layer: The layer of the new map dataset
     :param type: The type of the new map dataset (raster, vector, raster3d)
+    :param temporal_extent: The temporal extent to set on the new map dataset,
+                            None to leave the time unset
     :param dbif: The temporal database interface to be used
     :param overwrite: Flag to allow overwriting
 

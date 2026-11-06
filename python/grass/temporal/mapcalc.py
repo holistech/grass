@@ -370,8 +370,9 @@ def dataset_mapcalculator(
     spatial: bool = False,
     where=None,
 ):
-    """Perform map calculations on temporally sampled maps of space time
-    raster or 3D raster datasets
+    """Perform map calculations on temporally sampled maps.
+
+    The maps belong to space time raster or 3D raster datasets.
 
     The first input is the sampler; every other input is sampled by it with the
     given method, and one r.mapcalc expression is run per sampler granule. The

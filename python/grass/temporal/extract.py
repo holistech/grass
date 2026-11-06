@@ -36,8 +36,11 @@ def compile_new_map_name(
     """Compile new map name with suffix and semantic label.
 
     :param sp: An open SpaceTimeDataSet (STDS)
+    :param base: The base name of the new map
     :param count: Running number of the map to be used as numeric suffix (if not time suffix)
     :param map_id: Map ID to compile new map name for
+    :param semantic_label: A semantic label appended to the base name, None or
+                           an empty text for none
     :param time_suffix: Type of suffix to use: gran, time, num or num%NN
     :param dbif: initialized TGIS database interface
     :raises ValueError: for another time_suffix

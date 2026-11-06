@@ -987,6 +987,8 @@ def import_stds(
                  its name in the archive; a map named name@mapset there is
                  imported as name_mapset, and two maps of the archive that
                  would get one name stop the import before the first one.
+    :param set_current_region: Set the current region from the last
+                               imported raster map
     :param memory: Cache size for raster rows, used in r.in.gdal
     """
     # The refusals of the library are those of the messenger, which a tool

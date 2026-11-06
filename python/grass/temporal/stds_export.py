@@ -626,6 +626,7 @@ def export_stds(
           A space time 3D raster dataset cannot be exported, GRASS has no
           module to pack a 3D raster map.
     :param datatype: Force the output datatype for r.out.gdal
+    :param kwargs: Accepted and ignored
     """
 
     # open_old_stds() also takes the name of the map type, "raster" for a space

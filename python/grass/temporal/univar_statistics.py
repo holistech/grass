@@ -41,8 +41,7 @@ def compute_univar_stats(
     rast_region: bool = False,
     output_format: str | None = None,
 ):
-    """Compute univariate statistics for a map of a space time raster or raster3d
-    dataset
+    """Compute univariate statistics for a map of a space time raster or raster3d dataset
 
     :param registered_map_info: dict or db row with tgis info for a registered map
     :param stats_module: Pre-configured PyGRASS Module to compute univariate statistics

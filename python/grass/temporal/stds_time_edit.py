@@ -87,7 +87,7 @@ def shift_map_list(maps, gran):
     .. code-block:: pycon
 
         >>> import grass.temporal as tgis
-    >>> from grass.temporal.stds_time_edit import shift_map_list
+        >>> from grass.temporal.stds_time_edit import shift_map_list
         >>> maps = []
         >>> for i in range(5):
         ...     map = tgis.RasterDataset(None)
@@ -162,8 +162,7 @@ def shift_map_list(maps, gran):
 
 
 def snap_map_list(maps):
-    """For each map in the list snap the end time to the start time of its
-    temporal nearest neighbor in the future.
+    """Snap the end time of each map in the list to the start time of its temporal nearest neighbor in the future.
 
     Maps with equal time stamps are not snapped.
 
@@ -181,7 +180,7 @@ def snap_map_list(maps):
     .. code-block:: pycon
 
         >>> import grass.temporal as tgis
-    >>> from grass.temporal.stds_time_edit import snap_map_list
+        >>> from grass.temporal.stds_time_edit import snap_map_list
         >>> maps = []
         >>> for i in range(5):
         ...     map = tgis.RasterDataset(None)
@@ -374,8 +373,7 @@ def shift(stds, gran, dbif=None) -> bool:
 
 
 def snap(stds, dbif=None) -> None:
-    """For each registered map snap the end time to the start time of its
-    temporal nearest neighbor in the future
+    """Snap the end time of each registered map to the start time of its temporal nearest neighbor in the future.
 
     Maps with equal time stamps are not snapped. The last map gets the
     granularity of the dataset as length if it is a time instance.

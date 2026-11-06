@@ -396,8 +396,9 @@ def get_dataset_list(
     order=None,
     dbif=None,
 ):
-    """Return a list of time stamped maps or space time datasets of a specific
-    temporal type that are registered in the temporal database
+    """Return a list of time stamped maps or space time datasets of a specific temporal type.
+
+    The maps or datasets are registered in the temporal database.
 
     This method returns a dictionary, the keys are the available mapsets,
     the values are the rows from the SQL database query.
@@ -939,6 +940,9 @@ def list_maps_of_stds(
                  dataset is used
     :param outpath: The path to file where to save output; None, an empty
                     text and "-" are the standard output
+    :param output_format: The output format: plain, line, csv, json or yaml;
+                          without a value the format is line for method=comma
+                          and plain otherwise
     """
     if gran == "":
         gran = None

@@ -144,8 +144,9 @@ def aggregate_series(
 
 
 def set_output_metadata(dataset, source_stds, method, dbif):
-    """Copy title, description and semantic type from the input and record
-    the aggregation method, which materialize() does not set"""
+    """Copy title, description and semantic type from the input and record the aggregation method.
+
+    materialize() does not set the aggregation method."""
     temporal_type, semantic_type, title, description = source_stds.get_initial_values()
     dataset.set_initial_values(temporal_type, semantic_type, title, description)
     dataset.set_aggregation_type(method)

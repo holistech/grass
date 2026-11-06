@@ -966,8 +966,9 @@ def _remove_empty_maps(empty_maps, dbif):
 def register_map_object_list(
     type, map_list, output_stds, delete_empty: bool = False, unit=None, dbif=None
 ) -> None:
-    """Register a list of AbstractMapDataset objects in the temporal database
-    and optional in a space time dataset.
+    """Register a list of AbstractMapDataset objects in the temporal database.
+
+    The maps are optionally registered in a space time dataset.
 
     :param type: The type of the map layer (raster, raster_3d, vector)
     :param map_list: List of AbstractMapDataset objects
