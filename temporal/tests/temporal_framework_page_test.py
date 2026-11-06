@@ -58,13 +58,41 @@ CREATES_ITS_DATASET = "Creation of a space time dataset"
 
 
 def code_blocks():
-    """The code blocks of the page as (title, source) pairs, in page order
+    """The code blocks of the page as (title, source) pairs, in page order"""
+    return parse_code_blocks(PAGE.read_text().splitlines())
+
+
+# The directives that show code, and a paragraph ending in two colons, which
+# starts a literal block.
+CODE_DIRECTIVE = re.compile(r"^\.\.\s+(code-block|code|sourcecode)::")
+LITERAL_BLOCK = re.compile(r"^\s*[^.\s].*::\s*$")
+
+
+def refuse_other_code_forms(line):
+    """Raise ValueError for code in any form but ``.. code-block:: python``
+
+    The tests run only what parse_code_blocks() recognises. Another form,
+    even one of the same language, would never run, and the page could claim
+    anything in it.
+    """
+    if line.strip() == ".. code-block:: python":
+        return
+    if CODE_DIRECTIVE.match(line.strip()) or LITERAL_BLOCK.match(line):
+        msg = (
+            f"Unrecognised form of code on the page: {line.strip()!r}. "
+            "Write Python examples as '.. code-block:: python', the only form "
+            "the tests run."
+        )
+        raise ValueError(msg)
+
+
+def parse_code_blocks(lines):
+    """The code blocks of reStructuredText lines as (title, source) pairs
 
     The title is the heading above the block. A block is a ``code-block``
     directive with the language python; its body is the indented text after
     the directive, without the blank lines at the end.
     """
-    lines = PAGE.read_text().splitlines()
     blocks = []
     title = ""
     index = 0
@@ -78,6 +106,7 @@ def code_blocks():
             title = line.strip()
             index += 2
             continue
+        refuse_other_code_forms(line)
         if line.strip() == ".. code-block:: python":
             index += 1
             body = []
@@ -177,6 +206,29 @@ def prepared_script(title, source, session, work):
 
 def test_page_has_code_blocks():
     assert len(code_blocks()) >= 4
+
+
+@pytest.mark.parametrize(
+    "form",
+    [
+        ".. code:: python",
+        ".. sourcecode:: python",
+        ".. code-block:: python3",
+        ".. code-block:: pycon",
+        ".. code-block::",
+        "Run this::",
+    ],
+)
+def test_other_forms_of_code_are_not_skipped_silently(form):
+    """A code directive that is not ``code-block:: python`` fails loudly"""
+    lines = ["Title", "-----", "", form, "", "    print(1)", ""]
+    with pytest.raises(ValueError, match="code"):
+        parse_code_blocks(lines)
+
+
+def test_the_python_code_block_is_parsed():
+    lines = ["Title", "-----", "", ".. code-block:: python", "", "    print(1)", ""]
+    assert parse_code_blocks(lines) == [("Title", "print(1)\n")]
 
 
 def test_block_ids_are_unique():
