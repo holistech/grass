@@ -15,7 +15,8 @@ true:
 - each class, member, base class and composition that a figure draws exists
   in the code;
 - the checked-in PDF is built from the sources as they are now, and the
-  listings in it are the example files, character for character;
+  text of its listings, as MuPDF copies it, is the example files and their
+  output, character for character;
 - the supplement of the 2017 publication stays as it was published.
 
 The examples run like the manuals in a project whose PERMANENT is a link to
@@ -91,20 +92,6 @@ EXAMPLE_RUNS = {
     "benchmark": ((), ("50",)),
 }
 
-# Files below SOURCE that a build leaves behind and that are not sources.
-# digest.tex holds the digest itself. The Makefile skips the same names.
-BUILD_RESIDUES = (
-    "digest.tex",
-    "*.aux",
-    "*.bbl",
-    "*.blg",
-    "*.log",
-    "*.out",
-    "*.pdf",
-    "*.toc",
-    "*.pyc",
-)
-RESIDUE_FOLDERS = ("__pycache__",)
 
 # The classes that the figures draw, by the name a figure uses. A name that
 # a figure draws but this table lacks fails the test, so a new figure says
@@ -150,16 +137,26 @@ FIGURE_CLASSES = {
     "Slot": "grass.temporal.algebra.series.Slot",
     "Space": "grass.temporal.algebra.series.Space",
     "_SpaceTimeMetadata": "grass.temporal.metadata._SpaceTimeMetadata",
-    "SpaceTimeRaster3DDataset": "grass.temporal.space_time_datasets.SpaceTimeRaster3DDataset",
-    "SpaceTimeRasterDataset": "grass.temporal.space_time_datasets.SpaceTimeRasterDataset",
-    "SpaceTimeVectorDataset": "grass.temporal.space_time_datasets.SpaceTimeVectorDataset",
+    "SpaceTimeRaster3DDataset": (
+        "grass.temporal.space_time_datasets.SpaceTimeRaster3DDataset"
+    ),
+    "SpaceTimeRasterDataset": (
+        "grass.temporal.space_time_datasets.SpaceTimeRasterDataset"
+    ),
+    "SpaceTimeVectorDataset": (
+        "grass.temporal.space_time_datasets.SpaceTimeVectorDataset"
+    ),
     "SpatialExtent": "grass.temporal.spatial_extent.SpatialExtent",
     "SpatialExtentRow": "grass.temporal.spatial_extent.SpatialExtentRow",
-    "SpatioTemporalTopologyBuilder": "grass.temporal.topology.SpatioTemporalTopologyBuilder",
+    "SpatioTemporalTopologyBuilder": (
+        "grass.temporal.topology.SpatioTemporalTopologyBuilder"
+    ),
     "StdsDataset": "grass.temporal.datasets.StdsDataset",
     "StdsMapRegister": "grass.temporal.stds_map_register.StdsMapRegister",
     "TemporalExtent": "grass.temporal.temporal_extent.TemporalExtent",
-    "TemporalRasterAlgebraParser": "grass.temporal.algebra.parser.facade.TemporalRasterAlgebraParser",
+    "TemporalRasterAlgebraParser": (
+        "grass.temporal.algebra.parser.facade.TemporalRasterAlgebraParser"
+    ),
     "TopologyLinks": "grass.temporal.topology.TopologyLinks",
     "VectorDataset": "grass.temporal.space_time_datasets.VectorDataset",
     "VectorMetadata": "grass.temporal.metadata.VectorMetadata",
@@ -214,51 +211,130 @@ def latex_text(text):
     return text.replace("\\_", "_").strip()
 
 
+# The pgf-umlcd forms that parse_figure() reads, with their number of brace
+# arguments after an optional [...]. pgf-umlcd has more (\\association,
+# \\implement, interface and object, ...); a figure that uses one fails until
+# parse_figure() learns it, so that nothing a figure draws escapes the check.
+UML_ENVIRONMENTS = {"class": 2, "abstractclass": 2}
+UML_MEMBERS = {"attribute", "operation"}
+UML_LINKS = {"composition", "aggregation", "unidirectionalAssociation"}
+# What a figure may use besides: TikZ and fonts, which draw no class, member
+# or link. \\texttt must name Class.member(), see parse_figure().
+DRAWING_MACROS = {"draw", "node", "foreach", "fontsize", "selectfont", "scriptsize"}
+MACRO = re.compile(r"\\([A-Za-z]+)")
+CLASS_MEMBER = re.compile(
+    r"([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*(?:\\_[A-Za-z0-9_]*)*)\(\)"
+)
+
+
+def braced_arguments(text, position, count, where):
+    """The count brace arguments at position, after an optional [...]
+
+    Returns the arguments and the position after the last one. Raises
+    ValueError where the text does not have them, so that a form this test
+    does not know fails instead of being skipped.
+    """
+    if text.startswith("[", position):
+        position = text.index("]", position) + 1
+    arguments = []
+    for _ in range(count):
+        if not text.startswith("{", position):
+            msg = f"{where}: expected {count} arguments in braces"
+            raise ValueError(msg)
+        depth = 0
+        for end in range(position, len(text)):
+            depth += {"{": 1, "}": -1}.get(text[end], 0)
+            if depth == 0:
+                break
+        arguments.append(text[position + 1 : end])
+        position = end + 1
+    return arguments, position
+
+
+def plain_name(argument, where):
+    """A name argument with \\_ and \\textit{} only; anything else is an error"""
+    text = re.sub(r"\\textit\{([^{}]*)\}", r"\1", argument)
+    if re.search(r"[{}]|\\(?!_)", text):
+        msg = f"{where}: cannot read <{argument}>"
+        raise ValueError(msg)
+    return latex_text(text)
+
+
+def loop_variables(text):
+    """The macros that \\foreach and its options define in a figure"""
+    names = set()
+    for variables in re.findall(r"\\foreach\s+((?:\\[A-Za-z]+/?)+)", text):
+        names |= set(re.findall(r"\\([A-Za-z]+)", variables))
+    names |= set(re.findall(r"(?:count=|as\s+)\\([A-Za-z]+)", text))
+    return names
+
+
 def parse_figure(path):
     """The classes of a figure and what it draws for each
 
     Returns a dict from class name to a dict with "bases", "members" and
     "links", where a link is (kind, role, multiplicity, target) of a
     \\composition, \\aggregation or \\unidirectionalAssociation that starts
-    at the class. Names in \\texttt{Class.member()} of a figure without UML
-    count as members of Class.
+    at the class. Names in \\texttt{Class.member()} count as members of Class.
+    Raises ValueError for a macro or environment that it does not read.
     """
-    text = path.read_text()
+    text = re.sub(r"(?<!\\)%.*", "", path.read_text())
+    allowed = DRAWING_MACROS | loop_variables(text)
     classes = {}
-    pattern = re.compile(
-        r"\\begin\{(class|abstractclass)\}(?:\[[^\]]*\])?\{([^}]*)\}(.*?)"
-        r"\\end\{\1\}",
-        re.DOTALL,
-    )
-    for match in pattern.finditer(text):
-        name = latex_text(match.group(2))
-        body = match.group(3)
-        entry = classes.setdefault(name, {"bases": [], "members": [], "links": []})
-        entry["bases"] += [
-            latex_text(b) for b in re.findall(r"\\inherit\{([^}]*)\}", body)
-        ]
-        for kind, argument in re.findall(
-            r"\\(attribute|operation)(?:\[[^\]]*\])?\{((?:[^{}]|\{[^{}]*\})*)\}", body
-        ):
-            argument = latex_text(re.sub(r"\\textit\{([^}]*)\}", r"\1", argument))
+
+    def entry_of(name):
+        return classes.setdefault(name, {"bases": [], "members": [], "links": []})
+
+    current = None
+    position = 0
+    while match := MACRO.search(text, position):
+        macro, position = match.group(1), match.end()
+        where = f"{path.name}, \\{macro} at {match.start()}"
+        if macro in {"begin", "end"}:
+            (environment,), position = braced_arguments(text, position, 1, where)
+            if environment == "tikzpicture":
+                continue
+            if environment not in UML_ENVIRONMENTS:
+                msg = f"{where}: environment {environment} is not read"
+                raise ValueError(msg)
+            if macro == "end":
+                current = None
+                continue
+            (name, _place), position = braced_arguments(
+                text, position, UML_ENVIRONMENTS[environment], where
+            )
+            current = entry_of(plain_name(name, where))
+        elif macro == "inherit" or macro in UML_MEMBERS:
+            if current is None:
+                msg = f"{where}: outside a class"
+                raise ValueError(msg)
+            (argument,), position = braced_arguments(text, position, 1, where)
+            if macro == "inherit":
+                current["bases"].append(plain_name(argument, where))
+                continue
             member = re.split(r"[\s:(]", argument.lstrip("+-# "), maxsplit=1)[0]
+            member = plain_name(member, where)
             # "..." marks a shortened list of members.
             if member != "...":
-                entry["members"].append((kind, member))
-    link = re.compile(
-        r"\\(composition|aggregation|unidirectionalAssociation)(?:\[[^\]]*\])?"
-        r"\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}"
-    )
-    for kind, source, role, multiplicity, target in link.findall(text):
-        entry = classes.setdefault(
-            latex_text(source), {"bases": [], "members": [], "links": []}
-        )
-        entry["links"].append(
-            (kind, latex_text(role), latex_text(multiplicity), latex_text(target))
-        )
-    for owner, member in re.findall(r"\\texttt\{([A-Za-z]+)\.([a-z_\\]+)\(\)\}", text):
-        entry = classes.setdefault(owner, {"bases": [], "members": [], "links": []})
-        entry["members"].append(("operation", latex_text(member)))
+                current["members"].append((macro, member))
+        elif macro in UML_LINKS:
+            arguments, position = braced_arguments(text, position, 4, where)
+            source, role, multiplicity, target = (
+                plain_name(argument, where) for argument in arguments
+            )
+            entry_of(source)["links"].append((macro, role, multiplicity, target))
+        elif macro == "texttt":
+            (argument,), position = braced_arguments(text, position, 1, where)
+            named = CLASS_MEMBER.fullmatch(argument)
+            if named is None:
+                msg = f"{where}: <{argument}> is not Class.member()"
+                raise ValueError(msg)
+            entry_of(named.group(1))["members"].append(
+                ("operation", latex_text(named.group(2)))
+            )
+        elif macro not in allowed:
+            msg = f"{where}: macro \\{macro} is not read"
+            raise ValueError(msg)
     return classes
 
 
@@ -430,25 +506,32 @@ def test_example_uses_only_the_contract(name, example_mapset):
     assert missing_from_contract(names, contract=contract) == []
 
 
-def is_residue(relative):
-    if any(part in RESIDUE_FOLDERS for part in relative.parts[:-1]):
-        return True
-    if any(part.startswith("_minted") for part in relative.parts):
-        return True
-    return any(relative.match(pattern) for pattern in BUILD_RESIDUES)
+def build_residues(folder: Path) -> set[str]:
+    """The paths that the digest leaves out: digest.tex and the Makefile's RESIDUES
+
+    RESIDUES lists what pdflatex and bibtex leave behind, which is also what
+    make clean removes; reading it from the Makefile keeps the two digests
+    equal.
+    """
+    makefile = (folder / "Makefile").read_text().replace("\\\n", " ")
+    found = re.findall(r"^RESIDUES\s*=(.*)$", makefile, re.MULTILINE)
+    assert len(found) == 1, "the Makefile must set RESIDUES once"
+    return {"digest.tex", *found[0].split()}
 
 
 def source_digest(folder: Path) -> str:
     """The SHA-256 of the sources below folder, as the Makefile computes it
 
-    Each file that is not a build residue contributes one line, in the order
-    of the relative paths: the relative path, a NUL byte, the hex SHA-256 of
-    its content and a newline. The digest is the hex SHA-256 of these lines.
+    Each file that build_residues() does not name contributes one line, in
+    the order of the relative paths: the relative path, a NUL byte, the hex
+    SHA-256 of its content and a newline. The digest is the hex SHA-256 of
+    these lines.
     """
+    residues = build_residues(folder)
     files = {
         path.relative_to(folder).as_posix(): path
         for path in folder.rglob("*")
-        if path.is_file() and not is_residue(path.relative_to(folder))
+        if path.is_file() and path.relative_to(folder).as_posix() not in residues
     }
     # Sorted as text, as sort(1) does in the C locale; Path objects sort by
     # their parts, which puts "a/b" before "a.b".
@@ -476,52 +559,49 @@ def test_pdf_is_built_from_the_current_sources():
     )
 
 
-# The width of a character of the listings: Latin Modern Mono is 0.525 em
-# wide, at the small size (9 pt) of a 10 pt document. pdftotext -fixed with
-# this pitch puts each character of a listing in its own column, so the
-# indentation comes out exact; pdftotext -layout guesses the pitch per page from all the text
-# on it and printed four blanks of indentation as three on some pages
-# (measured 2026-11-06).
-LISTING_PITCH = "4.725"
-
-
 def listing_lines(text):
     """The lines of a text without trailing blanks and without blank lines"""
     return [line.rstrip() for line in text.splitlines() if line.strip()]
 
 
 def pdf_pages():
-    """The lines of each page of the PDF as pdftotext -fixed reads them
+    """The lines of each page of the PDF as MuPDF copies its text
 
-    A line that holds only a number is the page number and is dropped.
+    mutool draw -F txt writes the text that MuPDF and the viewers built on it
+    copy, one line per line of the page and a form feed after each page. A
+    line that holds only a number is the page number and is dropped.
     """
     text = subprocess.run(
-        ["pdftotext", "-fixed", LISTING_PITCH, str(PDF), "-"],
+        ["mutool", "draw", "-q", "-F", "txt", "-o", "-", str(PDF)],
         capture_output=True,
         text=True,
         check=True,
     ).stdout
     return [
-        [line for line in listing_lines(page) if not re.fullmatch(r"\s*\d+", line)]
+        [line for line in listing_lines(page) if not re.fullmatch(r"\d+", line)]
         for page in text.split("\f")
     ]
 
 
-def test_listing_text_in_the_pdf_equals_the_example_file():
-    """A reader who copies a listing from the PDF gets the example file
+@pytest.mark.parametrize("suffix", [".py", ".txt"])
+def test_listing_text_in_the_pdf_equals_the_example_file(suffix):
+    """The text that MuPDF copies from each listing is its file
 
-    Each line of the file must come out of the PDF as it is, after one
-    indentation that the margin of the page adds to every line. Blank lines
-    are dropped on both sides. Where a listing crosses a page, a figure may
-    stand at the top of the next page; the listing goes on with the first
-    line of the next page that is its next line.
+    design.tex makes every space of a listing a real space of the text layer,
+    so the copied text keeps the indentation. pdftotext of poppler 24.02
+    drops the spaces at the start of a line even then, with -raw and without
+    (measured 2026-11-06 on listings with real spaces), so the PDF is read
+    with mutool. Each line of an example (.py) or of its shown output (.txt)
+    must come out of the PDF as it is, blank lines dropped on both sides.
+    Where a listing crosses a page, it goes on on the next page, after what
+    may stand at its top.
     """
-    if shutil.which("pdftotext") is None:
-        pytest.skip("pdftotext (poppler-utils) is needed to read the PDF")
+    if shutil.which("mutool") is None:
+        pytest.skip("mutool (mupdf-tools) is needed to read the PDF")
     pages = pdf_pages()
     missing = [
         path.name
-        for path in sorted(EXAMPLES.glob("*.py"))
+        for path in sorted(EXAMPLES.glob(f"*{suffix}"))
         if not contains_listing(pages, listing_lines(path.read_text()))
     ]
     assert missing == [], f"listings that differ from their file: {missing}"
@@ -529,33 +609,27 @@ def test_listing_text_in_the_pdf_equals_the_example_file():
 
 def contains_listing(pages, block):
     """Whether the pages hold block, see the test above"""
-    for page_number, lines in enumerate(pages):
-        for start, first in enumerate(lines):
-            indent = " " * (len(first) - len(block[0]))
-            if first == indent + block[0] and continues(
-                pages, page_number, start, block, indent
-            ):
-                return True
-    return False
+    return any(
+        line == block[0] and continues(pages, page_number, start, block)
+        for page_number, lines in enumerate(pages)
+        for start, line in enumerate(lines)
+    )
 
 
-def continues(pages, page_number, start, block, indent):
-    """Whether block follows from line start of a page, with this indentation"""
+def continues(pages, page_number, start, block):
+    """Whether the rest of block follows line start of a page"""
     page, position = page_number, start
-    for line in block[1:]:
-        wanted = indent + line
+    for wanted in block[1:]:
         position += 1
         if position < len(pages[page]):
             if pages[page][position] != wanted:
                 return False
             continue
-        # The listing crosses a page: find its next line on a later page.
-        later = [
-            number for number in range(page + 1, len(pages)) if wanted in pages[number]
-        ]
-        if not later:
+        # The listing crosses a page: it goes on on the next page, below the
+        # figures or the running text that LaTeX may put at its top.
+        page += 1
+        if page == len(pages) or wanted not in pages[page]:
             return False
-        page = later[0]
         position = pages[page].index(wanted)
     return True
 

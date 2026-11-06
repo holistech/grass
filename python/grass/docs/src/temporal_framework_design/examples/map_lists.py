@@ -1,4 +1,4 @@
-"""Register three maps with gaps and list them in the three ways of figures 4 to 6"""
+"""Register three maps with gaps and list them in the three ways of the document"""
 
 from datetime import datetime
 

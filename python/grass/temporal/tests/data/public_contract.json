@@ -1214,7 +1214,7 @@
     "source_map": "repo",
     "where": "repo"
    },
-   "origins": "docs+repo"
+   "origins": "repo"
   },
   "grass.temporal.algebra.backends": {
    "names": {

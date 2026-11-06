@@ -48,12 +48,24 @@
   \begingroup\catcode`\_=12 \input{figures/#1}\endgroup}
 
 % Code that a reader copies from the PDF must run: monospaced, straight
-% quotes, spaces kept, no line breaks or numbers added.
+% quotes, spaces kept, no line breaks or numbers added. A space of a listing
+% is otherwise only a gap between glyphs: mutool draw -F txt and pdftotext
+% gave the code without indentation (measured 2026-11-06, MuPDF 1.23.10,
+% poppler 24.02). Here each space is the visible-space glyph, drawn in
+% invisible text mode and mapped to U+0020, so the text layer holds one real
+% space per space of the file at the width of a character; MuPDF then copies
+% the indentation, poppler still drops spaces at the start of a line.
+\input{glyphtounicode}
+\pdfgentounicode=1
+\pdfglyphtounicode{uni2423}{0020}
+\makeatletter
+\def\lst@visiblespace{\pdfliteral direct{3 Tr}\char32\pdfliteral direct{0 Tr}}
+\makeatother
 \lstdefinestyle{example}{
   language=Python,
   basicstyle=\ttfamily\small,
   columns=fullflexible,
-  keepspaces=true,
+  showspaces=true,
   upquote=true,
   showstringspaces=false,
   breaklines=false,
@@ -65,7 +77,7 @@
 \lstdefinestyle{output}{
   basicstyle=\ttfamily\small,
   columns=fullflexible,
-  keepspaces=true,
+  showspaces=true,
   upquote=true,
   breaklines=false,
   frame=single,
@@ -74,6 +86,9 @@
 \renewcommand{\lstlistingname}{Listing}
 
 \newcommand{\code}[1]{\texttt{#1}}
+% The path of an example file in the GRASS repository.
+\newcommand{\examplefile}[1]{%
+  \code{python/grass/docs/src/temporal\_framework\_design/examples/#1}}
 % Long names in \texttt do not break; let the lines around them stretch.
 \setlength{\emergencystretch}{3em}
 
@@ -119,7 +134,10 @@ temporal aggregation, the same aggregation with the algebra core, sampling at
 vector points, the spatio-temporal intersection of trajectories and a
 benchmark.
 
-Every example is a Python file next to the source of this document. The
+Every example is a Python file of the GRASS repository, in the folder
+\code{examples} of the source of this document,
+\code{python/grass/docs/src/temporal\_framework\_design}; the caption of each
+listing gives the path of its file. The
 examples run in the North Carolina sample dataset \code{nc\_spm\_08\_grass7}
 \citep{neteler2008}, available from \url{https://grass.osgeo.org/download/data/},
 in a new mapset \code{temporal\_design}. They make their own data from maps of
@@ -244,18 +262,11 @@ updates the dataset from its maps (\code{update\_from\_registered\_maps()}),
 computes the granularity and the temporal topology of its maps, and shifts and
 snaps their time stamps. Shifting moves all time stamps by a granule, such as
 one year, two weeks or five minutes. Snapping sets the end of each map to the
-start of the next one; the last map ends one granularity after its start. The
+start of the next one, except for maps that start together; a last map without
+an end time gets one granule of the granularity of the dataset as its length,
+a last map with an end time keeps it. The
 register of the maps of a dataset is a table of its own, which
 \code{StdsMapRegister} creates, fills and reads.
-
-\begin{figure}[p]
-\centering
-\umlfigure{datasets}
-\caption{The abstract dataset classes. Abstract methods are in italics. The
-topology builder links the objects of one or two lists; the register of the
-maps of a space time dataset is a table of its own.}
-\label{fig:datasets}
-\end{figure}
 
 \subsection{Registered maps as lists of objects}
 
@@ -273,7 +284,9 @@ and prints the three lists.
 \begin{figure}[ht]
 \centering
 \umlfigure{maps_as_objects}
-\caption{The maps of the dataset ordered by start time.}
+\caption{The maps of the dataset ordered by start time. The arrows show the
+order of the list; they are not links between the objects, the method sets no
+\code{next()} or \code{prev()}.}
 \label{fig:as-objects}
 \end{figure}
 
@@ -282,7 +295,9 @@ and prints the three lists.
 \umlfigure{maps_with_gaps}
 \caption{The maps with a gap object for each gap. A gap is an object of the
 class of the maps, here \code{RasterDataset}, with the identifier
-\code{None} and the time of the gap.}
+\code{None} and the time of the gap. The arrows show the order of the list;
+they are not links between the objects, the method sets no \code{next()} or
+\code{prev()}.}
 \label{fig:with-gaps}
 \end{figure}
 
@@ -291,17 +306,31 @@ class of the maps, here \code{RasterDataset}, with the identifier
 \umlfigure{maps_by_granularity}
 \caption{One list per granule of the granularity. Each list holds a new object
 for each map in the granule, with the identifier and the spatial extent of the
-map and the time of the granule, or a gap object. The method needs a valid
-temporal topology: maps must not overlap or contain each other.}
+map and the time of the granule, or a gap object. The arrows show the order of
+the lists; they are not links between the objects, the method sets no
+\code{next()} or \code{prev()}. The method needs a valid temporal topology:
+maps must not overlap or contain each other.}
 \label{fig:by-granularity}
 \end{figure}
 
 \lstinputlisting[style=example,caption={The dataset of
 figures~\ref{fig:as-objects} to~\ref{fig:by-granularity}
-(\code{map\_lists.py})},label=lst:map-lists]{examples/map_lists.py}
+\\ \examplefile{map\_lists.py}},label=lst:map-lists]{examples/map_lists.py}
 
 \lstinputlisting[style=output,caption={Output of
 \code{map\_lists.py}}]{examples/map_lists.txt}
+
+% The figure of the abstract classes fills a page of its own. Placed in the
+% text of its section, it came out between two pages of the listing above
+% and split the code that a reader copies.
+\begin{figure}[p]
+\centering
+\umlfigure{datasets}
+\caption{The abstract dataset classes. Abstract methods are in italics. The
+topology builder links the objects of one or two lists; the register of the
+maps of a space time dataset is a table of its own.}
+\label{fig:datasets}
+\end{figure}
 
 \subsection{Map and space time dataset classes}
 
@@ -338,9 +367,12 @@ Below the rows lie five modules:
 \begin{description}
 \item[\code{state}] \code{init()} finds out everything about the session
   once: the database backend, the database, the mapset, the messenger and the
-  C library interface. It creates the temporal database if it does not exist.
-  All of it lives in one object, \code{STATE}; the functions \code{get\_*()}
-  read it, and nothing but \code{init()} writes it. Every script calls
+  C library interface. All of it lives in one object, \code{STATE}; the
+  functions \code{get\_*()} read it, and only \code{init()} and
+  \code{set\_raise\_on\_error()} write it. Unless it is called with
+  \code{skip\_db\_init}, \code{init()} creates the temporal database if it
+  does not exist and stops at a database of a version that the framework does
+  not read; \code{t.upgrade} upgrades an older one. Every script calls
   \code{init()} before it uses the framework.
 \item[\code{db}] \code{SQLDatabaseInterfaceConnection} holds the connections
   to the temporal databases of the mapsets in the search path, one
@@ -351,7 +383,8 @@ Below the rows lie five modules:
   view and column name that goes into the text of a statement; values are
   passed as parameters or quoted by \code{sql\_literal()}.
 \item[\code{schema}] creates the tables and views of the temporal database
-  from the SQL templates, checks its version and upgrades it.
+  from the SQL templates, reads its version from its metadata table and
+  upgrades it (\code{t.upgrade}).
 \item[\code{kinds}] names the six types in one place: the names a user may
   type, the tables and views of each type, the prefix of the functions of the
   C library interface, the type of \code{g.remove} and the module that
@@ -363,8 +396,8 @@ Below the rows lie five modules:
 \code{dbif}. Without it, the method opens a connection, runs its statements and
 closes the connection again; a script that runs many statements opens one
 connection and passes it on (listing~\ref{lst:register}).
-\code{register\_maps\_in\_space\_time\_dataset()} opens a connection of its
-own.
+\code{register\_maps\_in\_space\_time\_dataset()} always opens a connection
+of its own; its argument \code{dbif} is deprecated.
 
 \section{The algebra core and the classic algebra}
 \label{sec:algebra}
@@ -440,7 +473,7 @@ temporal database and registered in a new STRDS. One database connection
 serves all statements.
 
 \lstinputlisting[style=example,caption={Registration of daily temperature
-maps (\code{register.py})},label=lst:register]{examples/register.py}
+maps \\ \examplefile{register.py}},label=lst:register]{examples/register.py}
 
 \lstinputlisting[style=output,caption={Output of
 \code{register.py}}]{examples/register.txt}
@@ -458,7 +491,7 @@ extents only, so the script reads the metadata with \code{select()} before
 it prints the range of each month.
 
 \lstinputlisting[style=example,caption={Aggregation of daily to monthly
-temperature (\code{aggregate.py})},label=lst:aggregate]{examples/aggregate.py}
+temperature \\ \examplefile{aggregate.py}},label=lst:aggregate]{examples/aggregate.py}
 
 \lstinputlisting[style=output,caption={Output of
 \code{aggregate.py}}]{examples/aggregate.txt}
@@ -472,7 +505,7 @@ slot by slot operation. \code{materialize()} computes the maps and registers
 them. The values are the same as those of listing~\ref{lst:aggregate}.
 
 \lstinputlisting[style=example,caption={Monthly means with the algebra core
-(\code{algebra.py})},label=lst:algebra]{examples/algebra.py}
+\\ \examplefile{algebra.py}},label=lst:algebra]{examples/algebra.py}
 
 \lstinputlisting[style=output,caption={Output of
 \code{algebra.py}}]{examples/algebra.txt}
@@ -486,7 +519,7 @@ pygrass and reads the raster cell under each station directly from each
 monthly map.
 
 \lstinputlisting[style=example,caption={Sampling at climate stations
-(\code{sample.py})},label=lst:sample]{examples/sample.py}
+\\ \examplefile{sample.py}},label=lst:sample]{examples/sample.py}
 
 \lstinputlisting[style=output,caption={Output of
 \code{sample.py}}]{examples/sample.txt}
@@ -500,20 +533,21 @@ order, so that they meet on the way (listing~\ref{lst:tracks}). The positions
 are used directly, without vector maps: each becomes a \code{VectorDataset}
 without a map, whose time stamp is the time of the position and whose spatial
 extent is the position (listing~\ref{lst:trajectories}). Snapping makes each
-position last until the next one, buffering widens it by half the distance to
+position last until the next one and the last one for the granularity of the
+positions, five minutes; buffering widens a position by half the distance to
 the next position, at least by 50~m. The topology builder relates the
 positions of the two crews in two dimensions; a pair that is related in space
 and in time is a meeting, printed with the time and the area of the
 intersection.
 
 \lstinputlisting[style=example,caption={The tracks of two field crews
-(\code{tracks.py})},label=lst:tracks]{examples/tracks.py}
+\\ \examplefile{tracks.py}},label=lst:tracks]{examples/tracks.py}
 
 \lstinputlisting[style=output,caption={Output of
 \code{tracks.py}}]{examples/tracks.txt}
 
 \lstinputlisting[style=example,caption={Where and when the crews met
-(\code{trajectories.py})},label=lst:trajectories]{examples/trajectories.py}
+\\ \examplefile{trajectories.py}},label=lst:trajectories]{examples/trajectories.py}
 
 \lstinputlisting[style=output,caption={Output of
 \code{trajectories.py}}]{examples/trajectories.txt}
@@ -527,7 +561,7 @@ argument; the output shown is that of 50 maps, as the tests run it. The
 counts go to standard output, the times to standard error.
 
 \lstinputlisting[style=example,caption={Benchmark
-(\code{benchmark.py})},label=lst:benchmark]{examples/benchmark.py}
+\\ \examplefile{benchmark.py}},label=lst:benchmark]{examples/benchmark.py}
 
 \lstinputlisting[style=output,caption={Output of \code{benchmark.py 50}}]%
 {examples/benchmark.txt}

@@ -6,22 +6,23 @@
 # digest.tex holds the SHA-256 of the sources, which design.tex writes into
 # the keywords of the PDF. temporal/tests/temporal_framework_design_test.py
 # computes the same digest (source_digest) and compares: one line per file
-# that is not a build residue, in the order of the paths as sort(1) gives
-# them in the C locale, made of the path, a NUL byte, the SHA-256 of the
-# content and a newline. Keep the excluded names here and in BUILD_RESIDUES of
-# the test equal.
+# other than digest.tex and RESIDUES, in the order of the paths as sort(1)
+# gives them in the C locale, made of the path, a NUL byte, the SHA-256 of
+# the content and a newline. The test reads RESIDUES from this file.
 
 TARGET = ../Temporal-Framework-Code-Design.pdf
+
+# What pdflatex and bibtex leave behind, and only that: any other file, a
+# PDF figure as well, counts as a source.
+RESIDUES = design.aux design.bbl design.blg design.log design.lof design.lot \
+	design.out design.pdf design.toc
 
 .PHONY: all clean digest.tex
 
 all: $(TARGET)
 
 digest.tex:
-	@find . -type f ! -name digest.tex ! -name '*.aux' ! -name '*.bbl' \
-		! -name '*.blg' ! -name '*.log' ! -name '*.out' ! -name '*.pdf' \
-		! -name '*.toc' ! -name '*.pyc' ! -path '*/__pycache__/*' \
-		! -path '*/_minted*' \
+	@find . -type f ! -path ./digest.tex $(foreach file,$(RESIDUES),! -path ./$(file)) \
 		| sed 's|^\./||' | LC_ALL=C sort \
 		| while IFS= read -r file; do \
 			printf '%s\0%s\n' "$$file" "$$(sha256sum < "$$file" | cut -d' ' -f1)"; \
@@ -39,5 +40,4 @@ $(TARGET): design.pdf
 	cp design.pdf $(TARGET)
 
 clean:
-	rm -f design.aux design.bbl design.blg design.log design.out design.toc \
-		design.lof design.lot design.pdf
+	rm -f $(RESIDUES)

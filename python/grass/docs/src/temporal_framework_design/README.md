@@ -17,7 +17,9 @@ material of Gebbert and Pebesma (2017), which stays unchanged as
 - `references.bib`: the bibliography.
 - `Makefile`: the build.
 - `digest.tex`: written by `make`, the SHA-256 of the sources, which the PDF
-  carries as its keywords.
+  carries as its keywords. Every file of this folder counts as a source
+  except `digest.tex` and the build residues that `RESIDUES` in the
+  `Makefile` lists.
 
 ## Build
 
@@ -48,7 +50,12 @@ against the code:
 - each class, member, base class and composition that a figure draws exists;
 - the keywords of the PDF equal the digest of the sources, so the PDF is
   built from the sources as they are;
-- each listing in the PDF, read with `pdftotext`, is the example file.
+- the text of each listing, as `mutool draw -F txt` (MuPDF) copies it from
+  the PDF, is the example file or its output file. `design.tex` writes each
+  space of a listing as a real space into the text of the PDF, so that
+  copied code keeps its indentation. `pdftotext` of poppler 24.02 drops the
+  spaces at the start of a line even then, so the test reads the PDF with
+  `mutool` and is skipped without it (package `mupdf-tools`).
 
 After changing an example, run it as the test does and write its output
 into the `.txt` file, then run `make`.

@@ -1,8 +1,11 @@
-# Residues of make; digest.tex is checked in with the PDF.
-*.aux
-*.bbl
-*.blg
-*.log
-*.out
-*.toc
+# Residues of make, the RESIDUES of the Makefile; digest.tex is checked in
+# with the PDF.
+design.aux
+design.bbl
+design.blg
+design.log
+design.lof
+design.lot
+design.out
 design.pdf
+design.toc

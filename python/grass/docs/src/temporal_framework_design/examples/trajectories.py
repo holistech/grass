@@ -2,7 +2,8 @@
 
 Each GPS position becomes a vector map object without a map: its time stamp
 is the time of the position, its spatial extent the position. Snapping makes
-each position last until the next one; buffering widens it by half the
+each position last until the next one and the last one for the granularity
+of the positions, five minutes; buffering widens a position by half the
 distance to the next position, at least by 50 m. The topology builder then
 relates the positions of the two crews in space and time.
 """
