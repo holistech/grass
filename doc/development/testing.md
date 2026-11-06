@@ -9,8 +9,8 @@ GRASS has two testing frameworks. Use _pytest_ for everything new. Use the
 older _grass.gunittest_ framework when the test needs the North Carolina
 sample dataset, or when it needs data supplied as files. Neither is currently
 possible with _pytest_ in general. The temporal framework is an exception: its
-tests use _pytest_ with synthetic data, and the tests of its manuals read the
-sample dataset through a helper module, see
+tests use _pytest_ with synthetic data, and the tests of its manuals and of its
+code design document read the sample dataset through a helper module, see
 [Tests of the temporal framework](#tests-of-the-temporal-framework) and
 [Tests that need the North Carolina sample dataset](#tests-that-need-the-north-carolina-sample-dataset).
 
@@ -161,7 +161,9 @@ _grass.tools_.
 When the test needs specific data which cannot be generated, the data has to
 be supplied as files, which is currently possible only with _grass.gunittest_
 in a `testsuite` directory. The tests of the temporal tools and of the library
-do not need such data, and only their manual tests read the sample dataset; see
+do not need such data; the sample dataset is read only by the tests that run the
+examples of the manuals and of the code design document, and by the test of the
+helper that finds it; see
 [Tests of the temporal framework](#tests-of-the-temporal-framework).
 
 ### Tests which run in parallel
@@ -226,9 +228,13 @@ of `grass.temporal.testing` lists them all.
 
 Tests of the `t.*` tools and of _grass.temporal_ build all their data with these
 helpers, in a project created in `tmp_path`, and do not read the North Carolina
-dataset; only the manual tests do, see
-[Tests of the manuals](#tests-of-the-manuals-of-the-temporal-tools). Constant
-maps from _r.mapcalc_ make the expected values derivable by hand: the comment
+dataset; only the tests of the manuals, the tests of the examples of the code
+design document and the test of `nc_dataset` itself do, see
+[Tests of the manuals](#tests-of-the-manuals-of-the-temporal-tools) and
+[Tests of the developer
+documentation](#tests-of-the-developer-documentation-of-the-temporal-framework).
+Constant maps
+from _r.mapcalc_ make the expected values derivable by hand: the comment
 next to an expected value shows the arithmetic. A value that cannot be derived,
 such as the file written by an export format, may be measured once; the
 comment then names the date and the command, says why it cannot be derived, and
@@ -476,11 +482,53 @@ A manual joins the test by an entry in `REVIEWED_MANUALS` in
 `temporal/tests/temporal_manual_examples_test.py`; a manual that may keep a
 catalog is also in `CATALOG_MANUALS`.
 
+### Tests of the developer documentation of the temporal framework
+
+Two modules in `temporal/tests` keep the developer documentation true; neither
+checks prose, both check what the text claims about the code.
+
+- `temporal_framework_page_test.py` checks the overview page
+  `python/grass/docs/src/temporal_framework.rst`. Each Python code block runs
+  in a new project and must end without a traceback; each block may call only
+  what the public contract lists; every module and package of the library has
+  a `:mod:` role on the page and every role names a module that exists. Only
+  `.. code-block:: python` is read as a code block, and any other directive for
+  code on the page fails the test instead of being skipped, so write Python
+  examples in that form.
+- `temporal_framework_design_test.py` checks the code design document in
+  `python/grass/docs/src/temporal_framework_design/`. Its examples run in the
+  sample dataset and must print what the document shows; each class, member,
+  base class and composition of a UML figure must exist in the code; the text of
+  each listing in the PDF must equal the example file and its output.
+  The test of the listings reads the PDF with `mutool` (MuPDF), which must be
+  installed.
+
+The checked-in PDF, `python/grass/docs/src/Temporal-Framework-Code-Design.pdf`,
+carries the SHA-256 of its sources in its keywords, and the test compares it
+with the digest of the sources as they are. A change of any source file, an
+example, a figure or the text, therefore turns the test red until the PDF is
+built again: run `make` in `python/grass/docs/src/temporal_framework_design/`
+and commit the PDF together with `digest.tex`. The build needs LaTeX
+(`pdflatex` and `bibtex`).
+
+The examples of both documents may call only what the public contract lists
+(`tests/data/public_contract.json`, entries with the origin `docs`).
+`grass.temporal.testing.contract_trace` finds out what a script calls: it runs
+the script and records, with `sys.setprofile`, the functions and methods of
+`grass.temporal` that the script itself calls. The trace is a floor, not a
+proof. It cannot see constructors or reads of plain attributes, which leave no
+function name, and it leaves out every name with a component that starts with
+an underscore, so a method that only a private base class defines does not show.
+It traces only the main thread. Read an example as well as tracing it.
+
 ## Tests that need the North Carolina sample dataset
 
-The manual tests of the temporal framework (`temporal/tests`) and a few tests in
-`python/grass/temporal/tests` run their examples on the North Carolina sample
-dataset, through `grass.temporal.testing.nc_dataset`. They look for it in the
+The tests of the manuals and the tests that run the examples of the code design
+document (both in `temporal/tests`) run their examples on the North Carolina
+sample dataset, through `grass.temporal.testing.nc_dataset`; so does the test of
+that module in `python/grass/temporal/tests`. The test of the overview page
+(`temporal_framework_page_test.py`) does not: it creates its own datasets in a
+project in `tmp_path`. They look for it in the
 folder named by the environment variable `GRASS_TEMPORAL_TEST_NC_SPM`; without
 the variable they take `~/grassdata/nc_spm_08_grass7` and then
 `~/grassdata/nc_spm_full_v2beta1`. When none is found, the tests fail with a
