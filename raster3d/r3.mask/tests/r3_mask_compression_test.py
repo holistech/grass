@@ -84,9 +84,9 @@ def _input_values(with_nulls, repeating=False):
     r3.out.ascii -h: layers from the bottom, rows from the north, columns
     from the west
 
-    The values use all bits of their mantissas. Each cell has a value of
-    its own, or with repeating one of five values, so that zlib shrinks
-    the larger tiles of a map of reduced precision.
+    Each cell has a value of its own, or with repeating one of five
+    values, so that zlib shrinks the larger tiles of a map of reduced
+    precision.
     """
 
     def value(row, column, layer):
