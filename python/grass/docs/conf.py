@@ -87,17 +87,6 @@ nitpick_ignore = [("py:class", "grass.temporal.metadata.Line")]
 # the first member).
 _documented_module = None
 
-# Attributes whose bare name another package of grass names as a type:
-# ``:type path: path`` in grass.pygrass.gis (and grass.jupyter) resolves to
-# every documented attribute called ``path``, so a second one anywhere in the
-# reference makes that reference ambiguous. Skipping the attribute is the
-# change of this file; renaming the types in the other packages is not.
-# An entry is (module, attribute name). The class is not part of it: for the
-# attributes of a dataclass the hook runs after the docstring events of the
-# classes that follow, so the class that autodoc is working on is not known
-# (measured 2026-11-06 by printing both in a build).
-_AMBIGUOUS_ATTRIBUTES = {("grass.temporal.testing.manual_examples", "path")}
-
 
 def note_documented_module(app, what, name, obj, options, lines):
     global _documented_module
@@ -108,7 +97,7 @@ def note_documented_module(app, what, name, obj, options, lines):
 def skip_member(app, what, name, obj, skip, options):
     """Leave out what a page of grass.temporal must not describe a second time
 
-    Three kinds of members are skipped:
+    Two kinds of members are skipped:
 
     - The PLY rule methods of the temporal lexers and grammars (``t_*`` and
       ``p_*``). PLY reads the regular expression or the production from the
@@ -121,10 +110,7 @@ def skip_member(app, what, name, obj, skip, options):
       cross-references with two targets. Their one description stays on the
       page of the module that defines them; the other packages of ``grass``
       are not touched.
-    - The attributes in ``_AMBIGUOUS_ATTRIBUTES``.
     """
-    if what == "class" and (_documented_module, name) in _AMBIGUOUS_ATTRIBUTES:
-        return True
     owner = getattr(obj, "__module__", None)
     if not isinstance(owner, str):
         return None
