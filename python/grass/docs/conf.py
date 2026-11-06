@@ -73,13 +73,71 @@ extensions = [
 ]
 
 
-# Skip temporal lexer rule methods because their regex docstrings are not intended
-# for reStructuredText parsing and only serve PLY token definitions.
+# References that a strict build (sphinx-build -n) cannot resolve and that are
+# right: the annotation of MetadataRow.lines names the helper class
+# metadata.Line, which the module keeps out of its __all__ because only
+# MetadataRow is public. Has no effect on a build without -n.
+nitpick_ignore = [("py:class", "grass.temporal.metadata.Line")]
+
+
+# The module that autodoc documents right now. The skip hook below is told
+# the member but not the module it belongs to, and the only event that names
+# the module before its members are filtered is the one for its docstring
+# (checked with Sphinx 9.1 on 2026-11-06: it fires once per module, before
+# the first member).
+_documented_module = None
+
+# Attributes whose bare name another package of grass names as a type:
+# ``:type path: path`` in grass.pygrass.gis (and grass.jupyter) resolves to
+# every documented attribute called ``path``, so a second one anywhere in the
+# reference makes that reference ambiguous. Skipping the attribute is the
+# change of this file; renaming the types in the other packages is not.
+# An entry is (module, attribute name). The class is not part of it: for the
+# attributes of a dataclass the hook runs after the docstring events of the
+# classes that follow, so the class that autodoc is working on is not known
+# (measured 2026-11-06 by printing both in a build).
+_AMBIGUOUS_ATTRIBUTES = {("grass.temporal.testing.manual_examples", "path")}
+
+
+def note_documented_module(app, what, name, obj, options, lines):
+    global _documented_module
+    if what == "module":
+        _documented_module = name
+
+
 def skip_member(app, what, name, obj, skip, options):
-    if name.startswith("t_"):
-        mod = getattr(obj, "__module__", None)
-        if mod is not None and mod.startswith("grass.temporal.classic."):
-            return True
+    """Leave out what a page of grass.temporal must not describe a second time
+
+    Three kinds of members are skipped:
+
+    - The PLY rule methods of the temporal lexers and grammars (``t_*`` and
+      ``p_*``). PLY reads the regular expression or the production from the
+      docstring, so the docstring cannot be rewritten as reStructuredText.
+    - The names that a package of grass.temporal imports from elsewhere and
+      lists in ``__all__`` (``grass.temporal.SQLStatementError`` from ``db``,
+      ``FatalError`` from ``grass.exceptions``). Without this, autodoc
+      describes the object twice, once under the package and once under the
+      module that defines it, which gives duplicate descriptions and
+      cross-references with two targets. Their one description stays on the
+      page of the module that defines them; the other packages of ``grass``
+      are not touched.
+    - The attributes in ``_AMBIGUOUS_ATTRIBUTES``.
+    """
+    if what == "class" and (_documented_module, name) in _AMBIGUOUS_ATTRIBUTES:
+        return True
+    owner = getattr(obj, "__module__", None)
+    if not isinstance(owner, str):
+        return None
+    if name.startswith(("t_", "p_")) and owner.startswith("grass.temporal."):
+        return True
+    if (
+        what == "module"
+        and _documented_module is not None
+        and _documented_module.startswith("grass.temporal")
+        and owner != _documented_module
+        and hasattr(obj, "__name__")
+    ):
+        return True
     return None
 
 
@@ -126,6 +184,7 @@ def _apidoc_lastmod_from_source(app, env):
 
 
 def setup(app):
+    app.connect("autodoc-process-docstring", note_documented_module)
     app.connect("autodoc-skip-member", skip_member)
     # Run after sphinx_last_updated_by_git (default priority 500) so we only fill
     # the gaps it leaves for generated apidoc pages, never clobber real dates.

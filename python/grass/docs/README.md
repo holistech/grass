@@ -16,6 +16,18 @@ Install the following dependencies from the `requirements.txt` file: in
 pip install -r python/grass/docs/requirements.txt
 ```
 
+The reference imports the GRASS Python packages, which need the packages of
+`.github/workflows/python_requirements.txt` (among them numpy) as well:
+
+```bash
+pip install -r .github/workflows/python_requirements.txt
+```
+
+If only `python/grass/docs/requirements.txt` is installed, the build ends with
+return code 0 and warnings, but the reference is empty: autodoc cannot import
+`grass.temporal` without numpy and the pages stay empty. Check the build log
+for `No module named 'numpy'`.
+
 ### Build the Documentation
 
 To build the documentation, run the following command in the `python/grass/docs`
