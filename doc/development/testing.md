@@ -492,16 +492,18 @@ checks prose, both check what the text claims about the code.
   in a new project and must end without a traceback; each block may call only
   what the public contract lists; every module and package of the library has
   a `:mod:` role on the page and every role names a module that exists. Only
-  `.. code-block:: python` is read as a code block, and any other directive for
-  code on the page fails the test instead of being skipped, so write Python
-  examples in that form.
+  `.. code-block:: python` is read as a code block. The test rejects, instead of
+  skipping, the directives `code`, `sourcecode`, `literalinclude`, `doctest`
+  and `testcode`, any other `code-block` language, a line that ends in `::`
+  (a literal block, also a lone `::`) and a line that starts with `>>>`; write
+  Python examples as `.. code-block:: python`.
 - `temporal_framework_design_test.py` checks the code design document in
   `python/grass/docs/src/temporal_framework_design/`. Its examples run in the
   sample dataset and must print what the document shows; each class, member,
   base class and composition of a UML figure must exist in the code; the text of
   each listing in the PDF must equal the example file and its output.
-  The test of the listings reads the PDF with `mutool` (MuPDF), which must be
-  installed.
+  The test of the listings reads the PDF with `mutool` (MuPDF, package
+  `mupdf-tools`); without it that test is skipped.
 
 The checked-in PDF, `python/grass/docs/src/Temporal-Framework-Code-Design.pdf`,
 carries the SHA-256 of its sources in its keywords, and the test compares it
@@ -512,7 +514,8 @@ and commit the PDF together with `digest.tex`. The build needs LaTeX
 (`pdflatex` and `bibtex`).
 
 The examples of both documents may call only what the public contract lists
-(`tests/data/public_contract.json`, entries with the origin `docs`).
+(`python/grass/temporal/tests/data/public_contract.json`); a name that only an
+example of the documentation uses is entered with the origin `docs`.
 `grass.temporal.testing.contract_trace` finds out what a script calls: it runs
 the script and records, with `sys.setprofile`, the functions and methods of
 `grass.temporal` that the script itself calls. The trace is a floor, not a
@@ -528,7 +531,7 @@ document (both in `temporal/tests`) run their examples on the North Carolina
 sample dataset, through `grass.temporal.testing.nc_dataset`; so does the test of
 that module in `python/grass/temporal/tests`. The test of the overview page
 (`temporal_framework_page_test.py`) does not: it creates its own datasets in a
-project in `tmp_path`. They look for it in the
+project in `tmp_path`. These tests look for it in the
 folder named by the environment variable `GRASS_TEMPORAL_TEST_NC_SPM`; without
 the variable they take `~/grassdata/nc_spm_08_grass7` and then
 `~/grassdata/nc_spm_full_v2beta1`. When none is found, the tests fail with a
