@@ -54,6 +54,12 @@ database_image
     Record and compare the temporal database that the library writes and
     what it reads back from it.
 
+Documentation:
+
+contract_trace
+    Run an example script and list the public functions of grass.temporal
+    that it calls, then name those that the public contract does not cover.
+
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
