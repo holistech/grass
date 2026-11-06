@@ -8,9 +8,11 @@ it.
 GRASS has two testing frameworks. Use _pytest_ for everything new. Use the
 older _grass.gunittest_ framework when the test needs the North Carolina
 sample dataset, or when it needs data supplied as files. Neither is currently
-possible with _pytest_. The temporal framework is an exception: its tests
-need neither and use _pytest_ with synthetic data, see
-[Tests of the temporal framework](#tests-of-the-temporal-framework).
+possible with _pytest_ in general. The temporal framework is an exception: its
+tests use _pytest_ with synthetic data, and the tests of its manuals read the
+sample dataset through a helper module, see
+[Tests of the temporal framework](#tests-of-the-temporal-framework) and
+[Tests that need the North Carolina sample dataset](#tests-that-need-the-north-carolina-sample-dataset).
 
 The two live side by side in the source tree: _pytest_ tests go into a
 `tests` directory next to the code they test, _grass.gunittest_ tests into a
@@ -158,7 +160,8 @@ _grass.tools_.
 
 When the test needs specific data which cannot be generated, the data has to
 be supplied as files, which is currently possible only with _grass.gunittest_
-in a `testsuite` directory. The temporal tools do not need such data; see
+in a `testsuite` directory. The tests of the temporal tools and of the library
+do not need such data, and only their manual tests read the sample dataset; see
 [Tests of the temporal framework](#tests-of-the-temporal-framework).
 
 ### Tests which run in parallel
@@ -177,8 +180,9 @@ def test_something_which_changes_the_environment(xy_dataset_session):
 ## Tests of the temporal framework
 
 The helpers for tests of _grass.temporal_ and of the `t.*` tools are in the
-package `grass.temporal.testing`. It does not import pytest, so it can be
-used from any test; the shared fixtures that wrap it are in
+package `grass.temporal.testing`. No module of it imports pytest when it is
+imported (`postgresql` imports it inside `server_or_skip()` only), so it can
+be used from any test; the shared fixtures that wrap it are in
 `temporal/conftest.py` and in `python/grass/temporal/tests/conftest.py`, and
 the test directories of the tools add their own in their `conftest.py`.
 
@@ -220,20 +224,21 @@ The other modules of the package serve the comparisons of the algebras, the
 recordings of the library and the cached IO described below; the docstring
 of `grass.temporal.testing` lists them all.
 
-Tests of the `t.*` tools and of _grass.temporal_ build all their data with
-these helpers, in a project created in `tmp_path`, and do not read the North
-Carolina dataset. Constant maps from _r.mapcalc_ make the expected
-values derivable by hand: the comment next to an expected value shows the
-arithmetic. A value that cannot be derived, such as the file written by an
-export format, may be measured once; the comment then names the date and the
-command, says why it cannot be derived, and a derived check of its
-plausibility stands next to it. A tool's tests go into
-`temporal/<tool>/tests/`, in files named like the tool with the dots replaced
-by underscores and a topic, for example
-`temporal/t.shift/tests/t_shift_relative_test.py`. They run in parallel with
-_pytest-xdist_ like all other pytest tests, so a module builds its datasets
-once in a module-scoped session and a test never changes what another test
-reads; a test which changes `os.environ` is marked as described above.
+Tests of the `t.*` tools and of _grass.temporal_ build all their data with these
+helpers, in a project created in `tmp_path`, and do not read the North Carolina
+dataset; only the manual tests do, see
+[Tests of the manuals](#tests-of-the-manuals-of-the-temporal-tools). Constant
+maps from _r.mapcalc_ make the expected values derivable by hand: the comment
+next to an expected value shows the arithmetic. A value that cannot be derived,
+such as the file written by an export format, may be measured once; the
+comment then names the date and the command, says why it cannot be derived, and
+a derived check of its plausibility stands next to it. A tool's tests go into
+`temporal/<tool>/tests/`, in files named like the tool with the dots replaced by
+underscores and a topic, for example `temporal/t.shift/tests/t_shift_test.py`.
+They run in parallel with _pytest-xdist_ like all other pytest tests, so a
+module builds its datasets once in a module-scoped session and a test never
+changes what another test reads; a test which changes `os.environ` is marked as
+described above.
 
 Which session to use depends on how the test reaches GRASS:
 
@@ -425,15 +430,61 @@ whose subject is the IO that is cached. A tool started as a subprocess never
 sees the caches, because they live in the test process; the marker matters only
 for the in-process part of such a test.
 
+### Tests of the manuals of the temporal tools
+
+The manual of each `t.*` tool and the introduction `temporal/temporalintro.md`
+keep their examples under `## EXAMPLES`, and `temporal/tests` runs them:
+what a reader copies from a manual has to work and has to print what the
+manual shows. Four modules of `grass.temporal.testing` and one script do the
+work.
+
+- `manual_examples` reads a manual. Each `###` heading under `## EXAMPLES` is
+  one example with two tabs, `=== "Command line"` (code blocks in `sh`) and
+  `=== "Python (grass.tools)"` (blocks in `python`), as in
+  `raster/r.sim/r.sim.water/r.sim.water.md`. A block of the language `text`
+  right after a code block is the output that the manual shows for it. An HTML
+  comment before a block, `<!-- example: key=value -->`, steers the test and
+  stays invisible to the reader: `not-run` with a `reason`, or `requires=` one
+  of `postgresql`, `old-database` and `gdal:<driver>`, which skip the block
+  where the requirement is missing. The comment `<!-- example-project: ... -->`
+  under `## EXAMPLES` says where the examples run. A catalog of expressions,
+  such as the one of _t.rast.algebra_, has the `Command line` tab only and
+  says so with `<!-- example: shell-only -->`. `run_manual` runs the blocks of
+  a tab in a fresh session, one tab per test, and `check_manual` compares the
+  output after `normalize()`, which replaces what differs from run to run:
+  the database path, the user name in the creator fields, the creation and
+  modification times, and the hexadecimal part of the name of a register
+  table. A block that runs longer than `BLOCK_SECONDS` is stopped.
+- `manual_coverage` checks that the examples of a manual show every option of
+  the tool (`NOT_SHOWN` lists the options left out on purpose, and is empty
+  today) and, with `check_html_sync`, that the `.md` and the `.html` file next
+  to it agree.
+- `nc_dataset` finds the North Carolina sample dataset, see the next section.
+- `versions` turns a current temporal database into one of an older version,
+  for the examples of _t.upgrade_ (`requires=old-database`) and the tests of
+  the version check.
+- `utils/grass_md2html.py` writes the `.html` file of a manual from its `.md`
+  file. Edit only the `.md` file, then run
+  `python3 utils/grass_md2html.py temporal/<tool>/<tool>.md`; with `--check`
+  it writes nothing and exits with 1 when an `.html` file differs from the
+  generated text. It refuses Markdown outside the subset that the manuals use,
+  and an indentation under a list item that Python-Markdown (MkDocs) reads
+  differently from CommonMark. `temporal/tests/temporal_manual_html_test.py`
+  runs the same comparison for each manual.
+
+A manual joins the test by an entry in `REVIEWED_MANUALS` in
+`temporal/tests/temporal_manual_examples_test.py`; a manual that may keep a
+catalog is also in `CATALOG_MANUALS`.
+
 ## Tests that need the North Carolina sample dataset
 
-The manual tests of the temporal framework (`temporal/tests`) and a few tests
-in `python/grass/temporal/tests` run their examples on the North Carolina sample
-dataset. They look for it in the folder named by the environment variable
-`GRASS_TEMPORAL_TEST_NC_SPM`; without the variable they take
-`~/grassdata/nc_spm_08_grass7` and then `~/grassdata/nc_spm_full_v2beta1`. When
-none is found, the tests fail with a message instead of being skipped. Download
-the dataset from
+The manual tests of the temporal framework (`temporal/tests`) and a few tests in
+`python/grass/temporal/tests` run their examples on the North Carolina sample
+dataset, through `grass.temporal.testing.nc_dataset`. They look for it in the
+folder named by the environment variable `GRASS_TEMPORAL_TEST_NC_SPM`; without
+the variable they take `~/grassdata/nc_spm_08_grass7` and then
+`~/grassdata/nc_spm_full_v2beta1`. When none is found, the tests fail with a
+message instead of being skipped. Download the dataset from
 <https://grass.osgeo.org/sampledata/north_carolina/nc_spm_08_grass7.zip>. The
 tests only read it: they work in a temporary project and fail if the dataset
 changes.
