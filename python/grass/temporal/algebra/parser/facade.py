@@ -144,9 +144,10 @@ class _AlgebraParser:
         granularity of their maps and samples all datasets with it in
         ``parse()``. The only meaningful temporal relation is then "equal".
 
-        The classic algebra computes the granularity of each dataset with its
-        own copy of the function of the library, the core takes the one that
-        the library stored with the maps.
+        The classic algebra computes the granularity of each dataset and the
+        common granule of all of them with its own copies of the functions of
+        the library; the core takes the granularity that the library stored
+        with the maps and the common granule of the library.
 
         :param expression: The whole statement, ``"R = A + B"``
         :param stdstype: The dataset type of the datasets in the expression

@@ -8,14 +8,22 @@ tsnap() and the common granularity of the datasets in the granularity mode
 may change its rules, for example for a month series that starts on the last
 day of a month. So the classic algebra, the reference implementation in this
 package and the classic profile of the algebra core alike, keeps these copies
-of the functions of the library as they were on 04.11.2026:
+of the functions of the library:
 
 - ``compute_absolute_time_granularity()`` and
   ``compute_relative_time_granularity()`` with their helpers from
   ``grass.temporal.temporal_granularity``, and ``compute_datetime_delta()``
-  from ``grass.temporal.datetime_math``;
+  from ``grass.temporal.datetime_math``, as they were on 04.11.2026;
 - ``snap_map_list()`` from ``grass.temporal.stds_time_edit``, which calls
-  them for the end of the last instant.
+  them for the end of the last instant, as it was on 04.11.2026;
+- ``compute_common_absolute_time_granularity()`` with
+  ``compute_common_absolute_time_granularity_simple()`` and their helpers
+  from ``grass.temporal.temporal_granularity``, as they were on 06.11.2026,
+  after the common granule compared the finer fields of the start dates.
+  The algebra core calls the function of the library, the granularity mode
+  of the classic algebra this copy, so that a later change of the library
+  does not change the classic results. The relative common granularity is
+  only gcd_list() and comes from the library.
 
 ``dataset_granularity()`` computes the granularity of a dataset from its maps
 with these copies, in place of the granularity stored in the temporal
@@ -44,15 +52,34 @@ from typing import TYPE_CHECKING
 from grass.temporal.abstract_dataset import AbstractDatasetComparisonKeyStartTime
 from grass.temporal.abstract_map_dataset import AbstractMapDataset
 from grass.temporal.datetime_math import datetime_delta, increment_datetime_by_string
-from grass.temporal.temporal_granularity import gcd_list
+from grass.temporal.temporal_granularity import check_granularity_string, gcd_list
 
 if TYPE_CHECKING:
     from datetime import datetime
 
+# The units a granularity is computed in, from the smallest to the largest.
+# Weeks are valid in a granularity string but not in a computation: a week is
+# neither a unit the algebra counts in nor does the result use it.
+_UNITS = ("second", "minute", "hour", "day", "month", "year")
+
 # Seconds in the units of a fixed length
 _SECONDS_PER_UNIT = {"second": 1, "minute": 60, "hour": 3600, "day": 86400}
 
+# A month and a year have no fixed number of days. A granule that holds for a
+# month or a year must hold for each length, so each one is a value of its own.
+_DAYS_PER_UNIT = {"month": (28, 29, 30, 31), "year": (365, 366)}
+
 _MONTHS_PER_YEAR = 12
+
+# How many units of a smaller kind make the next larger one, as the common
+# granule of start dates may reach: seconds in a minute, minutes in an hour,
+# hours in a day, days in a year, months in a year.
+_HIERARCHY_LIMIT = {"second": 60, "minute": 60, "hour": 24, "day": 365, "month": 12}
+
+
+def _singular_unit(unit):
+    """Return the unit of a granularity string without the plural s"""
+    return unit.removesuffix("s")
 
 
 def _unit_factor(base_unit, unit):
@@ -307,6 +334,114 @@ def compute_absolute_time_granularity(maps):
     granularity = gcd_list(dlist)
     plural = "s" if granularity > 1 else ""
     return f"{granularity} {assigned_time_unit}{plural}"
+
+
+def _gcd_in_unit(units, base_unit):
+    """Return the greatest common divisor of the counts in the base unit
+
+    The counts of the base unit are used as they are. Of each larger unit that
+    is present the smallest count is converted into the base unit, because a
+    larger count of the same unit is a multiple of it and changes nothing.
+
+    :param units: A dictionary of the units that are present with the list of
+                  their counts
+    :param base_unit: The smallest unit that is present, one of _UNITS
+    :return: The greatest common divisor in the base unit
+    """
+    values = list(units[base_unit])
+    for unit in _UNITS[_UNITS.index(base_unit) + 1 :]:
+        if unit not in units:
+            continue
+        smallest = min(units[unit])
+        if base_unit in _SECONDS_PER_UNIT:
+            per_unit = _SECONDS_PER_UNIT[base_unit]
+            if unit in _SECONDS_PER_UNIT:
+                values.append(smallest * (_SECONDS_PER_UNIT[unit] // per_unit))
+            else:
+                values.extend(
+                    smallest * days * (_SECONDS_PER_UNIT["day"] // per_unit)
+                    for days in _DAYS_PER_UNIT[unit]
+                )
+        else:
+            # The base unit is the month, the only larger one is the year.
+            values.append(smallest * _MONTHS_PER_YEAR)
+    return gcd_list(values)
+
+
+def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
+    """Compute the greatest common granule from a list of absolute time granules,
+    considering the start times of the related space time datasets in the
+    common granularity computation.
+
+    The list of start dates is optional. If you use this function to compute a common
+    granularity between space time datasets, then you should provide their start times
+    to avoid wrong synchronization: if the start times differ in the unit of the
+    common granule or in a finer one, the result is one unit of the finest unit in
+    which they differ ("1 hour" for "1 day" with starts at midnight and at noon).
+    The years of the start times are not compared.
+
+    :param gran_list: List of granularities
+    :param start_date_list: List of the start times of related space time datasets
+    :return: The common granularity, None for an empty list of granules and
+             False if a granule is invalid
+    """
+
+    common_granule = compute_common_absolute_time_granularity_simple(gran_list)
+
+    if not common_granule or start_date_list is None:
+        return common_granule
+
+    num, granule = common_granule.split()
+    unit = _singular_unit(granule)
+
+    if unit in _UNITS:
+        # A granule has to start with the maps of each dataset. Start dates
+        # that differ in the field of the unit allow no longer granule than
+        # one unit; the same holds for a finer field, where only a granule of
+        # that finer unit fits both: daily maps from midnight and daily maps
+        # from noon share no day, but the hour. The year itself is not
+        # compared, as it never was.
+        finer = _UNITS[: _UNITS.index(unit)]
+        compared = (*finer, unit) if unit in _HIERARCHY_LIMIT else finer
+        for field in compared:
+            first = getattr(start_date_list[0], field)
+            if any(getattr(start, field) != first for start in start_date_list):
+                return f"1 {field}"
+
+    if unit in _HIERARCHY_LIMIT:
+        limit = _HIERARCHY_LIMIT[unit]
+        # Make sure the granule does not exceed the hierarchy limit
+        if int(num) > limit:
+            if int(num) % limit == 0:
+                return f"{limit} {unit}s"
+            return f"1 {unit}"
+
+    return common_granule
+
+
+def compute_common_absolute_time_granularity_simple(gran_list):
+    """Compute the greatest common granule from a list of absolute time granules
+
+    :param gran_list: List of granularities
+    :return: The common granularity
+    """
+
+    units = {}
+    for entry in gran_list:
+        if not check_granularity_string(entry, "absolute"):
+            return False
+
+        num, gran = entry.split()
+        unit = _singular_unit(gran)
+        if unit in _UNITS:
+            units.setdefault(unit, []).append(int(num))
+
+    for unit in _UNITS:
+        if unit in units:
+            num = _gcd_in_unit(units, unit)
+            return f"{num} {unit}{'s' if num > 1 else ''}"
+
+    return None
 
 
 def _closed_times(extents):

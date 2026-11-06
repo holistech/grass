@@ -1,0 +1,1962 @@
+{
+ "dates": {
+  "same": [
+   "2001-01-01T00:00:00",
+   "2001-01-01T00:00:00"
+  ],
+  "second": [
+   "2001-01-01T00:00:00",
+   "2001-01-01T00:00:05"
+  ],
+  "minute": [
+   "2001-01-01T00:00:00",
+   "2001-01-01T00:07:00"
+  ],
+  "hour": [
+   "2001-01-01T00:00:00",
+   "2001-01-01T03:00:00"
+  ],
+  "day": [
+   "2001-01-01T00:00:00",
+   "2001-01-04T00:00:00"
+  ],
+  "month": [
+   "2001-01-01T00:00:00",
+   "2001-03-01T00:00:00"
+  ],
+  "year": [
+   "2001-01-01T00:00:00",
+   "2003-01-01T00:00:00"
+  ],
+  "none": null
+ },
+ "starts": [
+  [
+   [
+    "1 second"
+   ],
+   "same",
+   "1 second"
+  ],
+  [
+   [
+    "1 second"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "1 second"
+   ],
+   "minute",
+   "1 second"
+  ],
+  [
+   [
+    "1 second"
+   ],
+   "hour",
+   "1 second"
+  ],
+  [
+   [
+    "1 second"
+   ],
+   "day",
+   "1 second"
+  ],
+  [
+   [
+    "1 second"
+   ],
+   "month",
+   "1 second"
+  ],
+  [
+   [
+    "1 second"
+   ],
+   "year",
+   "1 second"
+  ],
+  [
+   [
+    "1 second"
+   ],
+   "none",
+   "1 second"
+  ],
+  [
+   [
+    "30 seconds"
+   ],
+   "same",
+   "30 seconds"
+  ],
+  [
+   [
+    "30 seconds"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "30 seconds"
+   ],
+   "minute",
+   "30 seconds"
+  ],
+  [
+   [
+    "30 seconds"
+   ],
+   "hour",
+   "30 seconds"
+  ],
+  [
+   [
+    "30 seconds"
+   ],
+   "day",
+   "30 seconds"
+  ],
+  [
+   [
+    "30 seconds"
+   ],
+   "month",
+   "30 seconds"
+  ],
+  [
+   [
+    "30 seconds"
+   ],
+   "year",
+   "30 seconds"
+  ],
+  [
+   [
+    "30 seconds"
+   ],
+   "none",
+   "30 seconds"
+  ],
+  [
+   [
+    "59 seconds"
+   ],
+   "same",
+   "59 seconds"
+  ],
+  [
+   [
+    "59 seconds"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "59 seconds"
+   ],
+   "minute",
+   "59 seconds"
+  ],
+  [
+   [
+    "59 seconds"
+   ],
+   "hour",
+   "59 seconds"
+  ],
+  [
+   [
+    "59 seconds"
+   ],
+   "day",
+   "59 seconds"
+  ],
+  [
+   [
+    "59 seconds"
+   ],
+   "month",
+   "59 seconds"
+  ],
+  [
+   [
+    "59 seconds"
+   ],
+   "year",
+   "59 seconds"
+  ],
+  [
+   [
+    "59 seconds"
+   ],
+   "none",
+   "59 seconds"
+  ],
+  [
+   [
+    "60 seconds"
+   ],
+   "same",
+   "60 seconds"
+  ],
+  [
+   [
+    "60 seconds"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "60 seconds"
+   ],
+   "minute",
+   "60 seconds"
+  ],
+  [
+   [
+    "60 seconds"
+   ],
+   "hour",
+   "60 seconds"
+  ],
+  [
+   [
+    "60 seconds"
+   ],
+   "day",
+   "60 seconds"
+  ],
+  [
+   [
+    "60 seconds"
+   ],
+   "month",
+   "60 seconds"
+  ],
+  [
+   [
+    "60 seconds"
+   ],
+   "year",
+   "60 seconds"
+  ],
+  [
+   [
+    "60 seconds"
+   ],
+   "none",
+   "60 seconds"
+  ],
+  [
+   [
+    "61 seconds"
+   ],
+   "same",
+   "1 second"
+  ],
+  [
+   [
+    "61 seconds"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "61 seconds"
+   ],
+   "minute",
+   "1 second"
+  ],
+  [
+   [
+    "61 seconds"
+   ],
+   "hour",
+   "1 second"
+  ],
+  [
+   [
+    "61 seconds"
+   ],
+   "day",
+   "1 second"
+  ],
+  [
+   [
+    "61 seconds"
+   ],
+   "month",
+   "1 second"
+  ],
+  [
+   [
+    "61 seconds"
+   ],
+   "year",
+   "1 second"
+  ],
+  [
+   [
+    "61 seconds"
+   ],
+   "none",
+   "61 seconds"
+  ],
+  [
+   [
+    "120 seconds"
+   ],
+   "same",
+   "60 seconds"
+  ],
+  [
+   [
+    "120 seconds"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "120 seconds"
+   ],
+   "minute",
+   "60 seconds"
+  ],
+  [
+   [
+    "120 seconds"
+   ],
+   "hour",
+   "60 seconds"
+  ],
+  [
+   [
+    "120 seconds"
+   ],
+   "day",
+   "60 seconds"
+  ],
+  [
+   [
+    "120 seconds"
+   ],
+   "month",
+   "60 seconds"
+  ],
+  [
+   [
+    "120 seconds"
+   ],
+   "year",
+   "60 seconds"
+  ],
+  [
+   [
+    "120 seconds"
+   ],
+   "none",
+   "120 seconds"
+  ],
+  [
+   [
+    "121 seconds"
+   ],
+   "same",
+   "1 second"
+  ],
+  [
+   [
+    "121 seconds"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "121 seconds"
+   ],
+   "minute",
+   "1 second"
+  ],
+  [
+   [
+    "121 seconds"
+   ],
+   "hour",
+   "1 second"
+  ],
+  [
+   [
+    "121 seconds"
+   ],
+   "day",
+   "1 second"
+  ],
+  [
+   [
+    "121 seconds"
+   ],
+   "month",
+   "1 second"
+  ],
+  [
+   [
+    "121 seconds"
+   ],
+   "year",
+   "1 second"
+  ],
+  [
+   [
+    "121 seconds"
+   ],
+   "none",
+   "121 seconds"
+  ],
+  [
+   [
+    "1 minute"
+   ],
+   "same",
+   "1 minute"
+  ],
+  [
+   [
+    "1 minute"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "1 minute"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "1 minute"
+   ],
+   "hour",
+   "1 minute"
+  ],
+  [
+   [
+    "1 minute"
+   ],
+   "day",
+   "1 minute"
+  ],
+  [
+   [
+    "1 minute"
+   ],
+   "month",
+   "1 minute"
+  ],
+  [
+   [
+    "1 minute"
+   ],
+   "year",
+   "1 minute"
+  ],
+  [
+   [
+    "1 minute"
+   ],
+   "none",
+   "1 minute"
+  ],
+  [
+   [
+    "60 minutes"
+   ],
+   "same",
+   "60 minutes"
+  ],
+  [
+   [
+    "60 minutes"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "60 minutes"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "60 minutes"
+   ],
+   "hour",
+   "60 minutes"
+  ],
+  [
+   [
+    "60 minutes"
+   ],
+   "day",
+   "60 minutes"
+  ],
+  [
+   [
+    "60 minutes"
+   ],
+   "month",
+   "60 minutes"
+  ],
+  [
+   [
+    "60 minutes"
+   ],
+   "year",
+   "60 minutes"
+  ],
+  [
+   [
+    "60 minutes"
+   ],
+   "none",
+   "60 minutes"
+  ],
+  [
+   [
+    "61 minutes"
+   ],
+   "same",
+   "1 minute"
+  ],
+  [
+   [
+    "61 minutes"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "61 minutes"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "61 minutes"
+   ],
+   "hour",
+   "1 minute"
+  ],
+  [
+   [
+    "61 minutes"
+   ],
+   "day",
+   "1 minute"
+  ],
+  [
+   [
+    "61 minutes"
+   ],
+   "month",
+   "1 minute"
+  ],
+  [
+   [
+    "61 minutes"
+   ],
+   "year",
+   "1 minute"
+  ],
+  [
+   [
+    "61 minutes"
+   ],
+   "none",
+   "61 minutes"
+  ],
+  [
+   [
+    "120 minutes"
+   ],
+   "same",
+   "60 minutes"
+  ],
+  [
+   [
+    "120 minutes"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "120 minutes"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "120 minutes"
+   ],
+   "hour",
+   "60 minutes"
+  ],
+  [
+   [
+    "120 minutes"
+   ],
+   "day",
+   "60 minutes"
+  ],
+  [
+   [
+    "120 minutes"
+   ],
+   "month",
+   "60 minutes"
+  ],
+  [
+   [
+    "120 minutes"
+   ],
+   "year",
+   "60 minutes"
+  ],
+  [
+   [
+    "120 minutes"
+   ],
+   "none",
+   "120 minutes"
+  ],
+  [
+   [
+    "121 minutes"
+   ],
+   "same",
+   "1 minute"
+  ],
+  [
+   [
+    "121 minutes"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "121 minutes"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "121 minutes"
+   ],
+   "hour",
+   "1 minute"
+  ],
+  [
+   [
+    "121 minutes"
+   ],
+   "day",
+   "1 minute"
+  ],
+  [
+   [
+    "121 minutes"
+   ],
+   "month",
+   "1 minute"
+  ],
+  [
+   [
+    "121 minutes"
+   ],
+   "year",
+   "1 minute"
+  ],
+  [
+   [
+    "121 minutes"
+   ],
+   "none",
+   "121 minutes"
+  ],
+  [
+   [
+    "1 hour"
+   ],
+   "same",
+   "1 hour"
+  ],
+  [
+   [
+    "1 hour"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "1 hour"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "1 hour"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "1 hour"
+   ],
+   "day",
+   "1 hour"
+  ],
+  [
+   [
+    "1 hour"
+   ],
+   "month",
+   "1 hour"
+  ],
+  [
+   [
+    "1 hour"
+   ],
+   "year",
+   "1 hour"
+  ],
+  [
+   [
+    "1 hour"
+   ],
+   "none",
+   "1 hour"
+  ],
+  [
+   [
+    "24 hours"
+   ],
+   "same",
+   "24 hours"
+  ],
+  [
+   [
+    "24 hours"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "24 hours"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "24 hours"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "24 hours"
+   ],
+   "day",
+   "24 hours"
+  ],
+  [
+   [
+    "24 hours"
+   ],
+   "month",
+   "24 hours"
+  ],
+  [
+   [
+    "24 hours"
+   ],
+   "year",
+   "24 hours"
+  ],
+  [
+   [
+    "24 hours"
+   ],
+   "none",
+   "24 hours"
+  ],
+  [
+   [
+    "25 hours"
+   ],
+   "same",
+   "1 hour"
+  ],
+  [
+   [
+    "25 hours"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "25 hours"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "25 hours"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "25 hours"
+   ],
+   "day",
+   "1 hour"
+  ],
+  [
+   [
+    "25 hours"
+   ],
+   "month",
+   "1 hour"
+  ],
+  [
+   [
+    "25 hours"
+   ],
+   "year",
+   "1 hour"
+  ],
+  [
+   [
+    "25 hours"
+   ],
+   "none",
+   "25 hours"
+  ],
+  [
+   [
+    "48 hours"
+   ],
+   "same",
+   "24 hours"
+  ],
+  [
+   [
+    "48 hours"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "48 hours"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "48 hours"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "48 hours"
+   ],
+   "day",
+   "24 hours"
+  ],
+  [
+   [
+    "48 hours"
+   ],
+   "month",
+   "24 hours"
+  ],
+  [
+   [
+    "48 hours"
+   ],
+   "year",
+   "24 hours"
+  ],
+  [
+   [
+    "48 hours"
+   ],
+   "none",
+   "48 hours"
+  ],
+  [
+   [
+    "49 hours"
+   ],
+   "same",
+   "1 hour"
+  ],
+  [
+   [
+    "49 hours"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "49 hours"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "49 hours"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "49 hours"
+   ],
+   "day",
+   "1 hour"
+  ],
+  [
+   [
+    "49 hours"
+   ],
+   "month",
+   "1 hour"
+  ],
+  [
+   [
+    "49 hours"
+   ],
+   "year",
+   "1 hour"
+  ],
+  [
+   [
+    "49 hours"
+   ],
+   "none",
+   "49 hours"
+  ],
+  [
+   [
+    "1 day"
+   ],
+   "same",
+   "1 day"
+  ],
+  [
+   [
+    "1 day"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "1 day"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "1 day"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "1 day"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "1 day"
+   ],
+   "month",
+   "1 day"
+  ],
+  [
+   [
+    "1 day"
+   ],
+   "year",
+   "1 day"
+  ],
+  [
+   [
+    "1 day"
+   ],
+   "none",
+   "1 day"
+  ],
+  [
+   [
+    "365 days"
+   ],
+   "same",
+   "365 days"
+  ],
+  [
+   [
+    "365 days"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "365 days"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "365 days"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "365 days"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "365 days"
+   ],
+   "month",
+   "365 days"
+  ],
+  [
+   [
+    "365 days"
+   ],
+   "year",
+   "365 days"
+  ],
+  [
+   [
+    "365 days"
+   ],
+   "none",
+   "365 days"
+  ],
+  [
+   [
+    "366 days"
+   ],
+   "same",
+   "1 day"
+  ],
+  [
+   [
+    "366 days"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "366 days"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "366 days"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "366 days"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "366 days"
+   ],
+   "month",
+   "1 day"
+  ],
+  [
+   [
+    "366 days"
+   ],
+   "year",
+   "1 day"
+  ],
+  [
+   [
+    "366 days"
+   ],
+   "none",
+   "366 days"
+  ],
+  [
+   [
+    "730 days"
+   ],
+   "same",
+   "365 days"
+  ],
+  [
+   [
+    "730 days"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "730 days"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "730 days"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "730 days"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "730 days"
+   ],
+   "month",
+   "365 days"
+  ],
+  [
+   [
+    "730 days"
+   ],
+   "year",
+   "365 days"
+  ],
+  [
+   [
+    "730 days"
+   ],
+   "none",
+   "730 days"
+  ],
+  [
+   [
+    "731 days"
+   ],
+   "same",
+   "1 day"
+  ],
+  [
+   [
+    "731 days"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "731 days"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "731 days"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "731 days"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "731 days"
+   ],
+   "month",
+   "1 day"
+  ],
+  [
+   [
+    "731 days"
+   ],
+   "year",
+   "1 day"
+  ],
+  [
+   [
+    "731 days"
+   ],
+   "none",
+   "731 days"
+  ],
+  [
+   [
+    "1 month"
+   ],
+   "same",
+   "1 month"
+  ],
+  [
+   [
+    "1 month"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "1 month"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "1 month"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "1 month"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "1 month"
+   ],
+   "month",
+   "1 month"
+  ],
+  [
+   [
+    "1 month"
+   ],
+   "year",
+   "1 month"
+  ],
+  [
+   [
+    "1 month"
+   ],
+   "none",
+   "1 month"
+  ],
+  [
+   [
+    "12 months"
+   ],
+   "same",
+   "12 months"
+  ],
+  [
+   [
+    "12 months"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "12 months"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "12 months"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "12 months"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "12 months"
+   ],
+   "month",
+   "1 month"
+  ],
+  [
+   [
+    "12 months"
+   ],
+   "year",
+   "12 months"
+  ],
+  [
+   [
+    "12 months"
+   ],
+   "none",
+   "12 months"
+  ],
+  [
+   [
+    "13 months"
+   ],
+   "same",
+   "1 month"
+  ],
+  [
+   [
+    "13 months"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "13 months"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "13 months"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "13 months"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "13 months"
+   ],
+   "month",
+   "1 month"
+  ],
+  [
+   [
+    "13 months"
+   ],
+   "year",
+   "1 month"
+  ],
+  [
+   [
+    "13 months"
+   ],
+   "none",
+   "13 months"
+  ],
+  [
+   [
+    "24 months"
+   ],
+   "same",
+   "12 months"
+  ],
+  [
+   [
+    "24 months"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "24 months"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "24 months"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "24 months"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "24 months"
+   ],
+   "month",
+   "1 month"
+  ],
+  [
+   [
+    "24 months"
+   ],
+   "year",
+   "12 months"
+  ],
+  [
+   [
+    "24 months"
+   ],
+   "none",
+   "24 months"
+  ],
+  [
+   [
+    "25 months"
+   ],
+   "same",
+   "1 month"
+  ],
+  [
+   [
+    "25 months"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "25 months"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "25 months"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "25 months"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "25 months"
+   ],
+   "month",
+   "1 month"
+  ],
+  [
+   [
+    "25 months"
+   ],
+   "year",
+   "1 month"
+  ],
+  [
+   [
+    "25 months"
+   ],
+   "none",
+   "25 months"
+  ],
+  [
+   [
+    "1 year"
+   ],
+   "same",
+   "1 year"
+  ],
+  [
+   [
+    "1 year"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "1 year"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "1 year"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "1 year"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "1 year"
+   ],
+   "month",
+   "1 month"
+  ],
+  [
+   [
+    "1 year"
+   ],
+   "year",
+   "1 year"
+  ],
+  [
+   [
+    "1 year"
+   ],
+   "none",
+   "1 year"
+  ],
+  [
+   [
+    "2 years"
+   ],
+   "same",
+   "2 years"
+  ],
+  [
+   [
+    "2 years"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "2 years"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "2 years"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "2 years"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "2 years"
+   ],
+   "month",
+   "1 month"
+  ],
+  [
+   [
+    "2 years"
+   ],
+   "year",
+   "2 years"
+  ],
+  [
+   [
+    "2 years"
+   ],
+   "none",
+   "2 years"
+  ],
+  [
+   [
+    "120 seconds",
+    "1 minute"
+   ],
+   "same",
+   "60 seconds"
+  ],
+  [
+   [
+    "120 seconds",
+    "1 minute"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "120 seconds",
+    "1 minute"
+   ],
+   "minute",
+   "60 seconds"
+  ],
+  [
+   [
+    "120 seconds",
+    "1 minute"
+   ],
+   "hour",
+   "60 seconds"
+  ],
+  [
+   [
+    "120 seconds",
+    "1 minute"
+   ],
+   "day",
+   "60 seconds"
+  ],
+  [
+   [
+    "120 seconds",
+    "1 minute"
+   ],
+   "month",
+   "60 seconds"
+  ],
+  [
+   [
+    "120 seconds",
+    "1 minute"
+   ],
+   "year",
+   "60 seconds"
+  ],
+  [
+   [
+    "120 seconds",
+    "1 minute"
+   ],
+   "none",
+   "60 seconds"
+  ],
+  [
+   [
+    "2 hours",
+    "1 day"
+   ],
+   "same",
+   "2 hours"
+  ],
+  [
+   [
+    "2 hours",
+    "1 day"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "2 hours",
+    "1 day"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "2 hours",
+    "1 day"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "2 hours",
+    "1 day"
+   ],
+   "day",
+   "2 hours"
+  ],
+  [
+   [
+    "2 hours",
+    "1 day"
+   ],
+   "month",
+   "2 hours"
+  ],
+  [
+   [
+    "2 hours",
+    "1 day"
+   ],
+   "year",
+   "2 hours"
+  ],
+  [
+   [
+    "2 hours",
+    "1 day"
+   ],
+   "none",
+   "2 hours"
+  ],
+  [
+   [
+    "30 days",
+    "1 month"
+   ],
+   "same",
+   "1 day"
+  ],
+  [
+   [
+    "30 days",
+    "1 month"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "30 days",
+    "1 month"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "30 days",
+    "1 month"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "30 days",
+    "1 month"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "30 days",
+    "1 month"
+   ],
+   "month",
+   "1 day"
+  ],
+  [
+   [
+    "30 days",
+    "1 month"
+   ],
+   "year",
+   "1 day"
+  ],
+  [
+   [
+    "30 days",
+    "1 month"
+   ],
+   "none",
+   "1 day"
+  ],
+  [
+   [
+    "1 month",
+    "1 year"
+   ],
+   "same",
+   "1 month"
+  ],
+  [
+   [
+    "1 month",
+    "1 year"
+   ],
+   "second",
+   "1 second"
+  ],
+  [
+   [
+    "1 month",
+    "1 year"
+   ],
+   "minute",
+   "1 minute"
+  ],
+  [
+   [
+    "1 month",
+    "1 year"
+   ],
+   "hour",
+   "1 hour"
+  ],
+  [
+   [
+    "1 month",
+    "1 year"
+   ],
+   "day",
+   "1 day"
+  ],
+  [
+   [
+    "1 month",
+    "1 year"
+   ],
+   "month",
+   "1 month"
+  ],
+  [
+   [
+    "1 month",
+    "1 year"
+   ],
+   "year",
+   "1 month"
+  ],
+  [
+   [
+    "1 month",
+    "1 year"
+   ],
+   "none",
+   "1 month"
+  ],
+  [
+   [],
+   "same",
+   null
+  ],
+  [
+   [],
+   "second",
+   null
+  ],
+  [
+   [],
+   "minute",
+   null
+  ],
+  [
+   [],
+   "hour",
+   null
+  ],
+  [
+   [],
+   "day",
+   null
+  ],
+  [
+   [],
+   "month",
+   null
+  ],
+  [
+   [],
+   "year",
+   null
+  ],
+  [
+   [],
+   "none",
+   null
+  ],
+  [
+   [
+    "x"
+   ],
+   "same",
+   false
+  ]
+ ]
+}

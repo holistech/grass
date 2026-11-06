@@ -31,14 +31,24 @@ of 05.11.2026: compute_datetime_delta() counts the months between two firsts
 of a month over more than a year in full and a unit of the time of the day
 only where the two times differ in it or a finer unit. The copy computes the
 delta as the library does.
+
+The granularity mode (-g) computes the common granularity of the datasets with
+the function of the library that the algebra core calls too. The classic
+algebra keeps a copy of it as on 06.11.2026; the guard test holds the values of
+that day, recorded in data/classic_common_granularity.json, and a wiring test
+shows that the reference and the classic profile call the copy and the core
+the library.
 """
 
 import datetime
+import json
+import sys
 from itertools import pairwise
+from pathlib import Path
 
 import pytest
 
-from grass.temporal import datetime_math
+from grass.temporal import datetime_math, temporal_granularity
 from grass.temporal.classic import granularity as classic_granularity
 from grass.temporal.classic.granularity import dataset_granularity
 from grass.temporal.testing.corpus import reference_outcome
@@ -388,3 +398,63 @@ def test_classic_copy_equals_library_delta(start, end):
     assert classic_granularity.compute_datetime_delta(
         start, end
     ) == datetime_math.compute_datetime_delta(start, end)
+
+
+COMMON = json.loads(
+    (Path(__file__).parent / "data" / "classic_common_granularity.json").read_text()
+)
+COMMON_DATES = {
+    key: dates and [datetime.datetime.fromisoformat(date) for date in dates]
+    for key, dates in COMMON["dates"].items()
+}
+
+
+@pytest.mark.parametrize(("grans", "dates", "expected"), COMMON["starts"])
+def test_classic_common_granule_keeps_its_values(grans, dates, expected):
+    """The copy of the common granule computes the values of 06.11.2026
+
+    The cases and dates are those of the characterization test of the library
+    function; the values are recorded, so that a change of the copy shows here
+    even if the library changes the same way.
+    """
+    result = classic_granularity.compute_common_absolute_time_granularity(
+        grans, COMMON_DATES[dates]
+    )
+
+    assert result == expected
+    assert type(result) is type(expected)
+
+
+class LibraryCalledError(Exception):
+    """Raised in place of the common granule of the library"""
+
+
+def test_reference_uses_the_classic_common_granule(datasets, monkeypatch):
+    """-g of the reference and of the classic profile does not reach the library
+
+    Every name in a loaded module of grass.temporal that holds the library
+    function is replaced by one that raises, however a module imported it.
+    The core, which keeps the function of the library, fails with it; that
+    shows that the replacement takes effect.
+    """
+    library = temporal_granularity.compute_common_absolute_time_granularity
+
+    def raising(*args, **kwargs):
+        raise LibraryCalledError
+
+    for name, module in list(sys.modules.items()):
+        if module is None or not name.startswith("grass.temporal"):
+            continue
+        for attribute, value in list(vars(module).items()):
+            if value is library:
+                monkeypatch.setattr(module, attribute, raising)
+
+    # The reference runs here, not from the corpus, which would not reach it.
+    expression = "EQA + EQB"
+    reference = outcome_of_runner(KIND, expression, "reference", "fa", granularity=True)
+    profile = outcome_of_runner(KIND, expression, "classic", "fb", granularity=True)
+    core = outcome_of_runner(KIND, expression, "core", "fc", granularity=True)
+
+    assert compare(KIND, expression, reference, profile) is None
+    assert maps(reference)
+    assert core["error"] == "Other:LibraryCalledError"
