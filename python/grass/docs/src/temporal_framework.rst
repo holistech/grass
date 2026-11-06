@@ -21,6 +21,10 @@ This framework provides the following functionalities:
 
 Most of the functions described above are member functions of dedicated map layer and space time dataset classes.
 
+The document :download:`The GRASS GIS Temporal Framework: Code Design <Temporal-Framework-Code-Design.pdf>`
+describes the design of the current code with UML figures and examples that run
+against the code. This page lists the modules and shows short examples.
+
 Temporal API
 ------------
 
@@ -92,7 +96,7 @@ the SQL object serialization, all classes that represent table entries, datetime
 :mod:`~grass.temporal.spatial_extent`
 """""""""""""""""""""""""""""""""""""
 
-    Implements of 2d and 3d spatial extents of all datasets:
+    Implements 2d and 3d spatial extents of all datasets:
 
     - Implements class :class:`~grass.temporal.spatial_extent.SpatialExtent`
       that is the base class for all dataset specific spatial extent classes
@@ -102,7 +106,7 @@ the SQL object serialization, all classes that represent table entries, datetime
 :mod:`~grass.temporal.temporal_extent`
 """"""""""""""""""""""""""""""""""""""
 
-    Implements of the temporal extent of all datasets for relative and absolute time:
+    Implements the temporal extent of all datasets for relative and absolute time:
 
     - Implements class :class:`~grass.temporal.temporal_extent.TemporalExtent`
       that is the base class for all dataset specific temporal extent classes
@@ -130,11 +134,12 @@ the SQL object serialization, all classes that represent table entries, datetime
 :mod:`~grass.temporal.datetime_math`
 """"""""""""""""""""""""""""""""""""
 
-    This module contains function to parse, convert and process datetime objects
+    This module contains functions to parse, convert and process datetime objects
     in the temporal framework.
 
-The classic implementation of the spatio-temporal algebra for space time raster
-and vector datasets, the reference of the algebra core, is defined in:
+The classic implementation of the spatio-temporal algebra for space time raster,
+3D raster and vector datasets, the reference of the algebra core, is the package
+:mod:`~grass.temporal.classic`. It stays unchanged because publications cite it:
 
 - :mod:`~grass.temporal.classic.temporal_algebra`
 - :mod:`~grass.temporal.classic.temporal_operator`
@@ -142,6 +147,11 @@ and vector datasets, the reference of the algebra core, is defined in:
 - :mod:`~grass.temporal.classic.temporal_raster_algebra`
 - :mod:`~grass.temporal.classic.temporal_raster3d_algebra`
 - :mod:`~grass.temporal.classic.temporal_vector_algebra`
+- :mod:`~grass.temporal.classic.granularity`, the granularity of a map list as
+  the classic algebra computes it
+
+The package ``grass.temporal.ply`` is an embedded copy of the PLY lexer and
+parser generator that the classic algebra builds on. It is not documented here.
 
 High level API
 ^^^^^^^^^^^^^^
@@ -236,8 +246,15 @@ space time datasets.
 :mod:`~grass.temporal.aggregation`
 """"""""""""""""""""""""""""""""""
 
-    Aggregation of Space Time Raster Datasets based on topological relations.
-    Used in *t.rast.aggregate* and *t.rast.aggregate.ds*
+    Aggregation of a list of raster maps with *r.series* into one new map that
+    is registered in a Space Time Raster Dataset. Used in *t.vect.what.strds*.
+
+:mod:`~grass.temporal.aggregation_core`
+"""""""""""""""""""""""""""""""""""""""
+
+    Aggregation of a raster series onto a target series with the algebra core:
+    the target is a regular grid of granules or the time stamps of a sampler
+    dataset. Used in *t.rast.aggregate* and *t.rast.aggregate.ds*.
 
 :mod:`~grass.temporal.extract`
 """"""""""""""""""""""""""""""
@@ -285,23 +302,46 @@ space time datasets.
 :mod:`~grass.temporal.register`
 """""""""""""""""""""""""""""""
 
-    Convenient functions to register a single or multiple map layer in the temporal database and
-    SpaceTime Datasets. Used in several modules, most important *t.register*.
+    Convenient functions to register a single or multiple map layers in the temporal database and
+    Space Time Datasets. Used in several modules, most important *t.register*.
 
 :mod:`~grass.temporal.sampling`
 """""""""""""""""""""""""""""""
 
-    Sampling functions used in several modules.
+    Sampling of space time datasets with a sampler space time dataset: for
+    each map of the sampler it returns the maps that are related to it.
+    Used in *t.vect.observe.strds*.
+
+:mod:`~grass.temporal.related_maps`
+"""""""""""""""""""""""""""""""""""
+
+    The sampling of the maps by granules with the rules of the classic
+    algebra, on the algebra core. Used in :mod:`~grass.temporal.mapcalc` and
+    *t.sample*.
+
+:mod:`~grass.temporal.series_limits`
+""""""""""""""""""""""""""""""""""""
+
+    The number of files that *r.series* has to open, counted before it runs,
+    to decide whether its flag ``-z`` is needed. Used in the aggregation and
+    in the reductions of the algebra core.
+
+:mod:`~grass.temporal.tool_steps`
+"""""""""""""""""""""""""""""""""
+
+    Steps that several tools share: opening the new map for each input map,
+    registering the computed maps, removing empty maps, and walking the cycles
+    of *t.rast.accumulate* and *t.rast.accdetect*.
 
 :mod:`~grass.temporal.stds_export`
 """"""""""""""""""""""""""""""""""
 
-    Functions to export of Space Time Datasets, used in *t.rast.export*, *t.rast3d.export* and *t.vect.export*.
+    Functions to export Space Time Datasets, used in *t.rast.export* and *t.vect.export*.
 
 :mod:`~grass.temporal.stds_import`
 """"""""""""""""""""""""""""""""""
 
-    Functions to import Space Time Datasets, used in *t.rast.import*, *t.rast3d.import* and *t.vect.import*.
+    Functions to import Space Time Datasets, used in *t.rast.import* and *t.vect.import*.
 
 :mod:`~grass.temporal.univar_statistics`
 """"""""""""""""""""""""""""""""""""""""
@@ -310,7 +350,7 @@ space time datasets.
     and *t.vect.univar*.
 
 
-.. [#allds] : Raster Map Layer, 3d Raster Map Layer, Vector Map Layer, Space time Raster Datasets (STRDS),
+.. [#allds] Raster Map Layer, 3d Raster Map Layer, Vector Map Layer, Space time Raster Datasets (STRDS),
               Space Time 3d Raster Datasets (STR3DS) and Space Time Vector Datasets (STVDS)
 
 
@@ -325,15 +365,92 @@ Here the full list of all temporal modules:
 Examples
 --------
 
+The examples run one after the other in a project with an empty temporal
+database. Each of them runs in the documentation tests of the repository.
+
+Creation of a space time dataset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example shows how to create a space time dataset. The code is generic and works
+for different space time datasets (raster, 3D raster and vector):
+
+.. code-block:: python
+
+    # Let us import the temporal framework and
+    # the script framework
+    import grass.temporal as tgis
+    import grass.script as gs
+
+    # The id of the new space time dataset
+    stds_id = "test@PERMANENT"
+    # The title of the new space time dataset
+    title = "This is a test dataset"
+    # The description of the space time dataset
+    description = "The description"
+    # The type of the space time dataset (strds, str3ds or stvds)
+    stds_type = "strds"
+    # The temporal type of the space time dataset (absolute or relative)
+    temporal_type = "absolute"
+    # Whether an existing dataset of this id may be replaced
+    overwrite = False
+
+    # Make sure the temporal database exists
+    # and set the temporal GIS environment
+    tgis.init()
+
+    # We use the dataset factory to create a new space time dataset instance of a specific type
+    stds = tgis.dataset_factory(stds_type, stds_id)
+
+    # We need a database connection to insert the content of the space time dataset
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+
+    # First we check if the dataset is already in the database
+    if stds.is_in_db(dbif=dbif) and not overwrite:
+        dbif.close()
+        gs.fatal(
+            "Space time {} dataset <{}> is already in the database. "
+            "Use the overwrite flag.".format(
+                stds.get_new_map_instance(None).get_type(), stds_id
+            )
+        )
+
+    # We delete the existing dataset and create a new one in case we are allowed to overwrite it
+    if stds.is_in_db(dbif=dbif) and overwrite:
+        gs.warning(
+            "Overwrite space time {} dataset <{}> and unregister all maps.".format(
+                stds.get_new_map_instance(None).get_type(), stds_id
+            )
+        )
+        stds.delete(dbif=dbif)
+        stds = stds.get_new_instance(stds_id)
+
+    # We set the initial values. This function also creates the command history.
+    stds.set_initial_values(
+        temporal_type=temporal_type,
+        semantic_type="mean",
+        title=title,
+        description=description,
+    )
+
+    # Now we can insert the new space time dataset in the database
+    stds.insert(dbif=dbif)
+
+    # Close the database connection
+    dbif.close()
+
+
 Howto start example
 ^^^^^^^^^^^^^^^^^^^
 
 This simple example shows how to open a space time raster dataset
-to access its registered maps.
+to access its registered maps. It needs a space time raster dataset
+``test@PERMANENT`` in the temporal database, such as the one the previous
+example creates, with maps registered by *t.register*.
 
 .. code-block:: python
 
-    # Lets import the temporal framework and
+    # Let us import the temporal framework and
     # the script framework
     import grass.temporal as tgis
     import grass.script as gs
@@ -346,17 +463,20 @@ to access its registered maps.
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
 
-    # The id of a space time raster dataset is build from its name and its mapset
-    id = "test@PERMANENT"
+    # The id of a space time raster dataset is built from its name and its mapset
+    stds_id = "test@PERMANENT"
 
     # We create a space time raster dataset object
-    strds = tgis.SpaceTimeRasterDataset(id)
+    strds = tgis.SpaceTimeRasterDataset(stds_id)
 
     # Check if the space time raster dataset is in the temporal database
     if strds.is_in_db(dbif=dbif) is False:
         dbif.close()
-        gs.fatal(_("Space time %s dataset <%s> not found") % (
-            strds.get_new_map_instance(None).get_type(), id))
+        gs.fatal(
+            "Space time {} dataset <{}> not found".format(
+                strds.get_new_map_instance(None).get_type(), stds_id
+            )
+        )
 
     # Fill the object with the content from the temporal database
     strds.select(dbif=dbif)
@@ -369,90 +489,33 @@ to access its registered maps.
     maps = strds.get_registered_maps_as_objects(dbif=dbif)
 
     # We iterate over the temporal sorted map list
-    for map in maps:
+    for raster_map in maps:
         # We fill the map object with the content
         # from the temporal database. We use the existing
         # database connection, otherwise a new connection
         # will be established for each map object
         # which slows the processing down
-        map.select(dbif=dbif)
-        map.print_info()
+        raster_map.select(dbif=dbif)
+        raster_map.print_info()
 
     # Close the database connection
     dbif.close()
 
 
-Creation of a space time dataset
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Snapping the time stamps
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-This example shows howto create a space time dataset. The code is generic and works
-for different space time datasets (raster, 3D raster and vector):
-
-.. code-block:: python
-
-    # Lets import the temporal framework and
-    # the script framework
-    import grass.temporal as tgis
-    import grass.script as gs
-
-    # The id of the new space time dataset
-    id="test@PERMANENT"
-    # The title of the new space time dataset
-    title="This is a test dataset"
-    # The description of the space time dataset
-    description="The description"
-    # The type of the space time dataset (strds, str3ds or stvds)
-    type="strds"
-    # The temporal type of the space time dataset (absolute or relative)
-    temporal_type="absolute"
-
-    # Make sure the temporal database exists
-    # and set the temporal GIS environment
-    tgis.init()
-
-    # We use the dataset factory to create an new space time dataset instance of a specific type
-    stds = tgis.dataset_factory(type, id)
-
-    # We need a dtabase connection to insert the content of the space time dataset
-    dbif = tgis.SQLDatabaseInterfaceConnection()
-    dbif.connect()
-
-    # First we check if the dataset is already in the database
-    if stds.is_in_db(dbif=dbif) and overwrite is False:
-        dbif.close()
-        gs.fatal(_("Space time %s dataset <%s> is already in the database. "
-                   "Use the overwrite flag.") %
-                 (stds.get_new_map_instance(None).get_type(), name))
-
-    # We delete the exiting dataset and create a new one in case we are allowed to overwrite it
-    if stds.is_in_db(dbif=dbif) and overwrite is True:
-        gs.warning(_("Overwrite space time %s dataset <%s> "
-                     "and unregister all maps.") %
-                   (stds.get_new_map_instance(None).get_type(), name))
-        stds.delete(dbif=dbif)
-        stds = stds.get_new_instance(id)
-
-    # We set the initial values. This function also created the command history.
-    stds.set_initial_values(temporal_type=temporaltype, semantic_type="mean",
-                            title=title, description=description)
-
-    # Now we can insert the new space time dataset in the database
-    stds.insert(dbif=dbif)
-
-    # Close the database connection
-    dbif.close()
-
-
-Temporal shifting
-^^^^^^^^^^^^^^^^^
+This example snaps the time stamps of the maps of ``test@PERMANENT`` in the
+temporal database so that the end of a map is the start of the next one.
+Like the previous example it needs the dataset to exist.
 
 .. code-block:: python
 
     import grass.script as gs
     import grass.temporal as tgis
 
-    id="test@PERMANENT"
-    type="strds"
+    stds_id = "test@PERMANENT"
+    stds_type = "strds"
 
     # Make sure the temporal database exists
     tgis.init()
@@ -460,11 +523,13 @@ Temporal shifting
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
 
-    stds = tgis.dataset_factory(type, id)
+    stds = tgis.dataset_factory(stds_type, stds_id)
 
     if stds.is_in_db(dbif) is False:
         dbif.close()
-        gs.fatal(_("Space time dataset <%s> not found in temporal database") % (id))
+        gs.fatal(
+            "Space time dataset <{}> not found in temporal database".format(stds_id)
+        )
 
     stds.select(dbif=dbif)
 
@@ -477,11 +542,11 @@ Temporal shifting
 Algebra core
 ------------
 
-The package ``grass.temporal.algebra`` offers the operations of the temporal
-algebra as Python functions on series of maps: ``source``, ``source_map``,
-``select``, ``pairs``, ``gather``, ``apply``, ``choose``, ``where``,
-``merge``, ``cell_offset``, ``buffer``, ``lift``, ``retime``, ``neighbour``,
-``timevar``, ``granules``, ``plan`` and ``materialize``.
+The package :mod:`~grass.temporal.algebra` offers the operations of the
+temporal algebra as Python functions on series of maps: ``source``,
+``source_map``, ``select``, ``pairs``, ``gather``, ``apply``, ``choose``,
+``where``, ``merge``, ``cell_offset``, ``buffer``, ``lift``, ``retime``,
+``neighbour``, ``timevar``, ``granules``, ``plan`` and ``materialize``.
 Every decision that the algebra syntax takes implicitly is an explicit
 parameter, with a documented default where one is sensible; how several
 related maps are combined must always be named (``reduce`` of ``gather``).
@@ -492,23 +557,139 @@ initialised temporal database (``tgis.init()``); ``plan`` needs one only when
 a result map has the name of a map that the series reads, to look up the
 current mapset; the other functions need none.
 
+The modules of the package:
+
+- :mod:`~grass.temporal.algebra.series`: the series of slots, the values of
+  the algebra, with the extent and the space of a slot
+- :mod:`~grass.temporal.algebra.content`: the content of a slot as an
+  immutable expression tree
+- :mod:`~grass.temporal.algebra.maptypes`: what the core needs to know about
+  a map type
+- :mod:`~grass.temporal.algebra.adapters`: the map objects that stand for
+  the slots of a series
+- :mod:`~grass.temporal.algebra.sources`: reading space time datasets and
+  single maps as series
+- :mod:`~grass.temporal.algebra.relations`: the temporal and spatial relations
+  between the slots of two series
+- :mod:`~grass.temporal.algebra.operations`: the operations, pure functions
+  on series
+- :mod:`~grass.temporal.algebra.reducers`: how ``gather`` combines the related
+  slots of a target slot
+- :mod:`~grass.temporal.algebra.time_functions`: operations on the time
+  stamps of a series
+- :mod:`~grass.temporal.algebra.variants`: helpers of the core operations
+  that other variants of the algebra use as well
+- :mod:`~grass.temporal.algebra.backends`: the turning of the content of a
+  slot into module calls
+- :mod:`~grass.temporal.algebra.materialize`: planning a series as module
+  calls and map names, and running the plan with registration of the maps
+- :mod:`~grass.temporal.algebra.profile`: the variant of the algebra that
+  ``evaluate`` computes, the core or the classic one
+
 The syntax of :program:`t.rast.algebra` is translated onto these functions
 by :func:`grass.temporal.algebra.parser.evaluate`, which also gives the
-process chain of a dry run::
+process chain of a dry run. The package
+:mod:`~grass.temporal.algebra.parser` holds the syntax:
 
+- :mod:`~grass.temporal.algebra.parser.lexer`,
+  :mod:`~grass.temporal.algebra.parser.grammar` and
+  :mod:`~grass.temporal.algebra.parser.operators`: the tokens, the grammar
+  and the operators in braces such as ``{+,during}``
+- :mod:`~grass.temporal.algebra.parser.ast`: the nodes of the syntax tree
+- :mod:`~grass.temporal.algebra.parser.translate` and
+  :mod:`~grass.temporal.algebra.parser.shared`: the translation of the tree
+  onto the core operations and what the translators share
+- :mod:`~grass.temporal.algebra.parser.granularity`: the sampling of space
+  time datasets with a common granularity
+- :mod:`~grass.temporal.algebra.parser.facade`: the public parser classes
+- :mod:`~grass.temporal.algebra.parser.switch`: the choice between the rules
+  of the core and the classic rules
+- :mod:`~grass.temporal.algebra.parser.classic`,
+  :mod:`~grass.temporal.algebra.parser.classic_grammar`,
+  :mod:`~grass.temporal.algebra.parser.classic_maps`,
+  :mod:`~grass.temporal.algebra.parser.classic_numbers` and
+  :mod:`~grass.temporal.algebra.parser.classic_productions`: the classic
+  algebra as a profile of the core, with its grammar, its map kinds and the
+  numbers of *r.mapcalc* as it computes them
+
+The example evaluates an expression as a dry run. It needs a session, an
+initialised temporal database (``tgis.init()``) and the space time datasets
+``A`` and ``B`` that the expression names; without them ``evaluate`` raises
+an error:
+
+.. code-block:: python
+
+    import grass.temporal as tgis
     from grass.temporal.algebra.parser import evaluate
+
+    tgis.init()
     chain = evaluate("C = A {+,during} B", dry_run=True)
+    print(chain)
+
+
+Testing package
+---------------
+
+The package :mod:`~grass.temporal.testing` holds the helpers of the tests of
+the library and of the tools. It is part of the installed package so that the
+tests of the tools can use it; code outside the tests does not need it. It
+does not import pytest at module level; only :mod:`~grass.temporal.testing.postgresql`
+imports it inside the function that skips a test. Its modules:
+
+- :mod:`~grass.temporal.testing.session`: creating and tearing down the GRASS
+  sessions of the tests
+- :mod:`~grass.temporal.testing.data`: building dates, maps and space time
+  datasets as input
+- :mod:`~grass.temporal.testing.readback`: reading registered maps and
+  *t.info* output back for comparison
+- :mod:`~grass.temporal.testing.io_cache`: caches of two slow calls that give
+  the same answer in a test
+- :mod:`~grass.temporal.testing.postgresql`: running tests against a
+  PostgreSQL server and comparing the backends
+- :mod:`~grass.temporal.testing.versions`: turning a current temporal
+  database into one of an older version
+- :mod:`~grass.temporal.testing.database_image`: the image of the temporal
+  database, what the library writes and reads back
+- :mod:`~grass.temporal.testing.recordings`: recorded results of the extent,
+  granularity, date and topology functions
+- :mod:`~grass.temporal.testing.contract_trace`: tracing which public
+  functions an example script calls
+- :mod:`~grass.temporal.testing.nc_dataset`: finding the North Carolina
+  sample dataset and seeing whether a run changed it
+- :mod:`~grass.temporal.testing.manual_examples` and
+  :mod:`~grass.temporal.testing.manual_coverage`: reading the examples of a
+  manual, running them, and checking that a manual shows every option
+- :mod:`~grass.temporal.testing.reference`,
+  :mod:`~grass.temporal.testing.differential`,
+  :mod:`~grass.temporal.testing.corpus` and
+  :mod:`~grass.temporal.testing.corpus_orphans`: running the classic
+  algebra, comparing it with the core, and the recorded results of the
+  classic algebra that the comparisons read
+- :mod:`~grass.temporal.testing.algebra_cases`: algebra cases with expected
+  values derived by hand
+- :mod:`~grass.temporal.testing.expressions`,
+  :mod:`~grass.temporal.testing.expressions_data` and
+  :mod:`~grass.temporal.testing.expressions_generator`: seeded random
+  expressions for differential tests
+
+The testing guide ``doc/development/testing.md`` of the repository describes
+how the tests use them.
+
 
 References
 ----------
 
-* Gebbert, S., Pebesma, E., 2014. *TGRASS: A temporal GIS for field based environmental modeling*. Environmental Modelling & Software. 2(1):201-219. `doi:10.1016/j.envsoft.2013.11.001 <https://doi.org/10.1016/j.envsoft.2013.11.001>`_
+* Gebbert, S., Pebesma, E., 2014. *A temporal GIS for field based environmental modeling*.
+  Environmental Modelling & Software, 53, 1-12.
+  `doi:10.1016/j.envsoft.2013.11.001 <https://doi.org/10.1016/j.envsoft.2013.11.001>`_
+* Gebbert, S., Pebesma, E., 2017. *The GRASS GIS temporal framework*.
+  International Journal of Geographical Information Science, 31(7), 1273-1292.
+  `doi:10.1080/13658816.2017.1306862 <https://doi.org/10.1080/13658816.2017.1306862>`_
 * `TGRASS related articles in the GRASS Wiki <https://grasswiki.osgeo.org/wiki/Temporal_data_processing>`_
-* Supplementary material of the publication *The GRASS GIS Temporal Framework*
-  to be published in
-  *International Journal of Geographical Information Science* in 2017, Download
+* :download:`The GRASS GIS Temporal Framework: Code Design <Temporal-Framework-Code-Design.pdf>`:
+  the description of the current code
+* Supplementary material of the 2017 publication, as published and showing
+  the state of the code in 2017:
   :download:`The GRASS GIS Temporal Framework: Object oriented code design with examples <Temporal-Framework-API-Description.pdf>`
 
 :Authors: Soeren Gebbert
-
-.. TODO:: add more documentation
