@@ -21,9 +21,12 @@ This framework provides the following functionalities:
 
 Most of the functions described above are member functions of dedicated map layer and space time dataset classes.
 
-The document :download:`The GRASS GIS Temporal Framework: Code Design <Temporal-Framework-Code-Design.pdf>`
-describes the design of the current code with UML figures and examples that run
-against the code. This page lists the modules and shows short examples.
+The document :download:`The GRASS Temporal Framework: Object oriented code design with examples <Temporal-Framework-Code-Design.pdf>`
+(GRASS 8.6) describes the design of the current code with UML figures and
+examples that run against the code. This page lists the modules and shows
+short examples. The document of the same name that accompanies the 2017
+publication of Gebbert and Pebesma shows the state of 2017 and is linked in the
+references.
 
 Temporal API
 ------------
@@ -141,12 +144,18 @@ The classic implementation of the spatio-temporal algebra for space time raster,
 3D raster and vector datasets, the reference of the algebra core, is the package
 :mod:`~grass.temporal.classic`. It stays unchanged because publications cite it:
 
-- :mod:`~grass.temporal.classic.temporal_algebra`
-- :mod:`~grass.temporal.classic.temporal_operator`
-- :mod:`~grass.temporal.classic.temporal_raster_base_algebra`
-- :mod:`~grass.temporal.classic.temporal_raster_algebra`
-- :mod:`~grass.temporal.classic.temporal_raster3d_algebra`
-- :mod:`~grass.temporal.classic.temporal_vector_algebra`
+- :mod:`~grass.temporal.classic.temporal_algebra`, the lexer and parser of the
+  temporal expressions, the base of the other parsers
+- :mod:`~grass.temporal.classic.temporal_operator`, the lexer and parser of the
+  operators in curly braces, such as ``{+,during}``
+- :mod:`~grass.temporal.classic.temporal_raster_base_algebra`, what the raster
+  and 3D raster algebra share
+- :mod:`~grass.temporal.classic.temporal_raster_algebra`, the algebra of space
+  time raster datasets
+- :mod:`~grass.temporal.classic.temporal_raster3d_algebra`, the algebra of
+  space time 3D raster datasets
+- :mod:`~grass.temporal.classic.temporal_vector_algebra`, the algebra of space
+  time vector datasets
 - :mod:`~grass.temporal.classic.granularity`, the granularity of a map list as
   the classic algebra computes it
 
@@ -365,8 +374,13 @@ Here the full list of all temporal modules:
 Examples
 --------
 
-The examples run one after the other in a project with an empty temporal
-database. Each of them runs in the documentation tests of the repository.
+Each example runs on its own in a new project in the documentation tests of
+the repository. The text before an example names what it needs: the first one
+needs a temporal database without the dataset it creates, the next two need
+the space time raster dataset ``test@PERMANENT`` with registered maps, and the
+dataset names of the algebra example are named there. The tests create
+``test``, ``A`` and ``B``, each with three registered maps, before every example
+except the first.
 
 Creation of a space time dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -686,10 +700,10 @@ References
   International Journal of Geographical Information Science, 31(7), 1273-1292.
   `doi:10.1080/13658816.2017.1306862 <https://doi.org/10.1080/13658816.2017.1306862>`_
 * `TGRASS related articles in the GRASS Wiki <https://grasswiki.osgeo.org/wiki/Temporal_data_processing>`_
-* :download:`The GRASS GIS Temporal Framework: Code Design <Temporal-Framework-Code-Design.pdf>`:
-  the description of the current code
-* Supplementary material of the 2017 publication, as published and showing
-  the state of the code in 2017:
+* :download:`The GRASS Temporal Framework: Object oriented code design with examples <Temporal-Framework-Code-Design.pdf>`:
+  the current description of the code (GRASS 8.6)
+* Supplementary material of Gebbert and Pebesma (2017), as published and
+  showing the state of the code in 2017:
   :download:`The GRASS GIS Temporal Framework: Object oriented code design with examples <Temporal-Framework-API-Description.pdf>`
 
 :Authors: Soeren Gebbert
