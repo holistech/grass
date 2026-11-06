@@ -721,7 +721,6 @@
    "update_all": "addons+repo"
   },
   "AbstractSpaceTimeDataset": {
-   "update_map_timestamps": "repo",
    "check_temporal_topology": "repo",
    "contains": "repo",
    "count_gaps": "repo",
@@ -775,13 +774,14 @@
    "set_initial_values": "repo",
    "shift": "repo",
    "snap": "repo",
+   "snap_map_list": "docs",
    "temporal_relation": "addons",
    "unregister_map": "repo",
    "update": "addons+repo",
    "update_all": "addons+repo",
    "update_command_string": "repo",
    "update_from_registered_maps": "addons+repo",
-   "snap_map_list": "docs"
+   "update_map_timestamps": "repo"
   },
   "CLibrariesInterface": {
    "available_mapsets": "addons+repo",
