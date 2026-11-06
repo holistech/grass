@@ -50,12 +50,14 @@ against the code:
 - each class, member, base class and composition that a figure draws exists;
 - the keywords of the PDF equal the digest of the sources, so the PDF is
   built from the sources as they are;
-- the text of each listing, as `mutool draw -F txt` (MuPDF) copies it from
+- the text of each listing, as `mutool draw -F txt` (MuPDF) reads it from
   the PDF, is the example file or its output file. `design.tex` writes each
-  space of a listing as a real space into the text of the PDF, so that
-  copied code keeps its indentation. `pdftotext` of poppler 24.02 drops the
-  spaces at the start of a line even then, so the test reads the PDF with
-  `mutool` and is skipped without it (package `mupdf-tools`).
+  space of a listing as a real space into the text of the PDF, so that text
+  read from it can keep the indentation. `pdftotext` of poppler 24.02 drops
+  the spaces at the start of a line even then, unless with `-layout`, which
+  gave 3 of the 8 examples exactly. The test reads the PDF with `mutool`
+  1.23.10, which gives all of them, and is skipped without it (package
+  `mupdf-tools`).
 
 After changing an example, run it as the test does and write its output
 into the `.txt` file, then run `make`.

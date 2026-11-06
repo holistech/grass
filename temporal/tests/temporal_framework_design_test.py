@@ -15,8 +15,8 @@ true:
 - each class, member, base class and composition that a figure draws exists
   in the code;
 - the checked-in PDF is built from the sources as they are now, and the
-  text of its listings, as MuPDF copies it, is the example files and their
-  output, character for character;
+  text of its listings, as mutool draw -F txt reads it, is the example
+  files and their output, character for character;
 - the supplement of the 2017 publication stays as it was published.
 
 The examples run like the manuals in a project whose PERMANENT is a link to
@@ -565,11 +565,11 @@ def listing_lines(text):
 
 
 def pdf_pages():
-    """The lines of each page of the PDF as MuPDF copies its text
+    """The lines of each page of the PDF as mutool draw -F txt writes them
 
-    mutool draw -F txt writes the text that MuPDF and the viewers built on it
-    copy, one line per line of the page and a form feed after each page. A
-    line that holds only a number is the page number and is dropped.
+    mutool (MuPDF) writes one line of text per line of the page and a form
+    feed after each page. A line that holds only a number is the page number
+    and is dropped.
     """
     text = subprocess.run(
         ["mutool", "draw", "-q", "-F", "txt", "-o", "-", str(PDF)],
@@ -585,16 +585,17 @@ def pdf_pages():
 
 @pytest.mark.parametrize("suffix", [".py", ".txt"])
 def test_listing_text_in_the_pdf_equals_the_example_file(suffix):
-    """The text that MuPDF copies from each listing is its file
+    """The text of each listing, as mutool draw -F txt reads it, is its file
 
     design.tex makes every space of a listing a real space of the text layer,
-    so the copied text keeps the indentation. pdftotext of poppler 24.02
+    so that text read from the PDF can keep the indentation. pdftotext of poppler 24.02
     drops the spaces at the start of a line even then, with -raw and without
-    (measured 2026-11-06 on listings with real spaces), so the PDF is read
-    with mutool. Each line of an example (.py) or of its shown output (.txt)
+    options, and with -layout, which places text by its position, gave 3 of
+    the 8 examples exactly (measured 2026-11-06); mutool 1.23.10 gives all
+    of them. Each line of an example (.py) or of its shown output (.txt)
     must come out of the PDF as it is, blank lines dropped on both sides.
-    Where a listing crosses a page, it goes on on the next page, after what
-    may stand at its top.
+    Where a listing crosses a page, it goes on with the first line of the
+    next page, with no figure between its parts.
     """
     if shutil.which("mutool") is None:
         pytest.skip("mutool (mupdf-tools) is needed to read the PDF")
@@ -625,12 +626,11 @@ def continues(pages, page_number, start, block):
             if pages[page][position] != wanted:
                 return False
             continue
-        # The listing crosses a page: it goes on on the next page, below the
-        # figures or the running text that LaTeX may put at its top.
-        page += 1
-        if page == len(pages) or wanted not in pages[page]:
+        # The listing crosses a page: it goes on with the first line of the
+        # next page. A figure placed above it would split what a reader copies.
+        page, position = page + 1, 0
+        if page == len(pages) or pages[page][:1] != [wanted]:
             return False
-        position = pages[page].index(wanted)
     return True
 
 

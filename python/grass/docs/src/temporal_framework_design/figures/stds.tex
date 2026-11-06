@@ -44,7 +44,9 @@
 \end{class}
 \begin{class}[text width=2.7cm]{StdsMapRegister}{-6.5,-4.85}
 \end{class}
-\composition{StdsDataset}{base}{1}{BaseRow}
+% At the default place, near the end, the labels of base touched the box
+% of AbsoluteTimeRow below it.
+\composition[near end/.style={pos=0.4}]{StdsDataset}{base}{1}{BaseRow}
 \composition{StdsDataset}{absolute_time}{1}{AbsoluteTimeRow}
 \composition{StdsDataset}{relative_time}{1}{RelativeTimeRow}
 \composition{StdsDataset}{spatial_extent}{1}{SpatialExtentRow}

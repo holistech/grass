@@ -20,6 +20,7 @@
 \usepackage{booktabs}
 \usepackage{caption}
 \usepackage{float}
+\usepackage{placeins}
 \usepackage{listings}
 \usepackage[numbers]{natbib}
 \usepackage[simplified]{pgf-umlcd}
@@ -50,11 +51,14 @@
 % Code that a reader copies from the PDF must run: monospaced, straight
 % quotes, spaces kept, no line breaks or numbers added. A space of a listing
 % is otherwise only a gap between glyphs: mutool draw -F txt and pdftotext
-% gave the code without indentation (measured 2026-11-06, MuPDF 1.23.10,
+% -raw gave the code without indentation (measured 2026-11-06, MuPDF 1.23.10,
 % poppler 24.02). Here each space is the visible-space glyph, drawn in
 % invisible text mode and mapped to U+0020, so the text layer holds one real
-% space per space of the file at the width of a character; MuPDF then copies
-% the indentation, poppler still drops spaces at the start of a line.
+% space per space of the file at the width of a character. Measured the same
+% day: mutool draw -F txt then keeps the indentation; pdftotext of poppler
+% 24.02 still drops the spaces at the start of a line, with -raw and without
+% options; -layout, which places text by its position, gave 3 of the 8
+% examples exactly.
 \input{glyphtounicode}
 \pdfgentounicode=1
 \pdfglyphtounicode{uni2423}{0020}
@@ -128,7 +132,8 @@ Python on top of the Python package \code{grass.temporal}, except
 This document describes the classes of \code{grass.temporal}
 (section~\ref{sec:design}), the database layer below them
 (section~\ref{sec:database}) and the algebra core, which computes the
-temporal algebra and the aggregations (section~\ref{sec:algebra}).
+temporal algebra, the aggregations, the map calculations and the sampling of
+the tools (section~\ref{sec:algebra}).
 Section~\ref{sec:examples} shows Python examples: the registration of maps,
 temporal aggregation, the same aggregation with the algebra core, sampling at
 vector points, the spatio-temporal intersection of trajectories and a
@@ -268,6 +273,44 @@ a last map with an end time keeps it. The
 register of the maps of a dataset is a table of its own, which
 \code{StdsMapRegister} creates, fills and reads.
 
+\begin{figure}[p]
+\centering
+\umlfigure{datasets}
+\caption{The abstract dataset classes. Abstract methods are in italics. The
+topology builder links the objects of one or two lists; the register of the
+maps of a space time dataset is a table of its own.}
+\label{fig:datasets}
+\end{figure}
+
+\subsection{Map and space time dataset classes}
+
+The classes of the three map types and of the three space time dataset types
+(figures~\ref{fig:maps} and~\ref{fig:stds}) combine \code{MapDataset} or
+\code{StdsDataset} with a mixin for the spatial extent, \code{\_PlanarExtentMethods}
+for two dimensions or \code{\_VolumeExtentMethods} for three. A class sets its
+\code{Kind}; a map class also copies what the C library reports about a map of
+its type into the metadata. The rows are made by \code{reset()}, which the
+constructor calls with the identifier. Of the classes of these figures, the
+six classes of the types are exported from \code{grass.temporal};
+\code{MapDataset}, \code{StdsDataset} and the mixins are not.
+
+\begin{figure}[ht]
+\centering
+\umlfigure{maps}
+\caption{The map classes and the rows of a map.}
+\label{fig:maps}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\umlfigure{stds}
+\caption{The space time dataset classes and the rows of a dataset. A dataset
+has the register of its maps instead of a register of datasets.}
+\label{fig:stds}
+\end{figure}
+
+% No figure of the sections before may come out inside the listings below.
+\FloatBarrier
 \subsection{Registered maps as lists of objects}
 
 Three methods of a space time dataset return its maps as objects. The
@@ -313,6 +356,10 @@ maps must not overlap or contain each other.}
 \label{fig:by-granularity}
 \end{figure}
 
+% A figure that LaTeX puts at the top of a page must not stand between two
+% pages of a listing, which a reader copies as one.
+\FloatBarrier
+
 \lstinputlisting[style=example,caption={The dataset of
 figures~\ref{fig:as-objects} to~\ref{fig:by-granularity}
 \\ \examplefile{map\_lists.py}},label=lst:map-lists]{examples/map_lists.py}
@@ -320,49 +367,10 @@ figures~\ref{fig:as-objects} to~\ref{fig:by-granularity}
 \lstinputlisting[style=output,caption={Output of
 \code{map\_lists.py}}]{examples/map_lists.txt}
 
-% The figure of the abstract classes fills a page of its own. Placed in the
-% text of its section, it came out between two pages of the listing above
-% and split the code that a reader copies.
-\begin{figure}[p]
-\centering
-\umlfigure{datasets}
-\caption{The abstract dataset classes. Abstract methods are in italics. The
-topology builder links the objects of one or two lists; the register of the
-maps of a space time dataset is a table of its own.}
-\label{fig:datasets}
-\end{figure}
-
-\subsection{Map and space time dataset classes}
-
-The classes of the three map types and of the three space time dataset types
-(figures~\ref{fig:maps} and~\ref{fig:stds}) combine \code{MapDataset} or
-\code{StdsDataset} with a mixin for the spatial extent, \code{\_PlanarExtentMethods}
-for two dimensions or \code{\_VolumeExtentMethods} for three. A class sets its
-\code{Kind}; a map class also copies what the C library reports about a map of
-its type into the metadata. The rows are made by \code{reset()}, which the
-constructor calls with the identifier. Of the classes of these figures, the
-six classes of the types are exported from \code{grass.temporal};
-\code{MapDataset}, \code{StdsDataset} and the mixins are not.
-
-\begin{figure}[ht]
-\centering
-\umlfigure{maps}
-\caption{The map classes and the rows of a map.}
-\label{fig:maps}
-\end{figure}
-
-\begin{figure}[ht]
-\centering
-\umlfigure{stds}
-\caption{The space time dataset classes and the rows of a dataset. A dataset
-has the register of its maps instead of a register of datasets.}
-\label{fig:stds}
-\end{figure}
-
 \section{The database layer}
 \label{sec:database}
 
-Below the rows lie five modules:
+The database layer consists of five modules:
 
 \begin{description}
 \item[\code{state}] \code{init()} finds out everything about the session
@@ -404,8 +412,10 @@ of its own; its argument \code{dbif} is deprecated.
 
 The algebra core is the package \code{grass.temporal.algebra}. It computes the
 expressions of \code{t.rast.algebra}, \code{t.rast3d.algebra}, \code{t.vect.algebra} and
-\code{t.select} and the aggregations of \code{t.rast.aggregate} and
-\code{t.rast.aggregate.ds} (figure~\ref{fig:algebra}). A series is an
+\code{t.select}, the aggregations of \code{t.rast.aggregate} and
+\code{t.rast.aggregate.ds}, the map calculations of \code{t.rast.mapcalc} and
+\code{t.rast3d.mapcalc} and the sampling of \code{t.sample} and
+\code{t.vect.observe.strds} (figure~\ref{fig:algebra}). A series is an
 immutable, time ordered sequence of slots. A slot has a time stamp
 (\code{Extent}), optionally a spatial extent (\code{Space}), and a content tree
 that says what the map of the slot contains: an existing map (\code{MapRef}),
@@ -453,6 +463,8 @@ classes. Series, slots and content trees are immutable values.}
 \label{fig:algebra}
 \end{figure}
 
+% Nor inside the listings of the examples.
+\FloatBarrier
 \section{Code examples}
 \label{sec:examples}
 
