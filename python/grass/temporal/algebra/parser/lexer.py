@@ -125,6 +125,10 @@ class Lexer:
     t_CARET = r"\^"
     t_TILDE = r"~"
 
+    # PLY reads the docstring of every t_ function below as the regular
+    # expression of its token, so these docstrings cannot be summaries and
+    # must not change a character.
+
     # PLY needs the rule name to be a token type; the rule sets the type of
     # the kind it finds.
     @staticmethod

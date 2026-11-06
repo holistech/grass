@@ -23,7 +23,11 @@ from .lexer import TOKENS, build_lexer
 
 
 class Grammar:
-    """The PLY rules; each p_ function documents its productions"""
+    """The PLY rules; each ``p_`` function documents its productions"""
+
+    # PLY reads the docstring of each p_ method as the productions of the rule,
+    # so a rule with several lines cannot have a summary line; D205 is silenced
+    # on those methods with noqa.
 
     tokens = TOKENS
     start = "statement"
@@ -83,7 +87,7 @@ class Grammar:
                    | expression PIPE expression
                    | expression CARET expression
                    | expression TILDE expression
-        """
+        """  # noqa: D205
         p[0] = ast.Binary(p[2], p[1], p[3])
 
     @staticmethod
@@ -97,7 +101,7 @@ class Grammar:
                    | expression MUL_OP expression
                    | expression OVERLAY_OP expression
                    | expression CMP_OP expression
-        """
+        """  # noqa: D205
         p[0] = ast.Binary(p[2].symbol, p[1], p[3], p[2])
 
     @staticmethod
@@ -120,7 +124,7 @@ class Grammar:
         """
         expression : INT
                    | FLOAT
-        """
+        """  # noqa: D205
         p[0] = ast.Number(p[1])
 
     @staticmethod
@@ -143,7 +147,7 @@ class Grammar:
         """
         offsets : offset
                 | offsets COMMA offset
-        """
+        """  # noqa: D205
         p[0] = [p[1]] if len(p) == 2 else [*p[1], p[3]]
 
     @staticmethod
@@ -151,7 +155,7 @@ class Grammar:
         """
         offset : INT
                | MINUS INT
-        """
+        """  # noqa: D205
         p[0] = p[1] if len(p) == 2 else -p[2]
 
     @staticmethod
@@ -160,7 +164,7 @@ class Grammar:
         expression : NAME LPAREN RPAREN
                    | NAME LPAREN arguments RPAREN
                    | NAME LPAREN RELATION COMMA arguments RPAREN
-        """
+        """  # noqa: D205
         if len(p) == 4:
             p[0] = ast.Function(p[1], ())
         elif len(p) == 5:
@@ -173,7 +177,7 @@ class Grammar:
         """
         arguments : expression
                   | arguments COMMA expression
-        """
+        """  # noqa: D205
         p[0] = [p[1]] if len(p) == 2 else [*p[1], p[3]]
 
     @staticmethod

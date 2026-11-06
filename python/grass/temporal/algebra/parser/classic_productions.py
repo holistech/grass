@@ -1,6 +1,6 @@
 """The productions and precedence tables of the classic grammar as data
 
-A frozen copy of the p_ methods and precedence tables of the reference
+A frozen copy of the ``p_`` methods and precedence tables of the reference
 implementation (grass.temporal.classic), from which classic_grammar.py builds
 the classic grammar; a test compares the copy with the reference. These
 tables are for variants of the algebra, not for users.

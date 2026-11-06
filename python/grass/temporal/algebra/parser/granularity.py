@@ -51,6 +51,8 @@ def sample_by_granularity(series, granularity):
     The series needs a valid temporal topology (no overlapping maps);
     setup_common_granularity() of the public parser classes checks it.
 
+    :param series: the Series of one dataset, in time order, whose maps are
+        sampled
     :param granularity: a text such as "1 day" for absolute time, a whole
         number of the unit for relative time
     """

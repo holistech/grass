@@ -351,7 +351,7 @@ class ClassicTranslator(Translator):
         The classic dataset takes the temporal type and unit of its first map;
         registering a map of another fails.
 
-        :raises FatalError: for a classic_maps.Mixed
+        :raises grass.exceptions.FatalError: for a classic_maps.Mixed
         """
         if not isinstance(result, classic_maps.Mixed):
             return result
@@ -1342,8 +1342,10 @@ class ClassicTranslator(Translator):
         return (slot.extent, self._written(slot.content), self._source(slot.content))
 
     def _tsnap(self, series):
-        """Return series snapped with the copy of snap_map_list() that the
-        classic algebra keeps (grass.temporal.classic.granularity)"""
+        """Return series snapped by the classic algebra's copy of snap_map_list()
+
+        The copy lives in grass.temporal.classic.granularity.
+        """
         return time_functions.retime(series, snap=True, snap_maps=snap_map_list)
 
     def _tshift(self, series, increment):

@@ -245,7 +245,7 @@ class _GriddedAlgebraParser(_AlgebraParser):
         :raises SyntaxError: for an invalid expression
         :raises ValueError, TypeError: for an expression that cannot be
             computed
-        :raises FatalError: for a missing dataset or map, and without
+        :raises grass.exceptions.FatalError: for a missing dataset or map, and without
             overwrite for an existing result
         """
         return self._evaluate(
@@ -307,7 +307,7 @@ class TemporalVectorAlgebraParser(_AlgebraParser):
         :raises SyntaxError: for an invalid expression
         :raises ValueError, TypeError: for an expression that cannot be
             computed
-        :raises FatalError: for a missing dataset or map, and without
+        :raises grass.exceptions.FatalError: for a missing dataset or map, and without
             overwrite for an existing result
         """
         return self._evaluate(expression, basename, overwrite)

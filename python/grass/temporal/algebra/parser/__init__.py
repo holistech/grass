@@ -41,6 +41,7 @@ _TIME_SUFFIXES = ("gran", "time")
 def parse(text, *, grammar=None):
     """Return the syntax tree of the statement "name = expression"
 
+    :param text: the statement, such as "C = A + B"
     :param grammar: an object with parse(text) that returns the tree of the
         statement; None reads the syntax of the core
     :raises SyntaxError: with the position of the first error
@@ -81,7 +82,31 @@ def evaluate(
     map, which is registered unchanged or, when a temporal operator retimed
     it, copied with g.copy, as a selection needs it (see plan()).
 
+    :param expression: the statement "name = expression"; name is the space
+        time dataset that the result is registered in
     :param kind: the map type, "raster", "raster3d" or "vector"
+    :param basename: the prefix of the result map names, by default the name of
+        the result dataset
+    :param overwrite: replace an existing result dataset and maps, and pass
+        --overwrite to every module call; without it an existing result stops
+        the run before any map is computed
+    :param run: False only checks the syntax and returns an empty chain
+    :param dry_run: plan the module calls and fill the chain, but compute and
+        register nothing
+    :param debug: print each planned module call as a command line
+    :param spatial: relate the maps in space as well, as the spatial flag of
+        t.rast.algebra does; rasters are then computed in the union of the
+        regions of their inputs (if the profile asks for it)
+    :param register_null: register result maps without a valid cell too; by
+        default they are removed
+    :param nprocs: the number of module processes that run at once; 1 runs
+        them one after another, and vector maps need 1
+    :param time_suffix: how result maps are named after the basename: "gran"
+        or "time" for a suffix from the start time of an absolute-time map;
+        any other value, such as "num%03", numbers the maps, and the profile
+        decides whether the digits of "num%NN" are used
+    :param selection: register the registered maps unchanged and copy retimed
+        ones instead of computing a map
     :param profile: the variant of the algebra: its grammar reads the
         expression and its translator class translates the tree; the default
         is the algebra of the core. A grammar of a variant that reads
@@ -96,7 +121,7 @@ def evaluate(
     :raises SyntaxError: for an error in the expression
     :raises ValueError, TypeError: as the core operations, for an expression
         that cannot be computed
-    :raises FatalError: for a missing dataset or map, and without overwrite
+    :raises grass.exceptions.FatalError: for a missing dataset or map, and without overwrite
         for an existing result dataset or map
     """
     grammar = profile.grammar
@@ -232,8 +257,9 @@ def _suffix_digits(time_suffix):
 
 
 def _resolver(kind, profile, granularity, types):
-    """The function that reads a dataset for the translator, or None for the
-    one of the translator
+    """Return the function that reads a dataset for the translator
+
+    The result is None where the translator's own reader is meant.
 
     :param types: the _TemporalTypes that watches the datasets; it watches
         only where the profile asks for it

@@ -49,10 +49,10 @@ _AGGREGATES = ("&", "|")
 class TemporalOperator:
     """An operator in braces
 
-    symbol is one of SYMBOLS, among them the overlays &, |, ^ and ~ of
-    vector maps, or None for a bare relation such as ``{during,|}``, the
-    first argument of if(). aggregate joins the conditions of several
-    related maps, "&" (all) or "|" (any); temporal is the time stamp of the
+    symbol is one of SYMBOLS, among them the overlays ``&``, ``|``, ``^`` and
+    ``~`` of vector maps, or None for a bare relation such as ``{during,|}``,
+    the first argument of if(). aggregate joins the conditions of several
+    related maps, ``"&"`` (all) or ``"|"`` (any); temporal is the time stamp of the
     result: "l" left, "r" right, "u" union, "i" intersection or "d" disjoint
     union.
     """
