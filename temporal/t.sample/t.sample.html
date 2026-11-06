@@ -103,6 +103,15 @@ origin. Without <b>-s</b> the spatial extent plays no role.
 
 <h2>NOTES</h2>
 
+A semantic label after the name of a dataset, as in <code>readings.B4</code>, selects the
+maps with that label, in <b>inputs</b> and in <b>sample</b>: only they are listed in
+a row or make granules, and with the flag <b>-c</b> the first row names the
+dataset with its label. As an input, a label that no map has behaves like a
+dataset without maps. As the sampler, such a label gives no granules, so the
+tool prints nothing, not even the header, and ends with return code 0. A name
+of a dataset of an older release that has a dot in it is read as a whole.
+
+<p>
 The tool checks every dataset before it prints anything. A dataset that is not
 found, an unknown name or a name of another type than <b>intype</b> or <b>samtype</b>,
 ends the tool with the error <code>Space time dataset &lt;name&gt; of type &lt;type&gt; not

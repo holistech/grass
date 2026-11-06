@@ -270,3 +270,130 @@ def test_dotted_dataset_is_read(tmp_path):
         )
 
     assert result.stdout.split("|")[:2] == ["sm@PERMANENT", "im@PERMANENT"]
+
+
+def labelled_datasets(tools, prefix):
+    """A dataset with B4 and B8 maps on each of two days and a sampler
+
+    Every day has a B4 and a B8 map, so a label that is not read shows up as
+    a second map in a cell. The sampler holds the interval of the two days.
+    """
+    specs = [
+        MapSpec(f"{prefix}_{label}_{day}", day, D(2026, 1, day), None, label)
+        for label in ("B4", "B8")
+        for day in (1, 2)
+    ]
+    create_stds(tools, "strds", f"{prefix}_ds", specs)
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_sa",
+        [MapSpec(f"{prefix}_s", 1, D(2026, 1, 1), D(2026, 1, 3))],
+    )
+
+
+def test_label_in_inputs_selects_only_its_maps(tools, prefix):
+    """The label of an input keeps the maps of that label in the row"""
+    labelled_datasets(tools, prefix)
+    rows = {
+        name: tools.t_sample(
+            inputs=name, sample=f"{prefix}_sa", method="contain"
+        ).stdout.split("|")[1]
+        for name in (f"{prefix}_ds.B4", f"{prefix}_ds")
+    }
+    mapset = "@PERMANENT"
+    assert rows[f"{prefix}_ds.B4"] == (f"{prefix}_B4_1{mapset},{prefix}_B4_2{mapset}")
+    assert f"{prefix}_B8_1{mapset}" in rows[f"{prefix}_ds"]
+
+
+def test_label_in_sample_selects_only_its_granules(tools, prefix):
+    """The label of the sampler takes its granules from the maps of that label"""
+    specs = [
+        MapSpec(f"{prefix}_a", 1, D(2026, 1, 1), D(2026, 1, 2), "B4"),
+        MapSpec(f"{prefix}_b", 1, D(2026, 1, 2), D(2026, 1, 3), "B4"),
+        MapSpec(f"{prefix}_c", 1, D(2026, 1, 3), D(2026, 1, 4), "B8"),
+    ]
+    create_stds(tools, "strds", f"{prefix}_ds", specs)
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [MapSpec(f"{prefix}_i", 1, D(2026, 1, 1), D(2026, 1, 4))],
+    )
+    granules = {
+        name: [
+            row.split("|")[0]
+            for row in tools.t_sample(
+                inputs=f"{prefix}_in", sample=name, method="overlap,contain,during"
+            ).stdout.splitlines()
+        ]
+        for name in (f"{prefix}_ds.B4", f"{prefix}_ds")
+    }
+    assert granules[f"{prefix}_ds.B4"] == [
+        f"{prefix}_a@PERMANENT",
+        f"{prefix}_b@PERMANENT",
+    ]
+    assert len(granules[f"{prefix}_ds"]) == 3
+
+
+def test_header_names_the_label(tools, prefix):
+    """The header of -c names the datasets with their labels and mapset"""
+    labelled_datasets(tools, prefix)
+    header = tools.t_sample(
+        inputs=f"{prefix}_ds.B4", sample=f"{prefix}_sa", method="contain", flags="c"
+    ).stdout.splitlines()[0]
+    assert header.split("|")[:2] == [
+        f"{prefix}_sa@PERMANENT",
+        f"{prefix}_ds.B4@PERMANENT",
+    ]
+
+
+def outcome(tools, **options):
+    """Output, messages and return code of a run, failed or not"""
+    try:
+        result = tools.t_sample(**options)
+    except ToolError as error:
+        return error.returncode, "", message(error)
+    return result.returncode, result.stdout, result.stderr
+
+
+def test_label_without_maps_behaves_like_an_empty_dataset(tools, prefix):
+    """A label that no map has is a dataset without maps, as an input"""
+    labelled_datasets(tools, prefix)
+    tools.t_create(output=f"{prefix}_none", type="strds", title="t", description="t")
+    results = [
+        outcome(tools, inputs=f"{prefix}_{name}", sample=f"{prefix}_sa", flags="c")
+        for name in ("ds.B9", "none")
+    ]
+    # Only the name of the input differs, in the header.
+    texts = [
+        tuple(
+            part.replace(f"{prefix}_ds.B9", "X").replace(f"{prefix}_none", "X")
+            if isinstance(part, str)
+            else part
+            for part in result
+        )
+        for result in results
+    ]
+    assert texts[0] == texts[1]
+
+
+def test_label_without_maps_as_sampler_lists_nothing(tools, prefix):
+    """A sampler label that no map has gives no granules: no rows, no header"""
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_ds",
+        [MapSpec(f"{prefix}_a", 1, D(2026, 1, 1), D(2026, 1, 3), "B4")],
+    )
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [MapSpec(f"{prefix}_i", 1, D(2026, 1, 1), D(2026, 1, 2))],
+    )
+    returncode, stdout, stderr = outcome(
+        tools, inputs=f"{prefix}_in", sample=f"{prefix}_ds.B9", flags="c"
+    )
+    assert (returncode, stdout) == (0, "")
+    assert "ERROR" not in stderr

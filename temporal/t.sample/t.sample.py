@@ -63,6 +63,16 @@ import grass.script as gs
 ############################################################################
 
 
+def labelled_id(stds):
+    """The id of an opened dataset with the semantic label it was opened with
+
+    get_id() drops the label, so source() would read all maps of the dataset.
+    A dataset of an older release with a dot in its name was opened whole and
+    has no label, so its name stays whole.
+    """
+    return f"{stds.get_name()}@{stds.get_mapset()}"
+
+
 def main():
     global tgis
     # Imported here, not at module level: gs.parser() answers --help and
@@ -110,13 +120,13 @@ def main():
         # Only an interval sampler can be given gaps, so this waits for the
         # guards above.
         if granules is None:
-            granules = with_gaps(source(sampler_stds.get_id(), stds_type=samtype))
+            granules = with_gaps(source(labelled_id(sampler_stds), stds_type=samtype))
         if granules.slots:
             columns.append(
                 related_per_granule(
                     granules,
                     names,
-                    source(stds.get_id(), stds_type=intype),
+                    source(labelled_id(stds), stds_type=intype),
                     spatial=spatial,
                 )
             )
@@ -125,8 +135,8 @@ def main():
         return
 
     if header:
-        head = [sampler_stds.get_id()]
-        head += [stds.get_id() for stds in input_stds]
+        head = [labelled_id(sampler_stds)]
+        head += [labelled_id(stds) for stds in input_stds]
         head += ["start_time", "end_time", "interval_length", "distance_from_begin"]
         print(separator.join(head))
 

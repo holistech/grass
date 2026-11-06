@@ -96,6 +96,14 @@ origin. Without **-s** the spatial extent plays no role.
 
 ## NOTES
 
+A semantic label after the name of a dataset, as in `readings.B4`, selects the
+maps with that label, in **inputs** and in **sample**: only they are listed in
+a row or make granules, and with the flag **-c** the first row names the
+dataset with its label. As an input, a label that no map has behaves like a
+dataset without maps. As the sampler, such a label gives no granules, so the
+tool prints nothing, not even the header, and ends with return code 0. A name
+of a dataset of an older release that has a dot in it is read as a whole.
+
 The tool checks every dataset before it prints anything. A dataset that is not
 found, an unknown name or a name of another type than **intype** or **samtype**,
 ends the tool with the error `Space time dataset <name> of type <type> not
