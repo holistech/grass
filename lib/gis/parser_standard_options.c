@@ -803,12 +803,14 @@ struct Option *G_define_standard_option(int opt)
     case G_OPT_M_SEED:
         Opt->key = "seed";
         Opt->type = TYPE_INTEGER;
-        /* A seed reaches from -2^31 to 2^32 - 1, wider than check_int()
-         * allows, so the parser checks this answer with
-         * G_random_parse_seed() and the message of
-         * G_random_seed_from_option() instead. Only this standard option
-         * gets this check; every other integer option, also one with the
-         * key seed, stays strictly checked. */
+        /* A seed reaches from -2^31 to 2^32 - 1, wider than check_int() */
+        /* allows, so the parser checks this answer with */
+        /* G_random_parse_seed() and the message of */
+        /* G_random_seed_from_option() instead. Only this standard option */
+        /* gets this check; every other integer option, also one with the */
+        /* key seed, stays strictly checked. One-line comments, because */
+        /* man/parser_standard_options.py reads this function line by line */
+        /* and skips only lines that start a comment. */
         Opt->answer_left_to_tool = 1;
         Opt->required = NO;
         Opt->label = _("Seed value for the random number generator");
