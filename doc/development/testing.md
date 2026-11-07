@@ -503,7 +503,9 @@ checks prose, both check what the text claims about the code.
   base class and composition of a UML figure must exist in the code; the text of
   each listing in the PDF must equal the example file and its output.
   The test of the listings reads the PDF with `mutool` (MuPDF, package
-  `mupdf-tools`); without it that test is skipped.
+  `mupdf-tools`); without it that test is skipped. Each example file must also
+  be attached to the PDF under its name, byte for byte, which the test reads
+  from the PDF in Python alone.
 
 The checked-in PDF, `python/grass/docs/src/Temporal-Framework-Code-Design.pdf`,
 carries the SHA-256 of its sources in its keywords, and the test compares it

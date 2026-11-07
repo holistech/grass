@@ -36,6 +36,7 @@ import re
 import shutil
 import subprocess
 import sys
+import zlib
 from datetime import datetime
 from pathlib import Path
 
@@ -557,6 +558,137 @@ def test_pdf_is_built_from_the_current_sources():
     assert pdf_keywords(PDF) == source_digest(SOURCE), (
         f"{PDF.name} is older than its sources: run make in {SOURCE}"
     )
+
+
+def pdf_object_offsets(data: bytes) -> tuple[dict[int, int], bytes]:
+    """The byte offset of each object and the trailer dictionary of a PDF
+
+    Read from the cross-reference table that startxref points to. design.tex
+    sets \\pdfobjcompresslevel=0, so pdfTeX writes a plain table and no object
+    streams, and reading the PDF needs no PDF library.
+    """
+    start = int(re.findall(rb"startxref\s+(\d+)", data)[-1])
+    table, _, trailer = data[start:].partition(b"trailer")
+    tokens = table.split()
+    assert tokens[0] == b"xref", "the PDF has no plain cross-reference table"
+    offsets = {}
+    position = 1
+    while position < len(tokens):
+        first, count = int(tokens[position]), int(tokens[position + 1])
+        position += 2
+        for number in range(first, first + count):
+            offset, _generation, kind = tokens[position : position + 3]
+            position += 3
+            if kind == b"n":
+                offsets[number] = int(offset)
+    return offsets, trailer.partition(b"startxref")[0]
+
+
+def pdf_object(data: bytes, offsets: dict[int, int], number: int):
+    """The value of object number and its decoded stream, None if it has none"""
+    header = re.compile(rb"%d 0 obj\s*" % number).match(data, offsets[number])
+    assert header, f"object {number} is not at its offset"
+    stream = data.find(b"stream", header.end())
+    end = data.find(b"endobj", header.end())
+    if stream == -1 or end < stream:
+        return data[header.end() : end], None
+    value = data[header.end() : stream]
+    length = re.search(rb"/Length\s+(\d+)(\s+0\s+R)?", value)
+    size = int(length.group(1))
+    if length.group(2):
+        size = int(pdf_object(data, offsets, size)[0])
+    begin = stream + len(b"stream")
+    begin += 2 if data.startswith(b"\r\n", begin) else 1
+    content = data[begin : begin + size]
+    filters = re.findall(rb"/Filter\s*/(\w+)", value)
+    assert filters in ([], [b"FlateDecode"]), f"object {number}: filter {filters}"
+    return value, zlib.decompress(content) if filters else content
+
+
+def pdf_reference(value: bytes, key: str) -> int:
+    """The object number that the entry key of a dictionary refers to"""
+    found = re.search(rb"/%s\s*(\d+)\s+0\s+R" % key.encode(), value)
+    assert found, f"no reference /{key} in {value[:200]!r}"
+    return int(found.group(1))
+
+
+# A PDF literal string, with the escapes that pdfTeX writes into it.
+PDF_STRING = rb"\(((?:\\.|[^\\()])*)\)"
+
+
+def pdf_string(raw: bytes) -> str:
+    """The text of the inside of a literal string: \\ddd, \\(, \\) and \\\\"""
+
+    def unescaped(match):
+        escape = match.group(1)
+        return bytes([int(escape, 8)]) if escape.isdigit() else escape
+
+    return re.sub(rb"\\([0-7]{1,3}|.)", unescaped, raw, flags=re.DOTALL).decode(
+        "latin-1"
+    )
+
+
+def pdf_attachments(pdf: Path) -> dict[str, bytes]:
+    """The files attached to a PDF, by name, as a viewer lists them
+
+    A viewer lists the name tree /EmbeddedFiles of the catalog; each entry
+    is a file specification whose /EF stream is the file. The file names
+    /F and /UF of the specification, under which a viewer saves the file,
+    must be the name of the entry.
+    """
+    data = pdf.read_bytes()
+    offsets, trailer = pdf_object_offsets(data)
+    catalog = pdf_object(data, offsets, pdf_reference(trailer, "Root"))[0]
+    if b"/Names" not in catalog:
+        return {}
+    names = pdf_object(data, offsets, pdf_reference(catalog, "Names"))[0]
+    if b"/EmbeddedFiles" not in names:
+        return {}
+    nodes = [pdf_reference(names, "EmbeddedFiles")]
+    attachments = {}
+    while nodes:
+        node = pdf_object(data, offsets, nodes.pop())[0]
+        kids = re.search(rb"/Kids\s*\[([^\]]*)\]", node)
+        if kids:
+            nodes += [int(n) for n in re.findall(rb"(\d+)\s+0\s+R", kids.group(1))]
+        entries = re.search(rb"/Names\s*\[(.*)\]", node, re.DOTALL)
+        if not entries:
+            continue
+        for raw, number in re.findall(
+            PDF_STRING + rb"\s*(\d+)\s+0\s+R", entries.group(1)
+        ):
+            name = pdf_string(raw)
+            assert name not in attachments, f"{name} is attached twice"
+            spec = pdf_object(data, offsets, int(number))[0]
+            for key in ("F", "UF"):
+                found = re.search(rb"/%s\s*" % key.encode() + PDF_STRING, spec)
+                assert found, f"attachment {name} has no /{key}"
+                assert pdf_string(found.group(1)) == name, f"/{key} of {name}"
+            stream = re.search(rb"/EF\s*<<\s*/F\s+(\d+)\s+0\s+R", spec)
+            assert stream, f"attachment {name} has no embedded file"
+            attachments[name] = pdf_object(data, offsets, int(stream.group(1)))[1]
+    return attachments
+
+
+def example_files():
+    return sorted(EXAMPLES.glob("*.py"))
+
+
+@pytest.mark.parametrize("example", example_files(), ids=lambda path: path.name)
+def test_each_example_file_is_attached_unchanged(example):
+    """The PDF carries the example file under its name, byte for byte
+
+    Line ends and the final newline count, so that a reader who saves the
+    attachment gets the file of the repository.
+    """
+    attachments = pdf_attachments(PDF)
+    assert example.name in attachments, f"{PDF.name} has no {example.name}"
+    assert attachments[example.name] == example.read_bytes()
+
+
+def test_every_example_is_attached():
+    """The attachments of the PDF are the example files, no more, no fewer"""
+    assert sorted(pdf_attachments(PDF)) == [path.name for path in example_files()]
 
 
 def listing_lines(text):
