@@ -109,9 +109,10 @@ CATALOG_MANUALS = (
 )
 
 TOOLS = Path(__file__).parents[1]
-# The introduction is checked like a manual, but it describes no tool, so
-# it has no options to show.
+# The introduction and the page of the changes in GRASS 8.6 are checked like
+# manuals, but they describe no tool, so they have no options to show.
 INTRODUCTION = TOOLS / "temporalintro.md"
+CHANGES = TOOLS / "temporalchanges.md"
 
 
 def manual_of(tool):
@@ -253,9 +254,32 @@ def test_introduction_markdown_and_html_agree():
     assert check_html_sync(manual, INTRODUCTION.with_suffix(".html")) == []
 
 
+@pytest.mark.parametrize(
+    "variant",
+    [
+        pytest.param(
+            variant,
+            marks=time_limit(lambda: parse_manual(CHANGES), variant),
+            id=variant,
+        )
+        for variant in ("shell", "python")
+    ],
+)
+def test_changes_page_examples_run_and_show_their_output(
+    variant, tmp_path, example_processes, request
+):
+    check_examples(parse_manual(CHANGES), variant, tmp_path, request)
+
+
+def test_changes_page_markdown_and_html_agree():
+    manual = parse_manual(CHANGES)
+    assert check_html_sync(manual, CHANGES.with_suffix(".html")) == []
+
+
 def test_shell_only_examples_are_catalog_manuals():
     manuals = {tool: manual_of(tool) for tool in REVIEWED_MANUALS}
     manuals["temporalintro"] = parse_manual(INTRODUCTION)
+    manuals["temporalchanges"] = parse_manual(CHANGES)
     users = {
         name
         for name, manual in manuals.items()

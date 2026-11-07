@@ -64,6 +64,7 @@ set_target_properties(ALL_TEMPORAL_MODULES PROPERTIES FOLDER Misc)
 
 if(WITH_DOCS)
     generate_docs(temporalintro TARGET ALL_TEMPORAL_MODULES)
+    generate_docs(temporalchanges TARGET ALL_TEMPORAL_MODULES)
 endif()
 
 build_program_in_subdir(t.connect DEPENDS grass_gis grass_temporal grass_parson)

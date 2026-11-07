@@ -25,10 +25,11 @@ _spec = importlib.util.spec_from_file_location("grass_md2html", GENERATOR)
 md2html = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(md2html)
 
-# The manual of each tool and the introduction to the temporal framework.
+# The manual of each tool, the introduction to the temporal framework and
+# the page of its changes in GRASS 8.6.
 MANUALS = sorted(
     path for path in TOOLS.glob("*/*.md") if path.stem == path.parent.name
-) + [TOOLS / "temporalintro.md"]
+) + [TOOLS / "temporalintro.md", TOOLS / "temporalchanges.md"]
 
 
 @pytest.mark.parametrize("manual", MANUALS, ids=lambda path: path.stem)

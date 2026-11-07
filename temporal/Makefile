@@ -59,4 +59,11 @@ include $(MODULE_TOPDIR)/include/Make/Dir.make
 
 default: htmldir
 
+# Html.make builds the pages of PGM only; the page of the changes in GRASS
+# 8.6 is a second page of this directory.
+ifndef CROSS_COMPILING
+html: $(HTMLDIR)/temporalchanges.html $(MANDIR)/temporalchanges.$(MANSECT) \
+	$(MDDIR)/source/temporalchanges.md
+endif
+
 htmldir: parsubdirs

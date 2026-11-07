@@ -1,0 +1,1815 @@
+<!-- meta page description: Changes of the temporal framework in GRASS 8.6 -->
+<!-- meta page index: temporal -->
+
+<h2>DESCRIPTION</h2>
+
+This page lists what changed in the temporal framework since GRASS 8.5: in
+the results and the output of the temporal tools, in the options they take
+and the errors they report, and in the Python library <code>grass.temporal</code>. It
+is written for users who move from GRASS 8.5 or an earlier release, for
+authors of scripts and addons, and for reviewers. Each entry says what
+happened before, what happens now and, where a user has to act, what to do.
+It links the section of a manual that describes the behavior of today.
+
+<p>
+Most entries come from a rework of the temporal framework for GRASS 8.6: a
+new implementation of the temporal algebra, a review of every temporal tool
+with new tests and new manuals, and the errors that this review found and
+fixed. Entries marked <em>(upstream)</em> come from the development of GRASS
+between the creation of the release branch of GRASS 8.5 and the start of
+the rework; GRASS 8.5 does not have them either. Where the rework later
+changed such an entry, the entry describes the behavior of GRASS 8.6.
+
+<p>
+The algebra tools compute with a new implementation by default. The flag
+<b>-c</b> selects the classic algebra, which gives the results of the releases
+before GRASS 8.6 with the exceptions in <a href="#classic-algebra">Classic algebra</a>;
+use it to repeat a published result. Errors that were fixed without a change
+of the result of a valid call are only grouped, in
+<a href="#fixed-errors">Fixed errors</a>. The <a href="#examples">EXAMPLES</a> show two of the
+changes in the North Carolina sample dataset.
+
+<h2>Temporal algebra</h2>
+
+Since GRASS 8.6, <em><a href="t.rast.algebra.html">t.rast.algebra</a></em>,
+<em><a href="t.rast3d.algebra.html">t.rast3d.algebra</a></em>,
+<em><a href="t.vect.algebra.html">t.vect.algebra</a></em> and <em><a href="t.select.html">t.select</a></em>
+compute their expressions with a new implementation, the Python package
+<code>grass.temporal.algebra</code>. The algebra of the releases before stays available
+as the classic algebra: the flag <b>-c</b> selects it for one call, the
+environment variable <code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole session or
+script. <code>GRASS_TEMPORAL_ALGEBRA=core</code>, an empty or an unset variable selects
+the new algebra, the flag takes precedence over the variable, and a value of
+blanks only is refused. In Python, the parser classes take <code>classic=True</code>.
+To repeat the results of a publication, set <b>-c</b> or the variable. The
+section <a href="t.rast.algebra.html#core-and-classic-algebra">Core and classic algebra</a>
+of <em>t.rast.algebra</em> describes both algebras.
+
+<p>
+The new algebra differs from the releases before GRASS 8.6 in the points
+below; <b>-c</b> keeps the behavior of those releases in each of them. The
+example <a href="#compare-the-new-and-the-classic-algebra">Compare the new and the classic
+algebra</a> shows the first point on
+precedence.
+
+<ul>
+<li><b>One result per conclusion map.</b> An <code>if()</code> whose conclusion map had
+several related condition maps gave one result for each pair, so a
+conclusion map could occur several times. Now there is one result per
+conclusion map: the conditions are joined with and, and a relation
+written as <code>{during,|}</code> joins them with or. Use <b>-c</b> for the old
+results (<a href="t.rast.algebra.html#core-and-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>Equal time stamps for then and else.</b> With a condition on map values,
+only the maps whose time stamp occurred in both the then and the else
+part were computed, and the others were left out without notice; the
+result could be empty. Now the then and the else part need equal time
+stamps, or the tool stops with an error. Write both parts with equal
+times, or use <b>-c</b>
+(<a href="t.rast.algebra.html#core-and-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>Precedence of <code>&amp;&amp;</code> and <code>||</code>.</b> Conditions on temporal variables were
+read from left to right, and parentheses around conditions were not
+accepted. Now <code>&amp;&amp;</code> binds stronger than <code>||</code>, and conditions can be
+grouped with parentheses. Use <b>-c</b> for the old results
+(<a href="t.rast.algebra.html#core-and-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>Selection with the time of the right map.</b> <code>A {:,R,r} B</code> kept only
+the last pair of a selection, an operator with <code>r</code> joined the left map
+with all related right maps in each result, and <code>!:</code> took every temporal
+operator. Now there is one map for each related pair, with the time of
+the right map and the value of the pair, and <code>!:</code> takes only the
+temporal operator <code>l</code>. Use <b>-c</b> for the old results
+(<a href="t.rast.algebra.html#core-and-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>td() of a time instance.</b> <code>td()</code> of a time instance stopped the tool
+with an error. Now it is null, and a condition on it is neither true nor
+false (<a href="t.rast.algebra.html#core-and-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>More forms of expressions.</b> Comparisons, temporal functions and minus
+signs were syntax errors outside a few places, and a dataset could not
+have the name of a function, so that <code>C = A</code>, <code>C = -A + 10</code>,
+<code>C = A &gt; 2</code>, <code>C = isnull(A)</code> and <code>C = td + 1</code> were syntax errors. Now
+these forms are read
+(<a href="t.rast.algebra.html#core-and-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>Intersection with several related maps.</b> The temporal operator <code>i</code>
+with several related maps intersected them up to the first map without
+common time, so the result depended on their order. Now a map whose
+related maps have no common intersection is left out. Use <b>-c</b> for
+the old results
+(<a href="t.rast.algebra.html#core-and-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>Negative buffers.</b> <code>buff_t()</code> with a negative buffer reported an error
+when the end came before the start but kept the old time, and an end
+equal to the start gave a time instance. Now the tool stops with an
+error if a map would keep no time, and for time instances
+(<a href="t.rast.algebra.html#core-and-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>merge() of equal maps.</b> <code>merge()</code> kept a map read with the
+neighbourhood modifier or a temporal function with an offset next to an
+equal map, so <code>merge(A[0], A[0])</code> gave eight maps instead of four. Now
+two maps with equal content and time are one map. Use <b>-c</b> for the old
+results (<a href="t.rast.algebra.html#core-and-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>tsnap() of maps that start together.</b> The times that <code>tsnap()</code> gave
+two maps with the same start depended on the order of the arguments of
+<code>merge()</code>. Now they do not: of a map from 2 to 3 January and a map from
+2 to 4 January, both end on 3 January in either order. Use <b>-c</b> for
+the old results
+(<a href="t.rast.algebra.html#core-and-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>Integers beyond 32 bits.</b> An integer constant beyond 32 bits was read
+by <em>r.mapcalc</em> with its lower 32 bits only (3000000000 became
+-1294967296, 2147483648 became null), and the values of temporal
+functions were computed with 32 bits. Now the new algebra keeps the
+constant and writes it as a floating point value, and the values of
+temporal functions keep all digits. Use <b>-c</b> for the old results
+(<a href="t.rast.algebra.html#core-and-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>A number next to an operator in brackets.</b> A number next to an
+operator in curly brackets or the hash operator was read together with
+the expression behind it: <code>A {*,equal} 2 - B</code> meant
+<code>A {*,equal} (2 - B)</code>. Now such an operator needs a dataset on both
+sides, and the form without parentheses is a syntax error. Add the
+parentheses, or use <b>-c</b>
+(<a href="t.rast.algebra.html#core-and-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>Null maps with -n.</b> With <b>-n</b>, no null map was registered for a map
+on the left of <code>{&amp;&amp;,...}</code> without a related map. Now <b>-n</b> registers a
+null map for each such map
+(<a href="t.rast.algebra.html#core-and-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>Errors in Python and dry runs.</b> In Python, an expression that cannot
+be computed raised <code>FatalError</code>, and a dry run checked existing results
+only at the maps. Now the new algebra raises <code>ValueError</code> or
+<code>TypeError</code> (an expression that cannot be read stays a <code>SyntaxError</code>),
+and a dry run with <b>-d</b> without <b>--overwrite</b> stops at an existing
+result dataset as the real run does. Python code that catches
+<code>FatalError</code> has to catch <code>ValueError</code> and <code>TypeError</code> too
+(<a href="t.rast.algebra.html#notes">t.rast.algebra</a>).</li>
+<li><b>Errors without traceback.</b> The algebra tools printed a Python
+traceback with an error. Now they report the error with a message only
+(<a href="t.rast.algebra.html#notes">t.rast.algebra</a>).</li>
+<li><b>Copies outside the region.</b> A map that the result takes over
+unchanged, for example with a new time, was copied only where needed,
+and a copy outside the region came out empty without notice. Now such
+copies are computed in the current region, with <b>-s</b> in the union of
+the regions of the input maps; an empty copy is registered only with
+<b>-n</b>, and a warning names it and the map it copies. Set the region
+with <em>g.region</em> so that it covers the maps
+(<a href="t.rast.algebra.html#notes">t.rast.algebra</a>).</li>
+<li><b>Datasets in the search path.</b> <em>t.rast.algebra</em> and
+<em>t.rast3d.algebra</em> looked for a dataset name without mapset in the
+current mapset only. Now the new algebra looks in the current mapset and
+then in the search path; <b>-c</b> keeps looking in the current mapset only
+(<a href="t.rast.algebra.html#use-datasets-of-another-mapset">t.rast.algebra</a>).</li>
+<li><b>Digits of the map numbers.</b> With <code>suffix=num%NN</code>, <em>t.rast.algebra</em>
+ignored <code>NN</code> and took the number of digits from the number of maps. Now
+<code>NN</code> sets the number of digits as in <em>t.rast.extract</em>; <b>-c</b> keeps the
+digits from the number of maps
+(<a href="t.rast.algebra.html#name-the-result-maps-and-plan-a-run">t.rast.algebra</a>).</li>
+</ul>
+
+<h2>Classic algebra</h2>
+
+The classic algebra, selected with <b>-c</b> or <code>GRASS_TEMPORAL_ALGEBRA=classic</code>,
+gives the results of the releases before GRASS 8.6 with the exceptions
+below. In each of them, those releases computed a wrong result, refused an
+expression that they should compute, or computed one that they should
+refuse; the classic algebra and the implementation of those releases, which
+stays in the source code as <code>grass.temporal.classic</code>, were corrected in the
+same way. Results of an earlier release that used one of these forms need a
+new run. All other results of the classic algebra are those of the releases
+before GRASS 8.6: the tests compare it with 2283 recorded results of that
+implementation. The manuals of the algebra tools describe many of these
+corrections with examples, in their sections "Corrections to the classic
+algebra".
+
+<p>
+Besides, the classic algebra reports errors with the messages of the new
+algebra, prints its debug output as module calls, reads the syntax of the
+whole expression before it computes, raises <code>FatalError</code> instead of
+<code>SystemExit</code> in Python for an existing result, and ends the expressions that
+it refuses with a message instead of a Python traceback. No result changes by
+this (<a href="t.rast.algebra.html#differences-from-the-reference-implementation">t.rast.algebra</a>).
+
+<ul>
+<li><b>Unknown relations.</b> Unknown relations, such as <code>{:,bogus}</code> or
+<code>{+,nonsense}</code>, and operators of the wrong type gave no result without
+notice. Now they are a syntax error with a message. Correct the
+expression (<a href="t.rast.algebra.html#temporal-relations">t.rast.algebra</a>).</li>
+<li><b>The default relation of a selection.</b> <code>{:}</code> and <code>{!:}</code> gave no
+result, and the default relation included the spatial relation
+<code>equivalent</code>. Now the default relation is <code>equal</code>, <code>{:}</code> selects the
+maps of equal time and <code>{!:}</code> gives an empty result
+(<a href="t.rast.algebra.html#temporal-selection">t.rast.algebra</a>).</li>
+<li><b>The simple operator + with maps of equal time.</b> Of several maps of
+equal time, the simple operator <code>+</code> aggregated only the last. Now it
+aggregates all of them. Results that rely on this need a new run
+(<a href="t.rast.algebra.html#conditional-statements">t.rast.algebra</a>).</li>
+<li><b>Hash operator with several relations.</b> The hash operator with several
+relations counted the maps of the last relation only. Now it counts the
+maps of all relations. Results that rely on this need a new run
+(<a href="t.rast.algebra.html#hash-operator">t.rast.algebra</a>).</li>
+<li><b>Relative time.</b> Result datasets always had absolute time, and inputs
+with relative time failed, also in <code>td()</code>, <code>buff_t()</code> and <code>tshift()</code>.
+Now the result dataset has the temporal type of the inputs, and
+relative time is computed (<a href="t.rast.algebra.html#notes">t.rast.algebra</a>).</li>
+<li><b>Temporal functions in conditions.</b> Conditions with
+<code>start_datetime()</code> or <code>end_datetime()</code> failed for every literal,
+<code>start_time()</code> and <code>end_time()</code> raised a <code>TypeError</code> or selected
+nothing, and all temporal functions raised an <code>AttributeError</code> for time
+instances and relative time. Now the literal is converted into the type
+of the value of the function, and a function that a map does not have
+stops the tool with an error that names the map
+(<a href="t.rast.algebra.html#temporal-functions">t.rast.algebra</a>).</li>
+<li><b>Vector overlays.</b> <em>t.vect.algebra</em> removed the results of an overlay
+from the mapset after it had registered them, <code>if()</code> crashed, the
+operators <code>|</code>, <code>^</code>, <code>~</code> and <code>+</code> dropped pairs with separate extents, the
+overlay operator <code>+</code> could not be read and <code>merge()</code> always failed. Now
+the results stay, <code>if()</code> computes, all pairs are overlaid, <code>+</code> is read
+and <code>merge()</code> joins vector datasets
+(<a href="t.vect.algebra.html#description">t.vect.algebra</a>).</li>
+<li><b>Spatial topology with -s.</b> The flag <b>-s</b> had no effect, and the
+relation <code>covered</code> was missing from the spatial relations. Now <b>-s</b>
+evaluates the spatial topology (<code>equivalent</code>, <code>cover</code>, <code>covered</code>,
+<code>overlap</code>, <code>in</code>, <code>contain</code>, <code>meet</code>) in selections, the hash operator,
+conditions and comparisons. Results computed with <b>-s</b> need a new run
+(<a href="t.rast.algebra.html#notes">t.rast.algebra</a>).</li>
+<li><b>Blanks in overlay operators.</b> In <em>t.vect.algebra</em>, a blank after the
+second comma of an overlay operator, as in <code>aa {&amp;,equal, l} ab</code>, was a
+syntax error. Now it is read; in the operators of the raster algebras
+it stays a syntax error
+(<a href="t.vect.algebra.html#temporal-operators">t.vect.algebra</a>).</li>
+<li><b>Null maps of 3D rasters.</b> <em>t.rast3d.algebra</em> could not remove its null
+maps, and in Python, <code>run=False</code> crashed in the raster algebras. Now
+null maps are removed, and <code>run=False</code> only checks the syntax
+(<a href="t.rast3d.algebra.html#flags">t.rast3d.algebra</a>).</li>
+<li><b>Conditions over maps of equal time.</b> With several maps of equal time,
+<code>if()</code> combined every condition map with every conclusion map of that
+time and gave one result for each pair. Now maps of equal time are
+paired like the arrays
+of numpy: a single map goes with all maps of its time, n maps with n
+maps in their order, and unequal numbers are an error. Results that rely
+on this need a new run
+(<a href="t.rast.algebra.html#conditional-statements">t.rast.algebra</a>).</li>
+<li><b>Selected maps of another mapset.</b> <em>t.select</em> could not register a
+selected map of another mapset. Now the map is registered in the
+temporal database of the current mapset; the map itself is not copied
+(<a href="t.select.html#results-empty-selections-and-mapsets">t.select</a>).</li>
+<li><b>Result maps of the other temporal type.</b> Result maps that were
+registered with the other temporal type lost their time when they were
+overwritten, so the result was empty or incomplete. Now they are
+replaced completely (<a href="t.rast.algebra.html#notes">t.rast.algebra</a>).</li>
+<li><b>Temporal operators at the hash operator.</b> The hash operator took the
+temporal operators <code>r</code>, <code>u</code>, <code>i</code> and <code>d</code> and ignored them, so that
+<code>{#,contains,r}</code> meant <code>{#,contains}</code>. Now they are a syntax error, and
+the result keeps the time of the left maps. Change <code>{#,R,r}</code> and the
+like into <code>{#,R}</code>, which gives the same result
+(<a href="t.rast.algebra.html#hash-operator">t.rast.algebra</a>).</li>
+<li><b>merge() is a union.</b> <code>merge()</code> appended its operands to each other, so
+a map in both operands was there twice and was counted twice later:
+<code>N {+,equal} merge(A {:,during} B, A {:,during} C)</code> gave 12, 16, 19
+and 18. Now <code>merge()</code> keeps a map with equal identifier, time and command
+once and warns about it; the expression gives 12, 14, 16 and 18. Results
+of <code>merge()</code> with overlapping operands need a new run
+(<a href="t.rast.algebra.html#merge-function">t.rast.algebra</a>).</li>
+<li><b>Reading direction and else in conditions.</b> In <code>if({R}, condition,
+conclusion)</code>, the relation R was read from the conclusion to the
+condition for conditions on temporal variables, and the else part took
+no map without a related condition map. Now R goes from the condition to
+the conclusion, also for temporal variables, and with a relation beyond
+<code>equal</code> the else part also takes the maps without a related condition
+map; figure A3 of Gebbert, Leppelt and Pebesma (2019) comes out as
+published. Results that rely on the old reading direction or else rule
+need the GRASS version they were computed with
+(<a href="t.rast.algebra.html#conditional-statements">t.rast.algebra</a>).</li>
+<li><b>td() of an expression.</b> <code>td()</code> of an expression on the right of an
+operator gave the value of the expression instead of the duration of its
+maps: <code>N - td(A * 2)</code> was <code>N - A * 2</code>. Now it is <code>N - 1</code> for daily maps.
+Results with this form need a new run
+(<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>tsnap() and tshift() of no maps.</b> <code>tshift()</code> of an expression without
+maps ended with an <code>IndexError</code>, and <code>tsnap()</code> of such an expression
+created no dataset. Now the result is empty like any other empty result:
+an empty dataset, and an enclosing expression goes on without maps
+(<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>Increments of tshift() and buff_t().</b> <code>tshift()</code> with a number on
+absolute time ended without result and with exit code 0, and <code>buff_t()</code>
+on relative time ended with a <code>TypeError</code>, also with a number such as
+1.5. Now an increment that does not fit the temporal type is an error,
+and no dataset is created; <code>buff_t(RT, 1.5)</code> computes on relative time
+with the whole number 1. Correct the increment
+(<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>merge() with a single map.</b> <code>merge()</code> of a dataset with a single map
+from <code>tmap()</code> ended with the error "Space time datasets to merge must
+have the same temporal type", also when both had the same temporal
+type. Now the map is taken
+(<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>Intersection with a time instance.</b> An operator with <code>i</code> and a time
+instance, such as <code>A {+,contains,i} I</code>, kept the time of the left map,
+and such a selection on relative time ended with a <code>TypeError</code>. Now the
+time of the result is the time instance, for selections and operators,
+in absolute and in relative time. Results with this form need a new run
+(<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>Infinite values.</b> A map with infinite values, as made by
+<code>exp(A * 1000)</code>, could not be registered, because writing its range
+failed, and the temporal database could stay locked. Now its minimum and
+maximum are stored as NULL, and a failed transaction is rolled back. This
+concerned the library and with it both algebras
+(<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>td() of a counted map.</b> <code>td()</code> of a map counted by the hash operator
+gave the count instead of the duration, as an operand and in a
+comparison. Now it gives the duration. Results with this form need a
+new run
+(<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>Chains that start with a number.</b> A chain that starts with a number or
+<code>map()</code>, such as <code>map(L) - 1 - A</code>, was grouped from the right, as
+<code>map(L) - (1 - A)</code>, and <code>A + (map(L) - 1 - 1)</code> was a syntax error. Now
+chains are grouped from the left, and chains after a dataset are read; a
+chain of numbers and <code>map()</code> only stays a syntax error. Results with such
+chains need a new run
+(<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>Precedence of td().</b> <code>A + td(A) / A</code> was computed as
+<code>(A + td(A)) / A</code>, because <code>td()</code> could only stand on the right of an
+operator, and <code>td(A) * 2</code> was a syntax error. Now <code>*</code>, <code>/</code> and <code>%</code>, also
+with a temporal operator, bind stronger than <code>+</code> and <code>-</code>, and <code>td()</code> at
+the start of a product is read. Results with this form need a new run
+(<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>A spatial relation without a temporal one.</b> An operator with spatial
+relation names only, such as <code>A {+,equivalent,l} N</code>, related no map and
+gave an empty result without notice, and in <em>t.select</em> <code>{:,equivalent}</code>
+selected nothing. Now this is an error that says that <code>equivalent</code> is a
+spatial relation and needs a temporal one. Write a temporal relation
+next to it, as in <code>equal|equivalent</code>
+(<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>tsnap() of a map that starts with the next map.</b> <code>tsnap()</code> gave a map
+that starts at the same time as the next map the end of that map, so
+the two maps exchanged their ends; <em>t.snap</em> did the same. Now such a map
+keeps its own end; in the classic algebra the map listed first keeps its
+end (<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>,
+<a href="t.snap.html#notes">t.snap</a>).</li>
+<li><b>Steps of months and years.</b> <code>tshift()</code> and <code>buff_t()</code> by months or
+years ended with the error "day is out of range for month" when the
+target month is too short for the day, and a step of 24 months back from
+December ended with "month must be in 1..12"; years and months of a
+step were added one after the other. Now such a step ends on the last
+day of the target month, and years and months are one step of
+12 times the years plus the months
+(<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>).</li>
+<li><b>equals and dataset functions in capitals.</b> The name <code>equals</code>, which
+the publication of the algebra uses, gave no result without notice, and
+<em>t.select</em> refused <code>STRDS(A)</code>, <code>STR3DS(A)</code> and <code>STVDS(A)</code> as syntax
+errors. Now <code>equals</code> is another name of <code>equal</code>, and <em>t.select</em> reads
+the dataset functions in capitals in front of a parenthesis
+(<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>,
+<a href="t.select.html#corrections-to-the-classic-algebra">t.select</a>).</li>
+<li><b>Comparison of two datasets.</b> A comparison of two datasets in curly
+brackets, such as <code>{&lt;,equal,|,r}</code>, and a comparison of two datasets in
+<code>if()</code>, such as <code>if(A &gt;= B, A, 0)</code>, were syntax errors. Now both are
+read (<a href="t.rast.algebra.html#comparison-of-related-maps">t.rast.algebra</a>).</li>
+<li><b>Granularity in calendar steps.</b> The granularity counted a step between
+the first days of two months more than a year apart by the difference of
+the months only (from 1 January 2024 to 1 March 2025: 2 months), and
+maps at the same time of day other than midnight in hours or minutes
+(ten days at 10:30: 14400 minutes). Now these are 14 months and 10 days;
+a time of day that differs still counts (10:30 to 11:30 ten days later:
+241 hours). This holds for the suffix <code>gran</code>, for <code>tsnap()</code> and for the
+granularity mode <b>-g</b>, and it is the one case where the classic
+algebra was changed on purpose in a point that was no error. Results
+with <b>-g</b>, <code>gran</code> or <code>tsnap()</code> over such series need a new run;
+<em>t.support</em> <b>-m</b> computes the stored granularity of a dataset again
+(<a href="t.rast.algebra.html#granularity-algebra">t.rast.algebra</a>).</li>
+<li><b>Dry run of a selection of mixed types.</b> The dry run (<b>-d</b>) of
+<em>t.select</em> with an expression of mixed types planned the type given
+with <b>type</b>, while the real run created another one, a str3ds. Now
+the dry run plans the type that the run creates
+(<a href="t.select.html#corrections-to-the-classic-algebra">t.select</a>).</li>
+<li><b>Empty buffers in overlays.</b> In <em>t.vect.algebra</em>, an intermediate map
+that <code>buff_p()</code> leaves empty went to <em>v.overlay</em>, which failed. Now it
+counts as a map without areas: <em>v.overlay</em> does not run, a warning is
+printed, and the result is left out
+(<a href="t.vect.algebra.html#corrections-to-the-classic-algebra">t.vect.algebra</a>).</li>
+<li><b>Datasets of a mapset outside the search path.</b> A dataset
+<code>name@mapset</code> of a mapset outside the search path was refused. Now it is
+read if the mapset has a temporal database, so the classic algebra
+computes an expression that it refused before; see <a href="#datasets-of-other-mapsets">Datasets of other
+mapsets</a>
+(<a href="temporalintro.html#datasets-of-other-mapsets">temporal data processing</a>).</li>
+<li><b>Range of maps in full.</b> The temporal database stored the minimum and
+the maximum of a map in SQLite with six decimals, so a value such as
+1.5e-8 became 0. Now the full value is stored. Values printed with fewer
+digits can differ in the last digit, such as 3.31662 instead of 3.31663
+(<a href="t.info.html#the-report-of-a-map">t.info</a>).</li>
+<li><b>merge() of absolute and relative time.</b> <code>merge()</code> of a map of
+absolute time from <code>tmap()</code> with a dataset of relative time ended with
+the error "Space time datasets to merge must have the same temporal
+type", so a relation over such a list never computed. Now maps of the
+two temporal types are not related to each other:
+<code>C = merge(tmap(sinst), RT) : RT</code> selects the maps of <code>RT</code> as <code>RT : RT</code>
+does
+(<a href="t.rast.algebra.html#differences-from-the-reference-implementation">t.rast.algebra</a>).</li>
+<li><b>Selection of a relative time instance.</b> A selection on relative time
+with a time instance on the right and the temporal operator <code>r</code>, such as
+<code>RT {:,contains,r} tmap(rinst)</code>, ended with a <code>TypeError</code>. Now it gives
+the selected map with the time of the instance, as the new algebra does
+(<a href="t.rast.algebra.html#catalog-where-the-classic-algebra-differs">t.rast.algebra</a>).</li>
+</ul>
+
+<h2>Granularity, gaps and lists</h2>
+
+<ul>
+<li><b>Monthly series that do not start on the first day.</b> A series of
+months that starts on another day, such as 31 January, the last day of
+February, 31 March and 30 April, or the 15th of each month, had the
+granularity 1 day. Now steps of whole months, also those that end on the
+last day of a shorter month, count as months, and the granularity is
+1 month. The
+granularity mode <b>-g</b> of the new algebra makes one granule per month,
+and <em>t.rast.to.rast3</em> one layer per month; the classic algebra keeps
+counting such series in days. Compute the stored granularity of older
+datasets again with <em>t.support</em> <b>-m</b>; use <b>-c</b> for the old results
+of <b>-g</b>. The example <a href="#register-a-series-of-month-ends">Register a series of month
+ends</a> shows such a series
+(<a href="t.register.html#monthly-series-that-start-at-the-end-of-a-month">t.register</a>,
+<a href="temporalintro.html#granularity">temporal data processing</a>).</li>
+<li><b>Gaps under longer maps.</b> A gap between two maps counted also when a
+longer map covered it. Now a gap is only time that no map covers; this
+holds for the gaps of <em>t.rast.list</em> <b>method=deltagaps</b>, <em>t.info</em>,
+<em>t.topology</em>, <em>t.sample</em>, <em>t.rast.mapcalc</em> and <em>t.rast3d.mapcalc</em>.
+<em>t.rast.gapfill</em> fills no covered gap and counts the granules of a gap
+from the start of the dataset. The classic algebra keeps the old rule
+(<a href="temporalintro.html#granularity">temporal data processing</a>,
+<a href="t.rast.list.html#notes">t.rast.list</a>).</li>
+<li><b>Granularity over a year and at a time of day.</b> Between the first days
+of two months more than a year apart, the granularity counted the
+difference of the months only (2 months instead of 14), and maps at the
+same time of day other than midnight counted in hours or minutes (ten
+days at 10:30: 14400 minutes instead of 10 days). Now the steps are
+counted in the calendar, and the names of maps with <code>suffix=gran</code> follow
+(names of days instead of names of minutes). Daily maps that overlap at
+different times of day have the granularity 1 day and get the same name
+with <code>suffix=gran</code>: <em>t.rast.accdetect</em> refuses this, <em>t.rast.extract</em>
+numbers the maps. Compute the stored granularity again with <em>t.support</em>
+<b>-m</b>, and use <code>suffix=num</code> for daily maps that overlap
+(<a href="temporalintro.html#granularity">temporal data processing</a>,
+<a href="t.support.html#updating-the-metadata-computed-from-the-maps">t.support</a>).</li>
+<li><b>Month steps from the end of a month.</b> A step of a month from the 29th,
+30th or 31st ended with the error "day is out of range for month", and
+series were built step by step from the previous time. Now a step of
+months or years ends on the last day of the target month, and a series
+counts from its first time: 31 January, the last day of February,
+31 March. Steps
+that combine units are still added one after the other. This holds for
+<em>t.register</em> <b>-i</b>, <em>t.shift</em>, <em>t.rast.accumulate</em>,
+<em>t.rast.accdetect</em>, the granules of the new algebra and the list of gaps
+(<a href="t.register.html#monthly-series-that-start-at-the-end-of-a-month">t.register</a>,
+<a href="t.shift.html#notes">t.shift</a>).</li>
+<li><b>Years and months as one step.</b> Years and months of a step were added
+one after the other: 31 March 2003 plus "1 years, 11 months" ended with
+"day is out of range for month", 1 February 2003 plus "1 years,
+1 months" gave 29 February 2004, and a step of 24 months back from
+December ended with "month must be in 1..12". Now years and months are
+one step of 12 times the years plus the months, which ends on the last
+day of a shorter month: 28 February 2005, 1 March 2004, and the step back
+is computed. This holds for <b>increment</b> of <em>t.register</em>, for <em>t.shift</em>
+and for the library (<a href="t.shift.html#notes">t.shift</a>).</li>
+<li><b>Weeks start on Monday.</b> A granule of a week in <em>t.rast.aggregate</em>
+began at the first map, on its day of the week, and so did the weekly
+cycles of <em>t.rast.accumulate</em>. Now weeks begin on the Monday on or
+before the first map. The classic algebra keeps the old rule
+(<a href="t.rast.aggregate.html#notes">t.rast.aggregate</a>).</li>
+<li><b>Granules of the list tools.</b> In <em>t.rast.list</em>, <em>t.rast3d.list</em> and
+<em>t.vect.list</em>, <b>method=gran</b> with a <b>granule</b> on relative time ended
+with a <code>TypeError</code>, and a granule of 0 or less, such as <code>0 days</code>, never
+ended. Now a number, or a number with the unit of the dataset, counts in
+the unit of the dataset, another unit is refused, and a granule smaller
+than 1 is refused before the query, with the message of
+<em>t.rast.aggregate</em> (<a href="t.rast.list.html#notes">t.rast.list</a>).</li>
+<li><b>output=- of the list tools.</b> <code>output=-</code> of <em>t.rast.list</em>,
+<em>t.rast3d.list</em> and <em>t.vect.list</em> wrote a file named <code>-</code> into the
+working directory. Now it is the standard output
+(<a href="t.rast.list.html#notes">t.rast.list</a>).</li>
+<li><b>Granules of t.vect.list.</b> <em>t.vect.list</em> had no option <b>granule</b>,
+and <b>method=gran</b> ended at the end of the map sorted last. Now it has
+the option <b>granule</b> with the rules of <em>t.rast.list</em>, and the granules
+reach the end of the dataset (<a href="t.vect.list.html#notes">t.vect.list</a>).</li>
+<li><b>format=line with every method.</b> <b>format=line</b> printed the
+identifiers with some methods only, and <b>method=delta</b> with
+<b>format=line</b> ended with a traceback. Now every method prints the
+identifiers with <b>format=line</b> (<a href="t.rast.list.html#notes">t.rast.list</a>).</li>
+<li><b>method=comma of t.rast.list.</b> <b>method=comma</b> printed the table of
+<b>method=list</b> with commas instead of the identifiers in one line. Now
+it prints the identifiers in one line, separated by <b>separator</b>
+(<a href="t.rast.list.html#methods">t.rast.list</a>).</li>
+<li><b>Delta methods of t.vect.list.</b> The delta methods of <em>t.vect.list</em>
+printed no lengths, ignored <b>order</b> without notice, <b>method=comma</b>
+changed nothing, and <b>format=line</b> required <b>columns</b>. Now the
+delta columns are there, <b>order</b> with a delta method is refused, and
+<b>method=comma</b> prints the identifiers (<a href="t.vect.list.html#notes">t.vect.list</a>).</li>
+<li><b>where with method=gran of t.rast3d.list.</b> <em>t.rast3d.list</em> refused
+<b>where</b> with <b>method=gran</b>. Now it takes it, as <em>t.rast.list</em> does
+(<a href="t.rast3d.list.html#notes">t.rast3d.list</a>).</li>
+<li><b>method=gran without granularity.</b> <b>method=gran</b> on an empty dataset
+or on a single time instance reported "Wrong granularity: None". Now the
+message says that the dataset is empty, or that the granularity is
+missing and a granule or another method is needed
+(<a href="t.rast.list.html#notes">t.rast.list</a>).</li>
+<li><b>Maps without start time in t.rast.list.</b> A map without start time
+ended <b>method=delta</b> and <b>method=deltagaps</b> of <em>t.rast.list</em> with a
+<code>TypeError</code>. Now it is listed with <code>None</code> in the time columns and a
+warning, and the distances count from the first map with a start time
+(<a href="t.rast.list.html#notes">t.rast.list</a>).</li>
+</ul>
+
+<h2>Sampling and topology</h2>
+
+<ul>
+<li><b>method=start keeps maps of equal time.</b> The sampling method <code>start</code>
+lost the maps of equal time, so a sampler map with a map of the same
+time got none. Now <code>start</code> includes <code>equal</code>; this holds for <em>t.sample</em>,
+<em>t.rast.mapcalc</em> and <em>t.rast3d.mapcalc</em>. The classic algebra keeps the
+old rule (<a href="t.sample.html#notes">t.sample</a>,
+<a href="temporalintro.html#sampling">temporal data processing</a>).</li>
+<li><b>Samplers of time instances.</b> A sampler of time instances or of the
+other temporal type made <em>t.sample</em>, <em>t.rast.mapcalc</em> and
+<em>t.rast3d.mapcalc</em> print an error and end with exit code 0. Now they
+end with an error and a non-zero exit code. Scripts that check the exit
+code see the difference (<a href="t.sample.html#notes">t.sample</a>).</li>
+<li><b>Samplers without maps and labels in t.sample.</b> A sampler without
+registered maps made <em>t.sample</em> report that the sampler must have
+intervals and end with exit code 0, a dataset with a semantic label in
+<b>inputs</b>, such as <code>ds.B4</code>, was not found, and a name without mapset
+was looked for in the current mapset only. Now a sampler without maps
+prints nothing, also with <b>-c</b> no header, and ends with exit code 0; a
+label selects its maps only, and the header names <code>ds.B4@mapset</code>; the
+search path is searched. Samplers of the other temporal type and of
+time instances are still refused (<a href="t.sample.html#notes">t.sample</a>).</li>
+<li><b>Sampling and aggregation on the new algebra.</b> <em>t.sample</em>,
+<em>t.rast.mapcalc</em>, <em>t.rast3d.mapcalc</em>, <em>t.rast.aggregate</em> and
+<em>t.rast.aggregate.ds</em> computed sampling and aggregation with code of
+their own. Now they use the functions of the new algebra; their results
+are those of before, and tests that record them keep them
+(<a href="t.rast.mapcalc.html#notes">t.rast.mapcalc</a>).</li>
+<li><b>Samplers and empty maps in t.rast.aggregate.ds.</b> A sampler in another
+relative unit gave no result and exit code 0, and <b>-n</b> worked the
+wrong way round: without <b>-n</b> empty maps were registered, with <b>-n</b>
+they were not. Now a sampler in another relative unit is refused, and
+<b>-n</b> registers the empty maps, which are left out without it
+(<a href="t.rast.aggregate.ds.html#notes">t.rast.aggregate.ds</a>).</li>
+<li><b>Maps without start time or with a reversed interval.</b> A map without
+start time, or with its end before its start, crashed the topology, the
+count of gaps and the granularity, or came into the chain of next and
+previous maps. Now such maps stand outside the chain and are left out
+with a warning, and <em>t.topology</em> ends with exit code 0
+(<a href="t.topology.html#notes">t.topology</a>).</li>
+<li><b>Empty selections in t.topology.</b> An empty selection on absolute time
+ended <em>t.topology</em> with a traceback, and an empty selection counted as
+an invalid topology. Now an empty selection is a valid topology without
+granularity (<a href="t.topology.html#notes">t.topology</a>).</li>
+<li><b>Spatial relations of 3D datasets.</b> A space time 3D raster dataset
+computed overlap and relations with a 3D raster map in 2D, but
+intersection and union in 3D. Now space time 3D raster datasets compute
+all spatial relations in 3D; this concerns <b>-s</b> of <em>t.select</em> and
+<em>t.rast3d.algebra</em> (<a href="t.rast3d.algebra.html#notes">t.rast3d.algebra</a>).</li>
+</ul>
+
+<h2>Registration and time stamps</h2>
+
+<ul>
+<li><b>Intervals with -i.</b> With an increment of several units, such as
+<code>1 months, 15 days</code>, and with monthly intervals from the 31st, each map
+of <em>t.register</em> <b>-i</b> ended one step after its start, which left gaps
+or overlaps. Now each map ends at the start of the next map, also for
+lists of units and for the ends of months
+(<a href="t.register.html#notes">t.register</a>).</li>
+<li><b>Times in whole seconds.</b> Time stamps were stored with microseconds,
+and an interval within one second stayed an interval. Now times are
+stored in whole seconds, with their time zone, and an interval within
+one second becomes a time instance (<a href="t.register.html#notes">t.register</a>).</li>
+<li><b>Relative intervals within one unit.</b> Relative times were cut to whole
+numbers before they were compared: an interval within one unit, such as
+1.2 to 1.7 days, was stored as the interval of length 0 from 1 to 1, and
+an end before the start within one unit was not seen. Now start and end
+are compared exactly before they are cut; an interval within one unit
+becomes a time instance, and an end before the start is refused
+(<a href="t.register.html#notes">t.register</a>).</li>
+<li><b>Reversed intervals.</b> An interval with its end before its start, and a
+start and an end that cannot be compared, were taken or raised an error
+without a message of their own. Now they raise a <code>ValueError</code> with a
+message, and a reversed interval that is already stored reads as a map
+without time (<a href="t.register.html#notes">t.register</a>).</li>
+<li><b>Time zone in the time stamp of a map.</b> The time zone offset in the
+GRASS time stamp that <em>t.register</em> writes into a map was given in
+minutes where GRASS reads hours and minutes: <code>+02:00</code> became <code>+0120</code>.
+Now it is written as hours and minutes, <code>+0200</code>
+(<a href="t.register.html#notes">t.register</a>).</li>
+<li><b>Time zones.</b> A time without offset in a dataset with an offset stopped
+<em>t.register</em> only after it had registered the map and changed its time.
+Now the time is refused before the registration. On PostgreSQL, a time
+with a time zone is refused (<a href="t.register.html#notes">t.register</a>).</li>
+<li><b>Layers of vector maps.</b> <em>t.register</em> registered a layer that the
+vector map does not have, such as <code>name:7</code>, did not check a layer without
+database link, refused a layer with categories but without table, and
+ended with a traceback for a layer that is not an integer. Now a layer
+is checked against the table or the categories of the map, a layer with
+categories but without table is registered, and a layer that is not an
+integer is refused with a message (<a href="t.register.html#notes">t.register</a>).</li>
+<li><b>Blank lines in input files.</b> A blank line in the file of <em>t.register</em>
+ended the list of maps without notice, and in the files of
+<em>t.unregister</em> and <em>t.remove</em> it was a map or a dataset without name.
+Now blank lines are skipped by all three
+(<a href="t.register.html#notes">t.register</a>).</li>
+<li><b>file=- and warnings of t.register.</b> <code>file=-</code> looked for a file named
+<code>-</code>, and the warnings about files with and without times came also when
+not all lines had a time and for registered maps without <b>start</b>. Now
+<code>file=-</code> reads the standard input, and the warnings come only when all
+lines have a time, or with <b>start</b> (<a href="t.register.html#notes">t.register</a>).</li>
+<li><b>Checks before the first map.</b> Errors of a later map, such as another
+temporal type, another unit, an invalid time or the unit of an empty
+dataset with relative time, were found only after earlier maps had been
+written. Now <em>t.register</em> checks all maps before it writes the first,
+and an empty dataset with relative time takes the unit of the first map
+of the run (<a href="t.register.html#notes">t.register</a>).</li>
+<li><b>The time of each line.</b> A map of a file with time columns did not
+always get the time of its own line. Now each map gets the time of its
+line (<a href="t.register.html#input-file">t.register</a>).</li>
+<li><b>End times of relative maps in a file</b> <em>(upstream)</em>. In a line
+<code>name|start|end</code> of a file with relative time, <em>t.register</em> read the
+third column as a semantic label, registered the map as a time instance
+and stored the end time as its label. Now an integer in the third column
+is the end time, and everything else stays a label. Register maps that
+got a wrong label again (<a href="t.register.html#input-file">t.register</a>).</li>
+<li><b>Rows and columns of maps</b> <em>(upstream)</em>. The temporal database held the
+numbers of rows and columns of raster and 3D raster maps exchanged, so
+<em>t.info</em> showed other values than <em>r.info</em> and <em>r3.info</em>; the number of
+cells was right. Now they are right; maps registered before keep the
+exchanged values until they are registered again with <em>t.register</em>
+(<a href="t.info.html#the-report-of-a-map">t.info</a>).</li>
+<li><b>Invalid time stamps of maps.</b> An invalid stored time stamp of a map, or
+a time stamp file that cannot be read, gave a traceback or an empty
+time. Now every tool that reads it stops with a message that names the
+map and the text; <em>t.register</em> stops before it writes anything
+(<a href="t.register.html#notes">t.register</a>).</li>
+<li><b>A dot in the name of a new dataset.</b> A new dataset could have a dot in
+its name, which was then read as the separator of a semantic label, and
+<em>t.create</em> made names that GRASS refuses as file names. Now a dot in the
+name of a new dataset is refused by every tool that creates one, the
+imports before they create a project, and names follow the rules of
+GRASS for file names. Datasets of older releases with a dot stay
+readable. Name new datasets without a dot
+(<a href="t.create.html#notes">t.create</a>, <a href="t.rename.html#notes">t.rename</a>).</li>
+<li><b>Datasets of older releases with a dot.</b> A dataset of an older release
+with a dot in its name could not be opened or removed, because the part
+after the dot was taken for a semantic label. Now each mapset, the
+current one first and then those of the search path, is searched for the
+whole name first and then for the name with label; the classic algebra
+still takes the label off first
+(<a href="temporalintro.html#semantic-labels">temporal data processing</a>).</li>
+</ul>
+
+<h2>Datasets of other mapsets</h2>
+
+<ul>
+<li><b>Datasets name@mapset of every mapset</b> <em>(partly upstream)</em>. In GRASS
+8.5, the temporal tools refused a dataset <code>name@mapset</code> of a mapset
+outside the search path. Upstream, the tools that open a dataset with
+<code>open_old_stds()</code> began to read it. Now every temporal tool reads
+<code>name@mapset</code> of another mapset of the same project if that mapset has a
+temporal database; an unknown mapset and a mapset without temporal
+database are refused, without the list of mapsets. A name without
+mapset is looked for in the current mapset and then in the search path.
+<em>t.rast.mapcalc</em>, <em>t.rast3d.mapcalc</em> and <em>t.rast.accdetect</em> also read
+the maps of such a dataset; their expressions name the maps with their
+mapset. <code>g.mapsets operation=add</code> is no longer needed for <code>name@mapset</code>
+(<a href="temporalintro.html#datasets-of-other-mapsets">temporal data processing</a>).</li>
+<li><b>Names without mapset stay in the search path.</b> In
+<em>t.rast.aggregate.ds</em>, <em>t.vect.what.strds</em>, <em>t.vect.observe.strds</em>,
+<em>t.rast.accumulate</em>, <em>t.remove</em> and <em>t.unregister</em>, a name without
+mapset found a dataset of a mapset outside the search path once that
+mapset had been read with <code>name@mapset</code>. Now a name without mapset is
+looked for in the current mapset and the search path only
+(<a href="temporalintro.html#datasets-of-other-mapsets">temporal data processing</a>).</li>
+<li><b>The search path in more tools.</b> <em>t.vect.univar</em>, <em>t.rast.accdetect</em>,
+<em>t.info</em> and <em>t.sample</em> looked for a dataset name without mapset in the
+current mapset only. Now they look in the current mapset and then in
+the search path, as the other tools do
+(<a href="temporalintro.html#datasets-of-other-mapsets">temporal data processing</a>).</li>
+<li><b>Extracts from another mapset.</b> An extract without <b>expression</b> from
+a dataset of another mapset with <em>t.rast.extract</em>, <em>t.rast3d.extract</em>
+or <em>t.vect.extract</em> stopped and left an empty dataset behind. Now the
+maps of the other mapset are registered as by <em>t.copy</em> without <b>-c</b>,
+with their times (<a href="t.rast.extract.html#notes">t.rast.extract</a>).</li>
+<li><b>Datasets of another mapset refused early.</b> <em>t.rast.gapfill</em>,
+<em>t.unregister</em>, <em>t.support</em>, <em>t.remove</em>, <em>t.rast.accumulate</em> (for
+<b>output</b>), <em>t.register</em>, <em>t.shift</em>, <em>t.snap</em> and <em>t.rast.accdetect</em>
+refused a dataset of another mapset only late, after output, an
+interpolation, a computation or the registration of a map. Now they
+refuse it before they read or write anything
+(<a href="temporalintro.html#datasets-of-other-mapsets">temporal data processing</a>).</li>
+<li><b>Maps and datasets shared with other mapsets.</b> <em>t.info</em> did not find a
+map of another mapset that is registered only in a dataset of the
+current mapset, <em>t.merge</em> could not merge datasets of other mapsets,
+<em>t.support</em> <b>-m</b> read no map of another mapset, <em>t.rast.colors</em> <b>-w</b>
+did not find the color tables of such maps, and <em>t.remove</em> did not find
+the datasets that share a map of another mapset. Now all these cases
+work (<a href="t.merge.html#notes">t.merge</a>).</li>
+</ul>
+
+<h2>Tools</h2>
+
+<h3>Options of several tools</h3>
+
+<ul>
+<li><b>suffix.</b> An unknown value of <b>suffix</b> counted as <code>num</code>, and a
+dataset with exactly one time instance and <code>suffix=gran</code> ended with an
+<code>AttributeError</code>. Now an unknown suffix is refused before the first map
+is written, and a single time instance is named after its time; this
+holds for every tool with <b>suffix</b>. Correct the value of <b>suffix</b>
+(<a href="t.rast.extract.html#notes">t.rast.extract</a>).</li>
+</ul>
+
+<h3>t.connect</h3>
+
+<ul>
+<li><b>Formats and mapsets</b> <em>(upstream)</em>. <em>t.connect</em> printed with <b>-p</b> and
+<b>-g</b> as text only. Now <b>-p</b> takes <b>format</b> (<code>plain</code>, <code>shell</code> or
+<code>json</code>, always an array), <b>-g</b> is deprecated and equals
+<code>format=shell</code>, <b>-g</b> with <code>format=json</code> and <b>format</b> without <b>-p</b>
+are refused, and <b>mapset</b> (only with <b>-p</b> and <code>format=json</code>) prints
+the connections of other mapsets. Replace <b>-g</b> by <code>format=shell</code> and
+read the JSON as an array (<a href="t.connect.html#description">t.connect</a>).</li>
+<li><b>Empty values and -p.</b> An empty <b>driver</b> or <b>database</b> was set,
+and <b>-p</b> could be combined with <b>-c</b>, <b>-d</b> or <b>-g</b>. Now empty
+values, and <b>-p</b> or <b>-g</b> together with <b>-c</b> or <b>-d</b>, are refused;
+one option given alone still sets the other to its default
+(<a href="t.connect.html#notes">t.connect</a>).</li>
+</ul>
+
+<h3>t.copy</h3>
+
+<ul>
+<li><b>Copies of maps with -c.</b> <b>-c</b> with <b>--overwrite</b> in the same
+mapset took the maps from the source dataset, <b>-c</b> failed for str3ds
+and stvds after the first copy, and <b>-c</b> with <b>--overwrite</b> did not
+replace maps of the same name. Now <b>-c</b> copies all types, checks
+everything before the first copy, replaces maps of the same name in the
+current mapset with <b>--overwrite</b> and refuses a map that is registered
+in another dataset (<a href="t.copy.html#notes">t.copy</a>).</li>
+</ul>
+
+<h3>t.info</h3>
+
+<ul>
+<li><b>Report.</b> The semantic label of a map was never shown, <b>-h</b> put a
+backslash before the comment line of the history, <b>-d</b> with <b>-h</b>
+and without <b>input</b> looked for a dataset in PERMANENT, and the line
+<code>East</code> had a shorter row of dots. Now the label is shown, the last line
+of a command has no backslash, <b>-d</b> with <b>-h</b> asks for <b>input</b>, and
+the line <code>East</code> has the full row of dots
+(<a href="t.info.html#the-report-of-a-space-time-dataset">t.info</a>).</li>
+</ul>
+
+<h3>t.list</h3>
+
+<ul>
+<li><b>Output formats</b> <em>(upstream)</em>. <em>t.list</em> printed text with
+<b>separator</b> only. Now <b>format</b> is <code>plain</code>, <code>line</code>, <code>json</code> or <code>csv</code>;
+<b>columns</b> defaults to <code>id</code> (with <code>json</code> all metadata); <code>csv</code> has a
+comma as separator and the column names in the first line; a missing
+value is empty in <code>csv</code>, <code>None</code> in <code>plain</code> and <code>line</code>, <code>null</code> in <code>json</code>;
+<b>separator</b> or <b>-c</b> with <code>json</code>, and more than one column with
+<code>line</code>, are refused (<a href="t.list.html#description">t.list</a>).</li>
+<li><b>Mapsets</b> <em>(upstream)</em>. <em>t.list</em> listed the mapsets of the search path.
+Now <b>mapset</b> takes <code>.</code>, <code>*</code> or a list of mapsets, also outside the
+search path, and an unknown mapset ends <em>t.list</em> with an error. Set
+<b>mapset</b> for mapsets outside the search path
+(<a href="t.list.html#description">t.list</a>).</li>
+<li><b>Several types</b> <em>(upstream)</em>. <b>type</b> took one type of dataset. Now it
+takes a list, such as <code>strds,stvds</code>; the columns must exist for all
+types, <code>csv</code> and <code>json</code> add the column <code>type</code>, and <code>line</code> with several
+types is refused (<a href="t.list.html#description">t.list</a>).</li>
+<li><b>No temporal database</b> <em>(upstream)</em>. <em>t.list</em> created a temporal
+database in a mapset without one. Now it creates none and prints that
+there are no datasets to list (in <code>plain</code>; <code>json</code> prints <code>[]</code>), with exit
+code 0 (<a href="t.list.html#notes">t.list</a>).</li>
+<li><b>Errors and empty results.</b> <code>type=raster_3d</code> failed with an SQL error,
+an unknown column in <b>order</b> gave a message about the where
+condition, an unknown mapset ended with exit code 0, <code>csv</code> printed
+nothing without matches, and the output file was opened before the
+queries. Now <code>type=raster_3d</code> lists, <b>order</b> has a message of its own,
+an unknown mapset is an error, without matches <code>csv</code> prints the header
+(and <code>plain</code> with <b>-c</b>), the file is written after the queries, and
+<b>columns</b> knows <code>number_of_semantic_labels</code> (<a href="t.list.html#notes">t.list</a>).</li>
+</ul>
+
+<h3>t.merge</h3>
+
+<ul>
+<li><b>Output and failures.</b> <code>output=name@mapset</code> ended with an
+<code>UnboundLocalError</code>, a failure left the empty output dataset behind, and
+after a stop the message "Needed to restart the messenger server"
+appeared. Now an output with the current mapset works, a failure leaves
+no output dataset, and the message is gone (<a href="t.merge.html#notes">t.merge</a>).</li>
+</ul>
+
+<h3>t.rast.accdetect</h3>
+
+<ul>
+<li><b>Thresholds, cycles and results.</b> <em>t.rast.accdetect</em> had the errors of
+the thresholds of <em>t.rast.accumulate</em>, <b>minimum</b> and <b>maximum</b>
+without <b>range</b> ended with an <code>IndexError</code>, refusals came with a
+traceback, the last map of a cycle was never its end, a time instance at
+the end without <b>stop</b> was left out, an empty result created datasets,
+and conflicts of names showed only late. Now these are fixed: a run ends
+at the end of its cycle, an empty result warns and creates no dataset
+(with <b>--overwrite</b> it removes existing ones), all new maps are
+checked before the first, and a run of one map gets the indicator 1
+(<a href="t.rast.accdetect.html#notes">t.rast.accdetect</a>).</li>
+</ul>
+
+<h3>t.rast.accumulate</h3>
+
+<ul>
+<li><b>Thresholds, cycles and results.</b> Threshold maps of the same time were
+never found, <b>-r</b> read the threshold of another day, relative time
+ended with a traceback, a cycle without maps stopped the tool, <b>start</b>
+was moved to the granularity without notice, a time instance at the end
+without <b>stop</b> was left out, an empty result created a dataset,
+<code>suffix=gran</code> followed the granularity of the input, conflicts of names
+showed only after earlier granules, and <b>--overwrite</b> removed a map of
+another dataset. Now thresholds of the same time are found, <b>-r</b> reads
+the right day, relative time works, empty cycles are skipped, a moved
+<b>start</b> is warned about, the time instance at the end is processed,
+an empty or all null result warns without dataset and with
+<b>--overwrite</b> removes an existing one, <code>suffix=gran</code> follows the
+option <b>granularity</b>, all names are checked before the first granule,
+and only maps of the old output dataset are replaced
+(<a href="t.rast.accumulate.html#notes">t.rast.accumulate</a>).</li>
+<li><b>Cycles and stop.</b> In <em>t.rast.accumulate</em> and <em>t.rast.accdetect</em>, a
+relative <code>stop=0</code> and an end of the data at 0 were not taken as the end,
+and cycles with a negative <b>offset</b> ran beyond <b>stop</b> or backwards.
+Now cycles end at <b>stop</b>, whose default is the end of the data, also
+at 0, and cycles that run backwards are refused
+(<a href="t.rast.accumulate.html#notes">t.rast.accumulate</a>).</li>
+</ul>
+
+<h3>t.rast.aggregate</h3>
+
+<ul>
+<li><b>Names, granularity and empty results.</b> A result name equal to an
+input map was overwritten with <b>--overwrite</b> while <em>r.series</em> read it,
+a granularity without unit ended with an <code>IndexError</code>, mixed
+granularities were not described, and granules without maps gave no
+notice. Now the tool stops before any computation for an equal name,
+reports an invalid granularity, refuses mixed granularities, and warns
+about an empty result, with exit code 0 and no dataset
+(<a href="t.rast.aggregate.html#notes">t.rast.aggregate</a>).</li>
+<li><b>Many maps in a granule.</b> <em>r.series</em> opened all maps of a granule, so
+an aggregation of more maps than open files allows failed, for example
+30 maps with a limit of 1024 open files on 24 cores. Now <em>r.series</em>
+runs with <b>-z</b> when two times the threads times the maps plus 64
+exceeds the soft limit of open files, with the threads counted as
+<em>r.series</em> counts them and a raster mask as one thread; <b>file_limit</b>
+stays an upper limit, and each such run warns. This holds for
+<em>t.rast.aggregate</em>, <em>t.rast.aggregate.ds</em> and
+<code>aggregate_raster_maps()</code> (<a href="t.rast.aggregate.html#notes">t.rast.aggregate</a>,
+<a href="t.rast.aggregate.ds.html#notes">t.rast.aggregate.ds</a>).</li>
+</ul>
+
+<h3>t.rast.colors</h3>
+
+<ul>
+<li><b>Color tables with -w.</b> <b>-w</b> wrote no table to any map once one map
+of the dataset had one, because <em>r.colors</em> stopped, and <b>-l</b> could not
+be used. Now <b>-w</b> leaves out the maps with a table and writes the
+others, also maps of other mapsets, and <b>-l</b> lists the rules
+(<a href="t.rast.colors.html#notes">t.rast.colors</a>).</li>
+</ul>
+
+<h3>t.rast.contour</h3>
+
+<ul>
+<li><b>Empty results and names.</b> Without <b>-n</b>, a run with empty maps only
+created an empty dataset, and two maps of equal time with <code>suffix=gran</code>
+got the same name. Now the run warns and creates no dataset (with
+<b>--overwrite</b> it removes the old one), and equal names are refused
+before the first map (<a href="t.rast.contour.html#notes">t.rast.contour</a>).</li>
+</ul>
+
+<h3>t.rast.export and t.vect.export</h3>
+
+<ul>
+<li><b>Types, nodata and empty selections.</b> A CELL map with <b>nodata</b> and
+GTiff ended with a <code>TypeError</code>, AAIGrid with <code>nodata=-77</code> stopped, a map
+without values ended with a traceback, <code>init.txt</code> held the extent of the
+whole dataset, an empty archive came without notice, and <b>createopt</b>,
+<b>metaopt</b> and <b>nodata</b> were ignored for <code>pack</code> and AAIGrid without
+notice. Now <b>nodata</b> is passed once, with the smallest type that holds
+the values and the nodata value; <code>init.txt</code> has the extent of the
+selected maps; an empty selection warns and the archive stays; ignored
+options are warned about (<a href="t.rast.export.html#notes">t.rast.export</a>).</li>
+<li><b>Maps of several mapsets.</b> The export passed map names without mapset,
+so the search path could give a map of the same name of the current
+mapset, and maps of the same name from several mapsets could not be told
+apart. Now the export passes <code>name@mapset</code>, and maps of the same name
+come into the archive as <code>name@mapset</code>; archives without shared names
+are the same character for character
+(<a href="t.rast.export.html#notes">t.rast.export</a>).</li>
+<li><b>Layers in GML and GPKG.</b> <em>t.vect.export</em> exported a map with several
+layers, or one map selected twice with the same layer, into a wrong
+archive. Now this is refused before anything is written
+(<a href="t.vect.export.html#notes">t.vect.export</a>).</li>
+</ul>
+
+<h3>t.rast.extract, t.rast3d.extract and t.vect.extract</h3>
+
+<ul>
+<li><b>Existing and equal names.</b> Existing map names gave an error, but the
+run ended with exit code 0, and two maps of the same time, also two
+layers, got the same name and the run failed. Now existing maps are
+refused before the first map, with a non-zero exit code, and a running
+number is appended to names that stay equal
+(<a href="t.rast.extract.html#notes">t.rast.extract</a>).</li>
+</ul>
+
+<h3>t.rast.gapfill</h3>
+
+<ul>
+<li><b>The flag -t.</b> The flag <b>-t</b> was in the interface but never had an
+effect. Now it is removed, and a call with <b>-t</b> is refused. Remove
+<b>-t</b> from scripts (<a href="t.rast.gapfill.html#description">t.rast.gapfill</a>).</li>
+<li><b>Gaps after time instances.</b> In a dataset of time instances, the tool
+found the gap but no predecessor and ended with exit code 1, and a gap
+after a time instance at the end of an interval was not filled. Now a
+dataset of time instances only and a gap after a time instance are
+refused before anything is written, a gap after a time instance that
+ends an interval is filled, and mixed datasets work as before
+(<a href="t.rast.gapfill.html#notes">t.rast.gapfill</a>).</li>
+</ul>
+
+<h3>t.rast.import and t.vect.import</h3>
+
+<ul>
+<li><b>Names from several mapsets.</b> Maps of one name from several mapsets in
+an archive are imported as <code>name_mapset</code> without <b>basename</b>; equal
+import names and an archive that lists a map twice are refused before
+the first map (<a href="t.rast.import.html#notes">t.rast.import</a>).</li>
+<li><b>Numbers, projects and formats.</b> The numbers of new maps began at 2, an
+archive without projection could not be imported into a new project, GPKG
+archives could not be read, <b>-e</b> had no effect for <code>pack</code>, the layer
+got lost, <em>t.vect.import</em> did not stop for another coordinate system and
+required <b>directory</b>, and a second import into a project created by the
+tool failed. Now numbers begin at 1, an archive without projection gets
+an XY project, GPKG archives are read, <b>-e</b> and <b>project</b> extend the
+region for <code>pack</code>, the layer stays, a vector archive of another
+coordinate system stops the import as for rasters (<b>-o</b> overrides),
+<b>directory</b> is optional, and the region of a new project is set. Set
+<b>-o</b> for vector archives of another coordinate system where wanted
+(<a href="t.vect.import.html#notes">t.vect.import</a>,
+<a href="t.rast.import.html#notes">t.rast.import</a>).</li>
+<li><b>Temporary directory and Python</b> <em>(upstream)</em>. The default of
+<b>directory</b> was <code>/tmp</code>, and a new project was entered with <em>g.mapset</em>.
+Now the default is a directory in the current mapset, a new project is
+entered with a temporary session file, and the import needs Python 3.11.4
+or newer: without the data filter of <code>tarfile</code> it stops with "Extracting
+may be unsafe; upgrade Python to 3.11.4 or newer". GML with <b>link</b> uses
+<em>v.external</em>. Update older Python versions; scripts for <em>t.vect.import</em>
+with another coordinate system need <b>-o</b>
+(<a href="t.rast.import.html#notes">t.rast.import</a>).</li>
+</ul>
+
+<h3>t.rast.list</h3>
+
+<ul>
+<li><b>CSV</b> <em>(upstream)</em>. In <em>t.rast.list</em> and <em>t.vect.list</em>, <code>format=csv</code>
+with <code>separator=|</code> was set to a comma without notice. Now <code>csv</code> has a
+comma as default separator and takes <code>separator=|</code>; <code>json</code> and <code>yaml</code>
+refuse <b>separator</b>; <code>line</code> and <b>method=comma</b> take one column only
+(<a href="t.rast.list.html#output">t.rast.list</a>).</li>
+<li><b>method=gran with where</b> <em>(upstream)</em>. <b>method=gran</b> refused
+<b>where</b>. Now it takes it, with start and end from the selected maps
+instead of the dataset (<a href="t.rast.list.html#methods">t.rast.list</a>).</li>
+<li><b>Old temporal databases.</b> On a temporal database of version 2,
+columns with <code>semantic_label</code> ended with "Invalid where condition", and
+a semantic label was refused without a hint. Now the message points to
+<em>t.upgrade</em>; this holds for <em>t.rast.list</em> and <em>t.list</em>. Run <em>t.upgrade</em>
+(<a href="t.rast.list.html#notes">t.rast.list</a>).</li>
+</ul>
+
+<h3>t.rast.mapcalc and t.rast3d.mapcalc</h3>
+
+<ul>
+<li><b>Names, inputs and empty selections.</b> Existing maps of the basename
+gave an error with exit code 0, dataset names were replaced as text
+(<code>start_day_1</code>), <code>inputs=x,x</code> and blanks in the expression got lost, and
+an empty sampler, an empty <b>where</b> selection or an empty dataset ended
+with a message and exit code 0 or with an error. Now existing maps are
+refused before the first map, names are replaced as whole words and not
+before <code>(</code>, a repeated input is refused, blanks stay, and the empty cases
+warn ("No samples found for map calculation", "The where condition
+selects no map ...") and end with exit code 0 and no dataset
+(<a href="t.rast.mapcalc.html#notes">t.rast.mapcalc</a>,
+<a href="t.rast3d.mapcalc.html#notes">t.rast3d.mapcalc</a>).</li>
+<li><b>Semantic labels of 3D rasters.</b> In <em>t.rast3d.mapcalc</em>, a semantic
+label of a 3D raster map stopped the run, and the label operator <code>@</code>
+gave null. Now the run goes through, and <code>@map</code> gives the number of the
+label as in <em>r.mapcalc</em>
+(<a href="t.rast3d.mapcalc.html#notes">t.rast3d.mapcalc</a>).</li>
+</ul>
+
+<h3>t.rast.neighbors</h3>
+
+<ul>
+<li><b>Quantiles, -e and names.</b> Further quantiles were ignored without
+notice, <b>-e</b> required <b>--overwrite</b>, and equal result names in one
+run failed after the first map was written. Now <b>quantile</b> takes one
+value (a list is refused), <b>-e</b> adds maps without <b>--overwrite</b>, and
+equal names and existing rasters are refused before the first map
+(<a href="t.rast.neighbors.html#notes">t.rast.neighbors</a>).</li>
+</ul>
+
+<h3>t.rast.series</h3>
+
+<ul>
+<li><b>Order, quantiles and empty selections.</b> <code>order=modification_time</code>
+ended with an SQL error, several quantiles could not be computed, the
+time of the output map followed <b>order</b>, and an empty <b>where</b>
+selection ended without notice. Now <code>modification_time</code> is no order (the
+parser refuses it), several quantiles are computed, one for each method
+<code>quantile</code>, the output
+map has the time span of the selected maps, and an empty selection or
+dataset warns. Remove <code>order=modification_time</code> from scripts
+(<a href="t.rast.series.html#notes">t.rast.series</a>).</li>
+</ul>
+
+<h3>t.rast.to.rast3</h3>
+
+<ul>
+<li><b>Output, units and overlaps.</b> Each run printed "Gran from stds" to the
+standard output, an empty dataset reported "Wrong granularity: None",
+hours, minutes and seconds gave another vertical unit, a cube of time
+instances reached beyond the end, and overlapping maps were written
+without notice. Now the granularity is a verbose message, the message
+says that the dataset is empty, the vertical unit is days, a cube of time
+instances ends at the last instance plus the granularity, and
+overlapping maps are refused before anything is written
+(<a href="t.rast.to.rast3.html#notes">t.rast.to.rast3</a>).</li>
+</ul>
+
+<h3>t.rast.to.vect</h3>
+
+<ul>
+<li><b>Empty maps and errors.</b> With <b>-b</b>, empty maps were registered also
+without <b>-n</b>, and a failing <em>r.to.vect</em> ended without a message. Now
+empty maps are registered only with <b>-n</b>, and an error of
+<em>r.to.vect</em> is reported (<a href="t.rast.to.vect.html#notes">t.rast.to.vect</a>).</li>
+</ul>
+
+<h3>t.rast.univar and t.rast3d.univar</h3>
+
+<ul>
+<li><b>Formats and columns</b> <em>(upstream)</em>. <em>t.rast.univar</em> printed the columns
+<code>...|mean|min|max|mean_of_abs|stddev|variance|coeff_var|sum|null_cells|cells|non_null_cells</code>,
+where <code>cells</code> and <code>non_null_cells</code> were both the number of valid cells,
+and set <code>nprocs=0</code> and negative values to 1 without notice. Now
+<b>format</b> is <code>plain</code>, <code>csv</code> or <code>json</code>, and the columns come in a new
+order that is not compatible:
+<code>...|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs</code>,
+with <code>zone|label</code> in front with zones, and with <b>-e</b> the quartiles and
+<code>percentile_90</code> by default; <code>nprocs=0</code> uses all cores and a negative
+value the cores plus that value. Scripts that read columns by their
+position have to read them by the names of the header
+(<a href="t.rast.univar.html#description">t.rast.univar</a>).</li>
+<li><b>Inputs, percentiles and formats of t.rast3d.univar</b> <em>(upstream)</em>.
+<b>input</b> was declared as a raster map, and there was no <b>percentile</b>,
+no <b>region_relation</b> and only plain text. Now <b>input</b> and <b>zones</b>
+are 3D raster maps, <b>percentile</b> (with <b>-e</b>), <b>region_relation</b>
+and <b>format</b> (<code>plain</code>, <code>json</code>, <code>csv</code>) are there
+(<a href="t.rast3d.univar.html#description">t.rast3d.univar</a>).</li>
+<li><b>Regions, empty selections and zones.</b> <b>-r</b> with <b>zones</b> did not
+use the region of each map, <code>format=json</code> with an empty selection
+printed nothing, the parser did not check <b>region_relation</b>, and
+<em>t.rast3d.univar</em> rounded floating point zones without notice. Now <b>-r</b>
+holds with <b>zones</b>, an empty selection prints <code>[]</code>, the parser checks
+<b>region_relation</b>, and floating point zones are refused as in 2D
+(<a href="t.rast.univar.html#notes">t.rast.univar</a>).</li>
+</ul>
+
+<h3>t.rast.what</h3>
+
+<ul>
+<li><b>Order, coordinates and empty results.</b> The order of the lines depended
+on <b>nprocs</b>, <b>-i</b> did not pass <b>coordinates</b>, with more than 400
+maps the last map could get lost, a file was left in the directory,
+coordinates were padded to ten decimals, and a run in which <em>r.what</em>
+wrote no line ended without notice. Now the order of the points is
+fixed, the last map is there, the directory stays clean, coordinates
+have the precision of <em>r.what</em>, and a run in which <em>r.what</em> samples no
+location ends with a message (<a href="t.rast.what.html#notes">t.rast.what</a>).</li>
+</ul>
+
+<h3>t.rast3d.list</h3>
+
+<ul>
+<li><b>Formats, granules and checks</b> <em>(upstream)</em>. <em>t.rast3d.list</em> printed
+plain text only and checked few options. Now <b>format</b> is <code>plain</code>,
+<code>line</code>, <code>json</code>, <code>yaml</code> or <code>csv</code>, there is the option <b>granule</b> and the
+columns <code>interval_length</code> and <code>distance_from_begin</code>, <b>order</b> with the
+methods <code>delta</code>, <code>deltagaps</code> and <code>gran</code> is refused, columns that do not
+fit the method are refused, <b>where</b> works with <b>method=gran</b>, and a
+granule smaller than 1 is refused (<a href="t.rast3d.list.html#output">t.rast3d.list</a>).</li>
+</ul>
+
+<h3>t.remove</h3>
+
+<ul>
+<li><b>Shared maps and failures.</b> <b>-rf</b> did not update the metadata of other
+datasets that shared maps, a failed call with <b>-r</b> had already removed
+maps, and <b>-f</b> without <b>inputs</b> and <b>file</b> did nothing. Now the
+other datasets are updated, all datasets are opened first, a call
+without <b>inputs</b> and <b>file</b> is an error, and maps of other mapsets
+are named with a warning (<a href="t.remove.html#notes">t.remove</a>).</li>
+</ul>
+
+<h3>t.shift</h3>
+
+<ul>
+<li><b>Lists of units and empty datasets.</b> <b>granularity</b> took one step of
+one unit, an empty dataset was skipped without notice, and a shift to a
+day that does not exist ended with a traceback. Now <b>granularity</b>
+takes a list such as <code>1 years, 1 months</code>, which is added as one step, a
+unit named twice is refused, an empty dataset is reported with exit code
+0, and steps of months end on the last day of the month
+(<a href="t.shift.html#notes">t.shift</a>).</li>
+</ul>
+
+<h3>t.snap</h3>
+
+<ul>
+<li><b>Empty datasets.</b> <em>t.snap</em> ended with a traceback for an empty dataset.
+Now it leaves an empty dataset as it is and refuses an empty dataset of
+another mapset (<a href="t.snap.html#notes">t.snap</a>).</li>
+</ul>
+
+<h3>t.support</h3>
+
+<ul>
+<li><b>Semantic type, -u and -m.</b> Each call set the semantic type to <code>mean</code>
+and wrote the dataset again, <b>-u</b> was read and overwritten at once,
+<b>aggr_type</b> for an stvds ended the tool without notice, and <b>-m</b>
+updated only the given dataset. Now the semantic type stays without the
+option, <b>aggr_type</b> for an stvds warns and the other options work, and
+<b>-m</b> updates every dataset that holds a changed map and reads maps of
+other mapsets
+(<a href="t.support.html#updating-the-metadata-computed-from-the-maps">t.support</a>).</li>
+</ul>
+
+<h3>t.unregister</h3>
+
+<ul>
+<li><b>Messages and files.</b> The messages named <b>input</b> instead of <b>maps</b>,
+a missing file ended with a traceback, and the progress ended before
+100 %. Now the messages name <b>maps</b>, a missing file is reported, and
+the progress reaches 100 % (<a href="t.unregister.html#notes">t.unregister</a>).</li>
+</ul>
+
+<h3>t.upgrade</h3>
+
+<ul>
+<li><b>Indices, transaction and views.</b> The upgrade from version 2 to 3 did
+not create four indices, did not run in one transaction, and did not
+renew the views on version 3. Now the indices of the new schema are
+created, the upgrade is one transaction, and the views are renewed also
+on version 3 (<a href="t.upgrade.html#notes">t.upgrade</a>).</li>
+</ul>
+
+<h3>t.vect.db.select</h3>
+
+<ul>
+<li><b>Formats</b> <em>(upstream)</em>. <em>t.vect.db.select</em> printed plain text only. Now
+<b>format</b> is <code>plain</code>, <code>csv</code> or <code>json</code>; the separator of <code>csv</code> is one
+character, <b>separator</b> is refused with <code>json</code>, and <code>json</code> gives the
+time first and <code>[]</code> for a map without matches
+(<a href="t.vect.db.select.html#description">t.vect.db.select</a>).</li>
+<li><b>Columns, empty selections and layers.</b> A column that only some maps
+have gave half an output, a <b>t_where</b> without matches ended without
+notice, and the layer of a map carried over to later maps without layer.
+Now all maps are checked first and every missing column is named in one
+message, an empty <b>t_where</b> warns (exit code 0), and <b>layer</b> holds
+for each map without a layer of its own
+(<a href="t.vect.db.select.html#notes">t.vect.db.select</a>).</li>
+</ul>
+
+<h3>t.vect.list</h3>
+
+<ul>
+<li><b>Formats</b> <em>(upstream)</em>. As for <em>t.rast.list</em>, <code>format=csv</code> takes
+<code>separator=|</code>, and <code>json</code> and <code>yaml</code> refuse <b>separator</b>; see also the
+granules and delta methods in <a href="#granularity-gaps-and-lists">Granularity, gaps and
+lists</a> (<a href="t.vect.list.html#output">t.vect.list</a>).</li>
+</ul>
+
+<h3>t.vect.observe.strds</h3>
+
+<ul>
+<li><b>where, columns and empty results.</b> <b>where</b> worked on layer 1 only, a
+column of the input was overwritten, <b>where</b> without matches gave a
+<code>KeyError</code>, no common granule ended with an empty dataset without
+notice, <b>--overwrite</b> kept old values of points that were not sampled,
+<code>columns=a,a</code> failed after writing, and column names were compared with
+their case. Now <b>where</b> selects the points once before the copy and is
+refused for input with several layers, existing columns and columns that
+differ only in case are refused, <b>where</b> without points is reported,
+no common granule warns without dataset, values not sampled are NULL,
+and repeated columns are refused before writing
+(<a href="t.vect.observe.strds.html#notes">t.vect.observe.strds</a>).</li>
+</ul>
+
+<h3>t.vect.univar</h3>
+
+<ul>
+<li><b>Null values and errors.</b> NULL counted as 0 in the extended statistics,
+because <em>v.univar</em> counted it so, and errors of <em>v.univar</em> ended with a
+traceback. Now NULL is left out, the quartiles come from the features,
+as <em>v.univar</em> computes them today, and errors
+are reported with a message (<a href="t.vect.univar.html#notes">t.vect.univar</a>).</li>
+</ul>
+
+<h3>t.vect.what.strds</h3>
+
+<ul>
+<li><b>Columns, units and quantiles.</b> A second run with the same column wrote
+without a check, the aggregate column was named after a removed
+temporary map, another relative unit ran without notice, <code>quantile</code> had
+no option, time instances forced <code>start</code> without notice, a column that
+differs only in case was taken, and one layer under two identifiers
+wrote a column twice. Now all target columns are checked first and
+refused without <b>--overwrite</b>, the aggregate column has a fixed name,
+another unit is refused, <b>quantile</b> is an option (default 0.5), time
+instances without <code>start</code> warn, columns that differ only in case are
+refused also without <b>--overwrite</b>, and a layer given twice is refused
+(<a href="t.vect.what.strds.html#notes">t.vect.what.strds</a>).</li>
+</ul>
+
+<h2>Other tools and libraries</h2>
+
+<ul>
+<li><b>r.contour.</b> Levels of <b>step</b> had no anchor in the step grid, regions
+with one or two rows or columns hung the tool, lines ran over null
+cells, levels on the minimum or maximum gave no line, rings through
+border cells and lines through saddle cells at the border were lost,
+<code>minlevel &gt; maxlevel</code> gave an empty map, <b>cut</b> worked before snapping,
+lines of one point crashed the tool, and <b>step</b> on a map without
+values crashed it. Now levels come from the step grid (anchored at
+<b>minlevel</b>, else at 0) within the limits and the range of the map,
+<code>step &lt;= 0</code> and more levels than an integer holds are errors, lines end
+open at null cells, extreme levels, border rings and saddles are traced,
+<code>minlevel &gt; maxlevel</code> is an error, <b>cut</b> works after snapping, no
+line has one point, and a map without values gives an empty map
+(<a href="r.contour.html">r.contour</a>).</li>
+<li><b>r.univar and r3.univar.</b> Without a valid cell, <em>r.univar</em> printed
+<code>-1.79769e+308</code> as maximum and <code>-nan</code>; <em>r3.univar</em> counted cells masked
+by the 3D mask and rounded floating point zones without notice. Now
+<code>nan</code> is printed without sign, and <em>r3.univar</em> respects the 3D mask and
+refuses zones that are not integers (<a href="r.univar.html">r.univar</a>,
+<a href="r3.univar.html">r3.univar</a>).</li>
+<li><b>r3.support.</b> <code>raster=</code> ended with "Raster map <code>&lt;layers&gt;</code> not found", so
+categories could not be set. Now the categories are taken from the
+raster map (<a href="r3.support.html">r3.support</a>).</li>
+<li><b>r3.mapcalc and the 3D mask.</b> <em>r3.mapcalc</em> did not respect the 3D mask,
+<code>@map</code> gave null, the mask of tiles hid wrong cells with another region,
+and a mask on another grid was applied differently by each tool. Now
+the 3D mask applies when existing maps are read (a constant stays
+unmasked, a 2D mask has no effect), <code>@map</code> gives the number of the
+label, and a value is masked exactly when the mask is null at its
+location; with the region of the map the result is the same byte for
+byte (<a href="r3.mask.html#notes">r3.mask</a>).</li>
+<li><b>3D rasters of reduced precision.</b> A 3D mask, and any 3D raster map of
+reduced precision with tiles that compress, could not be read, and on
+little-endian machines every 3D raster map of reduced precision stored
+wrong values since 2012; only 0 and null were right. Now these maps are
+read, writing and reading exchange the bytes around the packing on
+little-endian machines, and new maps are written as version 3, whose
+bytes are exchanged when they are read. Old maps read as before, with
+their wrong values; <em>r3.null</em> on an old map writes 0; older releases
+read new maps of reduced precision wrongly, with values near 0. Make
+maps of reduced precision of older releases again where the values are
+needed (<a href="raster3dintro.html#3d-raster-data-types">3D raster data</a>).</li>
+<li><b>v.unpack.</b> In a project without projection information (XY),
+<em>v.unpack</em> ended with a <code>FileNotFoundError</code>. Now the missing file counts
+as another coordinate system, and <b>-o</b> allows the import
+(<a href="v.unpack.html">v.unpack</a>).</li>
+<li><b>v.univar.</b> <b>-e</b> sorted NULL rows as 0 and took the quartiles from
+the rows of the table instead of the features. Now NULL is left out, and
+the values come from the features; a category of two features counts
+twice (<a href="v.univar.html">v.univar</a>).</li>
+<li><b>Integer and floating point options.</b> An integer or floating point
+option took text behind the number, such as <code>5abc</code> or <code>2.5abc</code>. Now such
+text is refused (blanks are allowed, an underflow is valid, an overflow
+refused), and each value of a tuple is checked. Correct such values
+(<a href="g.parser.html">g.parser</a>).</li>
+<li><b>The temporal database.</b> The PostgreSQL back end did not work
+throughout, new SQLite databases had 27 indices that repeat the primary
+key, and the C library set up a new environment in each call. Now
+PostgreSQL works and is tested, new databases have no repeated indices
+(8,859,648 instead of 10,215,424 bytes for 20,000 maps; the index of
+the register stays), and the C library reads the variables of the
+mapset without a new environment (about 70 kB instead of 48,444 kB of
+memory over 40,000 calls). The schema is unchanged
+(<a href="t.connect.html#notes">t.connect</a>).</li>
+<li><b>SQLite 3.33 or newer</b> <em>(upstream)</em>. The templates for SQLite before
+3.33 were removed; with an older SQLite, the update of a dataset ends
+with a message to update SQLite or to use PostgreSQL with <em>t.connect</em>
+(<a href="t.connect.html#notes">t.connect</a>).</li>
+<li><b>The region of r.mapcalc.</b> With <code>region=union</code> or <code>region=intersect</code>,
+<em>r.mapcalc</em> wrote the computed region into the region file of the
+mapset, so after <em>t.rast.algebra</em> <b>-s</b> the region of the session was
+that of the last maps. Now that region holds for the process only
+(<a href="r.mapcalc.html">r.mapcalc</a>).</li>
+</ul>
+
+<h2>Python API and addons</h2>
+
+The public interface of <code>grass.temporal</code> that the repository and the
+addons of grass-addons use is recorded in a contract of the tests
+(<code>python/grass/temporal/tests/data/public_contract.json</code>), and a test keeps
+it. Every name of this contract was there before GRASS 8.6 and is kept: the
+package names such as <code>open_old_stds</code>, <code>open_new_stds</code>, <code>init</code>,
+<code>SpaceTimeRasterDataset</code> and <code>register_maps_in_space_time_dataset</code>, the
+modules <code>core</code>, <code>datetime_math</code>, <code>list_stds</code> and <code>space_time_datasets</code>, and
+the methods and members of the dataset classes, such as
+<code>SpaceTimeRasterDataset.metadata.get_number_of_maps()</code> and
+<code>RasterDataset.absolute_time.start_time</code>. Code that uses only these names
+needs no change. The reference documentation of the temporal framework
+(<a href="https://grass.osgeo.org/grass-stable/manuals/libpython/temporal_framework.html">temporal framework</a>)
+describes every module.
+
+<ul>
+<li><b>The names of the package.</b> <code>grass.temporal</code> imported all names of its
+modules with star imports. Now it exports the names that the
+repository and the addons use, among them all package names of the
+contract, and the steps that the temporal tools share. Code that
+imports another name from <code>grass.temporal</code> has
+to import it from the module that defines it today; the table below
+names this module for each name that <code>grass.temporal</code> exported in
+GRASS 8.5 and no longer exports.</li>
+<li><b>New modules.</b> The package <code>grass.temporal.algebra</code> holds the new
+implementation of the temporal algebra, with series, relations,
+operations, the back ends for raster, 3D raster and vector maps, the plan
+of a computation and its parser; a reduction with <code>nulls="skip"</code> passes
+the maps to <em>r.series</em> in a file and uses <b>-z</b> above the limit of open
+files. The module <code>grass.temporal.tool_steps</code> holds the steps that the
+temporal tools share, and <code>grass.temporal.testing</code> the helpers of their
+tests (<a href="https://grass.osgeo.org/grass-stable/manuals/libpython/temporal_framework_tools.html">writing a temporal
+tool</a>,
+<a href="https://grass.osgeo.org/grass-stable/manuals/libpython/temporal_framework_algebra.html">extending the algebra
+core</a>).</li>
+<li><b>The classic algebra moved.</b> The modules of the algebra of the releases
+before, <code>temporal_algebra</code>, <code>temporal_raster_base_algebra</code>,
+<code>temporal_operator</code> and their siblings, moved to
+<code>grass.temporal.classic</code>. The parser classes that <code>grass.temporal</code>
+exports, such as <code>TemporalRasterAlgebraParser</code>, now select the new or
+the classic algebra.</li>
+<li><b>Comparisons without eval</b> <em>(upstream)</em>. The algebra of the releases
+before compared values with <code>eval</code> of strings. Now it uses
+<code>compare_values()</code>, <code>eval_datetime_str()</code> is deprecated, and a value in
+a list of conditions that is not a Boolean raises a <code>TypeError</code>; both
+methods are in <code>grass.temporal.classic.temporal_algebra</code> only. The
+results are the same.</li>
+<li><b>Parser tables.</b> The classic parser built its tables in each call of
+<code>parse()</code>. Now they are built once for each parser class.</li>
+<li><b>Initialization</b> <em>(upstream)</em>. <code>init()</code> always created the temporal
+database. Now <code>init(skip_db_init=True)</code> creates none and checks no
+version, dataset objects work without a temporal database, the default
+back end is SQLite before the initialization, the message and C library
+servers start again after a change of the session, and SQLite waits up
+to 30 s for a locked database. Mapsets with a connection but without a
+database file are skipped, and "Creating temporal database" is a verbose
+message: scripts that read it have to set <b>--verbose</b>.</li>
+<li><b>Switches and sessions of init().</b> The switches <code>TGIS_DISABLE_*</code> had no
+effect, and a second session in one process kept the error mode and the
+servers of the first. Now the switches work, and <code>init()</code> sets the error
+mode and the servers in each call.</li>
+<li><b>Connections to mapsets</b> <em>(upstream)</em>. <code>SQLDatabaseInterfaceConnection</code>
+and <code>get_available_temporal_mapsets()</code> take the argument <code>mapsets</code>, and
+<code>get_dataset_list()</code> takes the mapsets of the connection; with a list of
+types, it returns a dictionary for each row with the key <code>type</code>. Read
+the rows as dictionaries when you pass a list.</li>
+<li><b>Registering maps</b> <em>(upstream)</em>. <code>register_maps_in_space_time_dataset()</code>
+took <code>dbif</code> as a positional argument and used it. Now it opens its own
+connection to the current mapset, <code>dbif</code> is a keyword argument only,
+deprecated and ignored with a warning, and <code>name</code> is optional. Remove
+<code>dbif</code> from calls; a transaction of the caller is not used.</li>
+<li><b>Identifiers in SQL.</b> Identifiers went into SQL statements unbound, so
+SQL could be injected, <code>set_id()</code> with a layer split the identifier
+wrongly, and a <b>where</b> with OR together with a label or an extent was
+not put into parentheses. Now identifiers are bound or checked,
+<code>set_id()</code> splits name, layer and mapset, and conditions are put into
+parentheses.</li>
+<li><b>Granules with where</b> <em>(upstream)</em>.
+<code>get_registered_maps_as_objects_by_granularity()</code> takes <b>where</b> before
+<code>dbif</code>. Calls that pass <code>dbif</code> as the third positional argument have to
+change.</li>
+<li><b>nprocs of aggregate_raster_maps()</b> <em>(upstream)</em>.
+<code>aggregate_raster_maps()</code> passes the keyword argument <code>nprocs</code> to
+<em>r.series</em> (0 for all cores).</li>
+<li><b>Dates beyond the year 9999.</b> A step of days beyond the year 9999
+raised an <code>OverflowError</code>. Now it raises a <code>ValueError</code> with a message,
+as steps of months and years did already.</li>
+<li><b>Relations of no maps.</b> <code>count_temporal_relations()</code> of an empty list of
+maps returned <code>None</code>. Now it returns a dictionary with zeros;
+<code>check_temporal_topology([])</code> stays <code>False</code>.</li>
+<li><b>ctime and mtime.</b> <code>BaseRow.set_ctime()</code> and <code>set_mtime()</code> kept
+microseconds in memory, while the database held whole seconds. Now they
+keep whole seconds too, with their time zone.</li>
+<li><b>Intersections of relative extents.</b> <code>RelativeTemporalExtent.intersect()</code>
+of two extents in different units gave a result, also for separate
+numbers. Now it returns <code>None</code> when both units are set and differ.</li>
+<li><b>Failed SQL statements on PostgreSQL.</b> A failed PostgreSQL statement in
+<code>DBConnection.mogrify_sql_statement()</code> was printed to the standard
+output. Now nothing is printed.</li>
+<li><b>Invalid spatial relations</b> <em>(upstream)</em>. The selection by an invalid
+spatial relation reported an error and then raised a <code>RuntimeError</code>.
+Now it raises a <code>ValueError</code> with the message.</li>
+<li><b>shift()</b> <em>(upstream)</em>. <code>AbstractSpaceTimeDataset.shift()</code> returned
+<code>None</code>. Now it returns <code>True</code>, and <code>False</code> for a dataset without maps.</li>
+<li><b>Messages</b> <em>(upstream)</em>. The fatal messages of <code>shift()</code> and <code>snap()</code>
+raised a <code>TypeError</code> instead of the message, and the messages for a
+failed removal of a time stamp showed <code>&lt;%s&gt;</code> or spoke of a raster map
+for a 3D raster map. Now they name the map.</li>
+<li><b>Catalog of the GUI</b> <em>(upstream)</em>. <code>registered_maps_grouped()</code> returns
+the registered maps by type and dataset, ordered by start time, and is
+exported by <code>grass.temporal</code>; <code>tlist()</code> takes the mapsets of the
+connection; the data catalog of the GUI shows the space time datasets.</li>
+<li><b>Python 3.14</b> <em>(upstream)</em>. From Python 3.14 on, the servers of the
+library started without a GRASS session. Now they start with the method
+<code>fork</code>, also in <em>t.rast.extract</em> and <em>t.rast.mapcalc</em>, and stopping
+them no longer releases a lock twice.</li>
+<li><b>unit_tests</b> <em>(upstream)</em>. The module <code>grass.temporal.unit_tests</code> was
+removed; its tests are pytest tests. Remove imports of it.</li>
+<li><b>pygrass modules.</b> <code>MultiModule</code> could hang on a failing module, the
+child process printed tracebacks, <code>ParallelModuleQueue.wait()</code> did not
+wait for all processes, and <code>Messenger</code> warned about a restart after
+<code>fatal()</code>. Now the parent process checks the child, <code>wait()</code> waits for
+all processes and reports the first error with a note, and the warning
+is gone.</li>
+<li><b>grass.script under LC_ALL=C.</b> Every Python tool failed for an argument
+with a non-ASCII character under <code>LC_ALL=C</code>. Now UTF-8 holds in the
+UTF-8 mode of Python.</li>
+<li><b>Pack archives in grass.tools.</b> <code>tools.v_unpack(input="a.pack")</code> called
+<em>r.unpack</em>, and <em>v.pack</em> got the name of the map instead of the path of
+the archive. Now <em>r.pack</em>, <em>r.unpack</em>, <em>v.pack</em> and <em>v.unpack</em> get their
+archive argument as it is.</li>
+</ul>
+
+<h3>Names that grass.temporal no longer exports</h3>
+
+Each name below was exported by <code>grass.temporal</code> in GRASS 8.5 and is not
+exported by it in GRASS 8.6. The second column names where it is now; a
+module name without package means a module of <code>grass.temporal</code>. <code>kind</code> is a
+value of <code>grass.temporal.kinds.KINDS</code>, such as <code>KINDS["raster"]</code>.
+
+<table>
+<tr><th>Name</th><th>In GRASS 8.6</th></tr>
+<tr><td><code>AbstractDataset</code></td><td><code>abstract_dataset.AbstractDataset</code></td></tr>
+<tr><td><code>AbstractDatasetComparisonKeyEndTime</code></td><td><code>abstract_dataset.AbstractDatasetComparisonKeyEndTime</code></td></tr>
+<tr><td><code>AbstractDatasetComparisonKeyStartTime</code></td><td><code>abstract_dataset.AbstractDatasetComparisonKeyStartTime</code></td></tr>
+<tr><td><code>AbstractMapDataset</code></td><td><code>abstract_map_dataset.AbstractMapDataset</code></td></tr>
+<tr><td><code>AbstractSTDSRegister</code></td><td><code>base.RegisterRow(kind)</code></td></tr>
+<tr><td><code>CLibrariesInterface</code></td><td><code>c_libraries_interface.CLibrariesInterface</code></td></tr>
+<tr><td><code>DBConnection</code></td><td><code>db.DBConnection</code></td></tr>
+<tr><td><code>DatasetBase</code></td><td><code>base.BaseRow(kind)</code></td></tr>
+<tr><td><code>DictSQLSerializer</code></td><td><code>rows.DictSQLSerializer</code></td></tr>
+<tr><td><code>GlobalTemporalVar</code></td><td><code>classic.temporal_algebra.GlobalTemporalVar</code></td></tr>
+<tr><td><code>RPCDefs</code></td><td>removed; the functions of the server of the C libraries are called with <code>c_libraries_interface.CLibrariesInterface.call()</code></td></tr>
+<tr><td><code>Raster3DAbsoluteTime</code></td><td><code>temporal_extent.AbsoluteTimeRow(kind)</code></td></tr>
+<tr><td><code>Raster3DBase</code></td><td><code>base.BaseRow(kind)</code></td></tr>
+<tr><td><code>Raster3DMetadata</code></td><td><code>metadata.MetadataRow(kind)</code></td></tr>
+<tr><td><code>Raster3DRelativeTime</code></td><td><code>temporal_extent.RelativeTimeRow(kind)</code></td></tr>
+<tr><td><code>Raster3DSTDSRegister</code></td><td><code>base.RegisterRow(kind)</code></td></tr>
+<tr><td><code>Raster3DSpatialExtent</code></td><td><code>spatial_extent.SpatialExtentRow(kind)</code></td></tr>
+<tr><td><code>RasterAbsoluteTime</code></td><td><code>temporal_extent.AbsoluteTimeRow(kind)</code></td></tr>
+<tr><td><code>RasterBase</code></td><td><code>base.BaseRow(kind)</code></td></tr>
+<tr><td><code>RasterMetadata</code></td><td><code>metadata.MetadataRow(kind)</code></td></tr>
+<tr><td><code>RasterMetadataBase</code></td><td><code>metadata.MetadataRow(kind)</code></td></tr>
+<tr><td><code>RasterRelativeTime</code></td><td><code>temporal_extent.RelativeTimeRow(kind)</code></td></tr>
+<tr><td><code>RasterSTDSRegister</code></td><td><code>base.RegisterRow(kind)</code></td></tr>
+<tr><td><code>RasterSpatialExtent</code></td><td><code>spatial_extent.SpatialExtentRow(kind)</code></td></tr>
+<tr><td><code>SQLDatabaseInterface</code></td><td><code>rows.SQLDatabaseInterface</code></td></tr>
+<tr><td><code>STDSAbsoluteTime</code></td><td><code>temporal_extent.AbsoluteTimeRow(kind)</code></td></tr>
+<tr><td><code>STDSBase</code></td><td><code>base.BaseRow(kind)</code></td></tr>
+<tr><td><code>STDSMetadataBase</code></td><td><code>metadata.MetadataRow(kind)</code></td></tr>
+<tr><td><code>STDSRasterMetadataBase</code></td><td><code>metadata.MetadataRow(kind)</code></td></tr>
+<tr><td><code>STDSRelativeTime</code></td><td><code>temporal_extent.RelativeTimeRow(kind)</code></td></tr>
+<tr><td><code>STR3DSAbsoluteTime</code></td><td><code>temporal_extent.AbsoluteTimeRow(kind)</code></td></tr>
+<tr><td><code>STR3DSBase</code></td><td><code>base.BaseRow(kind)</code></td></tr>
+<tr><td><code>STR3DSMetadata</code></td><td><code>metadata.MetadataRow(kind)</code></td></tr>
+<tr><td><code>STR3DSRelativeTime</code></td><td><code>temporal_extent.RelativeTimeRow(kind)</code></td></tr>
+<tr><td><code>STR3DSSpatialExtent</code></td><td><code>spatial_extent.SpatialExtentRow(kind)</code></td></tr>
+<tr><td><code>STRDSAbsoluteTime</code></td><td><code>temporal_extent.AbsoluteTimeRow(kind)</code></td></tr>
+<tr><td><code>STRDSBase</code></td><td><code>base.BaseRow(kind)</code></td></tr>
+<tr><td><code>STRDSMetadata</code></td><td><code>metadata.MetadataRow(kind)</code></td></tr>
+<tr><td><code>STRDSRelativeTime</code></td><td><code>temporal_extent.RelativeTimeRow(kind)</code></td></tr>
+<tr><td><code>STRDSSpatialExtent</code></td><td><code>spatial_extent.SpatialExtentRow(kind)</code></td></tr>
+<tr><td><code>STVDSAbsoluteTime</code></td><td><code>temporal_extent.AbsoluteTimeRow(kind)</code></td></tr>
+<tr><td><code>STVDSBase</code></td><td><code>base.BaseRow(kind)</code></td></tr>
+<tr><td><code>STVDSMetadata</code></td><td><code>metadata.MetadataRow(kind)</code></td></tr>
+<tr><td><code>STVDSRelativeTime</code></td><td><code>temporal_extent.RelativeTimeRow(kind)</code></td></tr>
+<tr><td><code>STVDSSpatialExtent</code></td><td><code>spatial_extent.SpatialExtentRow(kind)</code></td></tr>
+<tr><td><code>SpatialExtent</code></td><td><code>spatial_extent.SpatialExtent</code></td></tr>
+<tr><td><code>SpatialTopologyDatasetConnector</code></td><td>removed; <code>topology.TopologyLinks</code> holds the relations, which <code>get_temporal_relations()</code> and the like read</td></tr>
+<tr><td><code>TemporalAlgebraLexer</code></td><td><code>classic.temporal_algebra.TemporalAlgebraLexer</code></td></tr>
+<tr><td><code>TemporalAlgebraParser</code></td><td><code>classic.temporal_algebra.TemporalAlgebraParser</code></td></tr>
+<tr><td><code>TemporalExtent</code></td><td><code>temporal_extent.TemporalExtent</code></td></tr>
+<tr><td><code>TemporalOperatorLexer</code></td><td><code>classic.temporal_operator.TemporalOperatorLexer</code></td></tr>
+<tr><td><code>TemporalOperatorParser</code></td><td><code>classic.temporal_operator.TemporalOperatorParser</code></td></tr>
+<tr><td><code>TemporalRasterBaseAlgebraParser</code></td><td><code>classic.temporal_raster_base_algebra.TemporalRasterBaseAlgebraParser</code></td></tr>
+<tr><td><code>TemporalTopologyDatasetConnector</code></td><td>removed; <code>topology.TopologyLinks</code></td></tr>
+<tr><td><code>TemporalVectorAlgebraLexer</code></td><td><code>classic.temporal_vector_algebra.TemporalVectorAlgebraLexer</code></td></tr>
+<tr><td><code>VectorAbsoluteTime</code></td><td><code>temporal_extent.AbsoluteTimeRow(kind)</code></td></tr>
+<tr><td><code>VectorBase</code></td><td><code>base.BaseRow(kind)</code></td></tr>
+<tr><td><code>VectorMetadata</code></td><td><code>metadata.MetadataRow(kind)</code></td></tr>
+<tr><td><code>VectorRelativeTime</code></td><td><code>temporal_extent.RelativeTimeRow(kind)</code></td></tr>
+<tr><td><code>VectorSTDSRegister</code></td><td><code>base.RegisterRow(kind)</code></td></tr>
+<tr><td><code>VectorSpatialExtent</code></td><td><code>spatial_extent.SpatialExtentRow(kind)</code></td></tr>
+<tr><td><code>aggregate_by_topology</code></td><td>removed; <code>aggregation_core.aggregate_series</code> and the temporal algebra aggregate</td></tr>
+<tr><td><code>assign_valid_time_to_map</code></td><td><code>register.assign_valid_time_to_map</code></td></tr>
+<tr><td><code>c_library_server</code></td><td><code>c_libraries_interface.c_library_server</code></td></tr>
+<tr><td><code>check_datetime_string</code></td><td><code>datetime_math.check_datetime_string</code></td></tr>
+<tr><td><code>compute_common_absolute_time_granularity</code></td><td><code>temporal_granularity.compute_common_absolute_time_granularity</code>; the classic algebra keeps a copy in <code>classic.granularity</code></td></tr>
+<tr><td><code>compute_common_absolute_time_granularity_simple</code></td><td><code>temporal_granularity.compute_common_absolute_time_granularity_simple</code>; the classic algebra keeps a copy in <code>classic.granularity</code></td></tr>
+<tr><td><code>compute_common_relative_time_granularity</code></td><td><code>temporal_granularity.compute_common_relative_time_granularity</code></td></tr>
+<tr><td><code>compute_datetime_delta</code></td><td><code>datetime_math.compute_datetime_delta</code>; the classic algebra keeps a copy in <code>classic.granularity</code></td></tr>
+<tr><td><code>compute_univar_stats</code></td><td><code>univar_statistics.compute_univar_stats</code></td></tr>
+<tr><td><code>count_temporal_topology_relationships</code></td><td><code>topology.count_temporal_topology_relationships</code></td></tr>
+<tr><td><code>create_suffix_from_datetime</code></td><td><code>datetime_math.create_suffix_from_datetime</code></td></tr>
+<tr><td><code>create_temporal_database</code></td><td><code>schema.create_temporal_database</code></td></tr>
+<tr><td><code>create_temporal_relation_sql_where_statement</code></td><td><code>topology.create_temporal_relation_sql_where_statement</code></td></tr>
+<tr><td><code>create_time_suffix</code></td><td><code>datetime_math.create_time_suffix</code></td></tr>
+<tr><td><code>decrement_datetime_by_string</code></td><td><code>datetime_math.decrement_datetime_by_string</code></td></tr>
+<tr><td><code>gcd</code></td><td><code>temporal_granularity.gcd</code></td></tr>
+<tr><td><code>gcd_list</code></td><td><code>temporal_granularity.gcd_list</code></td></tr>
+<tr><td><code>get_available_temporal_mapsets</code></td><td><code>db.get_available_temporal_mapsets</code></td></tr>
+<tr><td><code>get_current_gisdbase</code></td><td>removed; <code>gs.gisenv()["GISDBASE"]</code></td></tr>
+<tr><td><code>get_current_location</code></td><td>removed; <code>gs.gisenv()["LOCATION_NAME"]</code></td></tr>
+<tr><td><code>get_database_info_string</code></td><td><code>schema.get_database_info_string</code></td></tr>
+<tr><td><code>get_enable_mapset_check</code></td><td><code>state.get_enable_mapset_check</code></td></tr>
+<tr><td><code>get_enable_timestamp_write</code></td><td><code>state.get_enable_timestamp_write</code></td></tr>
+<tr><td><code>get_raise_on_error</code></td><td><code>state.get_raise_on_error</code></td></tr>
+<tr><td><code>get_tgis_backend</code></td><td>removed; <code>state.get_tgis_dbmi_paramstyle()</code> and <code>get_tgis_database_string()</code> tell the back end</td></tr>
+<tr><td><code>get_tgis_database</code></td><td>removed; <code>get_tgis_database_string()</code></td></tr>
+<tr><td><code>get_tgis_db_version</code></td><td><code>state.get_tgis_db_version</code></td></tr>
+<tr><td><code>get_tgis_dbmi_paramstyle</code></td><td><code>state.get_tgis_dbmi_paramstyle</code></td></tr>
+<tr><td><code>get_tgis_version</code></td><td><code>state.get_tgis_version</code></td></tr>
+<tr><td><code>get_time_tuple_function</code></td><td><code>temporal_granularity.get_time_tuple_function</code></td></tr>
+<tr><td><code>gran_plural_unit</code></td><td>removed; <code>gran_singular_unit</code> stays</td></tr>
+<tr><td><code>modify_datetime</code></td><td><code>datetime_math.modify_datetime</code></td></tr>
+<tr><td><code>modify_datetime_by_string</code></td><td><code>datetime_math.modify_datetime_by_string</code></td></tr>
+<tr><td><code>print_spatio_temporal_topology_relationships</code></td><td><code>topology.print_spatio_temporal_topology_relationships</code></td></tr>
+<tr><td><code>print_temporal_topology_relationships</code></td><td>removed; <code>topology.print_spatio_temporal_topology_relationships</code></td></tr>
+<tr><td><code>relative_time_to_time_delta</code></td><td>removed; the inverse <code>time_delta_to_relative_time</code> stays</td></tr>
+<tr><td><code>relative_time_to_time_delta_seconds</code></td><td>removed; the inverse <code>datetime_math.time_delta_to_relative_time_seconds</code> stays</td></tr>
+<tr><td><code>run_mapcalc2d</code></td><td><code>batches.run_mapcalc("r.mapcalc", expression, nprocs=...)</code></td></tr>
+<tr><td><code>run_mapcalc3d</code></td><td><code>batches.run_mapcalc("r3.mapcalc", expression, nprocs=...)</code></td></tr>
+<tr><td><code>run_vector_extraction</code></td><td><code>extract.run_vector_extraction</code></td></tr>
+<tr><td><code>set_raise_on_error</code></td><td><code>state.set_raise_on_error</code></td></tr>
+<tr><td><code>set_spatial_relationship</code></td><td><code>topology.set_spatial_relationship</code></td></tr>
+<tr><td><code>set_temporal_relationship</code></td><td><code>topology.set_temporal_relationship</code></td></tr>
+<tr><td><code>time_delta_to_relative_time_seconds</code></td><td><code>datetime_math.time_delta_to_relative_time_seconds</code></td></tr>
+</table>
+
+<h3>Names of the modules</h3>
+
+Besides the names of the package, the modules of <code>grass.temporal</code> lost
+names that the package did not export and the contract does not hold. The
+table counts them for each module of GRASS 8.5 that lost names; the other
+modules keep all their names. Methods that GRASS 8.6 makes from the column
+tables when a module is imported count as kept.
+
+<table>
+<tr><th>Module of GRASS 8.5</th><th>Names lost</th><th>In GRASS 8.6</th></tr>
+<tr><td><code>metadata</code></td><td>72</td><td>the classes of the metadata rows are one class <code>MetadataRow(kind)</code>; the methods of each column are made from the column tables when the module is imported</td></tr>
+<tr><td><code>temporal_algebra</code></td><td>98</td><td>moved to <code>classic.temporal_algebra</code></td></tr>
+<tr><td><code>temporal_raster_base_algebra</code></td><td>55</td><td>moved to <code>classic.temporal_raster_base_algebra</code></td></tr>
+<tr><td><code>temporal_operator</code></td><td>51</td><td>moved to <code>classic.temporal_operator</code></td></tr>
+<tr><td><code>base</code></td><td>49</td><td>the classes of the base rows and registers are <code>BaseRow(kind)</code> and <code>RegisterRow(kind)</code></td></tr>
+<tr><td><code>c_libraries_interface</code></td><td>47</td><td>the typed methods of the client, such as <code>read_raster_info()</code> and <code>write_raster_timestamp()</code>, are <code>CLibrariesInterface.call()</code> with the name of the function; <code>RPCDefs</code>, <code>get_location()</code>, <code>get_gisdbase()</code>, <code>fatal_error()</code>, the <code>read_*_full_info()</code> methods and <code>remove_raster_semantic_label()</code> are removed</td></tr>
+<tr><td><code>temporal_topology_dataset_connector</code></td><td>46</td><td>module removed; <code>topology.TopologyLinks</code> and <code>topology.SpatioTemporalTopologyBuilder</code></td></tr>
+<tr><td><code>temporal_extent</code></td><td>31</td><td>the classes of the time rows are <code>AbsoluteTimeRow(kind)</code> and <code>RelativeTimeRow(kind)</code>; <code>TemporalExtent.adjacent()</code> is removed</td></tr>
+<tr><td><code>spatial_topology_dataset_connector</code></td><td>30</td><td>module removed; <code>topology.TopologyLinks</code></td></tr>
+<tr><td><code>spatial_extent</code></td><td>10</td><td>the classes of the extent rows are <code>SpatialExtentRow(kind)</code>; <code>set_spatial_extent_2d()</code>, <code>get_spatial_extent_as_tuple_2d()</code>, <code>get_volume()</code> and <code>set_spatial_extent_from_values_2d()</code> are removed</td></tr>
+<tr><td><code>temporal_vector_algebra</code></td><td>22</td><td>moved to <code>classic.temporal_vector_algebra</code>; <code>TemporalVectorAlgebraParser</code> stays in <code>grass.temporal</code></td></tr>
+<tr><td><code>core</code></td><td>18</td><td>split into <code>db</code> (connections), <code>schema</code> (creation, checks and upgrade of the database) and <code>state</code> (the state of the session and <code>init()</code>); <code>core</code> forwards to them; the module variables such as <code>tgis_backend</code> and <code>current_mapset</code> are removed and read with the <code>get_*()</code> functions</td></tr>
+<tr><td><code>spatio_temporal_relationships</code></td><td>9</td><td>module removed; <code>topology.SpatioTemporalTopologyBuilder</code></td></tr>
+<tr><td><code>abstract_space_time_dataset</code></td><td>5</td><td><code>create_map_register_name()</code>, <code>is_map_registered()</code>, <code>sample_by_dataset()</code>, <code>sample_by_dataset_sql()</code> and <code>get_registered_maps_as_objects_with_temporal_topology()</code> are removed</td></tr>
+<tr><td><code>temporal_raster3d_algebra</code></td><td>4</td><td>moved to <code>classic.temporal_raster3d_algebra</code>; <code>TemporalRaster3DAlgebraParser</code> stays in <code>grass.temporal</code></td></tr>
+<tr><td><code>temporal_raster_algebra</code></td><td>4</td><td>moved to <code>classic.temporal_raster_algebra</code>; <code>TemporalRasterAlgebraParser</code> stays in <code>grass.temporal</code></td></tr>
+<tr><td><code>space_time_datasets</code></td><td>3</td><td><code>GRASS_TIMESTAMP_FMT</code> and <code>get_np_array()</code> of raster and 3D raster maps are removed</td></tr>
+<tr><td><code>datetime_math</code></td><td>2</td><td><code>relative_time_to_time_delta()</code> and <code>relative_time_to_time_delta_seconds()</code> are removed</td></tr>
+<tr><td><code>extract</code></td><td>2</td><td><code>run_mapcalc2d()</code> and <code>run_mapcalc3d()</code> are <code>batches.run_mapcalc()</code></td></tr>
+<tr><td><code>abstract_map_dataset</code></td><td>1</td><td><code>check_resolution_with_current_region()</code>, which always raised an error, is removed</td></tr>
+<tr><td><code>aggregation</code></td><td>1</td><td><code>aggregate_by_topology()</code> is removed</td></tr>
+<tr><td><code>stds_export</code></td><td>1</td><td>the module variable <code>exported_maps</code> is removed</td></tr>
+<tr><td><code>stds_import</code></td><td>1</td><td>the module variable <code>imported_maps</code> is removed</td></tr>
+<tr><td><code>temporal_granularity</code></td><td>1</td><td><code>gran_plural_unit()</code> is removed</td></tr>
+</table>
+
+<h2>Fixed errors</h2>
+
+Besides the changes above, the rework fixed errors that ended a valid call
+with a traceback, left files or maps behind, or reported the wrong thing,
+without a change of the result of a valid call. They are grouped here. The
+37 errors in the tools below were found when the tests of the tools were
+rewritten and when their code was reviewed; errors that the later rewrite
+of the manuals found are fixed as well, but they are not counted.
+
+<ul>
+<li><b>A where condition with a syntax error</b> ended with a traceback in
+<em>t.list</em>, <em>t.topology</em>, <em>t.rast.out.vtk</em>, <em>t.rast.neighbors</em>,
+<em>t.rast.aggregate</em>, <em>t.rast.aggregate.ds</em>, <em>t.rast.contour</em>,
+<em>t.rast.to.vect</em>, <em>t.rast.gapfill</em>, <em>t.rast.what</em> and, for <b>t_where</b>,
+<em>t.vect.what.strds</em>. Now it is reported with a message.</li>
+<li><b>t.create:</b> an apostrophe or a question mark in <b>title</b> or
+<b>description</b> ended with a traceback.</li>
+<li><b>t.rast.accumulate:</b> a threshold dataset of the other temporal type was
+not refused, errors ended with a traceback, and with <b>--overwrite</b> the
+count of maps of the other dataset was not updated.</li>
+<li><b>t.rast.accumulate</b> and <b>t.rast.accdetect:</b> an empty input dataset
+crashed the tool; now it warns and ends with exit code 0.</li>
+<li><b>t.rast.contour:</b> the refusal without <b>levels</b> and <b>step</b> ended
+with a traceback.</li>
+<li><b>t.rast.export:</b> a failed export left its working directory behind.</li>
+<li><b>t.rast.gapfill:</b> the message for an existing map named the basename,
+and after <b>--overwrite</b> the first dataset kept its count of maps.</li>
+<li><b>t.rast.import:</b> every refusal ended with a traceback.</li>
+<li><b>t.rast.mapcalc:</b> a decimal number in <b>nprocs</b> ended with a traceback.</li>
+<li><b>t.rast.neighbors:</b> a failing <em>r.neighbors</em> ended with a traceback, and
+the parser did not check <b>region_relation</b>.</li>
+<li><b>t.rast.out.vtk:</b> a refused export left the copy of the map behind.</li>
+<li><b>t.rast.to.rast3:</b> a null map was left behind.</li>
+<li><b>t.shift:</b> the message of a refused shift named
+<code>&lt;built-in function id&gt;</code> instead of the map.</li>
+<li><b>t.vect.db.select:</b> an error of <em>v.db.select</em> ended with a traceback.</li>
+<li><b>t.vect.export:</b> a missing or not writable <b>directory</b> ended with a
+traceback, and <code>readme.txt</code> described a GPKG archive as packed files.</li>
+<li><b>t.vect.observe.strds:</b> a message named the wrong identifier, time
+instances ended with a traceback, and errors of the tools it runs ended
+with a traceback.</li>
+<li><b>t.vect.what.strds:</b> an invalid <b>where</b> gave no error, and an empty
+vector dataset reported that the maps must be intervals.</li>
+<li><b>The Python library:</b> 18 further errors that only Python code meets,
+among them a rollback and a close of connections on the paths of
+errors, a closed connection of the caller, labels and relative time
+stamps in SQL, and the locale in the format of time stamps.</li>
+</ul>
+
+<h2>EXAMPLES</h2>
+
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code>
+from the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The
+first example creates the mapset <code>temporalchanges</code> and sets the
+computational region to North Carolina with cells of 1 km; the second
+example works in this mapset and region and uses the dataset of the first.
+The maps hold constant values, which make the times easy to follow.
+
+<h3>Register a series of month ends</h3>
+
+The dataset <code>inflow</code> holds four maps of the inflow into a reservoir, one for
+each period from the end of a month to the end of the next month; the
+values 1 to 4 number the periods. <em><a href="t.register.html">t.register</a></em> with the
+flag <b>-i</b>, <code>start=2020-01-31</code> and <code>increment="1 month"</code> registers them as
+consecutive intervals. Each step of a month ends on the last day of the
+month: 29 February, 31 March, 30 April and 31 May. The releases before
+GRASS 8.6 could not add one month to 31 January and ended with the error
+"day is out of range for month". <em><a href="t.info.html">t.info</a></em> with <b>-g</b> shows the
+granularity of the dataset, 1 month, where the releases before GRASS 8.6
+gave a series of month ends the granularity 1 day.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.mapset -c mapset=temporalchanges
+g.region raster=elev_state_500m res=1000 -a
+for period in 1 2 3 4; do
+    r.mapcalc expression="inflow_2020_0$period = $period"
+done
+t.create output=inflow title="Inflow" \
+    description="Inflow of periods that start at the end of a month"
+t.register -i input=inflow \
+    maps=inflow_2020_01,inflow_2020_02,inflow_2020_03,inflow_2020_04 \
+    start=2020-01-31 increment="1 month"
+t.rast.list input=inflow columns=name,start_time,end_time
+t.info -g input=inflow | grep "^granularity="
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time
+inflow_2020_01|2020-01-31 00:00:00|2020-02-29 00:00:00
+inflow_2020_02|2020-02-29 00:00:00|2020-03-31 00:00:00
+inflow_2020_03|2020-03-31 00:00:00|2020-04-30 00:00:00
+inflow_2020_04|2020-04-30 00:00:00|2020-05-31 00:00:00
+granularity='1 month'
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_mapset(flags="c", mapset="temporalchanges")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+periods = range(1, 5)
+tools.r_mapcalc(
+    expression="\n".join(
+        f"inflow_2020_{period:02d} = {period}" for period in periods
+    )
+)
+tools.t_create(
+    output="inflow",
+    title="Inflow",
+    description="Inflow of periods that start at the end of a month",
+)
+tools.t_register(
+    input="inflow",
+    maps=",".join(f"inflow_2020_{period:02d}" for period in periods),
+    start="2020-01-31",
+    increment="1 month",
+    flags="i",
+)
+print(tools.t_rast_list(input="inflow", columns="name,start_time,end_time").text)
+info = tools.t_info(input="inflow", flags="g").keyval
+print(f"granularity={info['granularity']}")
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time
+inflow_2020_01|2020-01-31 00:00:00|2020-02-29 00:00:00
+inflow_2020_02|2020-02-29 00:00:00|2020-03-31 00:00:00
+inflow_2020_03|2020-03-31 00:00:00|2020-04-30 00:00:00
+inflow_2020_04|2020-04-30 00:00:00|2020-05-31 00:00:00
+granularity='1 month'
+</pre></div>
+
+<h3>Compare the new and the classic algebra</h3>
+
+<em><a href="t.rast.algebra.html">t.rast.algebra</a></em> selects maps of <code>inflow</code> by a
+condition on the month and the day of their start. The new algebra reads
+<code>&amp;&amp;</code> before <code>||</code>: it selects the period that starts in April and, of the
+periods that start in January or February, the one that starts on day 31,
+which is the period of January. The flag <b>-c</b> selects the classic
+algebra, which reads conditions on temporal variables from left to right,
+as the releases before GRASS 8.6 did:
+<code>(start_month(inflow) == 4 || start_month(inflow) &lt;= 2) &amp;&amp;
+start_day(inflow) == 31</code>. It selects the period of January only.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.algebra basename=selected expression="selected = if(start_month(inflow) == 4 || start_month(inflow) &lt;= 2 &amp;&amp; start_day(inflow) == 31, inflow)"
+t.rast.list input=selected columns=name,start_time,min
+t.rast.algebra -c basename=classic expression="selected_classic = if(start_month(inflow) == 4 || start_month(inflow) &lt;= 2 &amp;&amp; start_day(inflow) == 31, inflow)"
+t.rast.list input=selected_classic columns=name,start_time,min
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|min
+selected_0|2020-01-31 00:00:00|1.0
+selected_1|2020-04-30 00:00:00|4.0
+name|start_time|min
+classic_0|2020-01-31 00:00:00|1.0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+condition = (
+    "start_month(inflow) == 4"
+    " || start_month(inflow) &lt;= 2 &amp;&amp; start_day(inflow) == 31"
+)
+tools.t_rast_algebra(
+    expression=f"selected = if({condition}, inflow)", basename="selected"
+)
+print(tools.t_rast_list(input="selected", columns="name,start_time,min").text)
+tools.t_rast_algebra(
+    expression=f"selected_classic = if({condition}, inflow)",
+    basename="classic",
+    flags="c",
+)
+print(
+    tools.t_rast_list(input="selected_classic", columns="name,start_time,min").text
+)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|min
+selected_0|2020-01-31 00:00:00|1.0
+selected_1|2020-04-30 00:00:00|4.0
+name|start_time|min
+classic_0|2020-01-31 00:00:00|1.0
+</pre></div>
+
+<h2>SEE ALSO</h2>
+
+<em><a href="t.rast.algebra.html">t.rast.algebra</a>, <a href="t.rast3d.algebra.html">t.rast3d.algebra</a>,
+<a href="t.select.html">t.select</a>, <a href="t.vect.algebra.html">t.vect.algebra</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
+
+<ul>
+<li>Gebbert, S., Leppelt, T., Pebesma, E., 2019. <em>A topology based
+spatio-temporal map algebra for big data analysis</em>. Data 4, 86.
+(<a href="https://doi.org/10.3390/data4020086">DOI</a>)</li>
+</ul>
+
+<h2>AUTHORS</h2>
+
+Soeren Gebbert
