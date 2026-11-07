@@ -841,7 +841,9 @@ the second block of each tab prints the file.
 === "Python (grass.tools)"
 
     ```python
-    result = tools.t_vect_univar(input="gauges", column="discharge", separator=";", flags="u")
+    result = tools.t_vect_univar(
+        input="gauges", column="discharge", separator=";", flags="u"
+    )
     for line in result.text.splitlines():
         columns = line.split(";")
         print(";".join(columns[:1] + columns[3:9]))

@@ -1507,11 +1507,7 @@ third block names `day` twice, and the tool stops before it computes anything.
         basename="day_of_month",
         expression="day * start_day()",
     )
-    print(
-        tools.t_rast3d_list(
-            input="day_of_month", columns="name,start_time,min,max"
-        ).text
-    )
+    print(tools.t_rast3d_list(input="day_of_month", columns="name,start_time,min,max").text)
     ```
 
     ```text

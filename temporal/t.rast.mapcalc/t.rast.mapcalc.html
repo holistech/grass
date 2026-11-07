@@ -1916,11 +1916,7 @@ tools.t_rast_mapcalc(
     basename="day_of_month",
     expression="day * start_day()",
 )
-print(
-    tools.t_rast_list(
-        input="day_of_month", columns="name,start_time,min,max"
-    ).text
-)
+print(tools.t_rast_list(input="day_of_month", columns="name,start_time,min,max").text)
 </pre></div>
 
 <div class="code"><pre>

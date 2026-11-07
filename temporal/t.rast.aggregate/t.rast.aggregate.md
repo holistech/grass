@@ -674,9 +674,7 @@ granule starts on the Monday before, 29 December 2025, and holds the map; with
         granularity="1 weeks",
         method="sum",
     )
-    print(
-        tools.t_rast_list(input="frost_weeks", columns="name,start_time,end_time").text
-    )
+    print(tools.t_rast_list(input="frost_weeks", columns="name,start_time,end_time").text)
     tools.t_rast_aggregate(
         input="frost",
         output="frost_days",

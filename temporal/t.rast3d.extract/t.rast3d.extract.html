@@ -818,9 +818,7 @@ copy_00002@t_rast3d_extract_2|6|2.0
 
 <div class="code"><pre>
 tools.t_rast3d_extract(input="model@t_rast3d_extract", output="model_shared")
-print(
-    tools.t_rast3d_list(input="model_shared", columns="id,start_time,min").text
-)
+print(tools.t_rast3d_list(input="model_shared", columns="id,start_time,min").text)
 print(tools.g_list(type="raster_3d", mapset=".").text)
 </pre></div>
 

@@ -807,9 +807,7 @@ two copies of the first block.
 
     ```python
     tools.t_rast3d_extract(input="model@t_rast3d_extract", output="model_shared")
-    print(
-        tools.t_rast3d_list(input="model_shared", columns="id,start_time,min").text
-    )
+    print(tools.t_rast3d_list(input="model_shared", columns="id,start_time,min").text)
     print(tools.g_list(type="raster_3d", mapset=".").text)
     ```
 

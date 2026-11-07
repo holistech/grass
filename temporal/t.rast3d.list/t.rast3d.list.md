@@ -885,9 +885,7 @@ listing with `output=-`, the standard output.
     ```
 
     ```python
-    result = tools.t_rast3d_list(
-        input="temperature_profile", columns="name", output="-"
-    )
+    result = tools.t_rast3d_list(input="temperature_profile", columns="name", output="-")
     print(result.text)
     ```
 

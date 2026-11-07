@@ -1719,9 +1719,7 @@ tools.g_mapset(flags="c", mapset="temporalchanges")
 tools.g_region(raster="elev_state_500m", res=1000, flags="a")
 periods = range(1, 5)
 tools.r_mapcalc(
-    expression="\n".join(
-        f"inflow_2020_{period:02d} = {period}" for period in periods
-    )
+    expression="\n".join(f"inflow_2020_{period:02d} = {period}" for period in periods)
 )
 tools.t_create(
     output="inflow",
@@ -1782,8 +1780,7 @@ classic_0|2020-01-31 00:00:00|1.0
 
 <div class="code"><pre>
 condition = (
-    "start_month(inflow) == 4"
-    " || start_month(inflow) &lt;= 2 &amp;&amp; start_day(inflow) == 31"
+    "start_month(inflow) == 4 || start_month(inflow) &lt;= 2 &amp;&amp; start_day(inflow) == 31"
 )
 tools.t_rast_algebra(
     expression=f"selected = if({condition}, inflow)", basename="selected"
@@ -1794,9 +1791,7 @@ tools.t_rast_algebra(
     basename="classic",
     flags="c",
 )
-print(
-    tools.t_rast_list(input="selected_classic", columns="name,start_time,min").text
-)
+print(tools.t_rast_list(input="selected_classic", columns="name,start_time,min").text)
 </pre></div>
 
 <div class="code"><pre>

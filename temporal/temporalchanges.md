@@ -1633,9 +1633,7 @@ gave a series of month ends the granularity 1 day.
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     periods = range(1, 5)
     tools.r_mapcalc(
-        expression="\n".join(
-            f"inflow_2020_{period:02d} = {period}" for period in periods
-        )
+        expression="\n".join(f"inflow_2020_{period:02d} = {period}" for period in periods)
     )
     tools.t_create(
         output="inflow",
@@ -1696,8 +1694,7 @@ start_day(inflow) == 31`. It selects the period of January only.
 
     ```python
     condition = (
-        "start_month(inflow) == 4"
-        " || start_month(inflow) <= 2 && start_day(inflow) == 31"
+        "start_month(inflow) == 4 || start_month(inflow) <= 2 && start_day(inflow) == 31"
     )
     tools.t_rast_algebra(
         expression=f"selected = if({condition}, inflow)", basename="selected"
@@ -1708,9 +1705,7 @@ start_day(inflow) == 31`. It selects the period of January only.
         basename="classic",
         flags="c",
     )
-    print(
-        tools.t_rast_list(input="selected_classic", columns="name,start_time,min").text
-    )
+    print(tools.t_rast_list(input="selected_classic", columns="name,start_time,min").text)
     ```
 
     ```text
