@@ -31,10 +31,10 @@ TRACED = {
 }
 
 
-def trace(tmp_path, source=SCRIPT):
+def trace(tmp_path, source=SCRIPT, **options):
     script = tmp_path / "example.py"
     script.write_text(textwrap.dedent(source))
-    return called_names(script, env=dict(os.environ), cwd=tmp_path)
+    return called_names(script, env=dict(os.environ), cwd=tmp_path, **options)
 
 
 def test_called_names_records_public_calls(tmp_path):
@@ -49,6 +49,33 @@ def test_called_names_leaves_out_private_names_and_the_calls_of_the_library(tmp_
 
     assert not [n for n in names if any(p.startswith("_") for p in n.split("."))]
     assert not [n for n in names if n.endswith((".connection", ".start_server"))]
+
+
+def test_called_names_passes_the_arguments_to_the_script(tmp_path):
+    # A tool of the documentation reads its options from sys.argv, so the
+    # trace has to run the script with the arguments of the documented call.
+    source = """\
+        import sys
+
+        import grass.temporal as tgis
+
+        tgis.string_to_datetime(sys.argv[1])
+        assert sys.argv[2:] == ["two", "three"], sys.argv
+        """
+
+    names = trace(tmp_path, source, argv=("2020-01-01", "two", "three"))
+
+    assert names == {"grass.temporal.datetime_math.string_to_datetime"}
+
+
+def test_called_names_without_arguments_leaves_sys_argv_to_the_script_name(tmp_path):
+    source = """\
+        import sys
+
+        assert len(sys.argv) == 1, sys.argv
+        """
+
+    assert trace(tmp_path, source) == set()
 
 
 def test_called_names_raises_with_the_stderr_of_a_failing_script(tmp_path):

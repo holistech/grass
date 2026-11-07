@@ -79,8 +79,10 @@ OPERATOR_METHODS = frozenset(
 _CHILD = "from grass.temporal.testing.contract_trace import run_traced; run_traced()"
 
 
-def called_names(script: Path, *, env: dict, cwd: Path) -> set[str]:
-    """Run ``python3 <script>`` and return the grass.temporal names it called
+def called_names(
+    script: Path, *, env: dict, cwd: Path, argv: tuple[str, ...] = ()
+) -> set[str]:
+    """Run ``python3 <script> <argv>`` and return the grass.temporal names it called
 
     A name is ``grass.temporal.<module>.<function>`` or
     ``grass.temporal.<module>.<Class>.<method>``, with the module and class
@@ -105,13 +107,16 @@ def called_names(script: Path, *, env: dict, cwd: Path) -> set[str]:
                 import grass.temporal and, for a script that needs one, hold
                 the GRASS session variables
     :param cwd: The working directory of the child process
+    :param argv: The arguments behind the script name in ``sys.argv``, for a
+                 script that reads its options such as the tool of a guide
+                 (``gs.parser()`` reads them from there)
     :raises RuntimeError: If the script ends with a return code other than 0;
                           the message holds its stderr
     """
     with tempfile.TemporaryDirectory() as folder:
         result_file = Path(folder) / "names.json"
         result = subprocess.run(
-            [sys.executable, "-c", _CHILD, str(script), str(result_file)],
+            [sys.executable, "-c", _CHILD, str(script), str(result_file), *argv],
             env=env,
             cwd=cwd,
             capture_output=True,
@@ -210,7 +215,8 @@ def _private_base_method(frame):
 def run_traced() -> None:
     """Run the script of ``sys.argv[1]`` under the profile hook (child side)
 
-    ``sys.argv[2]`` names the file that receives the recorded names as JSON.
+    ``sys.argv[2]`` names the file that receives the recorded names as JSON;
+    the arguments behind it are those of the script.
     The names are written also when the script fails, so that the cause of a
     failure is not hidden behind a missing file.
     """
@@ -255,7 +261,7 @@ def run_traced() -> None:
 
     # Run the script as python3 <script> would: its folder leads sys.path.
     sys.path[0] = str(Path(script).resolve().parent)
-    sys.argv = [script]
+    sys.argv = [script, *sys.argv[3:]]
     try:
         sys.setprofile(hook)
         try:
