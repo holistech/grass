@@ -491,12 +491,30 @@ checks prose, both check what the text claims about the code.
   `python/grass/docs/src/temporal_framework.rst`. Each Python code block runs
   in a new project and must end without a traceback; each block may call only
   what the public contract lists; every module and package of the library has
-  a `:mod:` role on the page and every role names a module that exists. Only
-  `.. code-block:: python` is read as a code block. The test rejects, instead of
+  a `:mod:` role on the page and every role names a module that exists. On this
+  page only `.. code-block:: python` is read as a code block. The test rejects, instead of
   skipping, the directives `code`, `sourcecode`, `literalinclude`, `doctest`
   and `testcode`, any other `code-block` language, a line that ends in `::`
   (a literal block, also a lone `::`) and a line that starts with `>>>`; write
   Python examples as `.. code-block:: python`.
+
+  The guides that join the overview page, listed in `PAGES` of that test, are
+  read with more forms. A `code-block` with a `:name:` of the form
+  `example-<kind>-<what>` is part of an example that the test assembles in a
+  new project: `example-tool-file` is the Python file of a tool, written under
+  its `:caption:`, `example-data-<what>` a text file, `example-commands-<what>`
+  a block of commands, one per line (`python3` stands for the interpreter of the
+  test), and `example-output-<what>` right behind it the standard output that
+  those commands print. The test runs the commands, compares the output with the
+  page and traces the tool against the contract, with the arguments of each call
+  (`called_names(..., argv=...)`). A `literalinclude` must select a function
+  (`:pyobject:`) or the lines between `:start-after:` and `:end-before:` of a
+  file that exists, each marker once; `:lines:` and the other line-number
+  options are refused because they drift when the file changes. Every guide must
+  appear in a toctree of the overview page, every role of a guide must name
+  something that exists, and every function of `tool_steps` must be named on the
+  tool guide. An unnamed Python block on a guide that does not run its snippets
+  is refused, so that no code goes unrun.
 - `temporal_framework_design_test.py` checks the code design document in
   `python/grass/docs/src/temporal_framework_design/`. Its examples run in the
   sample dataset and must print what the document shows; each class, member,
