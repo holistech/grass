@@ -70,7 +70,9 @@ keeps the granularity it stored until it is updated from its maps, for example
 by <em><a href="t.support.html">t.support</a></em> with <b>-u</b>.
 Tools that work on the granularity (for example <em>t.rast.to.rast3</em> or the
 <b>-g</b> flag of the algebra tools) use the stored granularity; the classic
-algebra (<b>-c</b>) computes the granularity of the releases before GRASS 8.6.
+algebra (<b>-c</b>) computes the granularity by the rules of the releases before
+GRASS 8.6, with the counting in calendar steps of the section <a href="temporalchanges.html#classic-algebra">Classic
+algebra</a> of the changes page.
 
 <p>
 Tools that cut a dataset into time steps, <em>t.rast.aggregate</em> with its option

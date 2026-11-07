@@ -732,7 +732,8 @@ forms need a new run.
 
 11. **A selection with r or u under -s and maps whose boxes only touch.** With
     **-s** two maps are related when they are related in time and in space;
-    boxes that meet at an edge or a corner only are not related in space. A
+    boxes that touch at a corner only are not related in space, while boxes
+    with a common edge meet and are related. A
     selection such as `A {:,precedes,r} B` takes the time only from maps that
     are related in time and in space, and an inverse selection such as
     `A {!:,precedes,r} B` keeps a map without such a partner with its own time.

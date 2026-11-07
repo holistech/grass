@@ -321,7 +321,7 @@ The classic algebra gives the results of the releases before GRASS 8.6, except
 where those releases were corrected; the page
 <a href="temporalchanges.html#classic-algebra">changes in GRASS 8.6</a> lists all
 corrections. The items below describe some of them with examples. Items 8 and 14
-are no corrections of those releases: item 8 shows how <b>-c</b> reads a map at an
+are not corrections of those releases: item 8 shows how <b>-c</b> reads a map at an
 offset in a condition, and item 14 how it relates maps under <b>-s</b>, which those
 releases ignored. In the other items those releases computed wrongly, ended in
 an error that had no reason, or reported the wrong error. <b>-c</b> now gives the
@@ -492,7 +492,8 @@ algebras. It now ends with the error "... is beyond the year 9999" or "...
 is before the year 1"; no map and no dataset is created.</li>
 <li><b>A selection with r or u under -s and maps whose boxes only touch.</b> With
 <b>-s</b> two maps are related when they are related in time and in space;
-boxes that meet at an edge or a corner only are not related in space. A
+boxes that touch at a corner only are not related in space, while boxes
+with a common edge meet and are related. A
 selection such as <code>A {:,precedes,r} B</code> takes the time only from maps that
 are related in time and in space, and an inverse selection such as
 <code>A {!:,precedes,r} B</code> keeps a map without such a partner with its own time.

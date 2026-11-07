@@ -305,7 +305,7 @@ The classic algebra gives the results of the releases before GRASS 8.6, except
 where those releases were corrected; the page
 [changes in GRASS 8.6](temporalchanges.md#classic-algebra) lists all
 corrections. The items below describe some of them with examples. Items 8 and 14
-are no corrections of those releases: item 8 shows how **-c** reads a map at an
+are not corrections of those releases: item 8 shows how **-c** reads a map at an
 offset in a condition, and item 14 how it relates maps under **-s**, which those
 releases ignored. In the other items those releases computed wrongly, ended in
 an error that had no reason, or reported the wrong error. **-c** now gives the
@@ -476,7 +476,8 @@ datasets of the list above and, in addition, N with daily maps.
 
 14. **A selection with r or u under -s and maps whose boxes only touch.** With
     **-s** two maps are related when they are related in time and in space;
-    boxes that meet at an edge or a corner only are not related in space. A
+    boxes that touch at a corner only are not related in space, while boxes
+    with a common edge meet and are related. A
     selection such as `A {:,precedes,r} B` takes the time only from maps that
     are related in time and in space, and an inverse selection such as
     `A {!:,precedes,r} B` keeps a map without such a partner with its own time.

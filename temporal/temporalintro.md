@@ -67,7 +67,9 @@ keeps the granularity it stored until it is updated from its maps, for example
 by *[t.support](t.support.md)* with **-u**.
 Tools that work on the granularity (for example *t.rast.to.rast3* or the
 **-g** flag of the algebra tools) use the stored granularity; the classic
-algebra (**-c**) computes the granularity of the releases before GRASS 8.6.
+algebra (**-c**) computes the granularity by the rules of the releases before
+GRASS 8.6, with the counting in calendar steps of the section [Classic
+algebra](temporalchanges.md#classic-algebra) of the changes page.
 
 Tools that cut a dataset into time steps, *t.rast.aggregate* with its option
 **granularity** and the method `gran` of *[t.rast.list](t.rast.list.md)* with
