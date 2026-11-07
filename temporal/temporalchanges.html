@@ -162,13 +162,15 @@ digits from the number of maps
 
 The classic algebra, selected with <b>-c</b> or <code>GRASS_TEMPORAL_ALGEBRA=classic</code>,
 gives the results of the releases before GRASS 8.6 with the exceptions below. In
-each of them, those releases computed a wrong result, refused an expression that
+most of them, those releases computed a wrong result, refused an expression that
 they should compute, or computed one that they should refuse. The implementation
 of those releases, which stays in the source code as <code>grass.temporal.classic</code>,
 was corrected in the same way, except in the last two entries, on <code>merge()</code> of
-absolute and relative time and on the selection of a relative time instance:
-only the classic algebra computes them, and <code>grass.temporal.classic</code> still ends
-with a <code>TypeError</code>. Results of an earlier release that used one of these forms
+absolute and relative time and on the selection of a relative time instance,
+and under <b>-s</b> for maps whose boxes touch at a corner (see the item in
+<a href="t.rast.algebra.html#corrections-to-the-classic-algebra">t.rast.algebra</a>): only
+the classic algebra computes the first two, and <code>grass.temporal.classic</code> still
+ends with a <code>TypeError</code>. Results of an earlier release that used one of these forms
 need a new run. All other results of the classic algebra are those of the
 releases before GRASS 8.6: the tests compare it with recorded results of that
 implementation. The manuals of the algebra tools describe many of these
@@ -364,8 +366,9 @@ maps at the same time of day other than midnight in hours or minutes
 (ten days at 10:30: 14400 minutes). Now these are 14 months and 10 days;
 a time of day that differs still counts (10:30 to 11:30 ten days later:
 241 hours). This holds for the suffix <code>gran</code>, for <code>tsnap()</code> and for the
-granularity mode <b>-g</b>, and it is the one case where the classic
-algebra was changed on purpose in a point that was no error. Results
+granularity mode <b>-g</b>, and it is one of two cases where the classic
+algebra was changed on purpose in a point that was no error (the other:
+datasets of a mapset outside the search path). Results
 with <b>-g</b>, <code>gran</code> or <code>tsnap()</code> over such series need a new run;
 <em>t.support</em> <b>-m</b> computes the stored granularity of a dataset again
 (<a href="t.rast.algebra.html#granularity-algebra">t.rast.algebra</a>).</li>
@@ -500,9 +503,11 @@ delta columns are there, <b>order</b> with a delta method is refused, and
 <b>where</b> with <b>method=gran</b>. Now it takes it, as <em>t.rast.list</em> does
 (<a href="t.rast3d.list.html#notes">t.rast3d.list</a>).</li>
 <li><b>method=gran without granularity.</b> <b>method=gran</b> on an empty dataset
-or on a single time instance reported "Wrong granularity: None". Now the
-message says that the dataset is empty, or that the granularity is
-missing and a granule or another method is needed
+or on a single time instance reported "Wrong granularity: None" or, on
+relative time with a single time instance, printed the header only and
+ended with exit code 0. Now the message says that the dataset is empty,
+or that the granularity is missing and a granule or another method is
+needed
 (<a href="t.rast.list.html#notes">t.rast.list</a>).</li>
 <li><b>Maps without start time in <em>t.rast.list</em>.</b> A map without start time
 ended <b>method=delta</b> and <b>method=deltagaps</b> of <em>t.rast.list</em> with a
@@ -1333,7 +1338,7 @@ no change. Names of the contract that only the repository uses can be new in
 GRASS 8.6, such as the steps that the temporal tools share, and code that has to
 run with GRASS 8.5 cannot use them. The reference documentation of the temporal
 framework
-(<a href="https://grass.osgeo.org/grass-stable/manuals/libpython/temporal_framework.html">temporal framework</a>)
+(<a href="https://grass.osgeo.org/grass-devel/manuals/libpython/temporal_framework.html">temporal framework</a>)
 describes every module.
 
 <ul>
@@ -1352,9 +1357,9 @@ of a computation and its parser; a reduction with <code>nulls="skip"</code> pass
 the maps to <em>r.series</em> in a file and uses <b>-z</b> above the limit of open
 files. The module <code>grass.temporal.tool_steps</code> holds the steps that the
 temporal tools share, and <code>grass.temporal.testing</code> the helpers of their
-tests (<a href="https://grass.osgeo.org/grass-stable/manuals/libpython/temporal_framework_tools.html">writing a temporal
+tests (<a href="https://grass.osgeo.org/grass-devel/manuals/libpython/temporal_framework_tools.html">writing a temporal
 tool</a>,
-<a href="https://grass.osgeo.org/grass-stable/manuals/libpython/temporal_framework_algebra.html">extending the algebra
+<a href="https://grass.osgeo.org/grass-devel/manuals/libpython/temporal_framework_algebra.html">extending the algebra
 core</a>).</li>
 <li><b>The classic algebra moved.</b> The modules of the algebra of the releases
 before, <code>temporal_algebra</code>, <code>temporal_raster_base_algebra</code>,

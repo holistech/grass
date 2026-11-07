@@ -161,13 +161,15 @@ precedence.
 
 The classic algebra, selected with **-c** or `GRASS_TEMPORAL_ALGEBRA=classic`,
 gives the results of the releases before GRASS 8.6 with the exceptions below. In
-each of them, those releases computed a wrong result, refused an expression that
+most of them, those releases computed a wrong result, refused an expression that
 they should compute, or computed one that they should refuse. The implementation
 of those releases, which stays in the source code as `grass.temporal.classic`,
 was corrected in the same way, except in the last two entries, on `merge()` of
-absolute and relative time and on the selection of a relative time instance:
-only the classic algebra computes them, and `grass.temporal.classic` still ends
-with a `TypeError`. Results of an earlier release that used one of these forms
+absolute and relative time and on the selection of a relative time instance,
+and under **-s** for maps whose boxes touch at a corner (see the item in
+[t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra)): only
+the classic algebra computes the first two, and `grass.temporal.classic` still
+ends with a `TypeError`. Results of an earlier release that used one of these forms
 need a new run. All other results of the classic algebra are those of the
 releases before GRASS 8.6: the tests compare it with recorded results of that
 implementation. The manuals of the algebra tools describe many of these
@@ -361,8 +363,9 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     (ten days at 10:30: 14400 minutes). Now these are 14 months and 10 days;
     a time of day that differs still counts (10:30 to 11:30 ten days later:
     241 hours). This holds for the suffix `gran`, for `tsnap()` and for the
-    granularity mode **-g**, and it is the one case where the classic
-    algebra was changed on purpose in a point that was no error. Results
+    granularity mode **-g**, and it is one of two cases where the classic
+    algebra was changed on purpose in a point that was no error (the other:
+    datasets of a mapset outside the search path). Results
     with **-g**, `gran` or `tsnap()` over such series need a new run;
     *t.support* **-m** computes the stored granularity of a dataset again
     ([t.rast.algebra](t.rast.algebra.md#granularity-algebra)).
@@ -495,9 +498,11 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     **where** with **method=gran**. Now it takes it, as *t.rast.list* does
     ([t.rast3d.list](t.rast3d.list.md#notes)).
 - **method=gran without granularity.** **method=gran** on an empty dataset
-    or on a single time instance reported "Wrong granularity: None". Now the
-    message says that the dataset is empty, or that the granularity is
-    missing and a granule or another method is needed
+    or on a single time instance reported "Wrong granularity: None" or, on
+    relative time with a single time instance, printed the header only and
+    ended with exit code 0. Now the message says that the dataset is empty,
+    or that the granularity is missing and a granule or another method is
+    needed
     ([t.rast.list](t.rast.list.md#notes)).
 - **Maps without start time in *t.rast.list*.** A map without start time
     ended **method=delta** and **method=deltagaps** of *t.rast.list* with a
@@ -1249,7 +1254,7 @@ no change. Names of the contract that only the repository uses can be new in
 GRASS 8.6, such as the steps that the temporal tools share, and code that has to
 run with GRASS 8.5 cannot use them. The reference documentation of the temporal
 framework
-([temporal framework](https://grass.osgeo.org/grass-stable/manuals/libpython/temporal_framework.html))
+([temporal framework](https://grass.osgeo.org/grass-devel/manuals/libpython/temporal_framework.html))
 describes every module.
 
 - **The names of the package.** `grass.temporal` imported all names of its
@@ -1268,9 +1273,9 @@ describes every module.
     files. The module `grass.temporal.tool_steps` holds the steps that the
     temporal tools share, and `grass.temporal.testing` the helpers of their
     tests ([writing a temporal
-    tool](https://grass.osgeo.org/grass-stable/manuals/libpython/temporal_framework_tools.html),
+    tool](https://grass.osgeo.org/grass-devel/manuals/libpython/temporal_framework_tools.html),
     [extending the algebra
-    core](https://grass.osgeo.org/grass-stable/manuals/libpython/temporal_framework_algebra.html)).
+    core](https://grass.osgeo.org/grass-devel/manuals/libpython/temporal_framework_algebra.html)).
 - **The classic algebra moved.** The modules of the algebra of the releases
     before, `temporal_algebra`, `temporal_raster_base_algebra`,
     `temporal_operator` and their siblings, moved to
