@@ -22,11 +22,14 @@ Only calls made by the script itself count, not those that the library makes
 on its own behalf: the script may use what the contract lists, and the library
 calls whatever it needs. Only functions of ``grass.temporal`` count. The helpers of
 ``grass.temporal.testing`` and every name with a component that starts with an
-underscore (private functions, ``__init__``) are left out, as are the inner
-functions and comprehensions of a public function, which are not part of the
-interface. Calls made before the script starts, such as the import of the
-package, are not recorded. A script that starts threads or other Python processes is
-traced only in its main thread.
+underscore (private functions, ``__init__``) are left out, with two exceptions:
+the operator methods (``OPERATOR_METHODS``, such as ``__truediv__``) and the
+methods that a private base class defines, which are reported under the class
+of ``self``. The inner functions and comprehensions of a public function are
+left out too, as they are not part of the interface. Calls made before the
+script starts, such as the import of the package, are not recorded. A script
+that starts threads or other Python processes is traced only in its main
+thread.
 
 This module must not import pytest; fixtures belong in conftest.py files.
 """
@@ -47,6 +50,30 @@ PACKAGE = "grass.temporal"
 CONTRACT_ENV = "GRASS_TEMPORAL_PUBLIC_CONTRACT"
 CONTRACT_PATH = Path("python/grass/temporal/tests/data/public_contract.json")
 
+# The operator methods that count as calls of the interface. Every other name
+# with an underscore stays out: constructors, __repr__, __len__ and __iter__
+# would show on nearly every line and say nothing about what the script uses.
+_ARITHMETIC = (
+    "add",
+    "sub",
+    "mul",
+    "truediv",
+    "floordiv",
+    "mod",
+    "pow",
+    "matmul",
+    "and",
+    "or",
+    "xor",
+    "lshift",
+    "rshift",
+)
+OPERATOR_METHODS = frozenset(
+    {f"__{prefix}{name}__" for name in _ARITHMETIC for prefix in ("", "r", "i")}
+    | {f"__{name}__" for name in ("neg", "pos", "abs", "invert")}
+    | {f"__{name}__" for name in ("lt", "le", "eq", "ne", "gt", "ge")}
+)
+
 # The child imports this module, hence grass.temporal, before the hook is set,
 # so the import of the package does not show up in the result.
 _CHILD = "from grass.temporal.testing.contract_trace import run_traced; run_traced()"
@@ -61,8 +88,14 @@ def called_names(script: Path, *, env: dict, cwd: Path) -> set[str]:
 
     The trace is a floor, not a proof. Only calls of functions and methods
     show: a constructor (``__init__`` is private), a plain attribute read, a
-    constant and a call made through a thread leave no name, so this check
-    does not replace reading the example. A property whose getter has a name of
+    constant, a call made through a thread and a container protocol method
+    (``__len__``, ``__iter__``, ``__getitem__``) leave no name, so this check
+    does not replace reading the example. Operators (``a / b``, ``a < b``) do
+    show, under the class that defines the operator method. A method that a
+    private base class defines (``_PlanarExtentMethods.spatial_intersection``)
+    is reported under the class of the object it was called on, if that is a
+    public class of grass.temporal; for a private class or a ``self`` from
+    elsewhere it shows no name. A property whose getter has a name of
     its own is reported under the getter (``get_temporal_extent``, not
     ``temporal_extent``), because the profiler sees the getter's code.
 
@@ -127,6 +160,47 @@ def _generated_accessor(frame) -> str | None:
     return None
 
 
+def _in_library(module):
+    testing = f"{PACKAGE}.testing"
+    return module.startswith(f"{PACKAGE}.") and not (
+        module == testing or module.startswith(f"{testing}.")
+    )
+
+
+def _is_public(parts):
+    return not any(part.startswith("_") or "<" in part for part in parts)
+
+
+def _name_of(code, module):
+    if not _in_library(module):
+        return None
+    parts = [*module.split("."), *code.co_qualname.split(".")]
+    # An operator is a method, so its owner must be public as well.
+    if not _is_public(parts[:-1] if parts[-1] in OPERATOR_METHODS else parts):
+        return None
+    return ".".join(parts)
+
+
+def _private_base_method(frame):
+    # The answer depends on self, so it is never cached.
+    code = frame.f_code
+    qualname = code.co_qualname.split(".")
+    if (
+        len(qualname) != 2
+        or not qualname[0].startswith("_")
+        or qualname[1].startswith("_")
+        or not code.co_varnames
+        or code.co_varnames[0] != "self"
+        or not _in_library(frame.f_globals.get("__name__", ""))
+    ):
+        return None
+    owner = type(frame.f_locals.get("self"))
+    parts = [*owner.__module__.split("."), *owner.__qualname__.split(".")]
+    if not _in_library(owner.__module__) or not _is_public(parts):
+        return None
+    return ".".join([*parts, code.co_name])
+
+
 def run_traced() -> None:
     """Run the script of ``sys.argv[1]`` under the profile hook (child side)
 
@@ -154,17 +228,6 @@ def run_traced() -> None:
             caller = caller.f_back
         return False
 
-    def name_of(code, module):
-        testing = f"{PACKAGE}.testing"
-        if not module.startswith(f"{PACKAGE}.") or (
-            module == testing or module.startswith(f"{testing}.")
-        ):
-            return None
-        parts = [*module.split("."), *code.co_qualname.split(".")]
-        if any(part.startswith("_") or "<" in part for part in parts):
-            return None
-        return ".".join(parts)
-
     def hook(frame, event, _arg):
         if event != "call":
             return
@@ -174,10 +237,12 @@ def run_traced() -> None:
         module = frame.f_globals.get("__name__", "")
         if "<locals>" in code.co_qualname:
             name = _generated_accessor(frame)
+        elif code.co_qualname.startswith("_"):
+            name = _private_base_method(frame)
         else:
             key = (code, module)
             if key not in decided:
-                decided[key] = name_of(code, module)
+                decided[key] = _name_of(code, module)
             name = decided[key]
         if name:
             names.add(name)
@@ -216,13 +281,15 @@ def _find_contract_file() -> Path:
 
 
 # Classes whose methods the contract lists although code outside reaches them
-# through other objects (a map's spatial_extent, a dataset's temporal_extent)
+# through other objects (a map's spatial_extent, a dataset's temporal_extent) or
+# through an operator (Series, in an expression such as ``averages / 100.0``)
 # and does not import them: the package does not export them. The module that
 # defines each is named here, once, for the contract test and the trace.
 MODULE_OF_UNEXPORTED_CLASS = {
     "AbstractDataset": "abstract_dataset",
     "AbstractMapDataset": "abstract_map_dataset",
     "CLibrariesInterface": "c_libraries_interface",
+    "Series": "algebra.series",
     "SpatialExtent": "spatial_extent",
     "TemporalExtent": "temporal_extent",
 }

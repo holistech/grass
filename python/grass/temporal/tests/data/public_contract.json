@@ -904,6 +904,9 @@
    "fetchall": "repo",
    "get_dbmi": "repo"
   },
+  "Series": {
+   "__truediv__": "docs"
+  },
   "SpaceTimeRaster3DDataset": {
    "update_map_timestamps": "repo",
    "check_temporal_topology": "repo",

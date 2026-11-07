@@ -92,3 +92,101 @@ def test_methods_of_a_class_that_also_has_contract_attributes_stay_covered():
     }
 
     assert missing_from_contract({method}, contract=contract) == []
+
+
+TIMED_MAPS = """\
+from datetime import datetime
+
+import grass.temporal as tgis
+from grass.temporal.abstract_dataset import AbstractDatasetComparisonKeyStartTime
+from grass.temporal.stds_time_edit import snap_map_list
+
+maps = []
+for name, day in (("b", 2), ("a", 1)):
+    item = tgis.RasterDataset(f"{name}@m")
+    item.set_absolute_time(datetime(2026, 1, day), datetime(2026, 1, day + 1))
+    maps.append(item)
+"""
+
+KEY = "grass.temporal.abstract_dataset.AbstractDatasetComparisonKeyStartTime.__lt__"
+
+
+def test_operator_of_a_public_class_is_recorded(tmp_path):
+    # sorted() compares in the script's own call, through the key class.
+    names = trace(
+        tmp_path,
+        TIMED_MAPS + "sorted(maps, key=AbstractDatasetComparisonKeyStartTime)\n",
+    )
+
+    assert KEY in names
+
+
+def test_a_series_operator_is_covered_by_the_contract():
+    division = "grass.temporal.algebra.series.Series.__truediv__"
+
+    assert missing_from_contract({division}) == []
+
+
+def test_private_base_method_is_reported_under_the_public_class(tmp_path):
+    names = trace(
+        tmp_path,
+        """\
+        import grass.temporal as tgis
+
+        vector = tgis.VectorDataset("v@m")
+        other = tgis.VectorDataset("w@m")
+        for item in (vector, other):
+            item.set_spatial_extent_from_values(10, 0, 10, 0, 10, 0)
+        vector.spatial_intersection(other)
+        """,
+    )
+
+    assert (
+        "grass.temporal.space_time_datasets.VectorDataset.spatial_intersection" in names
+    )
+
+
+def test_private_base_method_without_public_self_is_left_out(tmp_path):
+    # A private class instance, a function without self and a self from
+    # outside grass.temporal give no name.
+    names = trace(
+        tmp_path,
+        """\
+        from grass.temporal.space_time_datasets import _PlanarExtentMethods
+
+        class Outside:
+            def spatial_intersection(self, other):
+                return None
+
+        Outside().spatial_intersection(None)
+        try:
+            _PlanarExtentMethods().spatial_intersection(None)
+        except AttributeError:
+            pass
+        try:
+            _PlanarExtentMethods.spatial_intersection(Outside(), None)
+        except AttributeError:
+            pass
+        """,
+    )
+
+    assert not [n for n in names if n.endswith("spatial_intersection")]
+
+
+def test_operator_called_inside_the_library_is_not_recorded(tmp_path):
+    # snap_map_list sorts the maps with the key class itself.
+    names = trace(tmp_path, TIMED_MAPS + "snap_map_list(maps)\n")
+
+    assert "grass.temporal.stds_time_edit.snap_map_list" in names
+    assert KEY not in names
+
+
+def test_constructor_and_repr_stay_unrecorded(tmp_path):
+    names = trace(
+        tmp_path,
+        TIMED_MAPS + "repr(maps[0])\nlen(maps)\nlist(iter(maps))\n",
+    )
+
+    assert not [
+        n for n in names if n.endswith(("__init__", "__repr__", "__len__", "__iter__"))
+    ]
