@@ -17,8 +17,9 @@
  *
  * Call after G_parser() with an option which has an answer. The answer is
  * read with G_random_parse_seed(); an answer which is not a seed is a
- * fatal error naming the option. The parser leaves the answer of
- * G_OPT_M_SEED to this function, so this check is needed.
+ * fatal error naming the option. The parser already checks the answer of
+ * G_OPT_M_SEED the same way; the check here covers a seed option which is
+ * not G_OPT_M_SEED and a call without the parser.
  *
  * The result is a seed accepted by G_random_state_from_seed(), the layout
  * functions and G_srand48(). The function does nothing beyond parsing and

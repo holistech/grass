@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 GRASS Development Team
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Test that only the seed option leaves an integer answer to the tool
+"""Test that only the seed option is checked as a seed, not as an integer
 
 The parser checks an integer option strictly (check_int()), but an answer of
 the standard option G_OPT_M_SEED is checked as a seed instead, which
