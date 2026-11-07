@@ -494,9 +494,10 @@ checks prose, both check what the text claims about the code.
   a `:mod:` role on the page and every role names a module that exists. On this
   page only `.. code-block:: python` is read as a code block. The test
   rejects, instead of skipping, the directives `code`, `sourcecode`,
-  `literalinclude`, `doctest` and `testcode`, any other `code-block` language, a line that ends in `::`
-  (a literal block, also a lone `::`) and a line that starts with `>>>`; write
-  Python examples as `.. code-block:: python`.
+  `literalinclude`, `doctest` and `testcode`, any other `code-block`
+  language, a line that ends in `::` (a literal block, also a lone `::`) and a
+  line that starts with `>>>`; write Python examples as
+  `.. code-block:: python`.
 
   The guides that join the overview page, listed in `PAGES` of that test, are
   read with more forms. A `code-block` with a `:name:` of the form
