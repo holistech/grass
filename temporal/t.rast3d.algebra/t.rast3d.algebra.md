@@ -304,19 +304,16 @@ both corrections.
 The classic algebra gives the results of the releases before GRASS 8.6, except
 where those releases were corrected; the page
 [changes in GRASS 8.6](temporalchanges.md#classic-algebra) lists all
-corrections. The items below describe some of them with examples. Items 8 and 14
-are not corrections of those releases: item 8 shows how **-c** reads a map at an
-offset in a condition, and item 14 how it relates maps under **-s**, which those
-releases ignored. In the other items those releases computed wrongly, ended in
-an error that had no reason, or reported the wrong error. **-c** now gives the
-result described here. The reference implementation was corrected in the same
-way, except in items 14 and 15: it still takes the time of a partner whose box
-only touches, and it still raises the `CalledModuleError` of a failed module.
-The new algebra never computed these cases wrongly; only the items on month
-steps, on dates beyond the year 9999, on a failed module and on the granularity
-concerned the library and with it both algebras. Results of earlier GRASS
-versions that used one of these forms need a new run. The examples use the
-datasets of the list above and, in addition, N with daily maps.
+corrections. The items below describe some of them with examples. In them those
+releases computed wrongly, ended in an error that had no reason, or reported the
+wrong error. **-c** now gives the result described here. The reference
+implementation was corrected in the same way, except in item 13: it still raises
+the `CalledModuleError` of a failed module. The new algebra never computed these
+cases wrongly; only the items on month steps, on dates beyond the year 9999, on
+a failed module and on the granularity concerned the library and with it both
+algebras. Results of earlier GRASS versions that used one of these forms need a
+new run. The examples use the datasets of the list above and, in addition, N
+with daily maps.
 
 1. **td() of an expression** on the right of an operator used the value of
     the expression instead of the duration of its maps. With daily maps in N
@@ -397,20 +394,7 @@ datasets of the list above and, in addition, N with daily maps.
     C = N + td(A # merge(A, N))
     ```
 
-8. **A map read at an offset as a truth value.** A time function of a map read
-    at an offset in time or in cells, such as `end_year(A[1])`, joined with `&&`
-    or `||` to a condition on cells is a truth value, like the time function of
-    any map; the map itself is not the operand, so the expression runs also
-    where the maps are floating point. The same holds where the time condition
-    follows further time conditions, as in
-    `td(A[1]) > 0.5 && td(B) > 0.5 && B > 0`. The cell value of a map read at an
-    offset, as in `B[1] > 0.5 && B`, counts as in any other condition:
-
-    ```sh
-    C = if(B > 0.5 && td(A[1]) > 0.5, A)
-    ```
-
-9. **Chains that start with a number or map().** A chain of operators whose
+8. **Chains that start with a number or map().** A chain of operators whose
     first operand is a number or a map without time stamp, such as
     `map(L) - 1 - A`, was grouped from the right, as `map(L) - (1 - A)`. It is
     grouped from the left now, as in mathematics and in the new algebra. With
@@ -423,7 +407,7 @@ datasets of the list above and, in addition, N with daily maps.
     C = map(L) - 1 - A
     ```
 
-10. **td() as left operand of a stronger operator.** An expression such as
+9. **td() as left operand of a stronger operator.** An expression such as
     `A + td(A) / A` was computed as `(A + td(A)) / A`, because `td()` could only
     stand right of an operator. The operators `*`, `/` and `%`, also with a
     temporal operator in braces, bind stronger than `+` and `-` now, as in
@@ -436,7 +420,7 @@ datasets of the list above and, in addition, N with daily maps.
     C = A + td(A) / A
     ```
 
-11. **A spatial relation without a temporal one.** An operator with spatial
+10. **A spatial relation without a temporal one.** An operator with spatial
     relation names only, such as `A {+,equivalent,l} N`, related no map, because
     maps are related by their temporal relations, and gave an empty result
     without a message. It stops now with the error "equivalent is a spatial
@@ -447,7 +431,7 @@ datasets of the list above and, in addition, N with daily maps.
     C = A {+,equal|equivalent,l} N
     ```
 
-12. **Month and year steps from the end of a month.** `tshift()` and `buff_t()`
+11. **Month and year steps from the end of a month.** `tshift()` and `buff_t()`
     by months or years ended in an error ("day is out of range for month") when
     a time stamp moved to a day that the target month lacks, in both algebras.
     Such a step now ends on the last day of that month. With a dataset M whose
@@ -468,41 +452,30 @@ datasets of the list above and, in addition, N with daily maps.
     count as one step of 12 * years + months months, so `"1 years, 11 months"`
     and `"23 months"` end on the same day.
 
-13. **A date beyond the year 9999.** A step that ends behind the year 9999 or
+12. **A date beyond the year 9999.** A step that ends behind the year 9999 or
     before the year 1, for example `buff_t(A, "365 days")` on a map that ends on
     1 December 9999, ended with a traceback ("date value out of range") in both
     algebras. It now ends with the error "... is beyond the year 9999" or "...
     is before the year 1"; no map and no dataset is created.
 
-14. **A selection with r or u under -s and maps whose boxes only touch.** With
-    **-s** two maps are related when they are related in time and in space;
-    boxes that touch at a corner only are not related in space, while boxes
-    with a common edge meet and are related. A
-    selection such as `A {:,precedes,r} B` takes the time only from maps that
-    are related in time and in space, and an inverse selection such as
-    `A {!:,precedes,r} B` keeps a map without such a partner with its own time.
-    For example, a map of A from 1 to 2 January whose box meets at a corner the
-    box of a map of B from 2 to 3 January keeps the time 1 to 2 January in the
-    inverse selection above. Without **-s** only the time relates the maps.
-
-15. **A failed module.** If a module fails while the maps are computed, for
+13. **A failed module.** If a module fails while the maps are computed, for
     example *r3.mapcalc* on a floating point map as an operand of `&&`, both
     algebras ended with a Python traceback. They now end with the error
     `Module <r3.mapcalc> failed with return code 1, see the error output above`;
     the cause is in the error output of the module above it. No dataset is
     created.
 
-16. **The relation equals.** The relation `equal` may be written `equals` here
+14. **The relation equals.** The relation `equal` may be written `equals` here
     too, as in *t.rast.algebra*; the releases before GRASS 8.6 refused that
     spelling with a syntax error.
 
-17. **Comparison of related maps.** The comparison of related maps inside
+15. **Comparison of related maps.** The comparison of related maps inside
     `if()`, such as `C = if(A {>=, contains, |} B, A, 0)` or
     `C = if(A >= B, A, B)`, described in [t.rast.algebra](t.rast.algebra.md),
     works for 3D raster maps in the same way. The releases before GRASS 8.6
     refused it with a syntax error.
 
-18. **The granularity of steps over a year and of a time of the day.** The
+16. **The granularity of steps over a year and of a time of the day.** The
     granularity of a dataset, which the time suffix `gran`, `tsnap()` and the
     granularity mode **-g** use, counted a step between the first days of two
     months more than a year apart by the difference of the months only: 1
@@ -528,7 +501,7 @@ with the common granularity of all datasets of the expression. A monthly series
 from the last day of a month (January 31, February 28 and March 31) has the
 granularity of one month and gets a granule per month; the classic algebra
 (**-c**) computes the granularity from the maps by the rules of the releases
-before GRASS 8.6 with the correction of item 18 under "Corrections to the
+before GRASS 8.6 with the correction of item 16 under "Corrections to the
 classic algebra", one day here, and gets a granule per day. If the start times
 of the datasets differ in a finer unit than their common granularity, the
 granules are one unit long, in the finest unit in which the start times differ,
@@ -1341,7 +1314,7 @@ to the end of a shorter month: the time instances January 31, February 28 and
 March 31 have the granularity of one month, and the last one ends on April 30;
 after an instance on April 30 in the same series it ends on May 31. The classic
 algebra (**-c**) computes the granularity by the rules of the releases before
-GRASS 8.6 with the correction of item 18 under "Corrections to the classic
+GRASS 8.6 with the correction of item 16 under "Corrections to the classic
 algebra", one day here, and ends the instance of March 31 on April 1.
 
 === "Command line"

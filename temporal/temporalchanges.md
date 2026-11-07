@@ -165,11 +165,9 @@ most of them, those releases computed a wrong result, refused an expression that
 they should compute, or computed one that they should refuse. The implementation
 of those releases, which stays in the source code as `grass.temporal.classic`,
 was corrected in the same way, except in the last two entries, on `merge()` of
-absolute and relative time and on the selection of a relative time instance,
-and under **-s** for maps whose boxes touch at a corner (see the item in
-[t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra)): only
-the classic algebra computes the first two, and `grass.temporal.classic` still
-ends with a `TypeError`. Results of an earlier release that used one of these forms
+absolute and relative time and on the selection of a relative time instance:
+only the classic algebra computes them, and `grass.temporal.classic` still ends
+with a `TypeError`. Results of an earlier release that used one of these forms
 need a new run. All other results of the classic algebra are those of the
 releases before GRASS 8.6: the tests compare it with recorded results of that
 implementation. The manuals of the algebra tools describe many of these

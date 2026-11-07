@@ -389,7 +389,7 @@ to the end of a shorter month: the time instances January 31, February 28 and
 March 31 have the granularity of one month, and the last one ends on April 30;
 after an instance on April 30 in the same series it ends on May 31. The classic
 algebra (**-c**) computes the granularity by the rules of the releases before
-GRASS 8.6 with the correction of item 11 under "Corrections to the classic
+GRASS 8.6 with the correction of item 10 under "Corrections to the classic
 algebra", one day here, and ends the instance of March 31 on April 1.
 
 The function merge(A, B) gives the maps of both datasets in one dataset.
@@ -704,17 +704,15 @@ both corrections.
 The classic algebra gives the results of the releases before GRASS 8.6, except
 where those releases were corrected; the page
 [changes in GRASS 8.6](temporalchanges.md#classic-algebra) lists all
-corrections. The items below describe some of them with examples. Item 8 is no
-correction of those releases: it shows how **-c** relates maps under **-s**,
-which those releases ignored. In the other items those releases computed
-wrongly, ended in an error that had no reason, or reported the wrong error.
-**-c** now gives the result described here. The reference implementation was
-corrected in the same way, except in items 8 and 9: it still takes the time of a
-partner whose box only touches, and it still raises the `CalledModuleError` of a
-failed module. The new algebra never had these errors; only the items on month
-steps, on dates beyond the year 9999, on a failed module and on the granularity
-concerned the library and with it both algebras. Results of earlier GRASS
-versions that used one of these forms need a new run.
+corrections. The items below describe some of them with examples. In them those
+releases computed wrongly, ended in an error that had no reason, or reported the
+wrong error. **-c** now gives the result described here. The reference
+implementation was corrected in the same way, except in item 8: it still raises
+the `CalledModuleError` of a failed module. The new algebra never had these
+errors; only the items on month steps, on dates beyond the year 9999, on a
+failed module and on the granularity concerned the library and with it both
+algebras. Results of earlier GRASS versions that used one of these forms need a
+new run.
 
 1. **tsnap() and tshift() of no maps.** If the expression inside has no
     maps, the result is empty like any other empty result: the classic
@@ -799,29 +797,18 @@ versions that used one of these forms need a new run.
     algebras. It now ends with the error "... is beyond the year 9999" or "...
     is before the year 1"; no map and no dataset is created.
 
-8. **A selection with r or u under -s and maps whose boxes only touch.** With
-    **-s** two maps are related when they are related in time and in space;
-    boxes that touch at a corner only are not related in space, while boxes
-    with a common edge meet and are related. A
-    selection such as `A {:,precedes,r} B` takes the time only from maps that
-    are related in time and in space, and an inverse selection such as
-    `A {!:,precedes,r} B` keeps a map without such a partner with its own time.
-    For example, a map of A from 1 to 2 January whose box meets at a corner the
-    box of a map of B from 2 to 3 January keeps the time 1 to 2 January in the
-    inverse selection above. Without **-s** only the time relates the maps.
-
-9. **A failed module.** If a module fails while the maps are computed, for
+8. **A failed module.** If a module fails while the maps are computed, for
     example *v.patch*, both algebras ended with a Python traceback. They now end
     with an error that names the module and its return code, such as
     `Module <v.patch> failed with return code 1, see the error output above`;
     the cause is in the error output of the module above it. No dataset is
     created.
 
-10. **The relation equals.** The releases before GRASS 8.6 refused the spelling
+9. **The relation equals.** The releases before GRASS 8.6 refused the spelling
     `equals` of the paper with a syntax error. The classic algebra reads it as
     `equal`, as the new algebra does.
 
-11. **The granularity of steps over a year and of a time of the day.** The
+10. **The granularity of steps over a year and of a time of the day.** The
     granularity of a dataset, which `tsnap()` uses for the end of a last time
     instance, counted a step between the first days of two months more than a
     year apart by the difference of the months only: 1 January 2024 to 1 March

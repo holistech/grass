@@ -320,19 +320,16 @@ both corrections.
 The classic algebra gives the results of the releases before GRASS 8.6, except
 where those releases were corrected; the page
 <a href="temporalchanges.html#classic-algebra">changes in GRASS 8.6</a> lists all
-corrections. The items below describe some of them with examples. Items 8 and 14
-are not corrections of those releases: item 8 shows how <b>-c</b> reads a map at an
-offset in a condition, and item 14 how it relates maps under <b>-s</b>, which those
-releases ignored. In the other items those releases computed wrongly, ended in
-an error that had no reason, or reported the wrong error. <b>-c</b> now gives the
-result described here. The reference implementation was corrected in the same
-way, except in items 14 and 15: it still takes the time of a partner whose box
-only touches, and it still raises the <code>CalledModuleError</code> of a failed module.
-The new algebra never computed these cases wrongly; only the items on month
-steps, on dates beyond the year 9999, on a failed module and on the granularity
-concerned the library and with it both algebras. Results of earlier GRASS
-versions that used one of these forms need a new run. The examples use the
-datasets of the list above and, in addition, N with daily maps.
+corrections. The items below describe some of them with examples. In them those
+releases computed wrongly, ended in an error that had no reason, or reported the
+wrong error. <b>-c</b> now gives the result described here. The reference
+implementation was corrected in the same way, except in item 13: it still raises
+the <code>CalledModuleError</code> of a failed module. The new algebra never computed these
+cases wrongly; only the items on month steps, on dates beyond the year 9999, on
+a failed module and on the granularity concerned the library and with it both
+algebras. Results of earlier GRASS versions that used one of these forms need a
+new run. The examples use the datasets of the list above and, in addition, N
+with daily maps.
 
 <ol>
 <li><b>td() of an expression</b> on the right of an operator used the value of
@@ -414,19 +411,6 @@ and is false now. The duration of a map that is not counted did not change:
 C = N + td(A # merge(A, N))
 </pre></div>
 </li>
-<li><b>A map read at an offset as a truth value.</b> A time function of a map read
-at an offset in time or in cells, such as <code>end_year(A[1])</code>, joined with <code>&amp;&amp;</code>
-or <code>||</code> to a condition on cells is a truth value, like the time function of
-any map; the map itself is not the operand, so the expression runs also
-where the maps are floating point. The same holds where the time condition
-follows further time conditions, as in
-<code>td(A[1]) &gt; 0.5 &amp;&amp; td(B) &gt; 0.5 &amp;&amp; B &gt; 0</code>. The cell value of a map read at an
-offset, as in <code>B[1] &gt; 0.5 &amp;&amp; B</code>, counts as in any other condition:
-
-<div class="code"><pre>
-C = if(B &gt; 0.5 &amp;&amp; td(A[1]) &gt; 0.5, A)
-</pre></div>
-</li>
 <li><b>Chains that start with a number or map().</b> A chain of operators whose
 first operand is a number or a map without time stamp, such as
 <code>map(L) - 1 - A</code>, was grouped from the right, as <code>map(L) - (1 - A)</code>. It is
@@ -490,16 +474,6 @@ before the year 1, for example <code>buff_t(A, "365 days")</code> on a map that 
 1 December 9999, ended with a traceback ("date value out of range") in both
 algebras. It now ends with the error "... is beyond the year 9999" or "...
 is before the year 1"; no map and no dataset is created.</li>
-<li><b>A selection with r or u under -s and maps whose boxes only touch.</b> With
-<b>-s</b> two maps are related when they are related in time and in space;
-boxes that touch at a corner only are not related in space, while boxes
-with a common edge meet and are related. A
-selection such as <code>A {:,precedes,r} B</code> takes the time only from maps that
-are related in time and in space, and an inverse selection such as
-<code>A {!:,precedes,r} B</code> keeps a map without such a partner with its own time.
-For example, a map of A from 1 to 2 January whose box meets at a corner the
-box of a map of B from 2 to 3 January keeps the time 1 to 2 January in the
-inverse selection above. Without <b>-s</b> only the time relates the maps.</li>
 <li><b>A failed module.</b> If a module fails while the maps are computed, for
 example <em>r3.mapcalc</em> on a floating point map as an operand of <code>&amp;&amp;</code>, both
 algebras ended with a Python traceback. They now end with the error
@@ -541,7 +515,7 @@ with the common granularity of all datasets of the expression. A monthly series
 from the last day of a month (January 31, February 28 and March 31) has the
 granularity of one month and gets a granule per month; the classic algebra
 (<b>-c</b>) computes the granularity from the maps by the rules of the releases
-before GRASS 8.6 with the correction of item 18 under "Corrections to the
+before GRASS 8.6 with the correction of item 16 under "Corrections to the
 classic algebra", one day here, and gets a granule per day. If the start times
 of the datasets differ in a finer unit than their common granularity, the
 granules are one unit long, in the finest unit in which the start times differ,
@@ -1359,7 +1333,7 @@ to the end of a shorter month: the time instances January 31, February 28 and
 March 31 have the granularity of one month, and the last one ends on April 30;
 after an instance on April 30 in the same series it ends on May 31. The classic
 algebra (<b>-c</b>) computes the granularity by the rules of the releases before
-GRASS 8.6 with the correction of item 18 under "Corrections to the classic
+GRASS 8.6 with the correction of item 16 under "Corrections to the classic
 algebra", one day here, and ends the instance of March 31 on April 1.
 
 <p>Command line:</p>
