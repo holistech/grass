@@ -509,16 +509,17 @@ checks prose, both check what the text claims about the code.
   the standard output that those commands print. The test runs the commands,
   compares the output with the page and traces the tool against the contract,
   with the arguments of each call (`called_names(..., argv=...)`). A
-  `literalinclude` must select a function (`:pyobject:`) or the lines between
-  `:start-after:` and `:end-before:` of a file that exists, each marker once;
-  `:lines:` and the other line-number options are refused because they drift
-  when the file changes. Every guide must appear in a toctree of the overview
-  page, every role of a guide must name something that exists, and every
-  function of `tool_steps` must be named on the tool guide; on the algebra
-  guide, every dotted name of `grass.temporal.algebra` written as a literal must
-  exist as well. No two blocks of the pages may share a `:name:`, because Sphinx
-  makes each a label of the whole documentation. An unnamed Python block on a
-  guide that does not run its snippets is refused, so that no code goes unrun.
+  `literalinclude` must select a function (`:pyobject:`) or the lines after
+  `:start-after:` and/or before `:end-before:` of a file that exists, each
+  marker once; `:lines:` and the other line-number options are refused
+  because they drift when the file changes. Every guide must appear in a
+  toctree of the overview page, every role of a guide must name something that
+  exists, and every function of `tool_steps` must be named on the tool guide;
+  on the algebra guide, every dotted name of `grass.temporal.algebra` written
+  as a literal must exist as well. No two blocks of the pages may share a
+  `:name:`, because Sphinx makes each a label of the whole documentation. An
+  unnamed Python block on a guide that does not run its snippets is refused, so
+  that no code goes unrun.
 - `temporal_framework_design_test.py` checks the code design document in
   `python/grass/docs/src/temporal_framework_design/`. Its examples run in the
   sample dataset and must print what the document shows; each class, member,

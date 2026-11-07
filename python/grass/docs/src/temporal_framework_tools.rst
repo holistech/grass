@@ -308,7 +308,8 @@ messages are translated per tool.
 The helpers do not end the run themselves. A helper that refuses an option or a
 state raises ``ValueError`` with the translated text, and the tool calls
 ``gs.fatal()`` with it, so that the text, the exit and the place of the message stay in
-the tool. This is the example of the tool above:
+the tool (``option_to_datetime`` lets the library print why a date cannot be
+read before it raises). This is the example of the tool above:
 
 .. literalinclude:: ../../temporal/tool_steps.py
     :caption: The helper that reads a file of names

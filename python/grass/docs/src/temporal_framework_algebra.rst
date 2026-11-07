@@ -347,8 +347,8 @@ algebra as well, and the comparisons with the recorded results of the reference
 (see `The safeguards`_) show it. Every change of what ``-c`` computes, a
 different map, a different value, or an expression that is accepted instead of
 refused or the other way round, needs an explicit decision of the maintainers,
-a test, and an entry under "Corrections to the classic algebra" in the manual of
-*t.rast.algebra*. Published results rely on the classic algebra, so it changes
+a test, and an entry in the section Classic algebra of the manual page
+*temporalchanges* (the manual of *t.rast.algebra* lists some of them). Published results rely on the classic algebra, so it changes
 only where it was wrong.
 
 An operator
