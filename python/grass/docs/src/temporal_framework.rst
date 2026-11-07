@@ -24,7 +24,8 @@ Most of the functions described above are member functions of dedicated map laye
 The document :download:`The GRASS Temporal Framework: Object oriented code design with examples <Temporal-Framework-Code-Design.pdf>`
 (GRASS 8.6) describes the design of the current code with UML figures and
 examples that run against the code. This page lists the modules and shows
-short examples. The document of the same name that accompanies the 2017
+short examples; the guide :doc:`temporal_framework_tools` shows how to write a
+new temporal tool. The document of the same name that accompanies the 2017
 publication of Gebbert and Pebesma shows the state of 2017 and is linked in the
 references.
 
@@ -369,6 +370,18 @@ Here the full list of all temporal modules:
    :maxdepth: 2
 
    grass.temporal
+
+
+Guides
+------
+
+Each guide has a complete example that runs in the documentation tests of the
+repository:
+
+.. toctree::
+   :maxdepth: 1
+
+   temporal_framework_tools
 
 
 Examples
