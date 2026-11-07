@@ -254,10 +254,15 @@ class MapDataset(AbstractMapDataset):
 
         The metadata live in the GRASS file system based spatial database.
 
-        Internally the libgis API functions are used for writing
+        Internally the libgis API functions are used for writing. The library
+        writes into the current mapset, so a map of another mapset is skipped.
 
-        :return: True if success, False on error
+        :return: True if success, False on error, and False without writing
+                 for a map of another mapset
         """
+        if self.get_readonly():
+            return False
+
         check = self._call(
             "write_timestamp", self._layer(), timestring=self._convert_timestamp()
         )
@@ -281,10 +286,15 @@ class MapDataset(AbstractMapDataset):
     def remove_timestamp_from_grass(self) -> bool:
         """Remove the timestamp from the grass file system based spatial database
 
-        Internally the libgis API functions are used for removal
+        Internally the libgis API functions are used for removal. A map of
+        another mapset is skipped, the file of the current mapset is not its own.
 
-        :return: True if success, False on error
+        :return: True if success, False on error, and False without removing
+                 for a map of another mapset
         """
+        if self.get_readonly():
+            return False
+
         check = self._call("remove_timestamp", self._layer())
 
         if check == -1:

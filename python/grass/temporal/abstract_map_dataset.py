@@ -208,6 +208,13 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         """
         return self.base.get_map_id()
 
+    def get_readonly(self) -> bool:
+        """Tell whether this map is of another mapset than the current one
+
+        :return: True if its file metadata must not be written
+        """
+        return self.base.get_readonly()
+
     @staticmethod
     def split_name(name: str, layer=None, mapset=None):
         """Split a map name into the map name, the map layer and the mapset.

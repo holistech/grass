@@ -259,10 +259,15 @@ class RasterDataset(_PlanarExtentMethods, MapDataset):
 
         The metadata live in the GRASS file system based spatial database.
 
-        Internally the libgis API functions are used for writing
+        Internally the libgis API functions are used for writing. The library
+        writes into the current mapset, so a map of another mapset is skipped.
 
-        :return: True if success, False on error
+        :return: True if success, False on error, and False without writing
+                 for a map of another mapset
         """
+        if self.get_readonly():
+            return False
+
         check = self.ciface.write_raster_semantic_label(
             self.get_name(), self.get_mapset(), self.metadata.get_semantic_label()
         )

@@ -34,7 +34,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from .rows import Column, DictSQLSerializer, Row, SQLDatabaseInterface
-from .state import get_tgis_message_interface
+from .state import get_current_mapset, get_tgis_message_interface
 
 if TYPE_CHECKING:
     from .kinds import Kind
@@ -300,6 +300,22 @@ class BaseRow(Row):
         return None
 
     map_id = property(fget=get_map_id, fset=None)
+
+    def get_readonly(self) -> bool:
+        """Tell whether the map or dataset is of another mapset than the current
+
+        The file metadata of a map (time stamp, semantic label) is written into
+        the current mapset, so nothing of another mapset may be written. The
+        answer is read from the mapset of the row at every call and not stored
+        when the mapset is set, because the current mapset changes with a second
+        session in the process and a row can be moved with set_mapset().
+
+        :return: True if the mapset of the row is set and is not the current one
+        """
+        mapset = self.get_mapset()
+        return bool(mapset) and mapset != get_current_mapset()
+
+    readonly = property(fget=get_readonly, fset=None)
 
     def print_info(self) -> None:
         """Print information about this class in human readable style"""
