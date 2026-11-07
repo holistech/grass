@@ -126,8 +126,7 @@ int main(int argc, char **argv)
             MapSeed = SeedValue;
         }
         else {
-            G_srand48_auto();
-            MapSeed = -1;
+            MapSeed = G_srand48_auto();
         }
 
         ZeroMapCells();

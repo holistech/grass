@@ -80,10 +80,12 @@ out and the spatial statistics are far more sensitive to the initial
 independent random deviates than any potential discretization errors.
 
 **seed**  
-Specifies the random seed(s), one for each map, that *r.random.surface*
-will use to generate the initial set of random values that the resulting
-map is based on. If the random seed is not given, *r.random.surface*
-will get a seed from the process ID number.
+Specifies the random seed that *r.random.surface* will use to generate
+the initial set of random values that the resulting map is based on. The
+seed is used for the first output map; every further map gets a
+generated seed. If the random seed is not given, *r.random.surface*
+generates one for every map. The seed of each map is written to its
+map title.
 
 ## NOTES
 

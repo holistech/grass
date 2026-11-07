@@ -81,11 +81,12 @@ sensitive to the initial independent random deviates than any
 potential discretization errors.</dd>
 
 <dt><b>seed</b></dt>
-<dd>Specifies the random seed(s), one for each map,
-that <em>r.random.surface</em> will use to generate the initial set of
-random values that the resulting map is based on. If the random seed
-is not given, <em>r.random.surface</em> will get a seed from the
-process ID number.</dd>
+<dd>Specifies the random seed that <em>r.random.surface</em> will use to
+generate the initial set of random values that the resulting map is based
+on. The seed is used for the first output map; every further map gets a
+generated seed. If the random seed is not given,
+<em>r.random.surface</em> generates one for every map. The seed of each
+map is written to its map title.</dd>
 
 </dl>
 
