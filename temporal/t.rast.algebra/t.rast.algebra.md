@@ -99,14 +99,15 @@ same time. The default is 1. The result is the same for any number.
 
 ### Flags
 
-**-s** also checks the spatial topology of temporally related maps and
-processes only maps that are related in space too. **-n** registers maps that
-are null everywhere, which are left out by default; this concerns the new
-algebra, see above for **-c**. **-g** uses the granularity algebra instead of
-the temporal topology of the maps, see "Granularity algebra" below. **-d**
-performs a dry run: it plans the maps and prints the process chain, but
-computes no map and creates no dataset. **-c** selects the classic algebra,
-which gives the results of the releases before GRASS 8.6; see "Core and
+**-s** also checks the spatial topology of temporally related maps and processes
+only maps that are related in space too. **-n** registers maps that are null
+everywhere, which are left out by default; this concerns the new algebra, see
+above for **-c**. **-g** uses the granularity algebra instead of the temporal
+topology of the maps, see "Granularity algebra" below. **-d** performs a dry
+run: it plans the maps and prints the process chain, but computes no map and
+creates no dataset. **-c** selects the classic algebra, which gives the results
+of the releases before GRASS 8.6 with the exceptions that the page
+[changes in GRASS 8.6](temporalchanges.md#classic-algebra) lists; see "Core and
 classic algebra" below. The environment variable `GRASS_TEMPORAL_ALGEBRA`
 selects it for a whole session.
 
@@ -953,8 +954,11 @@ GRASS version they were computed with.
 The classic algebra gives the results of the releases before GRASS 8.6, except
 where those releases were corrected; the page
 [changes in GRASS 8.6](temporalchanges.md#classic-algebra) lists all
-corrections. The items below describe some of them with examples. In these cases
-those releases computed wrongly, ended in an error that had no reason, or
+corrections. The items below describe some of them with examples. Items 9 and 16
+are no corrections of those releases: item 9 shows how **-c** reads a map at an
+offset in a condition, which gives the results of those releases, and item 16
+how it relates maps under **-s**, which those releases ignored. In the other
+items those releases computed wrongly, ended in an error that had no reason, or
 reported the wrong error. **-c** now gives the result described here. The
 reference implementation was corrected in the same way, except in items 16 and
 17: it still takes the time of a partner whose box only touches, and it still
@@ -1022,13 +1026,13 @@ time.
     C = merge(A, A * 1.5)
     ```
 
-5. **Time constants with offset.** A temporal function with an offset
-    needs a map with the time value it returns. On a map without it, such as
+5. **Time constants with offset.** A temporal function with an offset needs a
+    map with the time value it returns. On a map without it, such as
     `end_month()` of a time instance or `start_month()` of relative time, the
     expression stops with an error that says the function requires absolute
-    time, as the same function in a condition does. Earlier versions wrote
-    `None` into the *r.mapcalc* expression, which failed when the maps were
-    computed:
+    time, as the same function in a condition does. The releases before
+    GRASS 8.6 ended with a Python traceback (`AttributeError`) while they read
+    the expression:
 
     ```sh
     C = A + end_month(I, 0)
@@ -1070,13 +1074,12 @@ time.
 9. **A map read at an offset as a truth value.** A time function of a map read
     at an offset in time or in cells, such as `end_year(A[1])`, joined with `&&`
     or `||` to a condition on cells is a truth value, like the time function of
-    any map. The releases before GRASS 8.6 wrote the map itself as the operand,
-    so that a map with a value other than 0 counted as true whatever the time
-    function said. The same holds where the time condition follows further time
-    conditions, as in `end_year(A[1]) == 1 && end_year(N) == 1 && A > 0`. With
-    the values 1 to 4 in A, the expression gave 1, 2 and 3 and now gives 0, 0
-    and 3, because `end_year(A[1]) == 1` is false. The cell value of a map read
-    at an offset, as in `A[1] > 1 && A`, did not change:
+    any map; the map itself is not the operand. The same holds where the time
+    condition follows further time conditions, as in
+    `end_year(A[1]) == 1 && end_year(N) == 1 && A > 0`. With the values 1 to 4
+    in A, the expression gives 0, 0 and 3, because `end_year(A[1]) == 1` is
+    false. The cell value of a map read at an offset, as in `A[1] > 1 && A`,
+    counts as in any other condition:
 
     ```sh
     C = if(end_year(A[1]) == 1 || A > 2, A)
@@ -1166,16 +1169,12 @@ time.
 16. **A selection with r or u under -s and maps whose boxes only touch.** With
     **-s** two maps are related when they are related in time and in space;
     boxes that meet at an edge or a corner only are not related in space. A
-    selection such as `A {:,precedes,r} B` took the time of every map that was
-    related in time, also of one whose box only touches the box of the map of A,
-    and the last such map won. An inverse selection such as
-    `A {!:,precedes,r} B` kept a map without a related partner, as it should,
-    but gave it the time of a partner that only touches it. The time is now
-    taken only from maps that are related in time and in space, and `!:` keeps a
-    map without such a partner with its own time. For example, a map of A from 1
-    to 2 January whose box meets at a corner the box of a map of B from 2 to 3
-    January keeps the time 1 to 2 January in the inverse selection above, where
-    it took 2 to 3 January. Without **-s** nothing changes.
+    selection such as `A {:,precedes,r} B` takes the time only from maps that
+    are related in time and in space, and an inverse selection such as
+    `A {!:,precedes,r} B` keeps a map without such a partner with its own time.
+    For example, a map of A from 1 to 2 January whose box meets at a corner the
+    box of a map of B from 2 to 3 January keeps the time 1 to 2 January in the
+    inverse selection above. Without **-s** only the time relates the maps.
 
 17. **A failed module.** If a module fails while the maps are computed, for
     example *r.mapcalc* on a floating point map as an operand of `&&`, both
@@ -1214,10 +1213,10 @@ time.
 
 #### Differences from the reference implementation
 
-Besides the corrections, **-c** differs from the reference implementation
-in the following points. Only the item on lists of absolute and relative
-time changes the outcome of an expression; the others concern messages, output
-and the class of an error.
+Besides the corrections, **-c** differs from the reference implementation in the
+following points. Two of them change the outcome of an expression, the items on
+lists of absolute and relative time and on a relative time instance in a
+selection; the others concern messages, output and the class of an error.
 
 - **Message texts.** The texts of warnings and errors are those of the
     new algebra. A `merge()` that meets maps identical in content and time
@@ -1263,6 +1262,15 @@ and the class of an error.
     ```sh
     C = merge(tmap(sinst), RT) : RT
     ```
+
+- **A relative time instance in a selection.** A selection on relative time with
+    a time instance on the right and the temporal operator `r`, such as
+    `RT {:,contains,r} tmap(rinst)`, stops the reference implementation with a
+    `TypeError`, as it stopped the releases before GRASS 8.6. The classic
+    algebra selects the map with the time of the instance, as the new algebra
+    does; the last block of the
+    [catalog](#catalog-where-the-classic-algebra-differs) where the classic
+    algebra differs shows it.
 
 ### Granularity algebra
 
@@ -2765,12 +2773,13 @@ giving 0.5, 1, 1.5 and 2.
 <!-- example: shell-only -->
 
 Each pair of blocks computes one expression of the list "Core and classic
-algebra" in the NOTES, first with the new algebra and then with **-c**; the
-last block shows a correction of the classic algebra that the list does not
-name. The first pair is item 1: the conditions of the two maps of `A` within a
-map of `B` are joined with and, so the new algebra gives 0 and 20; the classic
-algebra gives one result for each pair of a condition map and a conclusion map,
-and four maps in total.
+algebra" in the NOTES, first with the new algebra and then with **-c**; the last
+block shows a form that the releases before GRASS 8.6 refused with a
+`TypeError`, which the classic algebra now computes and the reference
+implementation still refuses. The first pair is item 1: the conditions of the
+two maps of `A` within a map of `B` are joined with and, so the new algebra
+gives 0 and 20; the classic algebra gives one result for each pair of a
+condition map and a conclusion map, and four maps in total.
 
 === "Command line"
 
@@ -3073,10 +3082,11 @@ and four maps in total.
 
     A selection on relative time with a time instance on the right and the
     temporal operator `r` ended with a `TypeError` in the releases before
-    GRASS 8.6. The classic algebra now computes it as the new algebra does:
-    of the two maps of `flow` (hours 0 to 2 and 2 to 4, values 6 and 8), the
-    second contains the time instance `pulse` at hour 3 and is selected with
-    the time of the instance.
+    GRASS 8.6. The classic algebra now computes it as the new algebra does,
+    while the reference implementation still ends with the `TypeError`: of the
+    two maps of `flow` (hours 0 to 2 and 2 to 4, values 6 and 8), the second
+    contains the time instance `pulse` at hour 3 and is selected with the time
+    of the instance.
 
     ```sh
     r.mapcalc expression="flow_1 = 6"

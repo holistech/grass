@@ -704,16 +704,17 @@ both corrections.
 The classic algebra gives the results of the releases before GRASS 8.6, except
 where those releases were corrected; the page
 [changes in GRASS 8.6](temporalchanges.md#classic-algebra) lists all
-corrections. The items below describe some of them with examples. In these cases
-those releases computed wrongly, ended in an error that had no reason, or
-reported the wrong error. **-c** now gives the result described here. The
-reference implementation was corrected in the same way, except in items 8 and 9:
-it still takes the time of a partner whose box only touches, and it still raises
-the `CalledModuleError` of a failed module. The new algebra never had these
-errors; only the items on month steps, on dates beyond the year 9999, on a
-failed module and on the granularity concerned the library and with it both
-algebras. Results of earlier GRASS versions that used one of these forms need a
-new run.
+corrections. The items below describe some of them with examples. Item 8 is no
+correction of those releases: it shows how **-c** relates maps under **-s**,
+which those releases ignored. In the other items those releases computed
+wrongly, ended in an error that had no reason, or reported the wrong error.
+**-c** now gives the result described here. The reference implementation was
+corrected in the same way, except in items 8 and 9: it still takes the time of a
+partner whose box only touches, and it still raises the `CalledModuleError` of a
+failed module. The new algebra never had these errors; only the items on month
+steps, on dates beyond the year 9999, on a failed module and on the granularity
+concerned the library and with it both algebras. Results of earlier GRASS
+versions that used one of these forms need a new run.
 
 1. **tsnap() and tshift() of no maps.** If the expression inside has no
     maps, the result is empty like any other empty result: the classic
@@ -801,16 +802,12 @@ new run.
 8. **A selection with r or u under -s and maps whose boxes only touch.** With
     **-s** two maps are related when they are related in time and in space;
     boxes that meet at an edge or a corner only are not related in space. A
-    selection such as `A {:,precedes,r} B` took the time of every map that was
-    related in time, also of one whose box only touches the box of the map of A,
-    and the last such map won. An inverse selection such as
-    `A {!:,precedes,r} B` kept a map without a related partner, as it should,
-    but gave it the time of a partner that only touches it. The time is now
-    taken only from maps that are related in time and in space, and `!:` keeps a
-    map without such a partner with its own time. For example, a map of A from 1
-    to 2 January whose box meets at a corner the box of a map of B from 2 to 3
-    January keeps the time 1 to 2 January in the inverse selection above, where
-    it took 2 to 3 January. Without **-s** nothing changes.
+    selection such as `A {:,precedes,r} B` takes the time only from maps that
+    are related in time and in space, and an inverse selection such as
+    `A {!:,precedes,r} B` keeps a map without such a partner with its own time.
+    For example, a map of A from 1 to 2 January whose box meets at a corner the
+    box of a map of B from 2 to 3 January keeps the time 1 to 2 January in the
+    inverse selection above. Without **-s** only the time relates the maps.
 
 9. **A failed module.** If a module fails while the maps are computed, for
     example *v.patch*, both algebras ended with a Python traceback. They now end
@@ -836,11 +833,11 @@ new run.
 
 #### Differences from the reference implementation
 
-The differences in message texts, in the debug output of the Python
-parser, in the order of errors and in the error for an existing result that
-[t.rast.algebra](t.rast.algebra.md) lists apply here likewise, as does the
-item on lists of absolute and relative time, the one that changes the outcome
-of an expression.
+The differences in message texts, in the debug output of the Python parser, in
+the order of errors and in the error for an existing result that
+[t.rast.algebra](t.rast.algebra.md) lists apply here likewise, as do the two
+items that change the outcome of an expression: lists of absolute and relative
+time, and a relative time instance in a selection.
 
 ## EXAMPLES
 
@@ -2506,9 +2503,9 @@ spatio-temporal map algebra for big data analysis. Data 4, 86.
 [t.register](t.register.md), [t.select](t.select.md),
 [t.vect.list](t.vect.list.md), [v.buffer](v.buffer.md),
 [v.in.region](v.in.region.md), [v.overlay](v.overlay.md),
-[v.patch](v.patch.md)*,
+[v.patch](v.patch.md),
 [changes in GRASS 8.6](temporalchanges.md),
-[temporal data processing](temporalintro.md)
+[temporal data processing](temporalintro.md)*
 
 ## AUTHORS
 

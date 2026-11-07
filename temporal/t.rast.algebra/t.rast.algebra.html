@@ -106,14 +106,15 @@ same time. The default is 1. The result is the same for any number.
 
 <h3>Flags</h3>
 
-<b>-s</b> also checks the spatial topology of temporally related maps and
-processes only maps that are related in space too. <b>-n</b> registers maps that
-are null everywhere, which are left out by default; this concerns the new
-algebra, see above for <b>-c</b>. <b>-g</b> uses the granularity algebra instead of
-the temporal topology of the maps, see "Granularity algebra" below. <b>-d</b>
-performs a dry run: it plans the maps and prints the process chain, but
-computes no map and creates no dataset. <b>-c</b> selects the classic algebra,
-which gives the results of the releases before GRASS 8.6; see "Core and
+<b>-s</b> also checks the spatial topology of temporally related maps and processes
+only maps that are related in space too. <b>-n</b> registers maps that are null
+everywhere, which are left out by default; this concerns the new algebra, see
+above for <b>-c</b>. <b>-g</b> uses the granularity algebra instead of the temporal
+topology of the maps, see "Granularity algebra" below. <b>-d</b> performs a dry
+run: it plans the maps and prints the process chain, but computes no map and
+creates no dataset. <b>-c</b> selects the classic algebra, which gives the results
+of the releases before GRASS 8.6 with the exceptions that the page
+<a href="temporalchanges.html#classic-algebra">changes in GRASS 8.6</a> lists; see "Core and
 classic algebra" below. The environment variable <code>GRASS_TEMPORAL_ALGEBRA</code>
 selects it for a whole session.
 
@@ -1014,8 +1015,11 @@ GRASS version they were computed with.
 The classic algebra gives the results of the releases before GRASS 8.6, except
 where those releases were corrected; the page
 <a href="temporalchanges.html#classic-algebra">changes in GRASS 8.6</a> lists all
-corrections. The items below describe some of them with examples. In these cases
-those releases computed wrongly, ended in an error that had no reason, or
+corrections. The items below describe some of them with examples. Items 9 and 16
+are no corrections of those releases: item 9 shows how <b>-c</b> reads a map at an
+offset in a condition, which gives the results of those releases, and item 16
+how it relates maps under <b>-s</b>, which those releases ignored. In the other
+items those releases computed wrongly, ended in an error that had no reason, or
 reported the wrong error. <b>-c</b> now gives the result described here. The
 reference implementation was corrected in the same way, except in items 16 and
 17: it still takes the time of a partner whose box only touches, and it still
@@ -1084,13 +1088,13 @@ C = merge(A, tmap(singletmap))
 C = merge(A, A * 1.5)
 </pre></div>
 </li>
-<li><b>Time constants with offset.</b> A temporal function with an offset
-needs a map with the time value it returns. On a map without it, such as
+<li><b>Time constants with offset.</b> A temporal function with an offset needs a
+map with the time value it returns. On a map without it, such as
 <code>end_month()</code> of a time instance or <code>start_month()</code> of relative time, the
 expression stops with an error that says the function requires absolute
-time, as the same function in a condition does. Earlier versions wrote
-<code>None</code> into the <em>r.mapcalc</em> expression, which failed when the maps were
-computed:
+time, as the same function in a condition does. The releases before
+GRASS 8.6 ended with a Python traceback (<code>AttributeError</code>) while they read
+the expression:
 
 <div class="code"><pre>
 C = A + end_month(I, 0)
@@ -1132,13 +1136,12 @@ C = N + td(A # merge(A, N))
 <li><b>A map read at an offset as a truth value.</b> A time function of a map read
 at an offset in time or in cells, such as <code>end_year(A[1])</code>, joined with <code>&amp;&amp;</code>
 or <code>||</code> to a condition on cells is a truth value, like the time function of
-any map. The releases before GRASS 8.6 wrote the map itself as the operand,
-so that a map with a value other than 0 counted as true whatever the time
-function said. The same holds where the time condition follows further time
-conditions, as in <code>end_year(A[1]) == 1 &amp;&amp; end_year(N) == 1 &amp;&amp; A &gt; 0</code>. With
-the values 1 to 4 in A, the expression gave 1, 2 and 3 and now gives 0, 0
-and 3, because <code>end_year(A[1]) == 1</code> is false. The cell value of a map read
-at an offset, as in <code>A[1] &gt; 1 &amp;&amp; A</code>, did not change:
+any map; the map itself is not the operand. The same holds where the time
+condition follows further time conditions, as in
+<code>end_year(A[1]) == 1 &amp;&amp; end_year(N) == 1 &amp;&amp; A &gt; 0</code>. With the values 1 to 4
+in A, the expression gives 0, 0 and 3, because <code>end_year(A[1]) == 1</code> is
+false. The cell value of a map read at an offset, as in <code>A[1] &gt; 1 &amp;&amp; A</code>,
+counts as in any other condition:
 
 <div class="code"><pre>
 C = if(end_year(A[1]) == 1 || A &gt; 2, A)
@@ -1227,16 +1230,12 @@ is before the year 1"; no map and no dataset is created.</li>
 <li><b>A selection with r or u under -s and maps whose boxes only touch.</b> With
 <b>-s</b> two maps are related when they are related in time and in space;
 boxes that meet at an edge or a corner only are not related in space. A
-selection such as <code>A {:,precedes,r} B</code> took the time of every map that was
-related in time, also of one whose box only touches the box of the map of A,
-and the last such map won. An inverse selection such as
-<code>A {!:,precedes,r} B</code> kept a map without a related partner, as it should,
-but gave it the time of a partner that only touches it. The time is now
-taken only from maps that are related in time and in space, and <code>!:</code> keeps a
-map without such a partner with its own time. For example, a map of A from 1
-to 2 January whose box meets at a corner the box of a map of B from 2 to 3
-January keeps the time 1 to 2 January in the inverse selection above, where
-it took 2 to 3 January. Without <b>-s</b> nothing changes.</li>
+selection such as <code>A {:,precedes,r} B</code> takes the time only from maps that
+are related in time and in space, and an inverse selection such as
+<code>A {!:,precedes,r} B</code> keeps a map without such a partner with its own time.
+For example, a map of A from 1 to 2 January whose box meets at a corner the
+box of a map of B from 2 to 3 January keeps the time 1 to 2 January in the
+inverse selection above. Without <b>-s</b> only the time relates the maps.</li>
 <li><b>A failed module.</b> If a module fails while the maps are computed, for
 example <em>r.mapcalc</em> on a floating point map as an operand of <code>&amp;&amp;</code>, both
 algebras ended with a Python traceback. They now end with the error
@@ -1274,10 +1273,10 @@ later the granularity is <code>241 hours</code>.</li>
 
 <h4>Differences from the reference implementation</h4>
 
-Besides the corrections, <b>-c</b> differs from the reference implementation
-in the following points. Only the item on lists of absolute and relative
-time changes the outcome of an expression; the others concern messages, output
-and the class of an error.
+Besides the corrections, <b>-c</b> differs from the reference implementation in the
+following points. Two of them change the outcome of an expression, the items on
+lists of absolute and relative time and on a relative time instance in a
+selection; the others concern messages, output and the class of an error.
 
 <ul>
 <li><b>Message texts.</b> The texts of warnings and errors are those of the
@@ -1325,6 +1324,14 @@ of <code>RT</code> as <code>RT : RT</code> does:
 C = merge(tmap(sinst), RT) : RT
 </pre></div>
 </li>
+<li><b>A relative time instance in a selection.</b> A selection on relative time with
+a time instance on the right and the temporal operator <code>r</code>, such as
+<code>RT {:,contains,r} tmap(rinst)</code>, stops the reference implementation with a
+<code>TypeError</code>, as it stopped the releases before GRASS 8.6. The classic
+algebra selects the map with the time of the instance, as the new algebra
+does; the last block of the
+<a href="#catalog-where-the-classic-algebra-differs">catalog</a> where the classic
+algebra differs shows it.</li>
 </ul>
 
 <h3>Granularity algebra</h3>
@@ -2838,12 +2845,13 @@ c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|12.0|849.0
 <h3>Catalog: where the classic algebra differs</h3>
 
 Each pair of blocks computes one expression of the list "Core and classic
-algebra" in the NOTES, first with the new algebra and then with <b>-c</b>; the
-last block shows a correction of the classic algebra that the list does not
-name. The first pair is item 1: the conditions of the two maps of <code>A</code> within a
-map of <code>B</code> are joined with and, so the new algebra gives 0 and 20; the classic
-algebra gives one result for each pair of a condition map and a conclusion map,
-and four maps in total.
+algebra" in the NOTES, first with the new algebra and then with <b>-c</b>; the last
+block shows a form that the releases before GRASS 8.6 refused with a
+<code>TypeError</code>, which the classic algebra now computes and the reference
+implementation still refuses. The first pair is item 1: the conditions of the
+two maps of <code>A</code> within a map of <code>B</code> are joined with and, so the new algebra
+gives 0 and 20; the classic algebra gives one result for each pair of a
+condition map and a conclusion map, and four maps in total.
 
 <p>Command line:</p>
 
@@ -3156,10 +3164,11 @@ c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|-1294967295.0|-1294967295.0
 <p>
 A selection on relative time with a time instance on the right and the
 temporal operator <code>r</code> ended with a <code>TypeError</code> in the releases before
-GRASS 8.6. The classic algebra now computes it as the new algebra does:
-of the two maps of <code>flow</code> (hours 0 to 2 and 2 to 4, values 6 and 8), the
-second contains the time instance <code>pulse</code> at hour 3 and is selected with
-the time of the instance.
+GRASS 8.6. The classic algebra now computes it as the new algebra does,
+while the reference implementation still ends with the <code>TypeError</code>: of the
+two maps of <code>flow</code> (hours 0 to 2 and 2 to 4, values 6 and 8), the second
+contains the time instance <code>pulse</code> at hour 3 and is selected with the time
+of the instance.
 
 <div class="code"><pre>
 r.mapcalc expression="flow_1 = 6"
