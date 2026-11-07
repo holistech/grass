@@ -7,6 +7,7 @@ comparisons of the old suite are kept with all their keys.
 
 import pytest
 
+from grass.temporal.testing.data import MapSpec, create_stds, quarter
 from grass.temporal.testing.readback import list_maps, message, stds_info
 
 # The keys the old suite compared, for datasets of this region.
@@ -283,3 +284,21 @@ def test_an_empty_dataset_warns_without_the_hint_on_where(tools, quarterly, pref
         "(type: raster): Dataset is empty"
     ) in message(result)
     assert "where clause" not in message(result)
+
+
+def test_extract_reads_a_dataset_with_a_label(tools, prefix):
+    # Two maps share the time and differ in the label; "name.label" selects
+    # the maps with the label, as it does for the type strds.
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [
+            MapSpec(f"{prefix}_a", 1, quarter(0), quarter(1), semantic_label="S2_1"),
+            MapSpec(f"{prefix}_b", 2, quarter(0), quarter(1), semantic_label="S2_2"),
+        ],
+    )
+
+    tools.t_rast_extract(input=f"{prefix}_in.S2_1", output=prefix)
+
+    assert [row.name for row in list_maps(tools, "strds", prefix)] == [f"{prefix}_a"]

@@ -18,11 +18,28 @@ def test_label_is_split_for_strds():
     assert _parse_id("test.S2_8@m", stds_type="strds") == ("test", "m", "S2_8")
 
 
-@pytest.mark.parametrize(
-    "stds_type", ["raster", "rast", "str3ds", "raster3d", "stvds", "vector"]
-)
+@pytest.mark.parametrize("stds_type", ["str3ds", "raster3d", "stvds", "vector"])
 def test_other_types_keep_the_dot(stds_type):
     assert _parse_id("test.S2_8", stds_type=stds_type) == ("test.S2_8", None, None)
+
+
+@pytest.mark.parametrize("stds_type", ["raster", "rast", "strds"])
+def test_parse_id_splits_the_label_for_raster_types(stds_type):
+    """Tools reach the dataset with the map type, not only with strds."""
+    assert _parse_id("sat.S2_1@m", stds_type) == ("sat", "m", "S2_1")
+    assert _parse_id("sat.S2_1", stds_type) == ("sat", None, "S2_1")
+
+
+@pytest.mark.parametrize("stds_type", ["raster_3d", "raster3d", "vector", "vect"])
+def test_parse_id_keeps_the_dot_for_types_without_labels(stds_type):
+    assert _parse_id("sat.S2_1@m", stds_type) == ("sat.S2_1", "m", None)
+
+
+@pytest.mark.parametrize("stds_type", ["raster", "rast", "strds"])
+def test_parse_id_rejects_double_dot(project_session, stds_type):
+    """A label has no dot of its own."""
+    with pytest.raises(FatalError, match="Invalid semantic_label"):
+        _parse_id("sat.S2.1", stds_type)
 
 
 @pytest.fixture
@@ -51,14 +68,12 @@ def test_old_strds_is_opened_with_its_label(project_session):
 
 
 @pytest.mark.parametrize("stds_type", ["raster", "rast"])
-def test_old_raster_dataset_with_dot_is_read_whole(project_session, stds_type):
-    """Only the type strds reads a label, so t.register and t.unregister do not.
-
-    A dataset "test" must not be found under the name "test.S2_8".
-    """
+def test_old_raster_dataset_is_opened_with_its_label(project_session, stds_type):
+    """The raster tools pass the map type, which reads a label like strds."""
     tgis.open_new_stds("test", "strds", "absolute", "t", "d", "mean")
-    with pytest.raises(FatalError):
-        tgis.open_old_stds("test.S2_8", stds_type)
+    sp = tgis.open_old_stds("test.S2_8", stds_type)
+    assert sp.get_name() == "test.S2_8"
+    assert sp.get_name(semantic_label=False) == "test"
 
 
 def test_new_raster_dataset_with_dot_can_be_read_again(project_session):

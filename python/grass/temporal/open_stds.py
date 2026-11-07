@@ -34,9 +34,11 @@ def _parse_id(
     """Parse parts of a user given dataset name.
 
     :param ident: The id of a space time dataset
-    :param stds_type: The type of the dataset; only "strds" splits a
-                      semantic label ("name.label") off the name, for all
-                      other types the dot stays in the name
+    :param stds_type: The type of the dataset; a semantic label
+                      ("name.label") is split off the name for space time
+                      raster datasets, named "strds" or by their map type
+                      ("raster", "rast"). For all other types the dot stays
+                      in the name
 
     :return: Tuple with ID components: name, mapset, semantic_label
     """
@@ -48,7 +50,10 @@ def _parse_id(
         name, mapset = ident.split("@", 1)
 
     semantic_label = None
-    if "." in name and stds_type == "strds":
+    # Tools such as t.rast.extract reach open_old_stds() with the map type
+    # "raster" instead of "strds"; without this the label stays in the name.
+    # Space time 3D raster and vector datasets have no semantic labels.
+    if "." in name and stds_kind_of(stds_type).name == "strds":
         name, semantic_label = name.split(".", 1)
         if "." in semantic_label:
             msgr.fatal(_("Invalid semantic_label <%s>") % semantic_label)
