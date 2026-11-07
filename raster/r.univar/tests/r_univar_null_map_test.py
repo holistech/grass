@@ -28,8 +28,8 @@ def test_a_map_without_valid_cells_has_no_minimum_and_maximum(tools, expression)
 
     stats = tools.r_univar(map="empty", flags="g").keyval
 
-    # DBL_MAX and -DBL_MAX are the values that the minimum and maximum start
-    # from; they are no statistics of a map without cells.
+    # The minimum and maximum start from +infinity and -infinity; these are
+    # no statistics of a map without cells and must be reported as nan.
     assert stats["n"] == 0
     assert math.isnan(stats["min"]), stats
     assert math.isnan(stats["max"]), stats
