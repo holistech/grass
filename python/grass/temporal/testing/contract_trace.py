@@ -25,11 +25,11 @@ calls whatever it needs. Only functions of ``grass.temporal`` count. The helpers
 underscore (private functions, ``__init__``) are left out, with two exceptions:
 the operator methods (``OPERATOR_METHODS``, such as ``__truediv__``, of a
 public class) and the methods that a private base class defines, which are
-reported under the class of ``self``. The inner functions and comprehensions of a public function are
-left out too, as they are not part of the interface. Calls made before the
-script starts, such as the import of the package, are not recorded. A script
-that starts threads or other Python processes is traced only in its main
-thread.
+reported under the class of ``self``. The inner functions and comprehensions
+of a public function are left out too, as they are not part of the interface.
+Calls made before the script starts, such as the import of the package, are not
+recorded. A script that starts threads or other Python processes is traced only
+in its main thread.
 
 This module must not import pytest; fixtures belong in conftest.py files.
 """
@@ -92,11 +92,11 @@ def called_names(script: Path, *, env: dict, cwd: Path) -> set[str]:
     (``__len__``, ``__iter__``, ``__getitem__``) leave no name, so this check
     does not replace reading the example. Operators (``a / b``, ``a < b``) do
     show, under the class that defines the operator method, if that class is
-    public. A method that a
-    private base class defines (``_PlanarExtentMethods.spatial_intersection``)
-    is reported under the class of the object it was called on, if that is a
-    public class of grass.temporal that inherits from the private class; for a private class or a ``self`` from
-    elsewhere it shows no name. A property whose getter has a name of
+    public. A method that a private base class defines
+    (``_PlanarExtentMethods.spatial_intersection``) is reported under the class
+    of the object it was called on, if that is a public class of grass.temporal
+    that inherits from the private class; for a private class or a ``self``
+    from elsewhere it shows no name. A property whose getter has a name of
     its own is reported under the getter (``get_temporal_extent``, not
     ``temporal_extent``), because the profiler sees the getter's code.
 

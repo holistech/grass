@@ -525,8 +525,7 @@ constructors, `__repr__` and the container protocol methods (`__len__`,
 `__iter__`). It does see operators (`a / b`, `a < b`) under the class that
 defines the operator method, if that class is public, and a method that a
 private base class defines under the public class of the object it was called
-on. It traces only the main
-thread. Read an example as well as tracing it.
+on. It traces only the main thread. Read an example as well as tracing it.
 
 ## Tests that need the North Carolina sample dataset
 
