@@ -6,10 +6,11 @@ documentation use from grass.temporal, with the origin ("repo", "addons",
 "addons+repo", "docs" or "upstream") of each entry. The first three were
 measured on 2026-10-25 by a read-only AST scan of both trees; "docs" entries
 were added with the examples that need them; "upstream" entries are names
-that exist because OSGeo main has them, so code written for it runs here. Methods and members are an
-upper bound: every attribute name seen outside that a class (or the object
-behind an instance attribute such as metadata) has today is listed, because
-the scan cannot tell which object a name was called on.
+that exist because OSGeo main has them, so code written for it runs here.
+Methods and members are an upper bound: every attribute name seen outside
+that a class (or the object behind an instance attribute such as metadata)
+has today is listed, because the scan cannot tell which object a name was
+called on.
 
 A failure names the origin: an entry from "addons" is a break for code the
 repository cannot fix; an entry from "repo" only needs its caller changed in

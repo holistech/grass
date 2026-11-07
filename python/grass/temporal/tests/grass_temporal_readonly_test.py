@@ -84,6 +84,20 @@ def test_own_map_still_gets_label_and_timestamp(cross_mapset):
     assert rmap.metadata.get_semantic_label() == "S2_2"
 
 
+def test_foreign_map_keeps_its_time_in_the_database(cross_mapset):
+    """The guard skips the file of the map, not its registration"""
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+    try:
+        rmap = tgis.RasterDataset(f"foreign_map@{OWNER}")
+        rmap.select(dbif=dbif, mapset=CURRENT)
+        start, _end = rmap.get_absolute_time()
+    finally:
+        dbif.close()
+    assert rmap.get_readonly()
+    assert start == datetime(2010, 6, 1)
+
+
 def test_foreign_map_direct_writes_are_skipped(cross_mapset, monkeypatch):
     """The write and remove methods of a map of another mapset do nothing"""
     rmap = tgis.RasterDataset(f"foreign_map@{OWNER}")
