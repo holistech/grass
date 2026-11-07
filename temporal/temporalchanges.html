@@ -718,8 +718,8 @@ current mapset, <em>t.merge</em> could not merge datasets of other mapsets,
 did not find the color tables of such maps, and <em>t.remove</em> did not find
 the datasets that share a map of another mapset. Now all these cases
 work (<a href="t.merge.html#notes">t.merge</a>).</li>
-<li><b>No files written for maps of other mapsets</b> <em>(upstream)</em>. The time
-stamp and the semantic label of a map are files in the current mapset,
+<li><b>No files written for maps of other mapsets</b> <em>(partly upstream)</em>. The
+time stamp and the semantic label of a map are files in the current mapset,
 whatever mapset the map is named after. Registering or copying a map of
 another mapset wrote such a file into the current mapset for a map that
 is not there (a file <code>cell_misc/&lt;name&gt;/semantic_label</code> for a label), or
@@ -1401,8 +1401,8 @@ database from <code>GISBASE</code>, below which it assumed <code>etc</code>. Now
 <code>GRASS_ETCDIR</code>, which <code>grass</code> sets, so an installation that keeps <code>etc</code>
 elsewhere works. Outside a GRASS session without this variable, the
 function raises a <code>KeyError</code>.</li>
-<li><b>Maps of other mapsets</b> <em>(upstream)</em>. <code>BaseRow.get_readonly()</code>, the
-property <code>readonly</code> and <code>AbstractMapDataset.get_readonly()</code> are new. They
+<li><b>Maps of other mapsets</b> <em>(partly upstream)</em>. <code>BaseRow.get_readonly()</code>,
+the property <code>readonly</code> and <code>AbstractMapDataset.get_readonly()</code> are new. They
 tell whether a map belongs to another mapset than the current one, and
 the library writes the time stamp and label files only for maps that are
 not read-only. There is no <code>set_readonly()</code>: the answer is computed at
@@ -1672,10 +1672,10 @@ with a traceback.</li>
 and after <b>--overwrite</b> the first dataset kept its count of maps.</li>
 <li><b><em>t.rast.import</em>:</b> every refusal ended with a traceback.</li>
 <li><b><em>t.rast.mapcalc</em>:</b> a decimal number in <b>nprocs</b> ended with a traceback.</li>
-<li><b><em>t.rast.neighbors</em>:</b> with <b>--overwrite</b> or <b>-e</b>, the command was
-written into the history of the output dataset twice in one run. Now it
-is written once: the history of an overwritten dataset holds the
-command of the last run, and with <b>-e</b> each run adds its command.</li>
+<li><b><em>t.rast.neighbors</em>:</b> with <b>--overwrite</b> (without <b>-e</b>), the command
+was written into the history of the output dataset twice in one run. Now
+it is written once, so the history of an overwritten dataset holds the
+command of the last run.</li>
 <li><b><em>t.rast.neighbors</em>:</b> a failing <em>r.neighbors</em> ended with a traceback, and
 the parser did not check <b>region_relation</b>.</li>
 <li><b><em>t.rast.out.vtk</em>:</b> a refused export left the copy of the map behind.</li>

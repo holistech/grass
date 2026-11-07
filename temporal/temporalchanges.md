@@ -709,8 +709,8 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     the datasets that share a map of another mapset. Now all these cases
     work ([t.merge](t.merge.md#notes)).
 
-- **No files written for maps of other mapsets** *(upstream)*. The time
-    stamp and the semantic label of a map are files in the current mapset,
+- **No files written for maps of other mapsets** *(partly upstream)*. The
+    time stamp and the semantic label of a map are files in the current mapset,
     whatever mapset the map is named after. Registering or copying a map of
     another mapset wrote such a file into the current mapset for a map that
     is not there (a file `cell_misc/<name>/semantic_label` for a label), or
@@ -1318,8 +1318,8 @@ describes every module.
     `GRASS_ETCDIR`, which `grass` sets, so an installation that keeps `etc`
     elsewhere works. Outside a GRASS session without this variable, the
     function raises a `KeyError`.
-- **Maps of other mapsets** *(upstream)*. `BaseRow.get_readonly()`, the
-    property `readonly` and `AbstractMapDataset.get_readonly()` are new. They
+- **Maps of other mapsets** *(partly upstream)*. `BaseRow.get_readonly()`,
+    the property `readonly` and `AbstractMapDataset.get_readonly()` are new. They
     tell whether a map belongs to another mapset than the current one, and
     the library writes the time stamp and label files only for maps that are
     not read-only. There is no `set_readonly()`: the answer is computed at
@@ -1585,10 +1585,10 @@ of the manuals found are fixed as well, but they are not counted.
     and after **--overwrite** the first dataset kept its count of maps.
 - ***t.rast.import*:** every refusal ended with a traceback.
 - ***t.rast.mapcalc*:** a decimal number in **nprocs** ended with a traceback.
-- ***t.rast.neighbors*:** with **--overwrite** or **-e**, the command was
-    written into the history of the output dataset twice in one run. Now it
-    is written once: the history of an overwritten dataset holds the
-    command of the last run, and with **-e** each run adds its command.
+- ***t.rast.neighbors*:** with **--overwrite** (without **-e**), the command
+    was written into the history of the output dataset twice in one run. Now
+    it is written once, so the history of an overwritten dataset holds the
+    command of the last run.
 - ***t.rast.neighbors*:** a failing *r.neighbors* ended with a traceback, and
     the parser did not check **region_relation**.
 - ***t.rast.out.vtk*:** a refused export left the copy of the map behind.
