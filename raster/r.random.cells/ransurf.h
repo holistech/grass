@@ -22,7 +22,7 @@ extern double MaxDist, MaxDistSq;
 extern FLAG *Cells;
 extern CELLSORTER *DoNext;
 extern CELL **Out, *CellBuffer;
-extern int Seed, OutFD;
+extern int OutFD;
 extern int MaxCellsNum;
 extern struct Flag *Verbose;
 extern struct Option *Distance;

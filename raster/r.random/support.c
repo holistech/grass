@@ -1,3 +1,5 @@
+#include <inttypes.h>
+
 #include <grass/gis.h>
 #include <grass/raster.h>
 #include <grass/vector.h>
@@ -5,7 +7,7 @@
 #include "local_proto.h"
 
 int make_support(struct rr_state *theState, int percent, double percentage,
-                 long seed_value)
+                 int64_t seed_value)
 {
     char title[100];
     struct History hist;
@@ -43,14 +45,14 @@ int make_support(struct rr_state *theState, int percent, double percentage,
         if (percent)
             Rast_format_history(&hist, HIST_DATSRC_2,
                                 "Random points for %.2f percent of input cells "
-                                "with random seed %ld",
+                                "with random seed %" PRId64,
                                 percentage, seed_value);
         else
             Rast_format_history(&hist, HIST_DATSRC_2,
 #ifdef HAVE_LONG_LONG_INT
-                                "%llu random points with random seed %ld",
+                                "%llu random points with random seed %" PRId64,
 #else
-                                "%lu random points with random seed %ld",
+                                "%lu random points with random seed %" PRId64,
 #endif
                                 theState->nRand, seed_value);
 

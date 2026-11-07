@@ -32,7 +32,8 @@ int MapCount, FDM, Rs, Cs, Theory;
 CELL *CellBuffer;
 FILTER *AllFilters, Filter;
 CATINFO CatInfo;
-int *Seeds, Seed, NumSeeds, Low, High, NumMaps, NumFilters, OutFD;
+int64_t SeedValue;
+int SeedGiven, NumSeeds, Low, High, NumMaps, NumFilters, OutFD;
 char Buf[240], **OutNames, *TheoryName, *Mapset;
 
 struct Flag *Uniform;
@@ -45,7 +46,8 @@ int main(int argc, char **argv)
 {
     struct GModule *module;
 
-    int DoMap, DoFilter, MapSeed;
+    int DoMap, DoFilter;
+    int64_t MapSeed;
 
     G_gisinit(argv[0]);
 
@@ -118,12 +120,16 @@ int main(int argc, char **argv)
 
         G_message(_("Generating raster map <%s>..."), OutNames[DoMap]);
 
-        if (Seeds[DoMap] < 0)
+        /* The option takes one seed, for the first map. */
+        if (DoMap == 0 && SeedGiven) {
+            G_srand48(SeedValue);
+            MapSeed = SeedValue;
+        }
+        else {
             G_srand48_auto();
-        else
-            G_srand48(Seeds[DoMap]);
+            MapSeed = -1;
+        }
 
-        MapSeed = Seed = Seeds[DoMap];
         ZeroMapCells();
 
         for (DoFilter = 0; DoFilter < NumFilters; DoFilter++) {
