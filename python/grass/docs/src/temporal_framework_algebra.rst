@@ -245,8 +245,13 @@ function node (``grass.temporal.algebra.parser.grammar.Grammar.p_function``),
 and the translator decides which names exist.
 
 **The translator**: ``grass.temporal.algebra.parser.translate.Translator._function``
-refuses a name that is in none of its tuples with "Unknown function", before it
-reads a dataset. A function of the cells with one argument is added to
+reads ``tmap()`` and ``map()`` and, in a selection, the functions that name the
+type of a dataset; any other name must be in
+``grass.temporal.algebra.parser.translate._CELL_FUNCTIONS``,
+``grass.temporal.algebra.parser.translate._OTHER_FUNCTIONS`` or
+``grass.temporal.algebra.time_functions.TIMEVARS``, or the translator refuses it
+with "Unknown function" before it reads a dataset. A function of the cells
+with one argument is added to
 ``grass.temporal.algebra.parser.translate._CELL_FUNCTIONS``; that is all
 ``round()`` needs. A function with other arguments goes to
 ``grass.temporal.algebra.parser.translate._OTHER_FUNCTIONS`` and gets its own
@@ -280,8 +285,11 @@ is among them. A name that is missing there is added there, after checking that
 **Numbers and time values**: a series of numbers, such as the result of
 ``td()``, is computed in Python, and so are calls whose arguments are all
 constants. :func:`~grass.temporal.algebra.content.call` folds a call with the
-Python implementation in ``grass.temporal.algebra.content._SCALAR``. A function
-without one cannot be applied to a series of numbers:
+Python implementation in ``grass.temporal.algebra.content._SCALAR`` or, for a
+function that decides about null itself such as ``if`` or ``isnull``, in
+``grass.temporal.algebra.content._NULL_AWARE``;
+``grass.temporal.algebra.content.evaluate`` reads both. A function without an
+entry in either cannot be applied to a series of numbers:
 :func:`~grass.temporal.algebra.operations.apply` raises
 ``grass.temporal.algebra.content.ScalarFunctionError`` ("cannot be computed for
 scalar values"), as it does today for ``sin(td(A))``. An entry there must
@@ -321,11 +329,14 @@ the reference. It knows the functions of the cells as tokens of their own:
     :end-before: "p_mapcalc_operation1": """
 
 A function added to the translator of the core therefore stays a syntax error
-with ``-c``, although the classic translator
-(``grass.temporal.algebra.parser.classic.ClassicTranslator``) inherits
-``grass.temporal.algebra.parser.translate.Translator._call``: the classic grammar
-never builds the node. Adding a function to the classic syntax changes the
-classic algebra. Changing the copy alone fails the tests of
+with ``-c``. The classic translator
+(``grass.temporal.algebra.parser.classic.ClassicTranslator``) overrides
+``grass.temporal.algebra.parser.classic.ClassicTranslator._function`` and
+``grass.temporal.algebra.parser.classic.ClassicTranslator._call``, but both hand
+a function of the cells to the methods of the core (``_call`` once for each
+unit of a classic map list), so the new name would be known there; the classic
+grammar never builds the node. Adding a function to the classic syntax changes
+the classic algebra. Changing the copy alone fails the tests of
 ``grass_temporal_algebra_classic_grammar_test.py``, among them
 ``test_frozen_copy_equals_the_parser_classes``, which keeps the copy equal to the
 productions of the reference.
@@ -421,10 +432,12 @@ Characterization tests
     they compute on the core and keep the results they had before. Their files
     ``*_characterization_test.py`` hold the results measured on the tools before
     the port onto the core. A change of the backends that computes a map of a
-    granule otherwise fails them, for example
+    granule otherwise fails them: when a granule with one map is computed with
+    *r.series* instead of copied with *g.copy*,
+    ``test_single_map_granule_keeps_value_type_and_color`` and
     ``test_two_map_granule_method_families`` in
     ``temporal/t.rast.aggregate/tests/t_rast_aggregate_characterization_test.py``
-    when a granule with one map is computed with *r.series* instead of copied.
+    fail.
 
 The marker ``fixed_algebra``
     The tests of the algebra tools compute on the algebra that
@@ -454,8 +467,8 @@ the ``expression=`` of each *t.rast.algebra* command, where ``-c`` chooses the
 classic algebra. ``test_manual_example_runs`` plans each of them as a dry run
 on the datasets of its fixture, or expects the error that the lists
 ``MANUAL_ERRORS`` and ``CLASSIC_MANUAL_ERRORS`` of the test name for it; an
-assignment that reads a map or dataset the fixture lacks is skipped. A change of the core that
-breaks an expression of the manual fails it: without ``exp`` in
+assignment that reads a map or dataset the fixture lacks is skipped. A change of
+the core that breaks an expression of the manual fails it: without ``exp`` in
 ``grass.temporal.algebra.parser.translate._CELL_FUNCTIONS``, the case
 ``C = exp(A * 1000)`` fails with "Unknown function exp()". An expression of the
 manual that a change makes valid, or invalid, is changed in the manual text and
