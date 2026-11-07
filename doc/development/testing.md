@@ -492,9 +492,9 @@ checks prose, both check what the text claims about the code.
   in a new project and must end without a traceback; each block may call only
   what the public contract lists; every module and package of the library has
   a `:mod:` role on the page and every role names a module that exists. On this
-  page only `.. code-block:: python` is read as a code block. The test rejects, instead of
-  skipping, the directives `code`, `sourcecode`, `literalinclude`, `doctest`
-  and `testcode`, any other `code-block` language, a line that ends in `::`
+  page only `.. code-block:: python` is read as a code block. The test
+  rejects, instead of skipping, the directives `code`, `sourcecode`,
+  `literalinclude`, `doctest` and `testcode`, any other `code-block` language, a line that ends in `::`
   (a literal block, also a lone `::`) and a line that starts with `>>>`; write
   Python examples as `.. code-block:: python`.
 
