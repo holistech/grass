@@ -315,17 +315,20 @@ both corrections.
 
 <h4>Corrections to the classic algebra</h4>
 
-The classic algebra gives the results of the releases before GRASS 8.6, with the
-exceptions below. In these cases those releases computed wrongly, ended in an
-error that had no reason, or reported the wrong error. <b>-c</b> now gives the
-result described here. The reference implementation was corrected in the same
-way, except in items 14 and 15: it still takes the time of a partner whose box
-only touches, and it still raises the <code>CalledModuleError</code> of a failed module.
-The new algebra never computed these cases wrongly; only the items on month
-steps, on dates beyond the year 9999, on a failed module and on the granularity
-concerned the library and with it both algebras. Results of earlier GRASS
-versions that used one of these forms need a new run. The examples use the
-datasets of the list above and, in addition, N with daily maps.
+The classic algebra gives the results of the releases before GRASS 8.6, except
+where those releases were corrected; the page
+<a href="temporalchanges.html#classic-algebra">changes in GRASS 8.6</a> lists all
+corrections. The items below describe some of them with examples. In these cases
+those releases computed wrongly, ended in an error that had no reason, or
+reported the wrong error. <b>-c</b> now gives the result described here. The
+reference implementation was corrected in the same way, except in items 14 and
+15: it still takes the time of a partner whose box only touches, and it still
+raises the <code>CalledModuleError</code> of a failed module. The new algebra never
+computed these cases wrongly; only the items on month steps, on dates beyond the
+year 9999, on a failed module and on the granularity concerned the library and
+with it both algebras. Results of earlier GRASS versions that used one of these
+forms need a new run. The examples use the datasets of the list above and, in
+addition, N with daily maps.
 
 <ol>
 <li><b>td() of an expression</b> on the right of an operator used the value of
@@ -1883,7 +1886,8 @@ spatio-temporal map algebra for big data analysis. Data 4, 86.
 
 <em><a href="t.rast.algebra.html">t.rast.algebra</a>,
 <a href="t.rast3d.mapcalc.html">t.rast3d.mapcalc</a>, <a href="r.mapcalc.html">r.mapcalc</a>,
-<a href="t.vect.algebra.html">t.vect.algebra</a>, <a href="t.select.html">t.select</a></em>
+<a href="t.vect.algebra.html">t.vect.algebra</a>, <a href="t.select.html">t.select</a>,
+<a href="temporalchanges.html">changes in GRASS 8.6</a></em>
 
 <h2>AUTHORS</h2>
 

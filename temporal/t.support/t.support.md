@@ -461,6 +461,7 @@ in the call.
 
 *[g.remove](g.remove.md), [t.create](t.create.md), [t.info](t.info.md),
 [t.register](t.register.md), [t.unregister](t.unregister.md),
+[changes in GRASS 8.6](temporalchanges.md),
 [temporal data processing](temporalintro.md)*
 
 ## AUTHOR

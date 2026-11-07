@@ -1282,6 +1282,7 @@ stay in that mapset and are named with it. The listing shows the new maps in
 *[r.series](r.series.md), [t.create](t.create.md), [t.info](t.info.md),
 [t.rast.aggregate](t.rast.aggregate.md), [t.rast.list](t.rast.list.md),
 [t.register](t.register.md), [t.sample](t.sample.md),
+[changes in GRASS 8.6](temporalchanges.md),
 [temporal data processing](temporalintro.md)*
 
 ## AUTHOR

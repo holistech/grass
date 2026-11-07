@@ -1013,6 +1013,7 @@ resolutions; the call adds them to the region of the first example.
 [t.rast.list](t.rast.list.md), [t.rast3d.list](t.rast3d.list.md),
 [t.upgrade](t.upgrade.md), [t.vect.list](t.vect.list.md),
 [v.timestamp](v.timestamp.md),
+[changes in GRASS 8.6](temporalchanges.md),
 [temporal data processing](temporalintro.md)*
 
 [Maps registration examples in Temporal data processing

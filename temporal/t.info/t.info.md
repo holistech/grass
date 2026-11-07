@@ -1252,6 +1252,7 @@ same values are `key='value'` lines.
 [t.create](t.create.md), [t.list](t.list.md),
 [t.rast.list](t.rast.list.md), [t.register](t.register.md),
 [v.info](v.info.md),
+[changes in GRASS 8.6](temporalchanges.md),
 [temporal data processing](temporalintro.md)*
 
 ## AUTHOR

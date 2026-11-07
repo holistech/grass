@@ -299,17 +299,20 @@ both corrections.
 
 #### Corrections to the classic algebra
 
-The classic algebra gives the results of the releases before GRASS 8.6, with the
-exceptions below. In these cases those releases computed wrongly, ended in an
-error that had no reason, or reported the wrong error. **-c** now gives the
-result described here. The reference implementation was corrected in the same
-way, except in items 14 and 15: it still takes the time of a partner whose box
-only touches, and it still raises the `CalledModuleError` of a failed module.
-The new algebra never computed these cases wrongly; only the items on month
-steps, on dates beyond the year 9999, on a failed module and on the granularity
-concerned the library and with it both algebras. Results of earlier GRASS
-versions that used one of these forms need a new run. The examples use the
-datasets of the list above and, in addition, N with daily maps.
+The classic algebra gives the results of the releases before GRASS 8.6, except
+where those releases were corrected; the page
+[changes in GRASS 8.6](temporalchanges.md#classic-algebra) lists all
+corrections. The items below describe some of them with examples. In these cases
+those releases computed wrongly, ended in an error that had no reason, or
+reported the wrong error. **-c** now gives the result described here. The
+reference implementation was corrected in the same way, except in items 14 and
+15: it still takes the time of a partner whose box only touches, and it still
+raises the `CalledModuleError` of a failed module. The new algebra never
+computed these cases wrongly; only the items on month steps, on dates beyond the
+year 9999, on a failed module and on the granularity concerned the library and
+with it both algebras. Results of earlier GRASS versions that used one of these
+forms need a new run. The examples use the datasets of the list above and, in
+addition, N with daily maps.
 
 1. **td() of an expression** on the right of an operator used the value of
     the expression instead of the duration of its maps. With daily maps in N
@@ -1863,7 +1866,8 @@ spatio-temporal map algebra for big data analysis. Data 4, 86.
 
 *[t.rast.algebra](t.rast.algebra.md),
 [t.rast3d.mapcalc](t.rast3d.mapcalc.md), [r.mapcalc](r.mapcalc.md),
-[t.vect.algebra](t.vect.algebra.md), [t.select](t.select.md)*
+[t.vect.algebra](t.vect.algebra.md), [t.select](t.select.md),
+[changes in GRASS 8.6](temporalchanges.md)*
 
 ## AUTHORS
 

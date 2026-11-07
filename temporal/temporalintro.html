@@ -145,7 +145,10 @@ Since GRASS 8.6, the algebra computes with a new implementation. The previous
 algebra stays available as the <em>classic algebra</em> because published results
 rely on it: the flag <b>-c</b> of the algebra tools selects it for one call, and
 the environment variable <code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole session
-or script. The manual of <em>t.rast.algebra</em> lists where the two differ.
+or script. The manual of <em>t.rast.algebra</em> lists where the two differ. The page
+<a href="temporalchanges.html">changes in GRASS 8.6</a> lists all changes of the temporal
+framework since GRASS 8.5, among them the corrections of the classic algebra
+(<a href="temporalchanges.html#classic-algebra">Classic algebra</a>).
 
 <h2>Temporal data management in general</h2>
 
@@ -1027,6 +1030,7 @@ Course</a></li>
 </ul>
 
 <ul>
+<li><a href="temporalchanges.html">Changes of the temporal framework in GRASS 8.6</a></li>
 <li><a href="rasterintro.html">Introduction into raster data processing</a></li>
 <li><a href="raster3dintro.html">Introduction into 3D raster data (voxel)
 processing</a></li>
