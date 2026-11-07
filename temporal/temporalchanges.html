@@ -16,8 +16,9 @@ Most entries come from a rework of the temporal framework for GRASS 8.6: a
 new implementation of the temporal algebra, a review of every temporal tool
 with new tests and new manuals, and the errors that this review found and
 fixed. Entries marked <em>(upstream)</em> come from the development of GRASS
-between the creation of the release branch of GRASS 8.5 and the start of
-the rework; GRASS 8.5 does not have them either. Where the rework later
+after the creation of the release branch of GRASS 8.5, both before the
+start of the rework and, where the rework took them over later, after it;
+GRASS 8.5 does not have them either. Where the rework later
 changed such an entry, the entry describes the behavior of GRASS 8.6.
 
 <p>
@@ -572,6 +573,14 @@ all spatial relations in 3D; this concerns <b>-s</b> of <em>t.select</em> and
 <h2>Registration and time stamps</h2>
 
 <ul>
+<li><b>A label after the dataset name</b> <em>(upstream)</em>. <em>t.rast.extract</em> and the
+other tools that open a dataset together with its map type did not
+find a dataset given as <code>name.label</code>, such as <code>input=sat.S2_1</code>: the
+run stopped with "not found". Now the label selects the maps with this
+semantic label in these tools too, as in the others. <em>t.register</em> and
+<em>t.unregister</em> with <code>input=name.label</code> work on the dataset <code>name</code>, and
+the label does not filter the maps
+(<a href="temporalintro.html#semantic-labels">temporal data processing</a>).</li>
 <li><b>Intervals with -i.</b> With an increment of several units, such as
 <code>1 months, 15 days</code>, and with monthly intervals from the 31st, each map
 of <em>t.register</em> <b>-i</b> ended one step after its start, which left gaps
@@ -709,6 +718,16 @@ current mapset, <em>t.merge</em> could not merge datasets of other mapsets,
 did not find the color tables of such maps, and <em>t.remove</em> did not find
 the datasets that share a map of another mapset. Now all these cases
 work (<a href="t.merge.html#notes">t.merge</a>).</li>
+<li><b>No files written for maps of other mapsets</b> <em>(upstream)</em>. The time
+stamp and the semantic label of a map are files in the current mapset,
+whatever mapset the map is named after. Registering or copying a map of
+another mapset wrote such a file into the current mapset for a map that
+is not there (a file <code>cell_misc/&lt;name&gt;/semantic_label</code> for a label), or
+removed a file that was not the map's own. Now no tool writes or
+removes the time stamp file or the semantic label file of a map of
+another mapset; the temporal database of the current mapset still
+records the time and the label of the map
+(<a href="temporalintro.html#datasets-of-other-mapsets">temporal data processing</a>).</li>
 </ul>
 
 <h2>Tools</h2>
@@ -1376,6 +1395,18 @@ methods are in <code>grass.temporal.classic.temporal_algebra</code> only. The
 results are the same.</li>
 <li><b>Parser tables.</b> The classic parser built its tables in each call of
 <code>parse()</code>. Now they are built once for each parser class.</li>
+<li><b>Directory of the SQL templates</b> <em>(upstream)</em>. <code>get_sql_template_path()</code>
+took the directory of the SQL files that create and update the temporal
+database from <code>GISBASE</code>, below which it assumed <code>etc</code>. Now it takes
+<code>GRASS_ETCDIR</code>, which <code>grass</code> sets, so an installation that keeps <code>etc</code>
+elsewhere works. Outside a GRASS session without this variable, the
+function raises a <code>KeyError</code>.</li>
+<li><b>Maps of other mapsets</b> <em>(upstream)</em>. <code>BaseRow.get_readonly()</code>, the
+property <code>readonly</code> and <code>AbstractMapDataset.get_readonly()</code> are new. They
+tell whether a map belongs to another mapset than the current one, and
+the library writes the time stamp and label files only for maps that are
+not read-only. There is no <code>set_readonly()</code>: the answer is computed at
+each call, so it cannot become wrong when the current mapset changes.</li>
 <li><b>Initialization</b> <em>(upstream)</em>. <code>init()</code> always created the temporal
 database. Now <code>init(skip_db_init=True)</code> creates none and checks no
 version, dataset objects work without a temporal database, the default
@@ -1641,6 +1672,10 @@ with a traceback.</li>
 and after <b>--overwrite</b> the first dataset kept its count of maps.</li>
 <li><b><em>t.rast.import</em>:</b> every refusal ended with a traceback.</li>
 <li><b><em>t.rast.mapcalc</em>:</b> a decimal number in <b>nprocs</b> ended with a traceback.</li>
+<li><b><em>t.rast.neighbors</em>:</b> with <b>--overwrite</b> or <b>-e</b>, the command was
+written into the history of the output dataset twice in one run. Now it
+is written once: the history of an overwritten dataset holds the
+command of the last run, and with <b>-e</b> each run adds its command.</li>
 <li><b><em>t.rast.neighbors</em>:</b> a failing <em>r.neighbors</em> ended with a traceback, and
 the parser did not check <b>region_relation</b>.</li>
 <li><b><em>t.rast.out.vtk</em>:</b> a refused export left the copy of the map behind.</li>

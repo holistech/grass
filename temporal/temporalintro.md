@@ -158,12 +158,14 @@ new dataset is always created in the current mapset. Maps of other mapsets
 can be registered in a dataset of the current mapset, but the dataset itself
 has to belong to the current mapset.
 
-Registering a map in a space time dataset changes the metadata of the map,
-for instance its time stamp. This matters if the user has no write access to
-the maps from other mapsets. If a registered map is removed from the spatial
-database in another way than with the temporal tools, the temporal database
-still lists it until [t.support](t.support.md) with the flag **-m** reads the
-maps again and drops the maps that are gone.
+Registering a map in a space time dataset writes the time stamp of the map
+into the spatial database, for a map of the current mapset. For a map of
+another mapset no time stamp and no semantic label file is written, so
+registering does not need write access to such a map; the time stays in the
+temporal database of the current mapset only. If a registered map is removed
+from the spatial database in another way than with the temporal tools, the
+temporal database still lists it until [t.support](t.support.md) with the flag
+**-m** reads the maps again and drops the maps that are gone.
 
 SQLite3 or PostgreSQL are supported as temporal database backends.
 Temporal databases stored in other mapsets can be accessed, see

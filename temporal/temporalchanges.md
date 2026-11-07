@@ -19,8 +19,9 @@ Most entries come from a rework of the temporal framework for GRASS 8.6: a
 new implementation of the temporal algebra, a review of every temporal tool
 with new tests and new manuals, and the errors that this review found and
 fixed. Entries marked *(upstream)* come from the development of GRASS
-between the creation of the release branch of GRASS 8.5 and the start of
-the rework; GRASS 8.5 does not have them either. Where the rework later
+after the creation of the release branch of GRASS 8.5, both before the
+start of the rework and, where the rework took them over later, after it;
+GRASS 8.5 does not have them either. Where the rework later
 changed such an entry, the entry describes the behavior of GRASS 8.6.
 
 The algebra tools compute with a new implementation by default. The flag
@@ -563,6 +564,15 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
 
 ## Registration and time stamps
 
+- **A label after the dataset name** *(upstream)*. *t.rast.extract* and the
+    other tools that open a dataset together with its map type did not
+    find a dataset given as `name.label`, such as `input=sat.S2_1`: the
+    run stopped with "not found". Now the label selects the maps with this
+    semantic label in these tools too, as in the others. *t.register* and
+    *t.unregister* with `input=name.label` work on the dataset `name`, and
+    the label does not filter the maps
+    ([temporal data processing](temporalintro.md#semantic-labels)).
+
 - **Intervals with -i.** With an increment of several units, such as
     `1 months, 15 days`, and with monthly intervals from the 31st, each map
     of *t.register* **-i** ended one step after its start, which left gaps
@@ -698,6 +708,17 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     did not find the color tables of such maps, and *t.remove* did not find
     the datasets that share a map of another mapset. Now all these cases
     work ([t.merge](t.merge.md#notes)).
+
+- **No files written for maps of other mapsets** *(upstream)*. The time
+    stamp and the semantic label of a map are files in the current mapset,
+    whatever mapset the map is named after. Registering or copying a map of
+    another mapset wrote such a file into the current mapset for a map that
+    is not there (a file `cell_misc/<name>/semantic_label` for a label), or
+    removed a file that was not the map's own. Now no tool writes or
+    removes the time stamp file or the semantic label file of a map of
+    another mapset; the temporal database of the current mapset still
+    records the time and the label of the map
+    ([temporal data processing](temporalintro.md#datasets-of-other-mapsets)).
 
 ## Tools
 
@@ -1291,6 +1312,18 @@ describes every module.
     results are the same.
 - **Parser tables.** The classic parser built its tables in each call of
     `parse()`. Now they are built once for each parser class.
+- **Directory of the SQL templates** *(upstream)*. `get_sql_template_path()`
+    took the directory of the SQL files that create and update the temporal
+    database from `GISBASE`, below which it assumed `etc`. Now it takes
+    `GRASS_ETCDIR`, which `grass` sets, so an installation that keeps `etc`
+    elsewhere works. Outside a GRASS session without this variable, the
+    function raises a `KeyError`.
+- **Maps of other mapsets** *(upstream)*. `BaseRow.get_readonly()`, the
+    property `readonly` and `AbstractMapDataset.get_readonly()` are new. They
+    tell whether a map belongs to another mapset than the current one, and
+    the library writes the time stamp and label files only for maps that are
+    not read-only. There is no `set_readonly()`: the answer is computed at
+    each call, so it cannot become wrong when the current mapset changes.
 - **Initialization** *(upstream)*. `init()` always created the temporal
     database. Now `init(skip_db_init=True)` creates none and checks no
     version, dataset objects work without a temporal database, the default
@@ -1552,6 +1585,10 @@ of the manuals found are fixed as well, but they are not counted.
     and after **--overwrite** the first dataset kept its count of maps.
 - ***t.rast.import*:** every refusal ended with a traceback.
 - ***t.rast.mapcalc*:** a decimal number in **nprocs** ended with a traceback.
+- ***t.rast.neighbors*:** with **--overwrite** or **-e**, the command was
+    written into the history of the output dataset twice in one run. Now it
+    is written once: the history of an overwritten dataset holds the
+    command of the last run, and with **-e** each run adds its command.
 - ***t.rast.neighbors*:** a failing *r.neighbors* ended with a traceback, and
     the parser did not check **region_relation**.
 - ***t.rast.out.vtk*:** a refused export left the copy of the map behind.

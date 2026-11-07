@@ -137,9 +137,12 @@ version.
 
 ## NOTES
 
-The timestamps of registered maps are stored in the temporal database and in
-the metadata of the maps in the spatial database. This assures that timestamps
-can always be accessed with *(r\|r3\|v).timestamp* and the temporal tools.
+The timestamps of registered maps are stored in the temporal database and,
+for maps of the current mapset, in the metadata of the maps in the spatial
+database. This assures that timestamps of these maps can always be accessed
+with *(r\|r3\|v).timestamp* and the temporal tools. For a map of another
+mapset the timestamp is stored in the temporal database only, and no
+timestamp file is written for the map.
 Timestamps should only be modified with *t.register*, because the
 *(r\|r3\|v).timestamp* tools have no access to the temporal database.
 
