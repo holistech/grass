@@ -158,7 +158,7 @@ attribute `stdout` of the result holds the text as the tool printed it.
      +-------------------- Spatial extent ----------------------------------------+
      | North:...................... None
      | South:...................... None
-     | East:.. .................... None
+     | East:....................... None
      | West:....................... None
      | Top:........................ None
      | Bottom:..................... None
@@ -216,7 +216,7 @@ attribute `stdout` of the result holds the text as the tool printed it.
      +-------------------- Spatial extent ----------------------------------------+
      | North:...................... None
      | South:...................... None
-     | East:.. .................... None
+     | East:....................... None
      | West:....................... None
      | Top:........................ None
      | Bottom:..................... None
