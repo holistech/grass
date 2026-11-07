@@ -536,10 +536,14 @@ def _readme_text(sp, kind: str | None, format_: str, shared: bool) -> str:
     lines += files.get(format_, files.get(None, ()))
     lines += [
         f"{proj_file_name:>13} -- Projection information in PROJ.4 format",
-        f"{init_file_name:>13} -- GRASS space time "
-        f"{sp.get_new_map_instance(None).get_type()} dataset information",
-        f"{list_file_name:>13} -- Time series file, lists all maps by name "
-        "with interval",
+        (
+            f"{init_file_name:>13} -- GRASS space time "
+            f"{sp.get_new_map_instance(None).get_type()} dataset information"
+        ),
+        (
+            f"{list_file_name:>13} -- Time series file, lists all maps by name "
+            "with interval"
+        ),
         "                 time stamps in ISO-Format. Field separator is |",
     ]
     if shared:

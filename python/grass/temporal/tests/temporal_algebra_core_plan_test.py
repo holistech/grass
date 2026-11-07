@@ -442,8 +442,10 @@ def test_a_reduction_read_row_by_row_says_so(monkeypatch):
     warnings = _open_files(monkeypatch, 75, 3)
     RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
     assert warnings == [
-        "The limit of open files (1) was reached (2). The module r.series will "
-        "be run with flag z, to avoid open files limit exceeding."
+        (
+            "The limit of open files (1) was reached (2). The module r.series will "
+            "be run with flag z, to avoid open files limit exceeding."
+        )
     ]
     warnings = _open_files(monkeypatch, 76, 3)
     RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")

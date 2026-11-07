@@ -141,9 +141,11 @@ def test_a_registered_map_with_a_layer_gets_a_warning_and_a_time_check(ids, warn
         f"<{ids['vec']}@{MAPSET}> with layer 2 are different"
     )
     assert warnings == [
-        "Map is already registered in temporal database. Unable to update "
-        f"vector map <{ids['vec']}@{MAPSET}> with layer 2. Overwrite flag is "
-        "not set."
+        (
+            "Map is already registered in temporal database. Unable to update "
+            f"vector map <{ids['vec']}@{MAPSET}> with layer 2. Overwrite flag is "
+            "not set."
+        )
     ]
 
 
@@ -158,8 +160,10 @@ def test_a_registered_map_without_layer_gets_a_warning_and_a_time_check(ids, war
         f"<{ids['vec']}@{MAPSET}> are different"
     )
     assert warnings == [
-        "Map is already registered in temporal database. Unable to update "
-        f"vector map <{ids['vec']}@{MAPSET}>. Overwrite flag is not set."
+        (
+            "Map is already registered in temporal database. Unable to update "
+            f"vector map <{ids['vec']}@{MAPSET}>. Overwrite flag is not set."
+        )
     ]
 
 

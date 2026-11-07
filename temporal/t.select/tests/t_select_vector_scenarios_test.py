@@ -142,8 +142,10 @@ CONDITIONS = [
         [("test2", _ones(21, 30))],
     ),
     (
-        "if(start_year(test2) == 2013 && start_day(test2) < 20"
-        " && start_day(test2) > 15, test2)",
+        (
+            "if(start_year(test2) == 2013 && start_day(test2) < 20"
+            " && start_day(test2) > 15, test2)"
+        ),
         [("test2", _ones(27, 30))],
     ),
     (
@@ -202,16 +204,20 @@ PRECEDENCE = [
     # test2 days: always true || (days 16 to 19) is every map; from left to
     # right (true || < 20) && > 15 leaves the days 16 to 29
     (
-        "if(start_year(test2) == 2013 || start_day(test2) < 20"
-        " && start_day(test2) > 15, test2)",
+        (
+            "if(start_year(test2) == 2013 || start_day(test2) < 20"
+            " && start_day(test2) > 15, test2)"
+        ),
         [("test2", _ones(21, 40))],
         [("test2", _ones(27, 40))],
     ),
     # (days 10 and 11) or (days 16 to 19) against ((days 10 to 19) and > 15),
     # the days 16 to 19
     (
-        "if(start_day(test2) < 12 || start_day(test2) < 20"
-        " && start_day(test2) > 15, test2)",
+        (
+            "if(start_day(test2) < 12 || start_day(test2) < 20"
+            " && start_day(test2) > 15, test2)"
+        ),
         [("test2", [21, 22, 27, 28, 29, 30])],
         [("test2", _ones(27, 30))],
     ),

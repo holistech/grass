@@ -72,13 +72,17 @@ def test_classic_keeps_current_mapset_only(work):
     [
         (
             "",
-            "Temporal function start_month() is not available for map <r_1@work>: "
-            "it needs absolute time, and the end functions also an end time",
+            (
+                "Temporal function start_month() is not available for map <r_1@work>: "
+                "it needs absolute time, and the end functions also an end time"
+            ),
         ),
         (
             "c",
-            "Temporal function start_month() is not available for map <r_1@work>. "
-            "It requires absolute time, end time functions also an end time.",
+            (
+                "Temporal function start_month() is not available for map <r_1@work>. "
+                "It requires absolute time, end time functions also an end time."
+            ),
         ),
     ],
     ids=["core", "classic"],

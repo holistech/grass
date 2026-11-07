@@ -209,42 +209,54 @@ def test_examples_ignore_the_algebra_setting(tmp_path, session, variant):
     shell = blocks(
         "sh",
         (
-            'echo "${GRASS_TEMPORAL_ALGEBRA-unset} '
-            '${GRASS_TEMPORAL_REFERENCE-unset}"\n',
+            (
+                'echo "${GRASS_TEMPORAL_ALGEBRA-unset} '
+                '${GRASS_TEMPORAL_REFERENCE-unset}"\n'
+            ),
             "unset unset\n",
         ),
         DAILY_MAPS,
         (
-            f"t.rast.algebra --quiet expression='C = {PRECEDENCE}' basename=c\n"
-            "t.rast.list input=C columns=name,min\n",
+            (
+                f"t.rast.algebra --quiet expression='C = {PRECEDENCE}' basename=c\n"
+                "t.rast.list input=C columns=name,min\n"
+            ),
             CORE_RESULT,
         ),
         (
-            f"t.rast.algebra -c --quiet expression='D = {PRECEDENCE}' basename=d\n"
-            "t.info -g input=D | grep number_of_maps\n",
+            (
+                f"t.rast.algebra -c --quiet expression='D = {PRECEDENCE}' basename=d\n"
+                "t.info -g input=D | grep number_of_maps\n"
+            ),
             "number_of_maps=0\n",
         ),
     )
     python = blocks(
         "python",
         (
-            "import os\n\n"
-            "print(\n"
-            '    os.environ.get("GRASS_TEMPORAL_ALGEBRA", "unset"),\n'
-            '    os.environ.get("GRASS_TEMPORAL_REFERENCE", "unset"),\n'
-            ")\n",
+            (
+                "import os\n\n"
+                "print(\n"
+                '    os.environ.get("GRASS_TEMPORAL_ALGEBRA", "unset"),\n'
+                '    os.environ.get("GRASS_TEMPORAL_REFERENCE", "unset"),\n'
+                ")\n"
+            ),
             "unset unset\n",
         ),
         DAILY_MAPS_PYTHON,
         (
-            f'tools.t_rast_algebra(expression="C = {PRECEDENCE}", basename="c")\n'
-            'print(tools.t_rast_list(input="C", columns="name,min").text)\n',
+            (
+                f'tools.t_rast_algebra(expression="C = {PRECEDENCE}", basename="c")\n'
+                'print(tools.t_rast_list(input="C", columns="name,min").text)\n'
+            ),
             CORE_RESULT,
         ),
         (
-            f'tools.t_rast_algebra(expression="D = {PRECEDENCE}", basename="d",'
-            ' flags="c")\n'
-            'print(tools.t_info(input="D", flags="g").keyval["number_of_maps"])\n',
+            (
+                f'tools.t_rast_algebra(expression="D = {PRECEDENCE}", basename="d",'
+                ' flags="c")\n'
+                'print(tools.t_info(input="D", flags="g").keyval["number_of_maps"])\n'
+            ),
             "0\n",
         ),
     )

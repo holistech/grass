@@ -200,8 +200,10 @@ PG_CALLS = {
             ("connection.cursor", "DictCursor"),
             (
                 "cursor.execute",
-                "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE "
-                "table_name=%s)",
+                (
+                    "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE "
+                    "table_name=%s)"
+                ),
                 ("raster_base",),
             ),
             ("cursor.fetchone",),

@@ -143,9 +143,11 @@ BUFFERED = [
     'buff_t(rel, "3 day")',
     "tsnap(rel)",
     'if({starts}, start_second(N) == 0, Q, buff_t(merge(N, Q), "-1 days"))',
-    "(if({starts}, start_second(N) == 0, "
-    'merge(tshift(tmap(sinst), "2 days"), Q), '
-    'buff_t(merge(N, Q), "-1 days")))',
+    (
+        "(if({starts}, start_second(N) == 0, "
+        'merge(tshift(tmap(sinst), "2 days"), Q), '
+        'buff_t(merge(N, Q), "-1 days")))'
+    ),
 ]
 
 

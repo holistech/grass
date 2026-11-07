@@ -189,8 +189,10 @@ def test_the_core_keeps_one_of_two_equal_buffers(datasets):
 @pytest.mark.parametrize(
     "expression",
     [
-        "if({equal|contains}, end_week(eq) != 2, aa {!:,equal,i} eq, "
-        "merge(merge(aa, ac), eq + la))",
+        (
+            "if({equal|contains}, end_week(eq) != 2, aa {!:,equal,i} eq, "
+            "merge(merge(aa, ac), eq + la))"
+        ),
         "if({equal|contains}, end_week(eq) != 2, aa, merge(aa, ac))",
         "if(end_week(eq) != 2, aa, merge(aa, ac))",
     ],

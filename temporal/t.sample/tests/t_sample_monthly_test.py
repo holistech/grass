@@ -73,8 +73,10 @@ def _table(sampler, inputs, rows):
     """
     columns = "|".join(f"{name}@PERMANENT" for name in inputs)
     lines = [
-        f"{sampler}@PERMANENT|{columns}"
-        "|start_time|end_time|interval_length|distance_from_begin"
+        (
+            f"{sampler}@PERMANENT|{columns}"
+            "|start_time|end_time|interval_length|distance_from_begin"
+        )
     ]
     for (granule, start, end, days, since), cells in zip(GRANULES, rows, strict=True):
         shown = "|".join(
@@ -146,8 +148,10 @@ def test_a_vector_dataset_as_input_and_raster_months_as_sampler(scenario):
     contains it, the months of the gap relate to none."""
     expected = "\n".join(
         [
-            "precip@PERMANENT|pnts0@PERMANENT|start_time|end_time"
-            "|interval_length|distance_from_begin",
+            (
+                "precip@PERMANENT|pnts0@PERMANENT|start_time|end_time"
+                "|interval_length|distance_from_begin"
+            ),
             *(
                 f"prec_{i}@PERMANENT|{_name(found)}|{start} 00:00:00|{end} 00:00:00"
                 f"|{days}|{since}"
@@ -202,8 +206,10 @@ def test_a_dataset_sampled_by_itself_relates_each_map_to_itself(scenario, flags)
     assert _run(
         scenario, input="precip", samtype="strds", sample="precip", flags=flags
     ).splitlines() == [
-        "precip@PERMANENT|precip@PERMANENT|start_time|end_time"
-        "|interval_length|distance_from_begin",
+        (
+            "precip@PERMANENT|precip@PERMANENT|start_time|end_time"
+            "|interval_length|distance_from_begin"
+        ),
         *(
             f"prec_{i}@PERMANENT|prec_{i}@PERMANENT|{MONTHS[i - 1]}|{MONTHS[i]}"
             f"|{lengths[i - 1]}.0|{since[i - 1]}.0"

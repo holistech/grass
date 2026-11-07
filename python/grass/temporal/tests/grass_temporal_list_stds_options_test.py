@@ -85,28 +85,38 @@ def test_the_format_and_the_separator_are_completed(
     [
         (
             {"output_format": "csv", "separator": ";;"},
-            "Combining format=csv and separator=;; is not allowed. "
-            "A standard CSV separator (delimiter) is only one character long",
+            (
+                "Combining format=csv and separator=;; is not allowed. "
+                "A standard CSV separator (delimiter) is only one character long"
+            ),
         ),
         (
             {"output_format": "json", "header": True},
-            "The flag -u is not allowed with format=json. "
-            "Column names are always included",
+            (
+                "The flag -u is not allowed with format=json. "
+                "Column names are always included"
+            ),
         ),
         (
             {"output_format": "yaml", "separator": ","},
-            "Combining format=yaml and separator=, is not allowed. "
-            "Separator is part of the format",
+            (
+                "Combining format=yaml and separator=, is not allowed. "
+                "Separator is part of the format"
+            ),
         ),
         (
             {"output_format": "line", "columns": "name,mapset"},
-            "Combining format=line and columns=name,mapset is not allowed. "
-            "Only one column is allowed (not 2)",
+            (
+                "Combining format=line and columns=name,mapset is not allowed. "
+                "Only one column is allowed (not 2)"
+            ),
         ),
         (
             {"output_format": "plain", "method": "comma", "columns": "a,b,c"},
-            "Combining format=line and columns=a,b,c is not allowed. "
-            "Only one column is allowed (not 3)",
+            (
+                "Combining format=line and columns=a,b,c is not allowed. "
+                "Only one column is allowed (not 3)"
+            ),
         ),
     ],
 )

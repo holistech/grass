@@ -39,8 +39,8 @@ EXAMPLES = {
          ("01-07", "01-11", 18)],
     ),
     "figure A2": (
-        'if({equal}, start_date(A1A) >= "2001-01-03" {&&,contains,&,l} '
-        f'start_date(A1B) <= "2001-01-09", {A1})',
+        ('if({equal}, start_date(A1A) >= "2001-01-03" {&&,contains,&,l} '
+        f'start_date(A1B) <= "2001-01-09", {A1})'),
         False,
         [("01-03", "01-05", 13), ("01-05", "01-07", 20)],
     ),
@@ -80,8 +80,8 @@ EXAMPLES = {
         [("01-01", "01-02", 0.6667), ("01-02", "01-03", 0.5), ("01-03", "01-04", 0.4)],
     ),
     "section 4.2, Sentinel-2 NDVI": (
-        "(S2B08{-,equal|equivalent,l}S2B04) {/,equal|equivalent,l} "
-        "(S2B08{+,equal|equivalent,l}S2B04)",
+        ("(S2B08{-,equal|equivalent,l}S2B04) {/,equal|equivalent,l} "
+        "(S2B08{+,equal|equivalent,l}S2B04)"),
         True,
         [("01-01", None, 0.5), ("01-01", None, 0.6), ("01-08", None, 0.4),
          ("01-08", None, 0.8)],
@@ -89,8 +89,8 @@ EXAMPLES = {
     # The days with T >= 10 have P 2, 3, 5, 6, 8, 9 and T 15, 12, 20, 11,
     # 14, 16: 33 / 8.8 = 3.75.
     "section 4.3, hydrothermal coefficient": (
-        "(D {+,contains,l} if(T >= 10.0, P, 0.0)) / "
-        "(D {+,contains,l} if(T >= 10.0, T / 10.0, 0.0))",
+        ("(D {+,contains,l} if(T >= 10.0, P, 0.0)) / "
+        "(D {+,contains,l} if(T >= 10.0, T / 10.0, 0.0))"),
         False,
         [("01-01", "01-11", 3.75)],
     ),
@@ -105,8 +105,8 @@ EXAMPLES = {
         [("01-07", "01-11", 40)],
     ),
     "appendix C.3, temporal buffer": (
-        'buff_t(A1A, "1 month") {+,equal|overlaps|overlapped,u} '
-        'buff_t(A5A, "1 month")',
+        ('buff_t(A1A, "1 month") {+,equal|overlaps|overlapped,u} '
+        'buff_t(A5A, "1 month")'),
         False,
         [("12-01", "02-11", 11), ("12-01", "02-11", 32), ("12-01", "02-11", 41),
          ("12-03", "02-11", 21)],

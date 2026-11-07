@@ -128,8 +128,10 @@ LARGE_CONSTANTS_BETWEEN_SERIES = [
     # A condition on a time function joined with one on cells takes the cells
     # of the argument (see the profile): 4294967296 - 2^32 = 0 is false, so 2;
     # folded 1 && 4294967296 is true, 1.
-    "if(if(td(A) <= 0.5, A, 5) > 1 && start_month(if(td(A) <= 0.5, A, 4294967296)) "
-    "== 1, 1, 2)",
+    (
+        "if(if(td(A) <= 0.5, A, 5) > 1 && start_month(if(td(A) <= 0.5, A, 4294967296)) "
+        "== 1, 1, 2)"
+    ),
     # A floating point number is no integer literal and stays 3000000001.0,
     # 3000000000.
     "if(td(A) <= 0.5, A, 3000000000.0) + td(A)",
@@ -358,8 +360,10 @@ TIME_FUNCTION_OFFSETS = [
 MERGED_COMPUTED = [
     'merge(if({equal|over}, end_date(PA) == "2001-01-01", Q, null()), A - N)',
     "merge(if(start_month(A) == 1, Q, null()), A - N)",
-    "merge(AF[2] % 60 * tmap(singletmap) {+,over,i} td(D % D), "
-    "HB {*,overlapped|started,r} start_month(Q, 1))",
+    (
+        "merge(AF[2] % 60 * tmap(singletmap) {+,over,i} td(D % D), "
+        "HB {*,overlapped|started,r} start_month(Q, 1))"
+    ),
     "merge(A # N, N # A)",
     "merge(A # N, D # A)",
     "merge(A, if((A # N) + 1 > 1, A))",

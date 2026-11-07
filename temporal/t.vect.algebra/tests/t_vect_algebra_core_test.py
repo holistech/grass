@@ -164,8 +164,10 @@ def test_an_empty_intermediate_map_drops_the_result(vector_series, monkeypatch):
     assert _maps("core_drop") == [("core_drop_0@PERMANENT", 1)]
     # The warning names the map the user misses, not only the temporary one.
     assert warnings == [
-        "Result map <core_drop_2> is left out: intermediate map "
-        "<core_drop_2_tmp0@PERMANENT> has no areas"
+        (
+            "Result map <core_drop_2> is left out: intermediate map "
+            "<core_drop_2_tmp0@PERMANENT> has no areas"
+        )
     ]
 
 

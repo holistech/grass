@@ -130,8 +130,10 @@ def test_unregistering_a_map_that_is_not_registered(ids, layer, messages):
     assert stds.unregister_map(vector(ids, layer)) == ""
 
     assert messages == [
-        f"Map {described(ids, layer)} is not registered in space time dataset "
-        f"<{ids['abs']}@{MAPSET}>"
+        (
+            f"Map {described(ids, layer)} is not registered in space time dataset "
+            f"<{ids['abs']}@{MAPSET}>"
+        )
     ]
 
 
@@ -246,8 +248,10 @@ def test_a_map_whose_interval_ends_before_it_starts(layer, messages):
 
     suffix = f" with layer {layer}" if layer else ""
     assert messages == [
-        f"Map <x@{MAPSET}>{suffix} has incorrect time interval, start time is "
-        "greater than end time"
+        (
+            f"Map <x@{MAPSET}>{suffix} has incorrect time interval, start time is "
+            "greater than end time"
+        )
     ]
 
 
@@ -300,8 +304,10 @@ SETTER_MESSAGES = [
     (
         absolute_wrong_start,
         "Start time must be of type datetime for vector map <x@PERMANENT>",
-        "Start time must be of type datetime for vector map <x@PERMANENT> "
-        "with layer: 2",
+        (
+            "Start time must be of type datetime for vector map <x@PERMANENT> "
+            "with layer: 2"
+        ),
     ),
     (
         absolute_wrong_end,
@@ -311,20 +317,26 @@ SETTER_MESSAGES = [
     (
         absolute_end_before_start,
         "End time must be greater than start time for vector map <x@PERMANENT>",
-        "End time must be greater than start time for vector map <x@PERMANENT> "
-        "with layer: 2",
+        (
+            "End time must be greater than start time for vector map <x@PERMANENT> "
+            "with layer: 2"
+        ),
     ),
     (
         relative_wrong_unit,
         "Unsupported relative time unit type for vector map <x@PERMANENT>: fortnights",
-        "Unsupported relative time unit type for vector map <x:2@PERMANENT> "
-        "with layer 2: fortnights",
+        (
+            "Unsupported relative time unit type for vector map <x:2@PERMANENT> "
+            "with layer 2: fortnights"
+        ),
     ),
     (
         relative_end_before_start,
         "End time must be greater than start time for vector map <x@PERMANENT>",
-        "End time must be greater than start time for vector map <x:2@PERMANENT> "
-        "with layer 2",
+        (
+            "End time must be greater than start time for vector map <x:2@PERMANENT> "
+            "with layer 2"
+        ),
     ),
 ]
 

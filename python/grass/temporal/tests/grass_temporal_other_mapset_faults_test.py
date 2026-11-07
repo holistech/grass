@@ -244,13 +244,17 @@ def accumulate_with_output(tools, output):
 REFUSALS = {
     "t.unregister": (
         lambda t: t.t_unregister(type="raster", input="ds@first", maps="r_1"),
-        "Unable to update dataset <ds@first> of type strds in the temporal "
-        "database. The mapset of the database does not match the current mapset",
+        (
+            "Unable to update dataset <ds@first> of type strds in the temporal "
+            "database. The mapset of the database does not match the current mapset"
+        ),
     ),
     "t.support": (
         lambda t: t.t_support(input="ds@first", type="strds", title="changed"),
-        "Unable to update dataset <ds@first> of type strds in the temporal "
-        "database. The mapset of the database does not match the current mapset",
+        (
+            "Unable to update dataset <ds@first> of type strds in the temporal "
+            "database. The mapset of the database does not match the current mapset"
+        ),
     ),
     "t.support -m": (
         lambda t: t.t_support(input="ds@first", type="strds", flags="m"),
@@ -258,8 +262,10 @@ REFUSALS = {
     ),
     "t.remove": (
         lambda t: t.t_remove(inputs="ds@first", type="strds"),
-        "Unable to delete dataset <ds@first> of type strds from the temporal "
-        "database. The mapset of the database does not match the current mapset",
+        (
+            "Unable to delete dataset <ds@first> of type strds from the temporal "
+            "database. The mapset of the database does not match the current mapset"
+        ),
     ),
     "t.remove -f": (
         lambda t: t.t_remove(inputs="ds@first", type="strds", flags="f"),
