@@ -458,3 +458,33 @@ def test_an_existing_dataset_is_refused_without_extend_and_overwrite(
         in message(error.value)
     )
     assert len(_maps(tools, prefix)) == 2
+
+
+def _history_commands(tools, name):
+    """How often the command of t.rast.neighbors is in the history of a dataset"""
+    history = tools.t_info(type="strds", input=name, flags="h").stdout
+    return sum(line.startswith("t.rast.neighbors") for line in history.splitlines())
+
+
+def test_overwrite_records_the_command_once(tools, daily, prefix):
+    options = {"input": daily, "output": prefix, "basename": prefix}
+    tools.t_rast_neighbors(where="start_time < '2001-01-03'", **options)
+
+    tools.t_rast_neighbors(
+        where="start_time >= '2001-01-04'", overwrite=True, **options
+    )
+
+    # The overwritten dataset is made anew, so only the second run is in it.
+    assert _history_commands(tools, prefix) == 1
+
+
+def test_extend_records_the_command_once_per_run(tools, daily, prefix):
+    options = {"input": daily, "output": prefix, "basename": prefix}
+    tools.t_rast_neighbors(where="start_time < '2001-01-03'", **options)
+    assert _history_commands(tools, prefix) == 1
+
+    tools.t_rast_neighbors(
+        where="start_time >= '2001-01-03'", flags="e", overwrite=True, **options
+    )
+
+    assert _history_commands(tools, prefix) == 2
