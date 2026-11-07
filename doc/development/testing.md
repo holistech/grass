@@ -519,12 +519,13 @@ example of the documentation uses is entered with the origin `docs`.
 `grass.temporal.testing.contract_trace` finds out what a script calls: it runs
 the script and records, with `sys.setprofile`, the functions and methods of
 `grass.temporal` that the script itself calls. The trace is a floor, not a
-proof. It cannot see constructors, reads of plain attributes, constants or
-container protocol methods (`__len__`, `__iter__`), which leave no function
-name, and it leaves out every other name with a component that starts with an
-underscore. It does see operators (`a / b`, `a < b`) under the class that
-defines the operator method, and a method that a private base class defines
-under the public class of the object it was called on. It traces only the main
+proof. A plain attribute read or a constant leaves no function name, and the
+trace leaves out every name with a component that starts with an underscore:
+constructors, `__repr__` and the container protocol methods (`__len__`,
+`__iter__`). It does see operators (`a / b`, `a < b`) under the class that
+defines the operator method, if that class is public, and a method that a
+private base class defines under the public class of the object it was called
+on. It traces only the main
 thread. Read an example as well as tracing it.
 
 ## Tests that need the North Carolina sample dataset

@@ -23,9 +23,9 @@ on its own behalf: the script may use what the contract lists, and the library
 calls whatever it needs. Only functions of ``grass.temporal`` count. The helpers of
 ``grass.temporal.testing`` and every name with a component that starts with an
 underscore (private functions, ``__init__``) are left out, with two exceptions:
-the operator methods (``OPERATOR_METHODS``, such as ``__truediv__``) and the
-methods that a private base class defines, which are reported under the class
-of ``self``. The inner functions and comprehensions of a public function are
+the operator methods (``OPERATOR_METHODS``, such as ``__truediv__``, of a
+public class) and the methods that a private base class defines, which are
+reported under the class of ``self``. The inner functions and comprehensions of a public function are
 left out too, as they are not part of the interface. Calls made before the
 script starts, such as the import of the package, are not recorded. A script
 that starts threads or other Python processes is traced only in its main
@@ -91,10 +91,11 @@ def called_names(script: Path, *, env: dict, cwd: Path) -> set[str]:
     constant, a call made through a thread and a container protocol method
     (``__len__``, ``__iter__``, ``__getitem__``) leave no name, so this check
     does not replace reading the example. Operators (``a / b``, ``a < b``) do
-    show, under the class that defines the operator method. A method that a
+    show, under the class that defines the operator method, if that class is
+    public. A method that a
     private base class defines (``_PlanarExtentMethods.spatial_intersection``)
     is reported under the class of the object it was called on, if that is a
-    public class of grass.temporal; for a private class or a ``self`` from
+    public class of grass.temporal that inherits from the private class; for a private class or a ``self`` from
     elsewhere it shows no name. A property whose getter has a name of
     its own is reported under the getter (``get_temporal_extent``, not
     ``temporal_extent``), because the profiler sees the getter's code.
@@ -195,6 +196,11 @@ def _private_base_method(frame):
     ):
         return None
     owner = type(frame.f_locals.get("self"))
+    # An unbound call on an object that does not inherit from the private
+    # class is not a method of that object's class.
+    defining = frame.f_globals.get(qualname[0])
+    if defining not in owner.__mro__:
+        return None
     parts = [*owner.__module__.split("."), *owner.__qualname__.split(".")]
     if not _in_library(owner.__module__) or not _is_public(parts):
         return None

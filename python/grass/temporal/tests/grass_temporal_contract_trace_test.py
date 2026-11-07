@@ -147,8 +147,8 @@ def test_private_base_method_is_reported_under_the_public_class(tmp_path):
 
 
 def test_private_base_method_without_public_self_is_left_out(tmp_path):
-    # A private class instance, a function without self and a self from
-    # outside grass.temporal give no name.
+    # An instance of a private class and a self from outside grass.temporal
+    # give no name.
     names = trace(
         tmp_path,
         """\
@@ -190,3 +190,24 @@ def test_constructor_and_repr_stay_unrecorded(tmp_path):
     assert not [
         n for n in names if n.endswith(("__init__", "__repr__", "__len__", "__iter__"))
     ]
+
+
+def test_private_base_method_called_unbound_on_an_unrelated_object_is_left_out(
+    tmp_path,
+):
+    # The private class is not a base of VectorDataset, so the call must not be
+    # reported as a method of it.
+    names = trace(
+        tmp_path,
+        """\
+        import grass.temporal as tgis
+        from grass.temporal.metadata import _SemanticLabelsMetadata
+
+        try:
+            _SemanticLabelsMetadata.get_semantic_labels(tgis.VectorDataset("v@m"))
+        except Exception:
+            pass
+        """,
+    )
+
+    assert not [n for n in names if n.endswith("get_semantic_labels")]
