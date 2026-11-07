@@ -160,14 +160,16 @@ precedence.
 ## Classic algebra
 
 The classic algebra, selected with **-c** or `GRASS_TEMPORAL_ALGEBRA=classic`,
-gives the results of the releases before GRASS 8.6 with the exceptions
-below. In each of them, those releases computed a wrong result, refused an
-expression that they should compute, or computed one that they should
-refuse; the classic algebra and the implementation of those releases, which
-stays in the source code as `grass.temporal.classic`, were corrected in the
-same way. Results of an earlier release that used one of these forms need a
-new run. All other results of the classic algebra are those of the releases
-before GRASS 8.6: the tests compare it with 2283 recorded results of that
+gives the results of the releases before GRASS 8.6 with the exceptions below. In
+each of them, those releases computed a wrong result, refused an expression that
+they should compute, or computed one that they should refuse. The implementation
+of those releases, which stays in the source code as `grass.temporal.classic`,
+was corrected in the same way, except in the last two entries, on `merge()` of
+absolute and relative time and on the selection of a relative time instance:
+only the classic algebra computes them, and `grass.temporal.classic` still ends
+with a `TypeError`. Results of an earlier release that used one of these forms
+need a new run. All other results of the classic algebra are those of the
+releases before GRASS 8.6: the tests compare it with recorded results of that
 implementation. The manuals of the algebra tools describe many of these
 corrections with examples, in their sections "Corrections to the classic
 algebra".
@@ -228,8 +230,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     ([t.vect.algebra](t.vect.algebra.md#temporal-operators)).
 - **Null maps of 3D rasters.** *t.rast3d.algebra* could not remove its null
     maps, and in Python, `run=False` crashed in the raster algebras. Now
-    null maps are removed, and `run=False` only checks the syntax
-    ([t.rast3d.algebra](t.rast3d.algebra.md#flags)).
+    null maps are removed, and `run=False` only checks the syntax.
 - **Conditions over maps of equal time.** With several maps of equal time,
     `if()` combined every condition map with every conclusion map of that
     time and gave one result for each pair. Now maps of equal time are
@@ -473,7 +474,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     *t.rast3d.list* and *t.vect.list* wrote a file named `-` into the
     working directory. Now it is the standard output
     ([t.rast.list](t.rast.list.md#notes)).
-- **Granules of t.vect.list.** *t.vect.list* had no option **granule**,
+- **Granules of *t.vect.list*.** *t.vect.list* had no option **granule**,
     and **method=gran** ended at the end of the map sorted last. Now it has
     the option **granule** with the rules of *t.rast.list*, and the granules
     reach the end of the dataset ([t.vect.list](t.vect.list.md#notes)).
@@ -481,16 +482,16 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     identifiers with some methods only, and **method=delta** with
     **format=line** ended with a traceback. Now every method prints the
     identifiers with **format=line** ([t.rast.list](t.rast.list.md#notes)).
-- **method=comma of t.rast.list.** **method=comma** printed the table of
+- **method=comma of *t.rast.list*.** **method=comma** printed the table of
     **method=list** with commas instead of the identifiers in one line. Now
     it prints the identifiers in one line, separated by **separator**
     ([t.rast.list](t.rast.list.md#methods)).
-- **Delta methods of t.vect.list.** The delta methods of *t.vect.list*
+- **Delta methods of *t.vect.list*.** The delta methods of *t.vect.list*
     printed no lengths, ignored **order** without notice, **method=comma**
     changed nothing, and **format=line** required **columns**. Now the
     delta columns are there, **order** with a delta method is refused, and
     **method=comma** prints the identifiers ([t.vect.list](t.vect.list.md#notes)).
-- **where with method=gran of t.rast3d.list.** *t.rast3d.list* refused
+- **where with method=gran of *t.rast3d.list*.** *t.rast3d.list* refused
     **where** with **method=gran**. Now it takes it, as *t.rast.list* does
     ([t.rast3d.list](t.rast3d.list.md#notes)).
 - **method=gran without granularity.** **method=gran** on an empty dataset
@@ -498,7 +499,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     message says that the dataset is empty, or that the granularity is
     missing and a granule or another method is needed
     ([t.rast.list](t.rast.list.md#notes)).
-- **Maps without start time in t.rast.list.** A map without start time
+- **Maps without start time in *t.rast.list*.** A map without start time
     ended **method=delta** and **method=deltagaps** of *t.rast.list* with a
     `TypeError`. Now it is listed with `None` in the time columns and a
     warning, and the distances count from the first map with a start time
@@ -517,7 +518,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     *t.rast3d.mapcalc* print an error and end with exit code 0. Now they
     end with an error and a non-zero exit code. Scripts that check the exit
     code see the difference ([t.sample](t.sample.md#notes)).
-- **Samplers without maps and labels in t.sample.** A sampler without
+- **Samplers without maps and labels in *t.sample*.** A sampler without
     registered maps made *t.sample* report that the sampler must have
     intervals and end with exit code 0, a dataset with a semantic label in
     **inputs**, such as `ds.B4`, was not found, and a name without mapset
@@ -532,7 +533,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     their own. Now they use the functions of the new algebra; their results
     are those of before, and tests that record them keep them
     ([t.rast.mapcalc](t.rast.mapcalc.md#notes)).
-- **Samplers and empty maps in t.rast.aggregate.ds.** A sampler in another
+- **Samplers and empty maps in *t.rast.aggregate.ds*.** A sampler in another
     relative unit gave no result and exit code 0, and **-n** worked the
     wrong way round: without **-n** empty maps were registered, with **-n**
     they were not. Now a sampler in another relative unit is refused, and
@@ -544,7 +545,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     previous maps. Now such maps stand outside the chain and are left out
     with a warning, and *t.topology* ends with exit code 0
     ([t.topology](t.topology.md#notes)).
-- **Empty selections in t.topology.** An empty selection on absolute time
+- **Empty selections in *t.topology*.** An empty selection on absolute time
     ended *t.topology* with a traceback, and an empty selection counted as
     an invalid topology. Now an empty selection is a valid topology without
     granularity ([t.topology](t.topology.md#notes)).
@@ -599,7 +600,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     *t.unregister* and *t.remove* it was a map or a dataset without name.
     Now blank lines are skipped by all three
     ([t.register](t.register.md#notes)).
-- **file=- and warnings of t.register.** `file=-` looked for a file named
+- **file=- and warnings of *t.register*.** `file=-` looked for a file named
     `-`, and the warnings about files with and without times came also when
     not all lines had a time and for registered maps without **start**. Now
     `file=-` reads the standard input, and the warnings come only when all
@@ -930,8 +931,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
 - **CSV** *(upstream)*. In *t.rast.list* and *t.vect.list*, `format=csv`
     with `separator=|` was set to a comma without notice. Now `csv` has a
     comma as default separator and takes `separator=|`; `json` and `yaml`
-    refuse **separator**; `line` and **method=comma** take one column only
-    ([t.rast.list](t.rast.list.md#output)).
+    refuse **separator** ([t.rast.list](t.rast.list.md#output)).
 - **method=gran with where** *(upstream)*. **method=gran** refused
     **where**. Now it takes it, with start and end from the selected maps
     instead of the dataset ([t.rast.list](t.rast.list.md#methods)).
@@ -1014,7 +1014,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     value the cores plus that value. Scripts that read columns by their
     position have to read them by the names of the header
     ([t.rast.univar](t.rast.univar.md#description)).
-- **Inputs, percentiles and formats of t.rast3d.univar** *(upstream)*.
+- **Inputs, percentiles and formats of *t.rast3d.univar*** *(upstream)*.
     **input** was declared as a raster map, and there was no **percentile**,
     no **region_relation** and only plain text. Now **input** and **zones**
     are 3D raster maps, **percentile** (with **-e**), **region_relation**
@@ -1160,7 +1160,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
 
 ## Other tools and libraries
 
-- **r.contour.** Levels of **step** had no anchor in the step grid, regions
+- ***r.contour*.** Levels of **step** had no anchor in the step grid, regions
     with one or two rows or columns hung the tool, lines ran over null
     cells, levels on the minimum or maximum gave no line, rings through
     border cells and lines through saddle cells at the border were lost,
@@ -1173,16 +1173,16 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     `minlevel > maxlevel` is an error, **cut** works after snapping, no
     line has one point, and a map without values gives an empty map
     ([r.contour](r.contour.md)).
-- **r.univar and r3.univar.** Without a valid cell, *r.univar* printed
+- ***r.univar* and *r3.univar*.** Without a valid cell, *r.univar* printed
     `-1.79769e+308` as maximum and `-nan`; *r3.univar* counted cells masked
     by the 3D mask and rounded floating point zones without notice. Now
     `nan` is printed without sign, and *r3.univar* respects the 3D mask and
     refuses zones that are not integers ([r.univar](r.univar.md),
     [r3.univar](r3.univar.md)).
-- **r3.support.** `raster=` ended with "Raster map `<layers>` not found", so
+- ***r3.support*.** `raster=` ended with "Raster map `<layers>` not found", so
     categories could not be set. Now the categories are taken from the
     raster map ([r3.support](r3.support.md)).
-- **r3.mapcalc and the 3D mask.** *r3.mapcalc* did not respect the 3D mask,
+- ***r3.mapcalc* and the 3D mask.** *r3.mapcalc* did not respect the 3D mask,
     `@map` gave null, the mask of tiles hid wrong cells with another region,
     and a mask on another grid was applied differently by each tool. Now
     the 3D mask applies when existing maps are read (a constant stays
@@ -1201,11 +1201,11 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     read new maps of reduced precision wrongly, with values near 0. Make
     maps of reduced precision of older releases again where the values are
     needed ([3D raster data](raster3dintro.md#3d-raster-data-types)).
-- **v.unpack.** In a project without projection information (XY),
+- ***v.unpack*.** In a project without projection information (XY),
     *v.unpack* ended with a `FileNotFoundError`. Now the missing file counts
     as another coordinate system, and **-o** allows the import
     ([v.unpack](v.unpack.md)).
-- **v.univar.** **-e** sorted NULL rows as 0 and took the quartiles from
+- ***v.univar*.** **-e** sorted NULL rows as 0 and took the quartiles from
     the rows of the table instead of the features. Now NULL is left out, and
     the values come from the features; a category of two features counts
     twice ([v.univar](v.univar.md)).
@@ -1227,7 +1227,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     3.33 were removed; with an older SQLite, the update of a dataset ends
     with a message to update SQLite or to use PostgreSQL with *t.connect*
     ([t.connect](t.connect.md#notes)).
-- **The region of r.mapcalc.** With `region=union` or `region=intersect`,
+- **The region of *r.mapcalc*.** With `region=union` or `region=intersect`,
     *r.mapcalc* wrote the computed region into the region file of the
     mapset, so after *t.rast.algebra* **-s** the region of the session was
     that of the last maps. Now that region holds for the process only
@@ -1235,17 +1235,20 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
 
 ## Python API and addons
 
-The public interface of `grass.temporal` that the repository and the
-addons of grass-addons use is recorded in a contract of the tests
-(`python/grass/temporal/tests/data/public_contract.json`), and a test keeps
-it. Every name of this contract was there before GRASS 8.6 and is kept: the
-package names such as `open_old_stds`, `open_new_stds`, `init`,
-`SpaceTimeRasterDataset` and `register_maps_in_space_time_dataset`, the
-modules `core`, `datetime_math`, `list_stds` and `space_time_datasets`, and
-the methods and members of the dataset classes, such as
+The public interface of `grass.temporal` that the repository and the addons of
+grass-addons use is recorded in a contract of the tests
+(`python/grass/temporal/tests/data/public_contract.json`), and a test keeps it.
+Every name of the contract that the addons use was there before GRASS 8.6 and is
+kept: the package names such as `open_old_stds`, `open_new_stds`, `init`,
+`SpaceTimeRasterDataset` and `register_maps_in_space_time_dataset`, the modules
+`core`, `datetime_math`, `list_stds` and `space_time_datasets`, and the methods
+and members of the dataset classes, such as
 `SpaceTimeRasterDataset.metadata.get_number_of_maps()` and
-`RasterDataset.absolute_time.start_time`. Code that uses only these names
-needs no change. The reference documentation of the temporal framework
+`RasterDataset.absolute_time.start_time`. Code that uses only these names needs
+no change. Names of the contract that only the repository uses can be new in
+GRASS 8.6, such as the steps that the temporal tools share, and code that has to
+run with GRASS 8.5 cannot use them. The reference documentation of the temporal
+framework
 ([temporal framework](https://grass.osgeo.org/grass-stable/manuals/libpython/temporal_framework.html))
 describes every module.
 
@@ -1529,33 +1532,33 @@ of the manuals found are fixed as well, but they are not counted.
     *t.rast.aggregate*, *t.rast.aggregate.ds*, *t.rast.contour*,
     *t.rast.to.vect*, *t.rast.gapfill*, *t.rast.what* and, for **t_where**,
     *t.vect.what.strds*. Now it is reported with a message.
-- **t.create:** an apostrophe or a question mark in **title** or
+- ***t.create*:** an apostrophe or a question mark in **title** or
     **description** ended with a traceback.
-- **t.rast.accumulate:** a threshold dataset of the other temporal type was
+- ***t.rast.accumulate*:** a threshold dataset of the other temporal type was
     not refused, errors ended with a traceback, and with **--overwrite** the
     count of maps of the other dataset was not updated.
-- **t.rast.accumulate** and **t.rast.accdetect:** an empty input dataset
+- ***t.rast.accumulate*** and ***t.rast.accdetect*:** an empty input dataset
     crashed the tool; now it warns and ends with exit code 0.
-- **t.rast.contour:** the refusal without **levels** and **step** ended
+- ***t.rast.contour*:** the refusal without **levels** and **step** ended
     with a traceback.
-- **t.rast.export:** a failed export left its working directory behind.
-- **t.rast.gapfill:** the message for an existing map named the basename,
+- ***t.rast.export*:** a failed export left its working directory behind.
+- ***t.rast.gapfill*:** the message for an existing map named the basename,
     and after **--overwrite** the first dataset kept its count of maps.
-- **t.rast.import:** every refusal ended with a traceback.
-- **t.rast.mapcalc:** a decimal number in **nprocs** ended with a traceback.
-- **t.rast.neighbors:** a failing *r.neighbors* ended with a traceback, and
+- ***t.rast.import*:** every refusal ended with a traceback.
+- ***t.rast.mapcalc*:** a decimal number in **nprocs** ended with a traceback.
+- ***t.rast.neighbors*:** a failing *r.neighbors* ended with a traceback, and
     the parser did not check **region_relation**.
-- **t.rast.out.vtk:** a refused export left the copy of the map behind.
-- **t.rast.to.rast3:** a null map was left behind.
-- **t.shift:** the message of a refused shift named
+- ***t.rast.out.vtk*:** a refused export left the copy of the map behind.
+- ***t.rast.to.rast3*:** a null map was left behind.
+- ***t.shift*:** the message of a refused shift named
     `<built-in function id>` instead of the map.
-- **t.vect.db.select:** an error of *v.db.select* ended with a traceback.
-- **t.vect.export:** a missing or not writable **directory** ended with a
+- ***t.vect.db.select*:** an error of *v.db.select* ended with a traceback.
+- ***t.vect.export*:** a missing or not writable **directory** ended with a
     traceback, and `readme.txt` described a GPKG archive as packed files.
-- **t.vect.observe.strds:** a message named the wrong identifier, time
+- ***t.vect.observe.strds*:** a message named the wrong identifier, time
     instances ended with a traceback, and errors of the tools it runs ended
     with a traceback.
-- **t.vect.what.strds:** an invalid **where** gave no error, and an empty
+- ***t.vect.what.strds*:** an invalid **where** gave no error, and an empty
     vector dataset reported that the maps must be intervals.
 - **The Python library:** 18 further errors that only Python code meets,
     among them a rollback and a close of connections on the paths of

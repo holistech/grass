@@ -161,14 +161,16 @@ digits from the number of maps
 <h2>Classic algebra</h2>
 
 The classic algebra, selected with <b>-c</b> or <code>GRASS_TEMPORAL_ALGEBRA=classic</code>,
-gives the results of the releases before GRASS 8.6 with the exceptions
-below. In each of them, those releases computed a wrong result, refused an
-expression that they should compute, or computed one that they should
-refuse; the classic algebra and the implementation of those releases, which
-stays in the source code as <code>grass.temporal.classic</code>, were corrected in the
-same way. Results of an earlier release that used one of these forms need a
-new run. All other results of the classic algebra are those of the releases
-before GRASS 8.6: the tests compare it with 2283 recorded results of that
+gives the results of the releases before GRASS 8.6 with the exceptions below. In
+each of them, those releases computed a wrong result, refused an expression that
+they should compute, or computed one that they should refuse. The implementation
+of those releases, which stays in the source code as <code>grass.temporal.classic</code>,
+was corrected in the same way, except in the last two entries, on <code>merge()</code> of
+absolute and relative time and on the selection of a relative time instance:
+only the classic algebra computes them, and <code>grass.temporal.classic</code> still ends
+with a <code>TypeError</code>. Results of an earlier release that used one of these forms
+need a new run. All other results of the classic algebra are those of the
+releases before GRASS 8.6: the tests compare it with recorded results of that
 implementation. The manuals of the algebra tools describe many of these
 corrections with examples, in their sections "Corrections to the classic
 algebra".
@@ -231,8 +233,7 @@ it stays a syntax error
 (<a href="t.vect.algebra.html#temporal-operators">t.vect.algebra</a>).</li>
 <li><b>Null maps of 3D rasters.</b> <em>t.rast3d.algebra</em> could not remove its null
 maps, and in Python, <code>run=False</code> crashed in the raster algebras. Now
-null maps are removed, and <code>run=False</code> only checks the syntax
-(<a href="t.rast3d.algebra.html#flags">t.rast3d.algebra</a>).</li>
+null maps are removed, and <code>run=False</code> only checks the syntax.</li>
 <li><b>Conditions over maps of equal time.</b> With several maps of equal time,
 <code>if()</code> combined every condition map with every conclusion map of that
 time and gave one result for each pair. Now maps of equal time are
@@ -478,7 +479,7 @@ than 1 is refused before the query, with the message of
 <em>t.rast3d.list</em> and <em>t.vect.list</em> wrote a file named <code>-</code> into the
 working directory. Now it is the standard output
 (<a href="t.rast.list.html#notes">t.rast.list</a>).</li>
-<li><b>Granules of t.vect.list.</b> <em>t.vect.list</em> had no option <b>granule</b>,
+<li><b>Granules of <em>t.vect.list</em>.</b> <em>t.vect.list</em> had no option <b>granule</b>,
 and <b>method=gran</b> ended at the end of the map sorted last. Now it has
 the option <b>granule</b> with the rules of <em>t.rast.list</em>, and the granules
 reach the end of the dataset (<a href="t.vect.list.html#notes">t.vect.list</a>).</li>
@@ -486,16 +487,16 @@ reach the end of the dataset (<a href="t.vect.list.html#notes">t.vect.list</a>).
 identifiers with some methods only, and <b>method=delta</b> with
 <b>format=line</b> ended with a traceback. Now every method prints the
 identifiers with <b>format=line</b> (<a href="t.rast.list.html#notes">t.rast.list</a>).</li>
-<li><b>method=comma of t.rast.list.</b> <b>method=comma</b> printed the table of
+<li><b>method=comma of <em>t.rast.list</em>.</b> <b>method=comma</b> printed the table of
 <b>method=list</b> with commas instead of the identifiers in one line. Now
 it prints the identifiers in one line, separated by <b>separator</b>
 (<a href="t.rast.list.html#methods">t.rast.list</a>).</li>
-<li><b>Delta methods of t.vect.list.</b> The delta methods of <em>t.vect.list</em>
+<li><b>Delta methods of <em>t.vect.list</em>.</b> The delta methods of <em>t.vect.list</em>
 printed no lengths, ignored <b>order</b> without notice, <b>method=comma</b>
 changed nothing, and <b>format=line</b> required <b>columns</b>. Now the
 delta columns are there, <b>order</b> with a delta method is refused, and
 <b>method=comma</b> prints the identifiers (<a href="t.vect.list.html#notes">t.vect.list</a>).</li>
-<li><b>where with method=gran of t.rast3d.list.</b> <em>t.rast3d.list</em> refused
+<li><b>where with method=gran of <em>t.rast3d.list</em>.</b> <em>t.rast3d.list</em> refused
 <b>where</b> with <b>method=gran</b>. Now it takes it, as <em>t.rast.list</em> does
 (<a href="t.rast3d.list.html#notes">t.rast3d.list</a>).</li>
 <li><b>method=gran without granularity.</b> <b>method=gran</b> on an empty dataset
@@ -503,7 +504,7 @@ or on a single time instance reported "Wrong granularity: None". Now the
 message says that the dataset is empty, or that the granularity is
 missing and a granule or another method is needed
 (<a href="t.rast.list.html#notes">t.rast.list</a>).</li>
-<li><b>Maps without start time in t.rast.list.</b> A map without start time
+<li><b>Maps without start time in <em>t.rast.list</em>.</b> A map without start time
 ended <b>method=delta</b> and <b>method=deltagaps</b> of <em>t.rast.list</em> with a
 <code>TypeError</code>. Now it is listed with <code>None</code> in the time columns and a
 warning, and the distances count from the first map with a start time
@@ -524,7 +525,7 @@ other temporal type made <em>t.sample</em>, <em>t.rast.mapcalc</em> and
 <em>t.rast3d.mapcalc</em> print an error and end with exit code 0. Now they
 end with an error and a non-zero exit code. Scripts that check the exit
 code see the difference (<a href="t.sample.html#notes">t.sample</a>).</li>
-<li><b>Samplers without maps and labels in t.sample.</b> A sampler without
+<li><b>Samplers without maps and labels in <em>t.sample</em>.</b> A sampler without
 registered maps made <em>t.sample</em> report that the sampler must have
 intervals and end with exit code 0, a dataset with a semantic label in
 <b>inputs</b>, such as <code>ds.B4</code>, was not found, and a name without mapset
@@ -539,7 +540,7 @@ time instances are still refused (<a href="t.sample.html#notes">t.sample</a>).</
 their own. Now they use the functions of the new algebra; their results
 are those of before, and tests that record them keep them
 (<a href="t.rast.mapcalc.html#notes">t.rast.mapcalc</a>).</li>
-<li><b>Samplers and empty maps in t.rast.aggregate.ds.</b> A sampler in another
+<li><b>Samplers and empty maps in <em>t.rast.aggregate.ds</em>.</b> A sampler in another
 relative unit gave no result and exit code 0, and <b>-n</b> worked the
 wrong way round: without <b>-n</b> empty maps were registered, with <b>-n</b>
 they were not. Now a sampler in another relative unit is refused, and
@@ -551,7 +552,7 @@ count of gaps and the granularity, or came into the chain of next and
 previous maps. Now such maps stand outside the chain and are left out
 with a warning, and <em>t.topology</em> ends with exit code 0
 (<a href="t.topology.html#notes">t.topology</a>).</li>
-<li><b>Empty selections in t.topology.</b> An empty selection on absolute time
+<li><b>Empty selections in <em>t.topology</em>.</b> An empty selection on absolute time
 ended <em>t.topology</em> with a traceback, and an empty selection counted as
 an invalid topology. Now an empty selection is a valid topology without
 granularity (<a href="t.topology.html#notes">t.topology</a>).</li>
@@ -608,7 +609,7 @@ ended the list of maps without notice, and in the files of
 <em>t.unregister</em> and <em>t.remove</em> it was a map or a dataset without name.
 Now blank lines are skipped by all three
 (<a href="t.register.html#notes">t.register</a>).</li>
-<li><b>file=- and warnings of t.register.</b> <code>file=-</code> looked for a file named
+<li><b>file=- and warnings of <em>t.register</em>.</b> <code>file=-</code> looked for a file named
 <code>-</code>, and the warnings about files with and without times came also when
 not all lines had a time and for registered maps without <b>start</b>. Now
 <code>file=-</code> reads the standard input, and the warnings come only when all
@@ -973,8 +974,7 @@ with another coordinate system need <b>-o</b>
 <li><b>CSV</b> <em>(upstream)</em>. In <em>t.rast.list</em> and <em>t.vect.list</em>, <code>format=csv</code>
 with <code>separator=|</code> was set to a comma without notice. Now <code>csv</code> has a
 comma as default separator and takes <code>separator=|</code>; <code>json</code> and <code>yaml</code>
-refuse <b>separator</b>; <code>line</code> and <b>method=comma</b> take one column only
-(<a href="t.rast.list.html#output">t.rast.list</a>).</li>
+refuse <b>separator</b> (<a href="t.rast.list.html#output">t.rast.list</a>).</li>
 <li><b>method=gran with where</b> <em>(upstream)</em>. <b>method=gran</b> refused
 <b>where</b>. Now it takes it, with start and end from the selected maps
 instead of the dataset (<a href="t.rast.list.html#methods">t.rast.list</a>).</li>
@@ -1069,7 +1069,7 @@ with <code>zone|label</code> in front with zones, and with <b>-e</b> the quartil
 value the cores plus that value. Scripts that read columns by their
 position have to read them by the names of the header
 (<a href="t.rast.univar.html#description">t.rast.univar</a>).</li>
-<li><b>Inputs, percentiles and formats of t.rast3d.univar</b> <em>(upstream)</em>.
+<li><b>Inputs, percentiles and formats of <em>t.rast3d.univar</em></b> <em>(upstream)</em>.
 <b>input</b> was declared as a raster map, and there was no <b>percentile</b>,
 no <b>region_relation</b> and only plain text. Now <b>input</b> and <b>zones</b>
 are 3D raster maps, <b>percentile</b> (with <b>-e</b>), <b>region_relation</b>
@@ -1243,7 +1243,7 @@ refused also without <b>--overwrite</b>, and a layer given twice is refused
 <h2>Other tools and libraries</h2>
 
 <ul>
-<li><b>r.contour.</b> Levels of <b>step</b> had no anchor in the step grid, regions
+<li><b><em>r.contour</em>.</b> Levels of <b>step</b> had no anchor in the step grid, regions
 with one or two rows or columns hung the tool, lines ran over null
 cells, levels on the minimum or maximum gave no line, rings through
 border cells and lines through saddle cells at the border were lost,
@@ -1256,16 +1256,16 @@ open at null cells, extreme levels, border rings and saddles are traced,
 <code>minlevel &gt; maxlevel</code> is an error, <b>cut</b> works after snapping, no
 line has one point, and a map without values gives an empty map
 (<a href="r.contour.html">r.contour</a>).</li>
-<li><b>r.univar and r3.univar.</b> Without a valid cell, <em>r.univar</em> printed
+<li><b><em>r.univar</em> and <em>r3.univar</em>.</b> Without a valid cell, <em>r.univar</em> printed
 <code>-1.79769e+308</code> as maximum and <code>-nan</code>; <em>r3.univar</em> counted cells masked
 by the 3D mask and rounded floating point zones without notice. Now
 <code>nan</code> is printed without sign, and <em>r3.univar</em> respects the 3D mask and
 refuses zones that are not integers (<a href="r.univar.html">r.univar</a>,
 <a href="r3.univar.html">r3.univar</a>).</li>
-<li><b>r3.support.</b> <code>raster=</code> ended with "Raster map <code>&lt;layers&gt;</code> not found", so
+<li><b><em>r3.support</em>.</b> <code>raster=</code> ended with "Raster map <code>&lt;layers&gt;</code> not found", so
 categories could not be set. Now the categories are taken from the
 raster map (<a href="r3.support.html">r3.support</a>).</li>
-<li><b>r3.mapcalc and the 3D mask.</b> <em>r3.mapcalc</em> did not respect the 3D mask,
+<li><b><em>r3.mapcalc</em> and the 3D mask.</b> <em>r3.mapcalc</em> did not respect the 3D mask,
 <code>@map</code> gave null, the mask of tiles hid wrong cells with another region,
 and a mask on another grid was applied differently by each tool. Now
 the 3D mask applies when existing maps are read (a constant stays
@@ -1284,11 +1284,11 @@ their wrong values; <em>r3.null</em> on an old map writes 0; older releases
 read new maps of reduced precision wrongly, with values near 0. Make
 maps of reduced precision of older releases again where the values are
 needed (<a href="raster3dintro.html#3d-raster-data-types">3D raster data</a>).</li>
-<li><b>v.unpack.</b> In a project without projection information (XY),
+<li><b><em>v.unpack</em>.</b> In a project without projection information (XY),
 <em>v.unpack</em> ended with a <code>FileNotFoundError</code>. Now the missing file counts
 as another coordinate system, and <b>-o</b> allows the import
 (<a href="v.unpack.html">v.unpack</a>).</li>
-<li><b>v.univar.</b> <b>-e</b> sorted NULL rows as 0 and took the quartiles from
+<li><b><em>v.univar</em>.</b> <b>-e</b> sorted NULL rows as 0 and took the quartiles from
 the rows of the table instead of the features. Now NULL is left out, and
 the values come from the features; a category of two features counts
 twice (<a href="v.univar.html">v.univar</a>).</li>
@@ -1310,7 +1310,7 @@ memory over 40,000 calls). The schema is unchanged
 3.33 were removed; with an older SQLite, the update of a dataset ends
 with a message to update SQLite or to use PostgreSQL with <em>t.connect</em>
 (<a href="t.connect.html#notes">t.connect</a>).</li>
-<li><b>The region of r.mapcalc.</b> With <code>region=union</code> or <code>region=intersect</code>,
+<li><b>The region of <em>r.mapcalc</em>.</b> With <code>region=union</code> or <code>region=intersect</code>,
 <em>r.mapcalc</em> wrote the computed region into the region file of the
 mapset, so after <em>t.rast.algebra</em> <b>-s</b> the region of the session was
 that of the last maps. Now that region holds for the process only
@@ -1319,17 +1319,20 @@ that of the last maps. Now that region holds for the process only
 
 <h2>Python API and addons</h2>
 
-The public interface of <code>grass.temporal</code> that the repository and the
-addons of grass-addons use is recorded in a contract of the tests
-(<code>python/grass/temporal/tests/data/public_contract.json</code>), and a test keeps
-it. Every name of this contract was there before GRASS 8.6 and is kept: the
-package names such as <code>open_old_stds</code>, <code>open_new_stds</code>, <code>init</code>,
-<code>SpaceTimeRasterDataset</code> and <code>register_maps_in_space_time_dataset</code>, the
-modules <code>core</code>, <code>datetime_math</code>, <code>list_stds</code> and <code>space_time_datasets</code>, and
-the methods and members of the dataset classes, such as
+The public interface of <code>grass.temporal</code> that the repository and the addons of
+grass-addons use is recorded in a contract of the tests
+(<code>python/grass/temporal/tests/data/public_contract.json</code>), and a test keeps it.
+Every name of the contract that the addons use was there before GRASS 8.6 and is
+kept: the package names such as <code>open_old_stds</code>, <code>open_new_stds</code>, <code>init</code>,
+<code>SpaceTimeRasterDataset</code> and <code>register_maps_in_space_time_dataset</code>, the modules
+<code>core</code>, <code>datetime_math</code>, <code>list_stds</code> and <code>space_time_datasets</code>, and the methods
+and members of the dataset classes, such as
 <code>SpaceTimeRasterDataset.metadata.get_number_of_maps()</code> and
-<code>RasterDataset.absolute_time.start_time</code>. Code that uses only these names
-needs no change. The reference documentation of the temporal framework
+<code>RasterDataset.absolute_time.start_time</code>. Code that uses only these names needs
+no change. Names of the contract that only the repository uses can be new in
+GRASS 8.6, such as the steps that the temporal tools share, and code that has to
+run with GRASS 8.5 cannot use them. The reference documentation of the temporal
+framework
 (<a href="https://grass.osgeo.org/grass-stable/manuals/libpython/temporal_framework.html">temporal framework</a>)
 describes every module.
 
@@ -1618,33 +1621,33 @@ of the manuals found are fixed as well, but they are not counted.
 <em>t.rast.aggregate</em>, <em>t.rast.aggregate.ds</em>, <em>t.rast.contour</em>,
 <em>t.rast.to.vect</em>, <em>t.rast.gapfill</em>, <em>t.rast.what</em> and, for <b>t_where</b>,
 <em>t.vect.what.strds</em>. Now it is reported with a message.</li>
-<li><b>t.create:</b> an apostrophe or a question mark in <b>title</b> or
+<li><b><em>t.create</em>:</b> an apostrophe or a question mark in <b>title</b> or
 <b>description</b> ended with a traceback.</li>
-<li><b>t.rast.accumulate:</b> a threshold dataset of the other temporal type was
+<li><b><em>t.rast.accumulate</em>:</b> a threshold dataset of the other temporal type was
 not refused, errors ended with a traceback, and with <b>--overwrite</b> the
 count of maps of the other dataset was not updated.</li>
-<li><b>t.rast.accumulate</b> and <b>t.rast.accdetect:</b> an empty input dataset
+<li><em><b>t.rast.accumulate</b></em> and <b><em>t.rast.accdetect</em>:</b> an empty input dataset
 crashed the tool; now it warns and ends with exit code 0.</li>
-<li><b>t.rast.contour:</b> the refusal without <b>levels</b> and <b>step</b> ended
+<li><b><em>t.rast.contour</em>:</b> the refusal without <b>levels</b> and <b>step</b> ended
 with a traceback.</li>
-<li><b>t.rast.export:</b> a failed export left its working directory behind.</li>
-<li><b>t.rast.gapfill:</b> the message for an existing map named the basename,
+<li><b><em>t.rast.export</em>:</b> a failed export left its working directory behind.</li>
+<li><b><em>t.rast.gapfill</em>:</b> the message for an existing map named the basename,
 and after <b>--overwrite</b> the first dataset kept its count of maps.</li>
-<li><b>t.rast.import:</b> every refusal ended with a traceback.</li>
-<li><b>t.rast.mapcalc:</b> a decimal number in <b>nprocs</b> ended with a traceback.</li>
-<li><b>t.rast.neighbors:</b> a failing <em>r.neighbors</em> ended with a traceback, and
+<li><b><em>t.rast.import</em>:</b> every refusal ended with a traceback.</li>
+<li><b><em>t.rast.mapcalc</em>:</b> a decimal number in <b>nprocs</b> ended with a traceback.</li>
+<li><b><em>t.rast.neighbors</em>:</b> a failing <em>r.neighbors</em> ended with a traceback, and
 the parser did not check <b>region_relation</b>.</li>
-<li><b>t.rast.out.vtk:</b> a refused export left the copy of the map behind.</li>
-<li><b>t.rast.to.rast3:</b> a null map was left behind.</li>
-<li><b>t.shift:</b> the message of a refused shift named
+<li><b><em>t.rast.out.vtk</em>:</b> a refused export left the copy of the map behind.</li>
+<li><b><em>t.rast.to.rast3</em>:</b> a null map was left behind.</li>
+<li><b><em>t.shift</em>:</b> the message of a refused shift named
 <code>&lt;built-in function id&gt;</code> instead of the map.</li>
-<li><b>t.vect.db.select:</b> an error of <em>v.db.select</em> ended with a traceback.</li>
-<li><b>t.vect.export:</b> a missing or not writable <b>directory</b> ended with a
+<li><b><em>t.vect.db.select</em>:</b> an error of <em>v.db.select</em> ended with a traceback.</li>
+<li><b><em>t.vect.export</em>:</b> a missing or not writable <b>directory</b> ended with a
 traceback, and <code>readme.txt</code> described a GPKG archive as packed files.</li>
-<li><b>t.vect.observe.strds:</b> a message named the wrong identifier, time
+<li><b><em>t.vect.observe.strds</em>:</b> a message named the wrong identifier, time
 instances ended with a traceback, and errors of the tools it runs ended
 with a traceback.</li>
-<li><b>t.vect.what.strds:</b> an invalid <b>where</b> gave no error, and an empty
+<li><b><em>t.vect.what.strds</em>:</b> an invalid <b>where</b> gave no error, and an empty
 vector dataset reported that the maps must be intervals.</li>
 <li><b>The Python library:</b> 18 further errors that only Python code meets,
 among them a rollback and a close of connections on the paths of
