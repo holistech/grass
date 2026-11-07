@@ -58,7 +58,8 @@ def test_setters_keep_the_time_zone(name):
 
 @pytest.mark.parametrize("name", ["ctime", "mtime"])
 def test_setters_keep_a_value_that_is_not_a_datetime(name):
-    # An old SQLite database may hand out the text of a TIMESTAMP column.
+    # The setters accepted any value before; a value that is not a datetime is
+    # kept as it is.
     base = new_base()
     setter = getattr(base, f"set_{name}")
     getter = getattr(base, f"get_{name}")
@@ -94,14 +95,15 @@ def test_new_and_registered_dataset_times_equal_the_stored_ones(
         start="2001-01-01",
         end="2001-01-02",
     )
-    registered = tgis.open_old_stds(f"whole_sec@{mapset}", "strds")
-    registered.select()
-    assert registered.base.get_mtime().microsecond == 0
+    # The modification time that the registration sets in memory is the one
+    # under test; a dataset read from the database never passes the setters.
+    stds.update_from_registered_maps()
+    assert stds.base.get_mtime().microsecond == 0
 
     reread = tgis.open_old_stds(f"whole_sec@{mapset}", "strds")
     reread.select()
     assert reread.base.get_ctime() == stds.base.get_ctime()
-    assert reread.base.get_mtime() == registered.base.get_mtime()
+    assert reread.base.get_mtime() == stds.base.get_mtime()
     assert reread.base.get_ctime().microsecond == 0
 
 
