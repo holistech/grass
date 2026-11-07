@@ -15,7 +15,7 @@ void Init(void)
 {
     struct Cell_head Region;
     int row, col, i, j, NumWeight, NumDist, NumExp;
-    char *Name, *Number, String[80];
+    char *Name, String[80];
     double MinRes;
 
     G_debug(2, "Init");
