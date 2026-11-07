@@ -108,7 +108,8 @@
 % SOURCE_DATE_EPOCH and FORCE_SOURCE_DATE=1, which only write it in UTC
 % (measured 2026-11-07 with a document of two lines and touch -d). Each
 % attachment gets the date of this version instead, the date of \date
-% below, so that the same sources give the same PDF.
+% below, so that the same sources give the same PDF. Change \attachmentdate
+% and \date together.
 \newcommand{\attachmentdate}{D:20261106000000Z}
 \makeatletter
 \DeclareRobustCommand{\examplefile}[1]{%
