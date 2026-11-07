@@ -1005,12 +1005,17 @@ time.
     C = buff_t(A, 3)
     ```
 
-4. **merge() and the data type.** The data types of the maps are not
-    compared, so a dataset may hold integer and floating point maps. Earlier
-    versions refused `merge()` of a dataset with a single map from `map()` or
-    `tmap()` with the error that the datasets must have the same data type.
-    The first expression gives the four maps of A and the single map, the
-    second the maps of A and the floating point maps computed from them:
+4. **merge() with a single map.** The releases before GRASS 8.6 refused
+    `merge()` of a dataset with a single map from `tmap()` with the error
+    "Space time datasets to merge must have the same temporal type", also
+    when both had the same temporal type. The data types of the maps are not
+    compared, so a dataset may hold integer and floating point maps. The
+    first expression gives the four maps of A and the single map. The second
+    gives the maps of A and the floating point maps computed from them; it
+    ran in those releases as well. Both algebras refuse `merge()` with
+    `map()`, as in `merge(A, map(a1))`: the classic algebra reports a syntax
+    error, the new algebra that a map without time stamp forms a series of
+    its own.
 
     ```sh
     C = merge(A, tmap(singletmap))

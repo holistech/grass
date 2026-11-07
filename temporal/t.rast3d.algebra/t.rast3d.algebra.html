@@ -360,10 +360,16 @@ C = tshift(A, "1 DAY")
 C = buff_t(A, 3)
 </pre></div>
 </li>
-<li><b>merge() and the data type.</b> The data types of the maps are not
-compared, so a dataset may hold integer and floating point maps. Earlier
-versions refused <code>merge()</code> of a dataset with a single map from <code>map()</code> or
-<code>tmap()</code> with the error that the datasets must have the same data type:
+<li><b>merge() with a single map.</b> The releases before GRASS 8.6 refused
+<code>merge()</code> of a dataset with a single map from <code>tmap()</code> with the error
+"Space time datasets to merge must have the same temporal type", also
+when both had the same temporal type. The data types of the maps are not
+compared, so a dataset may hold integer and floating point maps. The
+expression below gives the maps of A and the floating point maps
+computed from them; it ran in those releases as well. Both algebras
+refuse <code>merge()</code> with <code>map()</code>, as in <code>merge(A, map(a1))</code>: the classic
+algebra reports a syntax error, the new algebra that a map without time
+stamp forms a series of its own:
 
 <div class="code"><pre>
 C = merge(A, A * 1.5)
