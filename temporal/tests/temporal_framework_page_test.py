@@ -322,19 +322,22 @@ class Page:
     directives of parse_guide(); ``snippets`` tells whether their unnamed
     ``code-block:: python`` blocks are run by a test, as those of the overview
     page are. A guide page without that test refuses an unnamed block, so that
-    no code on it goes unrun.
+    no code on it goes unrun. ``includes`` is the number of literalinclude
+    directives the page holds; the test of the includes fails when a page
+    holds another number, so that a page cannot lose them unnoticed.
     """
 
     name: str
     path: Path
     guide: bool = True
     snippets: bool = False
+    includes: int = 0
 
 
 # The pages in the order of the overview's toctree. A new guide adds one entry.
 PAGES = (
     Page("overview", PAGE, guide=False, snippets=True),
-    Page("tools", PAGE.with_name("temporal_framework_tools.rst")),
+    Page("tools", PAGE.with_name("temporal_framework_tools.rst"), includes=4),
 )
 
 NAMED_BLOCK = re.compile(
@@ -505,7 +508,10 @@ FORBIDDEN_SELECTORS = ("lines", "start-line", "end-line", "start-at", "end-at")
 def pyobject_source(path, dotted):
     """The source of a function or class of a Python file, ``Class.method`` too
 
-    Raises ValueError if the file is not Python or has no such object.
+    Raises ValueError if the file is not Python or has no such object. The
+    lookup walks the syntax tree, so it proves that the object exists; it is
+    not Sphinx's lookup, which also decides whether decorators are shown, so
+    the exact rendered text is not checked here.
     """
     if path.suffix != ".py":
         msg = f"':pyobject:' needs a Python file, {path.name} is not one"
@@ -586,7 +592,9 @@ def literalinclude_selection(page_path, include):
 @pytest.mark.parametrize("page", PAGES, ids=[page.name for page in PAGES])
 def test_literalinclude_selects_existing_code(page):
     """Each literalinclude of a page selects code of an existing file"""
-    for include in includes_of(page):
+    includes = includes_of(page)
+    assert len(includes) == page.includes
+    for include in includes:
         assert literalinclude_selection(page.path, include).strip()
 
 
@@ -988,8 +996,12 @@ def test_example_tool_loads_no_temporal_code_for_its_interface(page_session):
     assert not [name for name in loaded if name.startswith("grass.temporal")]
 
 
-def roles_of(page, kinds=("func", "class", "mod")):
-    """The grass.temporal names that the roles of the page refer to"""
+def roles_of(page, kinds=("func", "class", "mod", "meth", "attr")):
+    """The grass.temporal names that the roles of the page refer to
+
+    Only the roles of ``kinds`` are read; a role of another kind (``:data:``,
+    ``:exc:``, ``:ref:``) is not checked.
+    """
     pattern = rf":(?:{'|'.join(kinds)}):`~?(grass\.temporal[A-Za-z0-9_.]*)(?:\(\))?`"
     return sorted(set(re.findall(pattern, page.path.read_text())))
 
