@@ -93,7 +93,7 @@ def get_tgis_metadata(dbif=None):
 
 def get_sql_template_path() -> str:
     """Return the directory of the SQL files that create the temporal database"""
-    return str(Path(os.getenv("GISBASE"), "etc", "sql"))
+    return str(Path(os.environ["GRASS_ETCDIR"], "sql"))
 
 
 def get_database_info_string():

@@ -67,7 +67,7 @@ def database_file(session) -> Path:
 
 def sql_files(session) -> Path:
     """The directory with the SQL files of the installed temporal library"""
-    return Path(session.env["GISBASE"]) / "etc" / "sql"
+    return Path(session.env["GRASS_ETCDIR"]) / "sql"
 
 
 def set_version(database, version) -> None:
