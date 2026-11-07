@@ -116,7 +116,7 @@ int main(int argc, char **argv)
 
     min = atof(parm.min->answer);
     if (parm.seed->answer) {
-        seed = atol(parm.seed->answer);
+        seed = (int)G_random_seed_from_option(parm.seed);
         G_debug(3, "Read random seed from seed=: %d", seed);
     }
     else {
