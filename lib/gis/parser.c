@@ -1315,6 +1315,7 @@ void check_opts(void)
 {
     struct Option *opt;
     int ans;
+    char *err;
 
     if (!st->n_opts)
         return;
@@ -1323,7 +1324,20 @@ void check_opts(void)
     while (opt) {
         /* Check answer against options if any */
 
-        if (opt->answer && !opt->answer_left_to_tool) {
+        /* A script has no seed function of its own to check the answer
+         * of G_OPT_M_SEED, so the parser checks it as a seed, with the
+         * message of G_random_seed_from_option(). */
+        if (opt->answer && opt->answer_left_to_tool) {
+            int64_t seed;
+            const char *problem = G_random_parse_seed(opt->answer, &seed);
+
+            if (problem) {
+                G_asprintf(&err, _("Invalid random seed <%s> for %s=: %s"),
+                           opt->answer, opt->key, problem);
+                append_error(err);
+            }
+        }
+        else if (opt->answer) {
             /* An option with a tuple as key_desc, such as rows,columns, is
                not multiple but its answer holds several numbers. */
             if (opt->multiple == 0 &&
