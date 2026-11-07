@@ -25,9 +25,10 @@ The document :download:`The GRASS Temporal Framework: Object oriented code desig
 (GRASS 8.6) describes the design of the current code with UML figures and
 examples that run against the code. This page lists the modules and shows
 short examples; the guide :doc:`temporal_framework_tools` shows how to write a
-new temporal tool. The document of the same name that accompanies the 2017
-publication of Gebbert and Pebesma shows the state of 2017 and is linked in the
-references.
+new temporal tool, and the guide :doc:`temporal_framework_algebra` how to extend
+the algebra core without changing what the classic algebra computes. The
+document of the same name that accompanies the 2017 publication of Gebbert and
+Pebesma shows the state of 2017 and is linked in the references.
 
 Temporal API
 ------------
@@ -382,6 +383,7 @@ repository:
    :maxdepth: 1
 
    temporal_framework_tools
+   temporal_framework_algebra
 
 
 Examples
