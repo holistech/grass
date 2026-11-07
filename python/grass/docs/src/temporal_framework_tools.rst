@@ -30,12 +30,13 @@ A tool lives in its own directory ``temporal/<name>/`` with these files:
 - ``<name>.py``, the tool: a comment header, the options in ``%option`` blocks and
   the code;
 - ``<name>.md`` and ``<name>.html``, the manual (see `The manual`_);
-- ``Makefile``, a few lines for Autotools, which differ between tools only in
-  ``PGM``;
+- ``Makefile``, a few lines for Autotools. In most tools it differs from the others
+  only in ``PGM``; the four algebra tools omit ``$(TEST_DST)`` after ``script``,
+  and ``t.rast.aggregate`` adds a comment block;
 - ``tests/``, the tests (see `The tests`_).
 
 .. literalinclude:: ../../../../temporal/t.shift/Makefile
-    :caption: The Makefile of t.shift, the model for every Python tool of the directory
+    :caption: The Makefile of t.shift, a typical Makefile of a Python tool
     :start-after: MODULE_TOPDIR = ../../
 
 CMake builds the tools from one list: the name of the tool belongs to
@@ -85,7 +86,7 @@ The example tool
 ``t.example.count`` counts the maps of a space time raster dataset that lie in a time
 range. A map lies in the range when its start is not before **start** and its end,
 or its start for a time instant, is not after **end**. The maps named in the
-file of **exclude** are left out. The tool reads and writes nothing but a number.
+file of **exclude** are left out. The tool writes nothing but a number.
 
 .. code-block:: python
     :caption: t.example.count.py
@@ -180,8 +181,8 @@ file of **exclude** are left out. The tool reads and writes nothing but a number
 end of the file, which is why ``main()`` reads it without a parameter. The tools
 of ``temporal/`` declare ``global tgis`` in ``main()`` when helper functions of
 the file need the library, as ``shift_by_list`` in *t.shift* does; the helper of
-this example does not, so it does not. The two ``option_to_datetime`` calls and the call of ``names_from_file`` are the
-pattern of `The shared steps`_: a helper checks one option and raises
+this example does not, so it does not. The two ``option_to_datetime`` calls and
+the call of ``names_from_file`` are the pattern of `The shared steps`_: a helper checks one option and raises
 ``ValueError`` with a translated text, and the tool decides how the run ends. A
 result that is data, here the number, goes to the standard output with ``print()``;
 messages for the user go through ``gs.message()``, ``gs.warning()`` and ``gs.fatal()``.
@@ -252,7 +253,7 @@ The shared steps
 Tools that compute a result for each map, or in cycles, or that read a file of
 names do the same steps. They are functions in
 :mod:`~grass.temporal.tool_steps` and in :mod:`~grass.temporal.datetime_math`, so
-that the tools differ only where they have to. Opening the output dataset and
+that the tools differ only where they have to. Creating the dataset object and
 running the modules stay with the tool: the tools differ there, and their
 messages are translated per tool.
 
@@ -336,7 +337,7 @@ Two recordings in ``python/grass/temporal/tests/data`` keep the texts:
 
 - ``tool_message_texts.json`` holds the text of every ``_()`` call of the tools in
   ``temporal/t.*/t.*.py``. ``grass_temporal_tool_messages_test.py`` fails for a
-  recorded text that is no longer in a tool or in a module of the library. To
+  recorded text that is no longer in a tool or in a top level module of the library. To
   record a new tool, run that file as a script,
   ``python3 python/grass/temporal/tests/grass_temporal_tool_messages_test.py``: it
   writes the texts of all tools and keeps the recorded texts that moved into the
@@ -360,8 +361,10 @@ which the build installs for the HTML manual of the installation. The manual is 
 test as well: ``temporal/tests`` runs its examples and compares the output.
 
 - **Structure.** ``## DESCRIPTION``, ``## NOTES``, ``## EXAMPLES``, ``## SEE ALSO`` and
-  ``## AUTHORS``; ``AGENTS.md`` requires DESCRIPTION, SEE ALSO and AUTHORS. DESCRIPTION says what the tool does and what it is used for,
-  links the introduction *temporalintro* and the related tools, and then explains every
+  ``## AUTHOR`` or ``## AUTHORS`` (``AGENTS.md`` requires DESCRIPTION, SEE ALSO
+  and AUTHORS; most tool manuals say ``## AUTHOR``). DESCRIPTION says what the
+  tool does and what it is used for, links the introduction *temporalintro* and
+  the related tools, and then explains every
   option and flag with its effect, its default and how it works together with
   the others, grouped by purpose and not in the order of the parser. A tool with a
   table as output explains each column. NOTES holds the limits and the traps: an
