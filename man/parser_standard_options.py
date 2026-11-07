@@ -21,6 +21,11 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
 
+# Fields of struct Option which steer the parser but are no property of the
+# option for its user, so the documentation leaves them out.
+INTERNAL_FIELDS = {"answer_left_to_tool"}
+
+
 def parse_options(
     lines: list[str], startswith="Opt"
 ) -> list[tuple[str, dict[str, str | list[str]]]]:
@@ -72,6 +77,9 @@ def parse_options(
                 continue
             if line.startswith(startswith) and line.endswith(";"):
                 key, default = (w.strip() for w in split_opt_line(line[5:]))
+                if key in INTERNAL_FIELDS:
+                    key = None
+                    continue
                 res[key] = default
             elif line.startswith(startswith):
                 key, default = split_opt_line(line[5:])
