@@ -23,7 +23,8 @@ parse_guide(), which knows these forms and refuses every other:
   of the overview page, if the page lists its snippets as run (``Page.snippets``);
 - a block with a ``:name:`` of the form ``example-<kind>-<what>`` is part of an
   example that the test assembles in a folder: ``example-tool-file`` is the
-  Python file of a tool, written under the name of its ``:caption:``, and
+  Python file of a tool or a script, written under the name of its
+  ``:caption:``, and
   ``example-data-<what>`` is a text file written under its caption;
   ``example-commands-<what>`` is a ``text`` block of commands, one per line,
   that the test runs in order (``python3`` stands for the interpreter of the
@@ -35,7 +36,9 @@ parse_guide(), which knows these forms and refuses every other:
   literalinclude_selection()).
 
 A page joins the tests by an entry in PAGES. Its named blocks and includes are
-then checked, and the overview page must link it in a toctree.
+then checked, and the overview page must link it in a toctree. Sphinx makes
+each ``:name:`` a label of the whole documentation, so no two blocks of the
+pages share one.
 
 The pages are not built with Sphinx here: the documentation workflow builds
 them, and a build needs packages that the tests do not.
@@ -338,6 +341,7 @@ class Page:
 PAGES = (
     Page("overview", PAGE, guide=False, snippets=True),
     Page("tools", PAGE.with_name("temporal_framework_tools.rst"), includes=4),
+    Page("algebra", PAGE.with_name("temporal_framework_algebra.rst"), includes=7),
 )
 
 NAMED_BLOCK = re.compile(
@@ -1059,3 +1063,105 @@ def test_the_tool_guide_names_every_shared_step():
 
     assert defined
     assert sorted(defined - set(roles_of(PAGES[1]))) == []
+
+
+ALGEBRA_PAGE = next(page for page in PAGES if page.name == "algebra")
+
+# The parts of the algebra core that the example of the algebra guide has to
+# show, as contract_trace reports them: the functions are defined in these
+# modules and exported by grass.temporal.algebra.
+ALGEBRA_EXAMPLE_CALLS = {
+    "grass.temporal.algebra.sources.source",
+    "grass.temporal.algebra.operations.gather",
+    "grass.temporal.algebra.operations.apply",
+    "grass.temporal.algebra.materialize.plan",
+    "grass.temporal.algebra.materialize.materialize",
+}
+
+
+@pytest.mark.timeout(300)
+def test_algebra_example_runs_as_the_page_shows(page_session):
+    """The script of the algebra guide prints the plan and the maps it shows"""
+    session, work = page_session
+    blocks = blocks_of(ALGEBRA_PAGE)
+    env = example_environment(session.env)
+
+    outputs, _names = run_example(blocks, env, work)
+
+    shown = shown_outputs(blocks)
+    assert len(shown) >= 2
+    for what, text in outputs:
+        if what in shown:
+            assert text.rstrip("\n") == shown[what].rstrip("\n"), what
+    assert {what for what, _text in outputs if what in shown} == set(shown)
+
+
+@pytest.mark.timeout(300)
+def test_algebra_example_uses_only_the_contract(page_session):
+    """The script calls the core API it is meant to show, all of it in the contract"""
+    session, work = page_session
+    env = example_environment(session.env)
+
+    _outputs, names = run_example(blocks_of(ALGEBRA_PAGE), env, work, trace=True)
+
+    assert sorted(ALGEBRA_EXAMPLE_CALLS - names) == []
+    assert missing_from_contract(names, contract=json.loads(CONTRACT.read_text())) == []
+
+
+# A dotted name of the algebra core written as a literal, ``name`` or
+# ``name()``. The roles of the page are checked by
+# test_the_names_that_a_guide_refers_to_exist; the literals name the private
+# parts of the core, which have no entry in the reference to link to.
+ALGEBRA_LITERAL = re.compile(
+    r"``(grass\.temporal\.algebra(?:\.[A-Za-z_][A-Za-z0-9_]*)*)(?:\(\))?``"
+)
+
+
+def algebra_literals(text):
+    """The dotted names of the algebra core that literals of the text name"""
+    return sorted(set(ALGEBRA_LITERAL.findall(text)))
+
+
+def test_algebra_page_names_exist():
+    """Every module, function and table of the core that the page names exists"""
+    names = algebra_literals(ALGEBRA_PAGE.path.read_text())
+
+    assert len(names) >= 10
+    assert [name for name in names if not _exists(name)] == []
+
+
+def test_algebra_literals_are_read_and_an_invented_name_is_seen():
+    text = (
+        "``grass.temporal.algebra.parser.translate._CELL_FUNCTIONS``, "
+        "``grass.temporal.algebra.operations.apply()``, ``other.name``, "
+        "``grass.temporal.algebra.backends._INVENTED_TABLE`` and "
+        "``grass.temporal.algebra.invented_module``"
+    )
+
+    names = algebra_literals(text)
+
+    assert names == [
+        "grass.temporal.algebra.backends._INVENTED_TABLE",
+        "grass.temporal.algebra.invented_module",
+        "grass.temporal.algebra.operations.apply",
+        "grass.temporal.algebra.parser.translate._CELL_FUNCTIONS",
+    ]
+    assert [name for name in names if not _exists(name)] == names[:2]
+
+
+BLOCK_NAME = re.compile(r"^\s+:name:\s*(\S+)\s*$", re.MULTILINE)
+
+
+def test_block_names_are_unique_across_the_pages():
+    """No two code blocks of the pages share a ':name:'
+
+    Sphinx makes each name a label of the whole documentation and warns about
+    a second block of the same name, so the guides cannot reuse the names of
+    one another's examples.
+    """
+    names = [
+        name for page in PAGES for name in BLOCK_NAME.findall(page.path.read_text())
+    ]
+
+    assert len(names) > len(PAGES)
+    assert sorted(name for name in set(names) if names.count(name) > 1) == []
