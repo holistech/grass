@@ -442,7 +442,7 @@ def main():
         new_maps, output_strds, register_null=register_null, dbif=dbif
     )
 
-    if output_exists:
+    if output_exists and flags["e"]:
         output_strds.update_command_string(dbif=dbif)
 
     # Remove empty maps
