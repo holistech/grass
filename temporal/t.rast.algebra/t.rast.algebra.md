@@ -2765,11 +2765,12 @@ giving 0.5, 1, 1.5 and 2.
 <!-- example: shell-only -->
 
 Each pair of blocks computes one expression of the list "Core and classic
-algebra" in the NOTES, first with the new algebra and then with **-c**. The
-first pair is item 1: the conditions of the two maps of `A` within a map of `B`
-are joined with and, so the new algebra gives 0 and 20; the classic algebra
-gives one result for each pair of a condition map and a conclusion map, and
-four maps in total.
+algebra" in the NOTES, first with the new algebra and then with **-c**; the
+last block shows a correction of the classic algebra that the list does not
+name. The first pair is item 1: the conditions of the two maps of `A` within a
+map of `B` are joined with and, so the new algebra gives 0 and 20; the classic
+algebra gives one result for each pair of a condition map and a conclusion map,
+and four maps in total.
 
 === "Command line"
 
@@ -3068,6 +3069,33 @@ four maps in total.
     c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|-1294967295.0|-1294967295.0
     c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|-1294967295.0|-1294967295.0
     c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|-1294967295.0|-1294967295.0
+    ```
+
+    A selection on relative time with a time instance on the right and the
+    temporal operator `r` ended with a `TypeError` in the releases before
+    GRASS 8.6. The classic algebra now computes it as the new algebra does:
+    of the two maps of `flow` (hours 0 to 2 and 2 to 4, values 6 and 8), the
+    second contains the time instance `pulse` at hour 3 and is selected with
+    the time of the instance.
+
+    ```sh
+    r.mapcalc expression="flow_1 = 6"
+    r.mapcalc expression="flow_2 = 8"
+    t.create output=flow temporaltype=relative title="Flow" \
+        description="Two intervals of two hours"
+    t.register -i input=flow maps=flow_1,flow_2 start=0 increment=2 unit=hours
+    r.mapcalc expression="pulse = 9"
+    t.create output=pulses temporaltype=relative title="Pulses" \
+        description="One time instance"
+    t.register input=pulses maps=pulse start=3 unit=hours
+    t.rast.algebra -c --overwrite \
+        expression="C = flow {:,contains,r} tmap(pulse)" basename=c
+    t.rast.list input=C columns=name,start_time,end_time,min,max
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    c_0|3|None|8.0|8.0
     ```
 
 ### Catalog: the expressions of the original manual
