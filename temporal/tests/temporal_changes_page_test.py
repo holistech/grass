@@ -6,8 +6,9 @@
 
 temporal/temporalchanges.md lists what changed in the temporal framework
 since GRASS 8.5, and each entry links the section of a manual that describes
-the behavior of today. These tests keep the links valid and check that the
-Autotools build makes its HTML page. The HTML file and the examples of the page are checked with
+the behavior of today. These tests keep the links valid, keep the page in
+the navigation of the MkDocs site and check that the Autotools build makes
+its HTML page. The HTML file and the examples of the page are checked with
 the manuals (temporal_manual_html_test.py, temporal_manual_examples_test.py).
 """
 
@@ -22,6 +23,7 @@ import pytest
 TOOLS = Path(__file__).parents[1]
 ROOT = TOOLS.parent
 PAGE = TOOLS / "temporalchanges.md"
+MKDOCS = ROOT / "man" / "mkdocs" / "mkdocs.yml"
 
 LINK = re.compile(r"\]\(([^)\s]+)\)")
 HEADING = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
@@ -146,6 +148,17 @@ def test_anchors_are_those_of_markdown():
         match = HEADING.match(line)
         if match and "`" not in line and "[" not in line:
             assert slugify(match.group(2)) == toc.slugify(match.group(2), "-")
+
+
+def test_changes_page_is_in_the_mkdocs_navigation():
+    """mkdocs.yml lists the page right after the temporal overview"""
+    entries = [
+        line.strip()
+        for line in MKDOCS.read_text(encoding="utf-8").splitlines()
+        if line.strip().startswith("- ")
+    ]
+    overview = entries.index("- Temporal overview: temporalintro.md")
+    assert entries[overview + 1] == "- Temporal changes in 8.6: temporalchanges.md"
 
 
 @pytest.mark.skipif(

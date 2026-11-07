@@ -172,6 +172,7 @@ nav:
       - Database drivers: sql.md
       - Imagery overview: imageryintro.md
       - Temporal overview: temporalintro.md
+      - Temporal changes in 8.6: temporalchanges.md
       - Display drivers: displaydrivers.md
       - Projections and transformations: projectionintro.md
 
