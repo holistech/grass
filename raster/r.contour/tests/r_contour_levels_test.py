@@ -125,7 +125,7 @@ def test_a_step_that_would_create_too_many_levels_is_an_error(tools):
     tools.g_region(n=1, s=0, w=0, e=3, res=1)
     tools.r_mapcalc(expression="m = float(col()) * 7")
 
-    with pytest.raises(Exception, match="more than .* contour levels"):
+    with pytest.raises(Exception, match=r"more than .* contour levels"):
         tools.r_contour(input="m", output="lines", step=1e-12, overwrite=True)
 
 
