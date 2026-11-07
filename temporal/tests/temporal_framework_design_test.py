@@ -628,13 +628,14 @@ def pdf_string(raw: bytes) -> str:
     )
 
 
-def pdf_attachments(pdf: Path) -> dict[str, bytes]:
+def pdf_embedded_files(pdf: Path) -> dict[str, tuple[bytes, bytes]]:
     """The files attached to a PDF, by name, as a viewer lists them
 
     A viewer lists the name tree /EmbeddedFiles of the catalog; each entry
     is a file specification whose /EF stream is the file. The file names
     /F and /UF of the specification, under which a viewer saves the file,
-    must be the name of the entry.
+    must be the name of the entry. Returns, for each name, the dictionary of
+    the embedded file stream, which holds /Params, and the file's bytes.
     """
     data = pdf.read_bytes()
     offsets, trailer = pdf_object_offsets(data)
@@ -666,8 +667,24 @@ def pdf_attachments(pdf: Path) -> dict[str, bytes]:
                 assert pdf_string(found.group(1)) == name, f"/{key} of {name}"
             stream = re.search(rb"/EF\s*<<\s*/F\s+(\d+)\s+0\s+R", spec)
             assert stream, f"attachment {name} has no embedded file"
-            attachments[name] = pdf_object(data, offsets, int(stream.group(1)))[1]
+            attachments[name] = pdf_object(data, offsets, int(stream.group(1)))
     return attachments
+
+
+def pdf_attachments(pdf: Path) -> dict[str, bytes]:
+    """The bytes of each file attached to a PDF, by name"""
+    return {name: content for name, (_, content) in pdf_embedded_files(pdf).items()}
+
+
+def attachment_date(design: Path) -> str:
+    """The PDF date that design.tex gives each attachment, \\attachmentdate"""
+    found = re.findall(
+        r"^\\newcommand\{\\attachmentdate\}\{([^}]*)\}",
+        design.read_text(),
+        re.MULTILINE,
+    )
+    assert len(found) == 1, "design.tex must define \\attachmentdate once"
+    return found[0]
 
 
 def example_files():
@@ -684,6 +701,25 @@ def test_each_example_file_is_attached_unchanged(example):
     attachments = pdf_attachments(PDF)
     assert example.name in attachments, f"{PDF.name} has no {example.name}"
     assert attachments[example.name] == example.read_bytes()
+
+
+@pytest.mark.parametrize("example", example_files(), ids=lambda path: path.name)
+def test_each_attachment_carries_the_fixed_date_and_its_size(example):
+    """/Params of the attachment: the date of design.tex and the file's size
+
+    The modification time that embedfile would write comes from the file
+    system, so a checkout or touch would change the PDF; design.tex gives
+    every attachment a fixed date instead, by redefining an internal
+    macro of pdftexcmds. If a later embedfile or pdfTeX no longer reads
+    that macro, the PDF depends on the file system again; this catches it.
+    """
+    dictionary, _ = pdf_embedded_files(PDF)[example.name]
+    moddate = re.search(rb"/ModDate\s*" + PDF_STRING, dictionary)
+    size = re.search(rb"/Size\s+(\d+)", dictionary)
+    assert moddate, f"{example.name}: no /ModDate in {dictionary!r}"
+    assert size, f"{example.name}: no /Size in {dictionary!r}"
+    assert pdf_string(moddate.group(1)) == attachment_date(SOURCE / "design.tex")
+    assert int(size.group(1)) == len(example.read_bytes())
 
 
 def test_every_example_is_attached():
