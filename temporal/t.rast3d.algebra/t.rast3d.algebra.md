@@ -490,9 +490,10 @@ with daily maps.
 
 The differences in message texts, in the debug output of the Python parser, in
 the order of errors and in the error for an existing result that
-[t.rast.algebra](t.rast.algebra.md) lists apply here likewise, as do the two
+[t.rast.algebra](t.rast.algebra.md) lists apply here likewise, as do the three
 items that change the outcome of an expression: lists of absolute and relative
-time, and a relative time instance in a selection.
+time, a relative time instance in a selection, and boxes that touch at a corner
+under **-s**, with the same result for 3D raster datasets.
 
 ### Granularity algebra
 

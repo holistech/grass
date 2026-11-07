@@ -1185,9 +1185,10 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
 #### Differences from the reference implementation
 
 Besides the corrections, **-c** differs from the reference implementation in the
-following points. Two of them change the outcome of an expression, the items on
-lists of absolute and relative time and on a relative time instance in a
-selection; the others concern messages, output and the class of an error.
+following points. Three of them change the outcome of an expression, the items
+on lists of absolute and relative time, on a relative time instance in a
+selection and on boxes that touch at a corner under **-s**; the others concern
+messages, output and the class of an error.
 
 - **Message texts.** The texts of warnings and errors are those of the
     new algebra. A `merge()` that meets maps identical in content and time
@@ -1242,6 +1243,17 @@ selection; the others concern messages, output and the class of an error.
     does; the last block of the
     [catalog](#catalog-where-the-classic-algebra-differs) where the classic
     algebra differs shows it.
+- **Boxes that touch at a corner under -s.** With **-s** two maps are related
+    when they are related in time and in space. Boxes with a common edge meet
+    and are related in both implementations. Boxes that touch at a corner only
+    are related by the reference implementation, but not by **-c**, as in the
+    new algebra. A selection such as `A {:,precedes,r} B` gives no map for such
+    maps in both, but an inverse selection such as `A {!:,precedes,r} B`
+    differs: for a map of A from 1 to 2 January and a map of B from 2 to 3
+    January whose box meets that of A at a corner, **-c** keeps the map with its
+    own time 1 to 2 January, where the reference implementation takes the time
+    of the partner, 2 to 3 January. Without **-s** only the time relates the
+    maps.
 
 ### Granularity algebra
 

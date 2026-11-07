@@ -753,14 +753,18 @@ versions that used one of these forms need a new run.
 
 The differences in message texts, in the debug output of the Python parser, in
 the order of errors and in the error for an existing result that
-[t.rast.algebra](t.rast.algebra.md) lists apply here likewise. Two points change
-the outcome of an expression, as in *t.rast.algebra*. A relation over a list
+[t.rast.algebra](t.rast.algebra.md) lists apply here likewise. Three points
+change the outcome of an expression, as in *t.rast.algebra*. A relation over a list
 that mixes maps of absolute and of relative time, which stopped the reference
 implementation with a `TypeError`, selects maps here, because maps of the two
 types relate to nothing. A selection on relative time with a time instance on
 the right and the temporal operator `r`, such as
 `RT {:,contains,r} tmap(rinst)`, also stops the reference implementation with a
-`TypeError` and selects the map with the time of the instance here.
+`TypeError` and selects the map with the time of the instance here. Under **-s**
+the inverse selection `A {!:,precedes,r} B` of maps whose boxes touch at a
+corner only keeps the own time of the map with **-c**, because **-c** does not
+relate such maps; the reference implementation relates them and takes the time
+of the partner. Boxes with a common edge are related in both.
 
 ## EXAMPLES
 

@@ -1246,9 +1246,10 @@ later the granularity is <code>241 hours</code>.</li>
 <h4>Differences from the reference implementation</h4>
 
 Besides the corrections, <b>-c</b> differs from the reference implementation in the
-following points. Two of them change the outcome of an expression, the items on
-lists of absolute and relative time and on a relative time instance in a
-selection; the others concern messages, output and the class of an error.
+following points. Three of them change the outcome of an expression, the items
+on lists of absolute and relative time, on a relative time instance in a
+selection and on boxes that touch at a corner under <b>-s</b>; the others concern
+messages, output and the class of an error.
 
 <ul>
 <li><b>Message texts.</b> The texts of warnings and errors are those of the
@@ -1304,6 +1305,17 @@ algebra selects the map with the time of the instance, as the new algebra
 does; the last block of the
 <a href="#catalog-where-the-classic-algebra-differs">catalog</a> where the classic
 algebra differs shows it.</li>
+<li><b>Boxes that touch at a corner under -s.</b> With <b>-s</b> two maps are related
+when they are related in time and in space. Boxes with a common edge meet
+and are related in both implementations. Boxes that touch at a corner only
+are related by the reference implementation, but not by <b>-c</b>, as in the
+new algebra. A selection such as <code>A {:,precedes,r} B</code> gives no map for such
+maps in both, but an inverse selection such as <code>A {!:,precedes,r} B</code>
+differs: for a map of A from 1 to 2 January and a map of B from 2 to 3
+January whose box meets that of A at a corner, <b>-c</b> keeps the map with its
+own time 1 to 2 January, where the reference implementation takes the time
+of the partner, 2 to 3 January. Without <b>-s</b> only the time relates the
+maps.</li>
 </ul>
 
 <h3>Granularity algebra</h3>
