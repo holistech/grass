@@ -1323,7 +1323,7 @@ void check_opts(void)
     while (opt) {
         /* Check answer against options if any */
 
-        if (opt->answer) {
+        if (opt->answer && !opt->answer_left_to_tool) {
             /* An option with a tuple as key_desc, such as rows,columns, is
                not multiple but its answer holds several numbers. */
             if (opt->multiple == 0 &&

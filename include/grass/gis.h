@@ -583,6 +583,8 @@ struct Option {
     const char *guidependency;    /*!< GUI dependency */
     int (*checker)(const char *); /*!< Routine to check answer or NULL  */
     int count;
+    int answer_left_to_tool; /*!< 1: the parser does not check the integer
+                                  answer, the tool reads it (G_OPT_M_SEED) */
 };
 
 /*!

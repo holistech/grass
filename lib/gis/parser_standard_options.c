@@ -803,6 +803,12 @@ struct Option *G_define_standard_option(int opt)
     case G_OPT_M_SEED:
         Opt->key = "seed";
         Opt->type = TYPE_INTEGER;
+        /* A seed reaches from -2^31 to 2^32 - 1, wider than check_int()
+         * allows, and G_random_seed_from_option() names a bad seed in its
+         * own message. Only this standard option is exempt, so that every
+         * other integer option, also one with the key seed, stays strictly
+         * checked. */
+        Opt->answer_left_to_tool = 1;
         Opt->required = NO;
         Opt->label = _("Seed value for the random number generator");
         Opt->description =
