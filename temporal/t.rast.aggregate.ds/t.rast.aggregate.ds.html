@@ -135,8 +135,8 @@ dataset must have the same temporal type</code>.</li>
 <li>With relative time, a sampler with another unit than the input: <code>The unit
 &lt;years&gt; of the aggregation dataset &lt;sampler&gt; differs from the unit &lt;days&gt; of
 the input dataset &lt;input&gt;</code>, here for a sampler in years and an input in days.
-Releases before GRASS 8.6 read the numbers of the sampler in the unit of the
-input.</li>
+Releases before GRASS 8.6 related no map of a sampler in another unit to the
+input and ended without a result and with exit code 0.</li>
 <li>A sampler with a time instance: <code>All registered maps of the aggregation
 dataset must have time intervals</code>.</li>
 <li>An input or a sampler that <b>where</b> leaves without a map: <code>Space time

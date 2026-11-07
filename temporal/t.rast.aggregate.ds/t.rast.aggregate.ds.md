@@ -122,8 +122,8 @@ following with an error.
 - With relative time, a sampler with another unit than the input: `The unit
   <years> of the aggregation dataset <sampler> differs from the unit <days> of
   the input dataset <input>`, here for a sampler in years and an input in days.
-  Releases before GRASS 8.6 read the numbers of the sampler in the unit of the
-  input.
+  Releases before GRASS 8.6 related no map of a sampler in another unit to the
+  input and ended without a result and with exit code 0.
 - A sampler with a time instance: `All registered maps of the aggregation
   dataset must have time intervals`.
 - An input or a sampler that **where** leaves without a map: `Space time
