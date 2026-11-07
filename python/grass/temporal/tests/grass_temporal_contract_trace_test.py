@@ -182,13 +182,21 @@ def test_operator_called_inside_the_library_is_not_recorded(tmp_path):
 
 
 def test_constructor_and_repr_stay_unrecorded(tmp_path):
+    # The topology builder is a class of the package that defines the container
+    # methods itself, so a trace that recorded them would show here.
     names = trace(
         tmp_path,
-        TIMED_MAPS + "repr(maps[0])\nlen(maps)\nlist(iter(maps))\n",
+        TIMED_MAPS
+        + "builder = tgis.SpatioTemporalTopologyBuilder()\n"
+        + "builder.build(maps)\n"
+        + "repr(maps[0])\nlen(builder)\nlist(builder)\nbuilder[maps[0]]\n",
     )
 
+    assert "grass.temporal.topology.SpatioTemporalTopologyBuilder.build" in names
     assert not [
-        n for n in names if n.endswith(("__init__", "__repr__", "__len__", "__iter__"))
+        n
+        for n in names
+        if n.endswith(("__init__", "__repr__", "__len__", "__iter__", "__getitem__"))
     ]
 
 
