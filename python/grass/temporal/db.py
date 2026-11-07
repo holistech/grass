@@ -96,7 +96,9 @@ def db_datetime(value: datetime) -> datetime:
     of the database passes here, so the paths of SQLite (adapter and written
     statement) and PostgreSQL store the same time. PostgreSQL has no column
     for a zone: refuse_time_zone() ends a time with one before it gets here,
-    so only SQLite stores a zone. The values in memory are not touched.
+    so only SQLite stores a zone. This function returns a new value and
+    changes nothing in memory; BaseRow.set_ctime() and set_mtime() keep the
+    creation and modification time in whole seconds as well.
     """
     return value.replace(microsecond=0)
 

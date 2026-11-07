@@ -70,7 +70,7 @@ def _whole_seconds(value):
     """Cut the microseconds of a datetime and keep its time zone
 
     The temporal database cannot hold them either. A value that is not a
-    datetime (None, or the text an old database may give) passes unchanged.
+    datetime passes unchanged, because the setters always accepted any value.
     """
     return value.replace(microsecond=0) if isinstance(value, datetime) else value
 
