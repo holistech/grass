@@ -12,8 +12,9 @@ material of Gebbert and Pebesma (2017), which stays unchanged as
 - `figures/*.tex`: the figures, TikZ with `pgf-umlcd`. A figure file writes
   names with plain underscores (`get_id()`); `design.tex` reads it with the
   underscore as an ordinary character.
-- `examples/*.py`: the examples, each shown as a listing, and
-  `examples/*.txt`: the output the document shows for each.
+- `examples/*.py`: the examples, each shown as a listing and attached to
+  the PDF under its own name, and `examples/*.txt`: the output the document
+  shows for each.
 - `references.bib`: the bibliography.
 - `Makefile`: the build.
 - `digest.tex`: written by `make`, the SHA-256 of the sources, which the PDF
@@ -30,12 +31,18 @@ make clean  # removes what the build leaves behind
 
 The build needs `pdflatex` and `bibtex` and the LaTeX packages `fontenc`,
 `inputenc`, `lmodern`, `microtype`, `geometry`, `xcolor`, `booktabs`,
-`caption`, `float`, `listings`, `natbib`, `hyperref`, `pgf` (TikZ, with the
-libraries `fit` and `calc`) and `pgf-umlcd`. On Ubuntu 24.04, the packages
-`texlive-latex-base`, `texlive-latex-recommended`, `texlive-pictures` and
-`lmodern` provide them. The CI
-does not build the PDF; check in the PDF and `digest.tex` together with the
-changed sources.
+`caption`, `float`, `placeins`, `listings`, `natbib`, `hyperref`,
+`embedfile`, `pgf` (TikZ, with the libraries `fit` and `calc`) and
+`pgf-umlcd`. On Ubuntu 24.04, the packages `texlive-latex-base`,
+`texlive-latex-recommended`, `texlive-latex-extra` (for `placeins` and
+`embedfile`), `texlive-pictures` and `lmodern` provide them. The CI does not
+build the PDF; check in the PDF and `digest.tex` together with the changed
+sources.
+
+With the same TeX installation, the same sources give the same PDF, byte for
+byte: `design.tex` leaves out the date and the identifier that pdfTeX would
+write, and gives each attached example the date of the document instead of
+the modification time of the file, which a checkout or `touch` changes.
 
 ## Tests
 
@@ -50,6 +57,8 @@ against the code:
 - each class, member, base class and composition that a figure draws exists;
 - the keywords of the PDF equal the digest of the sources, so the PDF is
   built from the sources as they are;
+- each example file is attached to the PDF under its name, byte for byte,
+  and no other file is attached;
 - the text of each listing, as `mutool draw -F txt` (MuPDF) reads it from
   the PDF, is the example file or its output file. `design.tex` writes each
   space of a listing as a real space into the text of the PDF, so that text

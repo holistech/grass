@@ -27,6 +27,7 @@
 \usetikzlibrary{fit,calc}
 % PDFDocEncoding writes the digest of the keywords as plain ASCII.
 \usepackage[pdfencoding=pdfdoc]{hyperref}
+\usepackage{embedfile}
 
 \InputIfFileExists{digest.tex}{}{\newcommand{\sourcedigest}{unknown}}
 
@@ -94,9 +95,33 @@
 \renewcommand{\lstlistingname}{Listing}
 
 \newcommand{\code}[1]{\texttt{#1}}
-% The path of an example file in the GRASS repository.
-\newcommand{\examplefile}[1]{%
-  \code{python/grass/docs/src/temporal\_framework\_design/examples/#1}}
+% The path of an example file in the GRASS repository, and the file itself,
+% attached to the PDF under its name. The argument is the plain file name,
+% map_lists.py, not map\_lists.py: it names the file to attach. Each caption
+% is typeset twice, which without the check attached each file twice
+% (measured 2026-11-07: 16 file specifications in the PDF).
+% The command is robust because a caption is a moving argument: defined
+% with \newcommand, it stopped the build with "Missing { inserted" (tried
+% 2026-11-07).
+% embedfile writes the modification time of the file into the attachment,
+% and pdfTeX 1.40.25 takes it from the file system even with
+% SOURCE_DATE_EPOCH and FORCE_SOURCE_DATE=1, which only write it in UTC
+% (measured 2026-11-07 with a document of two lines and touch -d). Each
+% attachment gets the date of this version instead, the date of \date
+% below, so that the same sources give the same PDF.
+\newcommand{\attachmentdate}{D:20261106000000Z}
+\makeatletter
+\DeclareRobustCommand{\examplefile}[1]{%
+  \code{python/grass/docs/src/temporal\_framework\_design/examples/%
+    \detokenize{#1}}\\
+  attached to this PDF as \code{\detokenize{#1}}%
+  \embedfileifobjectexists{\detokenize{#1}}{Filespec}{}{%
+    \begingroup
+    \def\pdf@filemoddate##1{\attachmentdate}%
+    \embedfile[id=\detokenize{#1},filespec=\detokenize{#1},
+      mimetype=text/x-python]{examples/\detokenize{#1}}%
+    \endgroup}}
+\makeatother
 % Long names in \texttt do not break; let the lines around them stretch.
 \setlength{\emergencystretch}{3em}
 
@@ -146,8 +171,10 @@ benchmark.
 Every example is a Python file of the GRASS repository, in the folder
 \code{examples} of the source of this document,
 \code{python/grass/docs/src/temporal\_framework\_design}; the caption of each
-listing gives the path of its file. The
-examples run in the North Carolina sample dataset \code{nc\_spm\_08\_grass7}
+listing gives the path of its file. Each file is also attached to this PDF
+under its name, so that a PDF viewer can save it from its list of
+attachments. The examples run in the North Carolina sample dataset
+\code{nc\_spm\_08\_grass7}
 \citep{neteler2008}, available from \url{https://grass.osgeo.org/download/data/},
 in a new mapset \code{temporal\_design}. They make their own data from maps of
 the dataset and never write into its mapset \code{PERMANENT}. To run them, save
@@ -366,7 +393,7 @@ maps must not overlap or contain each other.}
 
 \lstinputlisting[style=example,caption={The dataset of
 figures~\ref{fig:as-objects} to~\ref{fig:by-granularity}
-\\ \examplefile{map\_lists.py}},label=lst:map-lists]{examples/map_lists.py}
+\\ \examplefile{map_lists.py}},label=lst:map-lists]{examples/map_lists.py}
 
 \lstinputlisting[style=output,caption={Output of
 \code{map\_lists.py}}]{examples/map_lists.txt}
