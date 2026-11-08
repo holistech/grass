@@ -142,8 +142,9 @@ def test_an_existing_dataset_with_a_dot_stays_usable(project_session):
     assert not tgis.dataset_factory("str3ds", f"old.name@{mapset}").is_in_db()
 
 
-# A strds is left out: "a.b" read as a strds name selects the label b, so
-# t.remove cannot find such a dataset (a fault that existed before the check).
+# A strds is not in this list because t.remove and t.register on a strds with a
+# dot in its name are covered by temporal/t.remove/tests/t_remove_label_test.py
+# and temporal/t.register/tests/t_register_label_test.py.
 @pytest.mark.parametrize("stds_type", ["str3ds", "stvds"])
 def test_the_tools_work_on_an_existing_dataset_with_a_dot(project_session, stds_type):
     """t.info and t.remove accept a dataset that was made past the check."""
