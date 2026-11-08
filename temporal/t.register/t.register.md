@@ -135,6 +135,11 @@ database of version 2 stops the run with an error that says to run
 *[t.upgrade](t.upgrade.md)* first; *[t.connect](t.connect.md)* shows the
 version.
 
+A dataset name with a semantic label, such as `input=scenes.S2_1`, is refused,
+because *t.register* changes the dataset and the name would select only some of
+its maps. Give the name of the dataset without the label. The label of a
+registered map comes from the map list file or from the map itself.
+
 ## NOTES
 
 The timestamps of registered maps are stored in the temporal database and,
