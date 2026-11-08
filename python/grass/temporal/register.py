@@ -163,7 +163,7 @@ def _open_dataset(name, type, mapset, start, end, unit, dbif):
     if not name:
         return None
     msgr = get_tgis_message_interface()
-    sp = open_old_stds(name, type, dbif)
+    sp = open_old_stds(name, type, dbif, for_writing=True)
 
     if sp.get_mapset() != mapset:
         msgr.fatal(

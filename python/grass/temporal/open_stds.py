@@ -126,7 +126,9 @@ def find_stds_id(name: str, type: str, dbif=None) -> str:
     return f"{bare}@{mapset or get_current_mapset()}"
 
 
-def open_old_stds(name, type, dbif=None, *, whole_name_first=True):
+def open_old_stds(
+    name, type, dbif=None, *, whole_name_first=True, for_writing: bool = False
+):
     """Open an existing space time dataset.
 
     Return the created and initialized object of the specified type.
@@ -147,6 +149,12 @@ def open_old_stds(name, type, dbif=None, *, whole_name_first=True):
                              the text after the dot is read as a semantic
                              label. The classic algebra passes False, as it
                              always read the label.
+    :param for_writing: Whether the caller changes the dataset. A name that
+                        selects the maps of a dataset by a semantic label
+                        ("name.label") is then refused, because a change acts
+                        on the whole dataset and not only on the selected
+                        maps. A dataset of an older release that has a dot in
+                        its name is not refused.
 
     :return: New stds object
 
@@ -157,6 +165,7 @@ def open_old_stds(name, type, dbif=None, *, whole_name_first=True):
     if kind is None:
         msgr.fatal(_("Unknown type: %s") % (stds_type))
 
+    name_as_given = name
     with connection(dbif) as dbif:
         sp = None
         # A dataset of an older release can have a dot in its name. In each
@@ -184,6 +193,16 @@ def open_old_stds(name, type, dbif=None, *, whole_name_first=True):
             msgr.fatal(
                 _("Space time dataset <%(name)s> of type <%(sp)s> not found")
                 % {"name": name, "sp": stds_type},
+            )
+        # Only a match of the split-off form carries a label: _stds_if_in_db()
+        # sets it on the dataset for that form, not for the whole name of an
+        # older-release dataset, which stays writable.
+        if for_writing and sp.semantic_label:
+            msgr.fatal(
+                _(
+                    "<{name}> selects maps by the semantic label <{label}>: "
+                    "give the space time dataset without the label to change it"
+                ).format(name=name_as_given, label=sp.semantic_label)
             )
         # Read content from temporal database
         sp.select(dbif)
