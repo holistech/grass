@@ -568,9 +568,11 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     other tools that open a dataset together with its map type did not
     find a dataset given as `name.label`, such as `input=sat.S2_1`: the
     run stopped with "not found". Now the label selects the maps with this
-    semantic label in these tools too, as in the others. *t.register* and
-    *t.unregister* with `input=name.label` work on the dataset `name`, and
-    the label does not filter the maps
+    semantic label in these tools too, as in the others. The tools that
+    change a dataset refuse a name with a label, before they write anything:
+    *t.register*, *t.unregister*, *t.remove*, *t.support*, *t.shift*,
+    *t.snap* and *t.rast.gapfill*. Give the dataset without the label to
+    change it. *t.rast.colors* still colors only the maps of the label
     ([temporal data processing](temporalintro.md#semantic-labels)).
 
 - **Intervals with -i.** With an increment of several units, such as
@@ -1346,6 +1348,10 @@ describes every module.
     connection to the current mapset, `dbif` is a keyword argument only,
     deprecated and ignored with a warning, and `name` is optional. Remove
     `dbif` from calls; a transaction of the caller is not used.
+- **Opening a dataset for writing.** `open_old_stds()` takes the keyword
+    argument `for_writing`. With `for_writing=True`, a name with a semantic
+    label ends with a message instead of opening the dataset `name`;
+    `register_maps_in_space_time_dataset()` opens its dataset this way.
 - **Identifiers in SQL.** Identifiers went into SQL statements unbound, so
     SQL could be injected, `set_id()` with a layer split the identifier
     wrongly, and a **where** with OR together with a label or an extent was

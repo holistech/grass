@@ -79,6 +79,11 @@ turn, the current one first, and in each the whole name is tried before the
 text after the dot is read as a semantic label.
 
 <p>
+A dataset name with a semantic label, such as <code>soil.S2_1</code>, is refused before
+anything is removed, also for a call with several names of which only one has
+a label; give the dataset without the label.
+
+<p>
 A dataset of another mapset is refused with <code>Unable to delete dataset
 &lt;name@mapset&gt; of type strds from the temporal database. The mapset of the
 database does not match the current mapset</code>. The refusal comes before the

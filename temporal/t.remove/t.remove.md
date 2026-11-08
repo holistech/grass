@@ -68,6 +68,10 @@ whole name and removed like any other dataset: the mapsets are searched in
 turn, the current one first, and in each the whole name is tried before the
 text after the dot is read as a semantic label.
 
+A dataset name with a semantic label, such as `soil.S2_1`, is refused before
+anything is removed, also for a call with several names of which only one has
+a label; give the dataset without the label.
+
 A dataset of another mapset is refused with `Unable to delete dataset
 <name@mapset> of type strds from the temporal database. The mapset of the
 database does not match the current mapset`. The refusal comes before the

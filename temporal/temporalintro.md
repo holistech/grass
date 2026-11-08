@@ -116,7 +116,12 @@ different labels may share the same time. With
 *[t.rast.list](t.rast.list.md)*, *[t.rast.univar](t.rast.univar.md)* and
 *[t.rast.aggregate](t.rast.aggregate.md)*, `input=name.label` selects the maps
 of one label from the dataset `name`. Therefore the name of a new space time
-dataset must not contain a dot. A dataset of an earlier release whose whole
+dataset must not contain a dot. The tools that change a dataset
+(*[t.register](t.register.md)*, *[t.unregister](t.unregister.md)*,
+*[t.remove](t.remove.md)*, *[t.support](t.support.md)*,
+*[t.shift](t.shift.md)*, *[t.snap](t.snap.md)* and
+*[t.rast.gapfill](t.rast.gapfill.md)*) refuse a name with a label; give the
+dataset without it. A dataset of an earlier release whose whole
 name contains a dot is found by that name: the mapsets are searched in turn,
 the current one first, and in each the whole name is tried before the text
 after the dot is read as a label. *t.info* prints the labels of a

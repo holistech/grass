@@ -577,9 +577,11 @@ all spatial relations in 3D; this concerns <b>-s</b> of <em>t.select</em> and
 other tools that open a dataset together with its map type did not
 find a dataset given as <code>name.label</code>, such as <code>input=sat.S2_1</code>: the
 run stopped with "not found". Now the label selects the maps with this
-semantic label in these tools too, as in the others. <em>t.register</em> and
-<em>t.unregister</em> with <code>input=name.label</code> work on the dataset <code>name</code>, and
-the label does not filter the maps
+semantic label in these tools too, as in the others. The tools that
+change a dataset refuse a name with a label, before they write anything:
+<em>t.register</em>, <em>t.unregister</em>, <em>t.remove</em>, <em>t.support</em>, <em>t.shift</em>,
+<em>t.snap</em> and <em>t.rast.gapfill</em>. Give the dataset without the label to
+change it. <em>t.rast.colors</em> still colors only the maps of the label
 (<a href="temporalintro.html#semantic-labels">temporal data processing</a>).</li>
 <li><b>Intervals with -i.</b> With an increment of several units, such as
 <code>1 months, 15 days</code>, and with monthly intervals from the 31st, each map
@@ -1429,6 +1431,10 @@ took <code>dbif</code> as a positional argument and used it. Now it opens its ow
 connection to the current mapset, <code>dbif</code> is a keyword argument only,
 deprecated and ignored with a warning, and <code>name</code> is optional. Remove
 <code>dbif</code> from calls; a transaction of the caller is not used.</li>
+<li><b>Opening a dataset for writing.</b> <code>open_old_stds()</code> takes the keyword
+argument <code>for_writing</code>. With <code>for_writing=True</code>, a name with a semantic
+label ends with a message instead of opening the dataset <code>name</code>;
+<code>register_maps_in_space_time_dataset()</code> opens its dataset this way.</li>
 <li><b>Identifiers in SQL.</b> Identifiers went into SQL statements unbound, so
 SQL could be injected, <code>set_id()</code> with a layer split the identifier
 wrongly, and a <b>where</b> with OR together with a label or an extent was
