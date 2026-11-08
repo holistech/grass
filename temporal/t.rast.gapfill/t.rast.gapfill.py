@@ -278,7 +278,7 @@ def main():
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
 
-    sp = tgis.open_old_stds(input, "strds")
+    sp = tgis.open_old_stds(input, "strds", for_writing=True)
     # The maps are registered in the dataset at the end, which only a dataset
     # of the current mapset allows. Refusing it here leaves no interpolated
     # map without an entry in the temporal database.

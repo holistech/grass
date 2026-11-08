@@ -185,6 +185,46 @@ def make_stds(tools, prefix):
     return make
 
 
+class Labelled(NamedTuple):
+    """The dataset of the labelled fixture and what its tests compare"""
+
+    name: str
+    maps: list
+    snapshot: object
+
+
+@pytest.fixture
+def labelled(tools, prefix):
+    """A dataset of four daily maps, the first two with the label S2_1
+
+    The maps are <prefix>_1 to <prefix>_4; the last two have the label S2_2.
+    Reading the dataset as "<name>.S2_1" selects the first two. The field
+    snapshot is a function that returns the state of the dataset, of its
+    registrations and of the maps, to show that a refused call changed none.
+    """
+    maps = [
+        MapSpec(f"{prefix}_{number}", number, day(number - 1), day(number), label)
+        for number, label in enumerate(("S2_1", "S2_1", "S2_2", "S2_2"), 1)
+    ]
+    name = f"{prefix}_ds"
+    create_stds(tools, "strds", name, maps)
+
+    def snapshot():
+        state = [
+            tools.t_info(type="strds", input=name, flags="g").stdout,
+            tools.t_rast_list(
+                input=name, columns="name,start_time,end_time,semantic_label"
+            ).stdout,
+        ]
+        state.extend(
+            tools.t_info(type="raster", input=spec.name, flags="g").stdout
+            for spec in maps
+        )
+        return state
+
+    return Labelled(name, [spec.name for spec in maps], snapshot)
+
+
 class Mapsets(NamedTuple):
     """Tools in the two mapsets of the two_mapsets fixture"""
 

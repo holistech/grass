@@ -46,7 +46,7 @@ def main():
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
 
-    stds = tgis.open_old_stds(name, type, dbif)
+    stds = tgis.open_old_stds(name, type, dbif, for_writing=True)
     # snap() leaves a dataset without maps as it is, but the user is told that
     # nothing happened, as in t.shift. A dataset of another mapset is refused
     # by snap(), so the refusal does not depend on its content.

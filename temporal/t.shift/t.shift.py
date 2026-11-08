@@ -117,7 +117,7 @@ def main():
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
 
-    stds = tgis.open_old_stds(name, type, dbif)
+    stds = tgis.open_old_stds(name, type, dbif, for_writing=True)
     # As in t.snap: a dataset without maps is reported and left as it is,
     # also in the history. A dataset of another mapset is not reported but
     # refused by shift(), so the refusal does not depend on its content.

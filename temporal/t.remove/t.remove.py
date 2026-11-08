@@ -228,7 +228,10 @@ def main():
 
     # All datasets are opened before the first one is removed, so that an
     # unknown name stops the run before anything has changed.
-    stds_list = [tgis.open_old_stds(name.strip(), type, dbif) for name in dataset_list]
+    stds_list = [
+        tgis.open_old_stds(name.strip(), type, dbif, for_writing=True)
+        for name in dataset_list
+    ]
     # A dataset of another mapset cannot be deleted. Refusing it before the
     # listing and before the first removal means the listing never names a
     # dataset that the same call with the flag -f would refuse.

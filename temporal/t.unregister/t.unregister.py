@@ -158,7 +158,7 @@ def main():
     # In case a space time dataset is specified
     sp = None
     if input:
-        sp = tgis.open_old_stds(input, type, dbif)
+        sp = tgis.open_old_stds(input, type, dbif, for_writing=True)
         # The maps are unregistered in the database of the current mapset and
         # the dataset is updated at the end, which only a dataset of the
         # current mapset allows; refusing it here changes nothing.

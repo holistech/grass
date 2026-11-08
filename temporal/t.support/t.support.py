@@ -183,7 +183,7 @@ def main():
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
 
-    stds = tgis.open_old_stds(name, type, dbif)
+    stds = tgis.open_old_stds(name, type, dbif, for_writing=True)
     mapset = tgis.get_current_mapset()
     # Every change of the dataset needs its own mapset to be the current one;
     # refusing it here stops before the maps are looked at.
