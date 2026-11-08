@@ -1,8 +1,8 @@
 """Test that t.support refuses a dataset name that carries a semantic label
 
 The name "<dataset>.S2_1" reads the maps of the dataset that have the label
-S2_1, but changing its metadata acts on the whole dataset, so the call is refused before
-anything is written.
+S2_1, but changing its metadata acts on the whole dataset, so the call is refused
+before anything is written.
 """
 
 import pytest

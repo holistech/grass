@@ -30,6 +30,10 @@ def test_register_refuses_a_label(tools, labelled, prefix):
 
     assert REFUSAL in message(error.value)
     assert labelled.snapshot() == before
+    # The map is not in the temporal database, so it has no timestamp either.
+    assert extra not in tools.t_rast_list(input=labelled.name, columns="name").stdout
+    with pytest.raises(ToolError, match="not found in temporal database"):
+        tools.t_info(type="raster", input=extra, flags="g")
 
 
 def test_register_without_label_unchanged(tools, labelled, prefix):
