@@ -697,7 +697,9 @@ def register_maps_in_space_time_dataset(
     :param type: The type of the maps raster, raster_3d or vector
     :param name: The name of the space time dataset. Maps will be
                  registered in the temporal database if the name was set
-                 to None
+                 to None. A name with a semantic label (``name.label``)
+                 is refused with a fatal error, because this function
+                 changes the dataset
     :param maps: A comma separated list of map names
     :param file: Input file, one map per line map with start and optional
                 end time, or the same as io object (with readline capability)
