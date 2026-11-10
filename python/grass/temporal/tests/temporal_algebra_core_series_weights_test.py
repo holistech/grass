@@ -42,15 +42,19 @@ def granules(make_series):
 def test_weighted_methods_match_r_series():
     """The list follows the menu of r.series: a method with a w_* function
 
-    count is left out: its weighted form sums the weights instead of counting
-    the maps.
+    Left out are the weighted forms whose result means nothing: count sums
+    the weights instead of counting the maps, the four regression methods add
+    the weights to an int in lib/stats/c_reg.c and give null for weights
+    below 1, and kurtosis sums the third instead of the fourth power of the
+    deviations in lib/stats/c_kurt.c.
     """
     menu = re.findall(
         r'\{c_\w+,\s*(w_\w+|NULL),\s*[^,]+,\s*"(\w+)"', MAIN_C.read_text()
     )
     assert len(menu) == len(reducers.SERIES_METHODS)
     weighted = {name for function, name in menu if function != "NULL"}
-    assert set(reducers.WEIGHTED_SERIES_METHODS) == weighted - {"count"}
+    meaningless = {"count", "slope", "offset", "detcoeff", "tvalue", "kurtosis"}
+    assert set(reducers.WEIGHTED_SERIES_METHODS) == weighted - meaningless
 
 
 @pytest.mark.parametrize(
@@ -63,6 +67,11 @@ def test_weighted_methods_match_r_series():
         "max_raster",
         "diversity",
         "count",
+        "slope",
+        "offset",
+        "detcoeff",
+        "tvalue",
+        "kurtosis",
     ],
 )
 def test_series_method_refuses_weights_for_a_method_without_them(method):
@@ -181,6 +190,16 @@ def test_a_lone_map_with_a_weight_other_than_one_is_scaled(monkeypatch):
     calls, _ = RasterBackend().plan(node, "out")
     assert [c.name for c in calls] == ["r.series"]
     assert calls[0].inputs == ("a|0.42857142857142855",)
+
+
+@pytest.mark.parametrize("method", ["average", "stddev", "median"])
+def test_a_lone_map_of_another_method_is_copied_whatever_its_weight(method):
+    # r.series would compute one weighted map: 7.000000000000001 for an
+    # average of 7, about 0 for stddev; the copy keeps the map as it is,
+    # as without weights.
+    node = SeriesAggregate(method, (MapRef("a"),), weights=(0.3,))
+    calls, _ = RasterBackend().plan(node, "out")
+    assert [c.name for c in calls] == ["g.copy"]
 
 
 def test_a_lone_map_with_the_weight_one_is_copied():

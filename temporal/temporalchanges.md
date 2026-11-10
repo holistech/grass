@@ -872,6 +872,17 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     and a granule share time; together with other names it gives their union,
     and the default stays `contains`
     ([t.rast.aggregate](t.rast.aggregate.md#notes)).
+- **Weights by the overlap in time.** *t.rast.aggregate* counted each
+    related map in full, however little of it lay in the granule. Now the
+    flag **-w** weights each map by the time it shares with the granule: for
+    **method** `sum` by the share of the map that lies in the granule, for
+    the other methods by the share of the granule that the map covers. The
+    methods that *r.series* cannot weight or weights without a meaningful
+    result, and time instants, are refused. The flag was proposed in
+    OSGeo/grass pull request 1799; this implementation also takes relative
+    time, works with any **sampling**, weights a sum by the share of the map
+    and refuses a time instant instead of giving it the weight 0
+    ([t.rast.aggregate](t.rast.aggregate.md#aggregation)).
 
 ### t.rast.colors
 

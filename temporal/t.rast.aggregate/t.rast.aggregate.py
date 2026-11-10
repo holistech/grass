@@ -95,6 +95,12 @@
 # % description: Register Null maps
 # %end
 
+# %flag
+# % key: w
+# % label: Weight each map by its temporal overlap with the granule
+# % description: For method sum the overlap is divided by the length of the map, for the other methods by the length of the granule
+# %end
+
 import grass.script as gs
 
 ############################################################################
@@ -111,6 +117,7 @@ def main():
         sampling_relation,
         set_output_metadata,
     )
+    from grass.temporal.algebra.reducers import WEIGHTED_SERIES_METHODS
 
     input = options["input"]
     output = options["output"]
@@ -118,6 +125,7 @@ def main():
     gran = options["granularity"]
     base = options["basename"]
     register_null = flags["n"]
+    weighting = flags["w"]
     method = options["method"]
     sampling = options["sampling"].split(",")
     offset = options["offset"]
@@ -129,6 +137,16 @@ def main():
         tgis.check_suffix(time_suffix)
     except ValueError as error:
         gs.fatal(str(error))
+    if weighting and method not in WEIGHTED_SERIES_METHODS:
+        # For a method without a weighted form r.series would only warn and
+        # aggregate without the weights; for the others the weighted result
+        # means nothing (see WEIGHTED_SERIES_METHODS).
+        gs.fatal(
+            _(
+                "The method <{method}> cannot be weighted by temporal overlap; "
+                "use the flag -w with one of: {methods}"
+            ).format(method=method, methods=", ".join(WEIGHTED_SERIES_METHODS))
+        )
 
     tgis.init()
     dbif = tgis.SQLDatabaseInterfaceConnection()
@@ -144,6 +162,17 @@ def main():
             gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
         if not input_series.slots:
             gs.fatal(_("Space time raster dataset <{}> is empty").format(input))
+        if weighting:
+            # Every selected map, also one that no granule relates to, so
+            # that the outcome does not depend on the sampling.
+            for slot in input_series.slots:
+                if slot.extent.end is None:
+                    gs.fatal(
+                        _(
+                            "The flag -w weights each map by its overlap in time "
+                            "with the granule, but the map <{}> is a time instant"
+                        ).format(slot.content.ident)
+                    )
 
         target = aggregation_granules(
             input_series,
@@ -170,6 +199,7 @@ def main():
             file_limit=file_limit,
             register_null=register_null,
             overwrite=gs.overwrite(),
+            weighting=weighting,
         )
         if dataset is not None:
             set_output_metadata(dataset, sp, method, dbif)

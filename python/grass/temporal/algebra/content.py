@@ -77,8 +77,8 @@ class SeriesAggregate:
 
     weights is None for an aggregation without weights, else one weight per
     map in args, which r.series reads from its file as name|weight. A lone
-    map with a weight other than 1 is aggregated by r.series as well, since
-    a sum must scale it.
+    map is copied with weights as well, except for the method sum with a
+    weight other than 1, which r.series must scale.
     """
 
     method: str

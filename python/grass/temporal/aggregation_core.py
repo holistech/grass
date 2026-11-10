@@ -205,8 +205,10 @@ def aggregate_series(
     method "sum" the weight is the share of the map that lies in the
     granule, so the sum of a map that lies half in the granule counts half.
     For the other methods it is the share of the granule that the map
-    covers; r.series normalizes the average by the sum of the weights.
-    Raises ValueError if the method has no weighted form (see
+    covers; r.series divides the weighted sum by the sum of the weights.
+    A granule with a single map copies it, as without weighting, except for
+    method "sum", which scales it.
+    Raises ValueError if the method cannot be weighted (see
     WEIGHTED_SERIES_METHODS in grass.temporal.algebra.reducers) or if a
     related map is a time instant.
     """

@@ -899,6 +899,17 @@ also takes <code>related</code>, which stands for the nine relations in which a 
 and a granule share time; together with other names it gives their union,
 and the default stays <code>contains</code>
 (<a href="t.rast.aggregate.html#notes">t.rast.aggregate</a>).</li>
+<li><b>Weights by the overlap in time.</b> <em>t.rast.aggregate</em> counted each
+related map in full, however little of it lay in the granule. Now the
+flag <b>-w</b> weights each map by the time it shares with the granule: for
+<b>method</b> <code>sum</code> by the share of the map that lies in the granule, for
+the other methods by the share of the granule that the map covers. The
+methods that <em>r.series</em> cannot weight or weights without a meaningful
+result, and time instants, are refused. The flag was proposed in
+OSGeo/grass pull request 1799; this implementation also takes relative
+time, works with any <b>sampling</b>, weights a sum by the share of the map
+and refuses a time instant instead of giving it the weight 0
+(<a href="t.rast.aggregate.html#aggregation">t.rast.aggregate</a>).</li>
 </ul>
 
 <h3>t.rast.colors</h3>

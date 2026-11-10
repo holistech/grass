@@ -301,13 +301,24 @@ class RasterBackend:
             if isinstance(node, SeriesAggregate):
                 inputs = [map_name_of(lower(arg)) for arg in node.args]
                 name = target or temporary()
-                if len(inputs) == 1 and (node.weights is None or node.weights == (1,)):
+                # A full overlap gives the weight 1.0 exactly: the overlap and
+                # the length are the same difference, and its ratio to itself
+                # (timedelta / timedelta, or two equal numbers) is 1.0.
+                scaled = (
+                    node.weights is not None
+                    and node.method == "sum"
+                    and node.weights != (1,)
+                )
+                if len(inputs) == 1 and not scaled:
                     # A lone related map is copied verbatim: g.copy keeps its
                     # data type (CELL stays CELL) and its color table, which
                     # r.series would drop, and the method never touches its
-                    # values (measured 2026-10-14, see SeriesAggregate). A
-                    # weight other than 1 must reach r.series, which scales
-                    # the map for a sum.
+                    # values (measured 2026-10-14, see SeriesAggregate). Only
+                    # a weighted sum must change the map; for the other
+                    # methods r.series would turn one weighted map of 7 into
+                    # 8.9e-16 (stddev), null (slope) or 7.000000000000001
+                    # (average), measured 2026-11-10 with r.series file= and
+                    # the single line a|0.3.
                     calls.append(ModuleCall("g.copy", {"raster": (inputs[0], name)}))
                 else:
                     if node.weights is not None:

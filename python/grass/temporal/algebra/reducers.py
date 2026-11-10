@@ -57,8 +57,17 @@ SERIES_METHODS = (
 # The methods of SERIES_METHODS that r.series computes with weights: those
 # with a w_* function in the menu of raster/r.series/main.c, kept in step by
 # a test. For any other method r.series only warns and ignores the weights.
-# count is left out although it has one: w_count sums the weights, which
-# gives the covered share of a granule, not a number of maps.
+# Left out although they have one, because the result means nothing:
+# - count: w_count sums the weights, the covered share of a granule, not a
+#   number of maps;
+# - slope, offset, detcoeff and tvalue: regression_w() in lib/stats/c_reg.c
+#   adds the weights to an int, so weights below 1 count as 0 and the result
+#   is null (measured 2026-11-10 with r.series file= of two maps 7 and 14
+#   weighted 0.7 and 0.3: null for all four);
+# - kurtosis: w_kurt in lib/stats/c_kurt.c sums the third power of the
+#   deviations, not the fourth, so it gives the third moment over the squared
+#   variance minus 3 (same measurement: -2.727891156462585, the hand-derived
+#   kurtosis of these weights is -1.2381).
 WEIGHTED_SERIES_METHODS = (
     "average",
     "median",
@@ -66,16 +75,11 @@ WEIGHTED_SERIES_METHODS = (
     "stddev",
     "sum",
     "variance",
-    "slope",
-    "offset",
-    "detcoeff",
-    "tvalue",
     "quart1",
     "quart3",
     "perc90",
     "quantile",
     "skewness",
-    "kurtosis",
 )
 
 # What the overlap of a related map with the target slot is divided by.

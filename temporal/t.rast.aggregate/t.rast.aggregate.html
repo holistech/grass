@@ -70,6 +70,35 @@ value there. The method <code>quantile</code> has no quantile option in this too
 <em>r.series</em> uses the quantile <code>0</code>, and the result is the smallest value.
 
 <p>
+The flag <b>-w</b> weights each map by the time it shares with the granule;
+the tool hands the weights to <em>r.series</em> together with the maps. For
+<b>method</b> <code>sum</code> the weight is the overlap divided by the length of the map:
+a weekly sum that lies within the granule counts in full, one that lies half
+in it counts half. For the other methods the weight is the overlap divided by
+the length of the granule, and <em>r.series</em> divides the weighted sum by the
+sum of the weights, so a map that covers more of the granule counts more. In
+relative time the lengths are counted in the unit of the dataset. Only
+<b>sampling</b> <code>related</code> (or a list with <code>overlaps</code>, <code>overlapped</code>, <code>starts</code>,
+<code>finishes</code> and <code>during</code>) brings in the maps that reach over the border of a
+granule; with the default <code>contains</code>, each map lies within its granule, so
+<code>sum</code> gives the same values as without <b>-w</b>. The sixth example shows
+<code>average</code> and <code>sum</code> with <code>related</code>.
+
+<p>
+With <b>-w</b>, the methods <code>minimum</code>, <code>maximum</code>, <code>range</code>, <code>min_raster</code>,
+<code>max_raster</code> and <code>diversity</code> are refused, because <em>r.series</em> has no weighted
+form of them. Refused as well are the methods whose weighted form in
+<em>r.series</em> gives no meaningful result: <code>count</code> adds up the weights instead of
+counting the maps; <code>slope</code>, <code>offset</code> and <code>detcoeff</code> give null cells, because
+<em>r.series</em> counts the weights as whole numbers; and <code>kurtosis</code> uses the third
+power of the deviations instead of the fourth. A time instant has no length
+to weight by, so a selected map that is a time instant is refused as well. A
+map that only touches a granule would get the weight 0, and a granule whose
+weights add up to 0 gives null cells, as <em>r.series</em> computes it; every
+relation that <b>sampling</b> takes shares time with the granule, so each
+related map has a weight above 0.
+
+<p>
 The flag <b>-n</b> registers the maps whose cells are all null. Without it, a
 granule whose related maps hold only null cells gives no new map. A granule
 without any related map gives no map in either case.
@@ -109,7 +138,7 @@ needed. The tool warns whenever it sets the flag. Without a limit on open
 files, or without the Python module <code>resource</code> (for example on Windows),
 <b>file_limit</b> alone counts. The flag does not change the result but is
 slower: for 100 maps of 1000 x 1000 cells, <em>r.series</em> took 5.2 s with <b>-z</b>
-instead of 0.25 s (measured 31.10.2026 with method sum, three runs). The eighth
+instead of 0.25 s (measured 31.10.2026 with method sum, three runs). The ninth
 example sets a low <b>file_limit</b>.
 
 <p>
@@ -125,7 +154,9 @@ The tool computes the new maps in the current computational region, as
 <p>
 A granule with a single related map is copied as it is: the method does not
 matter, and the value, the type of the map (<code>CELL</code> stays <code>CELL</code>) and its colour
-table stay as they were.
+table stay as they were. This holds with <b>-w</b> as well, except for
+<b>method</b> <code>sum</code>: a single map whose weight is not 1 is scaled by
+<em>r.series</em>, and the result is a <code>DCELL</code> map.
 
 <p>
 An existing <b>output</b> dataset is replaced only with <b>--overwrite</b>; without
@@ -923,6 +954,124 @@ name|start_time|min|max
 rain_related_2026_01|2026-01-01 00:00:00|3.0|3.0
 rain_related_2026_02|2026-02-01 00:00:00|9.0|9.0
 rain_related_2026_03|2026-03-01 00:00:00|4.0|4.0
+</pre></div>
+
+<h3>Weight the maps by their share of a granule</h3>
+
+The dataset <code>weeks</code> holds three weekly sums of precipitation,
+<code>rain_week_1</code> to <code>rain_week_3</code>, with 7, 14 and 21 mm in every cell. They run
+from 1 to 8 January, from 8 to 15 January and from 15 to 22 January. With
+<b>granularity</b> <code>10 days</code> the granules are 1 to 11 January, 11 to 21 January
+and 21 to 31 January, so the second and the third week cross the border of a
+granule. <b>sampling</b> <code>related</code> relates each week to every granule with
+which it shares time, and <b>-w</b> weights it by the days it has in the
+granule.
+
+<p>
+The first block computes the average. Its weight is the share of the granule:
+in the first granule <code>rain_week_1</code> has 7 of the 10 days and <code>rain_week_2</code> has
+3, so the average is (7 x 7 + 3 x 14) / 10 = 9.1 mm. The second granule holds
+4 days of <code>rain_week_2</code> and 6 of <code>rain_week_3</code>: (4 x 14 + 6 x 21) / 10 =
+18.2 mm. The third granule holds only one day of <code>rain_week_3</code>; a single map
+is copied, so the average is 21 mm. The second block computes the
+sum. Its weight is the share of the week: the first granule takes all of
+<code>rain_week_1</code> and 3/7 of <code>rain_week_2</code>, 7 + 6 = 13 mm; the second takes 4/7
+of <code>rain_week_2</code> and 6/7 of <code>rain_week_3</code>, 8 + 18 = 26 mm; the third takes
+1/7 of <code>rain_week_3</code>, 3 mm. Each week is thus split among the granules, and
+the three sums add up to the 42 mm of the three weeks.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+for number in 1 2 3; do
+    r.mapcalc expression="rain_week_$number = 7 * $number"
+done
+t.create output=weeks title="Precipitation" \
+    description="Precipitation sum in mm over a week"
+t.register input=weeks maps=rain_week_1,rain_week_2,rain_week_3 \
+    start=2026-01-01 increment="7 days" -i
+t.rast.aggregate -w input=weeks output=rain_weighted_mean \
+    basename=rain_weighted_mean granularity="10 days" method=average \
+    sampling=related
+t.rast.list input=rain_weighted_mean columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+rain_weighted_mean_2026_01_01|2026-01-01 00:00:00|2026-01-11 00:00:00|9.1|9.1
+rain_weighted_mean_2026_01_11|2026-01-11 00:00:00|2026-01-21 00:00:00|18.2|18.2
+rain_weighted_mean_2026_01_21|2026-01-21 00:00:00|2026-01-31 00:00:00|21.0|21.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast.aggregate -w input=weeks output=rain_weighted_sum \
+    basename=rain_weighted_sum granularity="10 days" method=sum \
+    sampling=related
+t.rast.list input=rain_weighted_sum columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+rain_weighted_sum_2026_01_01|2026-01-01 00:00:00|2026-01-11 00:00:00|13.0|13.0
+rain_weighted_sum_2026_01_11|2026-01-11 00:00:00|2026-01-21 00:00:00|26.0|26.0
+rain_weighted_sum_2026_01_21|2026-01-21 00:00:00|2026-01-31 00:00:00|3.0|3.0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for number in (1, 2, 3):
+    tools.r_mapcalc(expression=f"rain_week_{number} = 7 * {number}")
+tools.t_create(
+    output="weeks",
+    title="Precipitation",
+    description="Precipitation sum in mm over a week",
+)
+tools.t_register(
+    input="weeks",
+    maps="rain_week_1,rain_week_2,rain_week_3",
+    start="2026-01-01",
+    increment="7 days",
+    flags="i",
+)
+tools.t_rast_aggregate(
+    input="weeks",
+    output="rain_weighted_mean",
+    basename="rain_weighted_mean",
+    granularity="10 days",
+    method="average",
+    sampling="related",
+    flags="w",
+)
+granule_columns = "name,start_time,end_time,min,max"
+print(tools.t_rast_list(input="rain_weighted_mean", columns=granule_columns).text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+rain_weighted_mean_2026_01_01|2026-01-01 00:00:00|2026-01-11 00:00:00|9.1|9.1
+rain_weighted_mean_2026_01_11|2026-01-11 00:00:00|2026-01-21 00:00:00|18.2|18.2
+rain_weighted_mean_2026_01_21|2026-01-21 00:00:00|2026-01-31 00:00:00|21.0|21.0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_aggregate(
+    input="weeks",
+    output="rain_weighted_sum",
+    basename="rain_weighted_sum",
+    granularity="10 days",
+    method="sum",
+    sampling="related",
+    flags="w",
+)
+print(tools.t_rast_list(input="rain_weighted_sum", columns=granule_columns).text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+rain_weighted_sum_2026_01_01|2026-01-01 00:00:00|2026-01-11 00:00:00|13.0|13.0
+rain_weighted_sum_2026_01_11|2026-01-11 00:00:00|2026-01-21 00:00:00|26.0|26.0
+rain_weighted_sum_2026_01_21|2026-01-21 00:00:00|2026-01-31 00:00:00|3.0|3.0
 </pre></div>
 
 <h3>Null cells and empty granules</h3>
