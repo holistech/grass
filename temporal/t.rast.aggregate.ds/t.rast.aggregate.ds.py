@@ -100,6 +100,7 @@ def main():
     from grass.temporal.aggregation_core import (
         aggregate_series,
         sampler_target,
+        sampling_relation,
         set_output_metadata,
     )
 
@@ -179,8 +180,9 @@ def main():
         dataset = aggregate_series(
             input_series,
             target,
-            sampling,
+            sampling_relation(sampling),
             method,
+            sampling=sampling,
             output=output,
             basename=base,
             granularity=gran,

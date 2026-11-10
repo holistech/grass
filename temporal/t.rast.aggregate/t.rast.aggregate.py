@@ -105,7 +105,12 @@ def main():
     import grass.temporal as tgis
     import grass.temporal.algebra as ta
     from grass.exceptions import FatalError
-    from grass.temporal.aggregation_core import aggregate_series, set_output_metadata
+    from grass.temporal.aggregation_core import (
+        aggregate_series,
+        aggregation_granules,
+        sampling_relation,
+        set_output_metadata,
+    )
 
     input = options["input"]
     output = options["output"]
@@ -140,51 +145,22 @@ def main():
         if not input_series.slots:
             gs.fatal(_("Space time raster dataset <{}> is empty").format(input))
 
-        first = input_series.slots[0].extent
-        last = input_series.slots[-1].extent
-        start = first.start
-        if absolute:
-            # check_granularity_string() would also refuse "1 fortnight" and
-            # "1.5 days" with a text of its own, and the messages of
-            # adjust_datetime_to_granularity() for them stay as they were.
-            # Only a granularity without a unit, which it fails on with an
-            # IndexError, is refused here.
-            if len(gran.split()) != 2:
-                gs.fatal(_("Invalid granularity <{}>").format(gran))
-            start = tgis.adjust_datetime_to_granularity(start, gran)
-        end = last.end
-        if end is None:
-            # The last map is an instant. granules() adds a granule while its
-            # start is before end, so one time unit past the instant makes
-            # the last granule the one that holds it and no later one. A
-            # whole granularity would add a trailing granule that a longer
-            # earlier map can still relate to.
-            if absolute:
-                end = tgis.increment_datetime_by_string(last.start, "1 second")
-            else:
-                end = last.start + 1
-
-        if not absolute:
-            # int() accepts neither "1 day" nor "1.5"; the handler below would
-            # report its ValueError, whose text does not name the option.
-            try:
-                gran = int(gran)
-            except ValueError:
-                gs.fatal(_("Invalid granularity <{}>").format(gran))
-
-        target = ta.granules(
-            start,
-            end,
+        target = aggregation_granules(
+            input_series,
             gran,
-            temporal_type="absolute" if absolute else "relative",
+            absolute=absolute,
             unit=sp.get_relative_time_unit(),
         )
+        if not absolute:
+            # aggregation_granules() has checked the text, so this cannot fail.
+            gran = int(gran)
 
         dataset = aggregate_series(
             input_series,
             target,
-            sampling,
+            sampling_relation(sampling),
             method,
+            sampling=sampling,
             output=output,
             basename=base,
             granularity=gran,

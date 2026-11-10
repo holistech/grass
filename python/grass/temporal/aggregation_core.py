@@ -10,8 +10,79 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import grass.temporal.algebra as ta
 from grass.temporal.algebra.adapters import as_map
 from grass.temporal.algebra.materialize import reject_input_names
-from grass.temporal.datetime_math import map_name_suffix
+from grass.temporal.datetime_math import (
+    adjust_datetime_to_granularity,
+    increment_datetime_by_string,
+    map_name_suffix,
+)
 from grass.temporal.state import get_tgis_message_interface
+
+
+def sampling_relation(names):
+    """The relation from a granule to a map that the sampling names select
+
+    names is the list of relation names of the sampling option. The relation
+    reads from the granule's side, so "contains" selects the maps that a
+    granule contains.
+    """
+    return ta.relation("|".join(names))
+
+
+def aggregation_granules(input_series, granularity, *, absolute, unit):
+    """A regular grid of granules that covers the maps of input_series
+
+    The first granule starts at the start of the first map, rounded down to
+    the granularity (absolute time only; a relative start is kept as it is).
+    The grid ends behind the last map, so that the last granule is the one
+    that holds it. The granules follow each other without gaps and count from
+    that anchor.
+
+    granularity is a text such as "1 month" for absolute time and a whole
+    number, as text or integer, for relative time. unit is the relative time
+    unit of the dataset, or None for absolute time. Raises ValueError for a
+    granularity that is no valid one of the time type.
+    """
+    first = input_series.slots[0].extent
+    last = input_series.slots[-1].extent
+    start = first.start
+    if absolute:
+        # check_granularity_string() would also refuse "1 fortnight" and
+        # "1.5 days" with a text of its own, and the messages of
+        # adjust_datetime_to_granularity() for them stay as they were.
+        # Only a granularity without a unit, which it fails on with an
+        # IndexError, is refused here.
+        if len(granularity.split()) != 2:
+            msg = _("Invalid granularity <{}>").format(granularity)
+            raise ValueError(msg)
+        start = adjust_datetime_to_granularity(start, granularity)
+    end = last.end
+    if end is None:
+        # The last map is an instant. granules() adds a granule while its
+        # start is before end, so one time unit past the instant makes
+        # the last granule the one that holds it and no later one. A
+        # whole granularity would add a trailing granule that a longer
+        # earlier map can still relate to.
+        if absolute:
+            end = increment_datetime_by_string(last.start, "1 second")
+        else:
+            end = last.start + 1
+
+    if not absolute:
+        # int() accepts neither "1 day" nor "1.5"; the caller's handler would
+        # report its ValueError, whose text does not name the option.
+        try:
+            granularity = int(granularity)
+        except ValueError:
+            msg = _("Invalid granularity <{}>").format(granularity)
+            raise ValueError(msg) from None
+
+    return ta.granules(
+        start,
+        end,
+        granularity,
+        temporal_type="absolute" if absolute else "relative",
+        unit=unit,
+    )
 
 
 def sampler_target(maps, unit):
@@ -83,9 +154,10 @@ def _report_granules(reduced):
 def aggregate_series(
     input_series,
     target,
-    sampling,
+    relation,
     method,
     *,
+    sampling,
     output,
     basename,
     granularity,
@@ -98,11 +170,13 @@ def aggregate_series(
 ):
     """Aggregate input_series onto target and materialize the result
 
-    Returns the new space time dataset, or None, with a warning, if no granule
-    has a related map. The caller sets title, description, semantic type and aggregation
-    type with set_output_metadata().
+    relation is the relation from a granule to a map, see sampling_relation().
+    sampling is the list of names it was built from; it only names the
+    sampling in the warning. Returns the new space time dataset, or None,
+    with a warning, if no granule has a related map. The caller sets title,
+    description, semantic type and aggregation type with
+    set_output_metadata().
     """
-    relation = ta.relation("|".join(sampling))
     # missing="drop": a granule without a related map produces no map, as the
     # classic tool skips it. nulls="skip": r.series passes over null cells.
     reduced = ta.gather(
