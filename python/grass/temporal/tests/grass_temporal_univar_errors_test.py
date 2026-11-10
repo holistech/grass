@@ -79,3 +79,20 @@ def test_a_column_that_does_not_exist(tools, tmp_path):
 
     # The file that was opened for the output is closed and holds the header.
     assert output.read_text().startswith("id|start|end|n|")
+
+
+def test_a_sampling_without_granularity(tools):
+    # The tool refuses this in its parser; a caller of the library gets the
+    # refusal of the library.
+    with pytest.raises(FatalError, match="The sampling relates maps to granules"):
+        tgis.print_gridded_dataset_univar_statistics(
+            "strds", "uvr", None, None, False, sampling=["related"]
+        )
+
+
+def test_a_granularity_of_a_3d_raster_dataset(tools):
+    # The refusal comes before the dataset is looked up, so it needs none.
+    with pytest.raises(FatalError, match="A granularity needs a space time raster"):
+        tgis.print_gridded_dataset_univar_statistics(
+            "str3ds", "nosuch", None, None, False, granularity="1 month"
+        )
