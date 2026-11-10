@@ -891,6 +891,14 @@ stays an upper limit, and each such run warns. This holds for
 <em>t.rast.aggregate</em>, <em>t.rast.aggregate.ds</em> and
 <code>aggregate_raster_maps()</code> (<a href="t.rast.aggregate.html#notes">t.rast.aggregate</a>,
 <a href="t.rast.aggregate.ds.html#notes">t.rast.aggregate.ds</a>).</li>
+<li><b>Sampling <code>related</code>.</b> <em>t.rast.aggregate</em> took only the maps that
+stand in one of the named relations to a granule, so a map that crosses
+the border of a granule, or one that is longer than the granule, needed
+a list such as <code>contains,overlaps,overlapped,during</code>. Now <b>sampling</b>
+also takes <code>related</code>, which stands for the nine relations in which a map
+and a granule share time; together with other names it gives their union,
+and the default stays <code>contains</code>
+(<a href="t.rast.aggregate.html#notes">t.rast.aggregate</a>).</li>
 </ul>
 
 <h3>t.rast.colors</h3>

@@ -1204,8 +1204,11 @@
  "module_paths": {
   "grass.temporal.aggregation_core": {
    "names": {
+    "RELATED_RELATIONS": "repo",
     "aggregate_series": "repo",
+    "aggregation_granules": "repo",
     "sampler_target": "repo",
+    "sampling_relation": "repo",
     "set_output_metadata": "repo"
    },
    "origins": "repo"

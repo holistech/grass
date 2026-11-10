@@ -47,9 +47,15 @@ granule: with <code>contains</code>, a map lies within the granule; with <code>e
 has the start and the end of the granule; with <code>overlaps</code>, the granule starts
 before the map starts and ends within the map. The other relations are
 <code>overlapped</code>, <code>starts</code>, <code>started</code>, <code>finishes</code>, <code>finished</code> and <code>during</code>.
+The name <code>related</code> stands for all nine of them, so a map belongs to every
+granule with which it shares any time. <code>contains</code> already takes a map that
+starts or ends with the granule; <code>related</code> adds the maps that cross a border of
+the granule, the maps longer than the granule, and the map with the same start
+and end.
 Several relations are separated by commas; a map that fits two of them, for
-instance <code>during</code> and <code>starts</code>, is aggregated once. The fifth example shows
-<code>contains</code>, <code>overlaps</code> and <code>equal</code>.
+instance <code>during</code> and <code>starts</code>, is aggregated once, and <code>related</code> together with
+other names gives the same maps as <code>related</code> alone. The fifth example shows
+<code>contains</code>, <code>overlaps</code>, <code>equal</code> and <code>related</code>.
 
 <h3>Aggregation</h3>
 
@@ -732,7 +738,13 @@ only <code>rain_dekad_3</code> and <code>rain_dekad_4</code> are left, and the f
 on 1 February, the beginning of the month of <code>rain_dekad_3</code>. The fourth block
 aggregates the seasonal means of the first example: each has the start and the
 end of a granule of <code>3 months</code>, so <b>sampling</b> <code>equal</code> relates it to that
-granule, and the granule copies it.
+granule, and the granule copies it. The fifth block uses <code>related</code>, which takes
+every map that shares time with a granule. January gets <code>rain_dekad_1</code> and
+<code>rain_dekad_2</code>, the sum is 1 + 2 = 3. February gets <code>rain_dekad_2</code>,
+<code>rain_dekad_3</code> and <code>rain_dekad_4</code>, the sum is 2 + 3 + 4 = 9, and <code>rain_dekad_4</code>
+also reaches into March, which gets that map alone, so its sum is 4. A map that
+crosses a border is thus counted in both granules; the sums add up to more than
+the total of the maps.
 
 <p>Command line:</p>
 
@@ -792,6 +804,19 @@ name|start_time|min|max
 temperature_copied_2020_03|2020-03-01 00:00:00|2.466666666666667|16.966666666666665
 temperature_copied_2020_06|2020-06-01 00:00:00|13.0|27.5
 temperature_copied_2020_09|2020-09-01 00:00:00|4.466666666666666|19.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast.aggregate input=dekads output=rain_related basename=rain_related \
+    granularity="1 months" method=sum sampling=related
+t.rast.list input=rain_related columns=name,start_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|min|max
+rain_related_2026_01|2026-01-01 00:00:00|3.0|3.0
+rain_related_2026_02|2026-02-01 00:00:00|9.0|9.0
+rain_related_2026_03|2026-03-01 00:00:00|4.0|4.0
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -879,6 +904,25 @@ name|start_time|min|max
 temperature_copied_2020_03|2020-03-01 00:00:00|2.466666666666667|16.966666666666665
 temperature_copied_2020_06|2020-06-01 00:00:00|13.0|27.5
 temperature_copied_2020_09|2020-09-01 00:00:00|4.466666666666666|19.0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_aggregate(
+    input="dekads",
+    output="rain_related",
+    basename="rain_related",
+    granularity="1 months",
+    method="sum",
+    sampling="related",
+)
+print(tools.t_rast_list(input="rain_related", columns=columns).text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|min|max
+rain_related_2026_01|2026-01-01 00:00:00|3.0|3.0
+rain_related_2026_02|2026-02-01 00:00:00|9.0|9.0
+rain_related_2026_03|2026-03-01 00:00:00|4.0|4.0
 </pre></div>
 
 <h3>Null cells and empty granules</h3>

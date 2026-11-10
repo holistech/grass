@@ -44,9 +44,15 @@ granule: with `contains`, a map lies within the granule; with `equal`, the map
 has the start and the end of the granule; with `overlaps`, the granule starts
 before the map starts and ends within the map. The other relations are
 `overlapped`, `starts`, `started`, `finishes`, `finished` and `during`.
+The name `related` stands for all nine of them, so a map belongs to every
+granule with which it shares any time. `contains` already takes a map that
+starts or ends with the granule; `related` adds the maps that cross a border of
+the granule, the maps longer than the granule, and the map with the same start
+and end.
 Several relations are separated by commas; a map that fits two of them, for
-instance `during` and `starts`, is aggregated once. The fifth example shows
-`contains`, `overlaps` and `equal`.
+instance `during` and `starts`, is aggregated once, and `related` together with
+other names gives the same maps as `related` alone. The fifth example shows
+`contains`, `overlaps`, `equal` and `related`.
 
 ### Aggregation
 
@@ -712,7 +718,13 @@ only `rain_dekad_3` and `rain_dekad_4` are left, and the first granule starts
 on 1 February, the beginning of the month of `rain_dekad_3`. The fourth block
 aggregates the seasonal means of the first example: each has the start and the
 end of a granule of `3 months`, so **sampling** `equal` relates it to that
-granule, and the granule copies it.
+granule, and the granule copies it. The fifth block uses `related`, which takes
+every map that shares time with a granule. January gets `rain_dekad_1` and
+`rain_dekad_2`, the sum is 1 + 2 = 3. February gets `rain_dekad_2`,
+`rain_dekad_3` and `rain_dekad_4`, the sum is 2 + 3 + 4 = 9, and `rain_dekad_4`
+also reaches into March, which gets that map alone, so its sum is 4. A map that
+crosses a border is thus counted in both granules; the sums add up to more than
+the total of the maps.
 
 === "Command line"
 
@@ -772,6 +784,19 @@ granule, and the granule copies it.
     temperature_copied_2020_03|2020-03-01 00:00:00|2.466666666666667|16.966666666666665
     temperature_copied_2020_06|2020-06-01 00:00:00|13.0|27.5
     temperature_copied_2020_09|2020-09-01 00:00:00|4.466666666666666|19.0
+    ```
+
+    ```sh
+    t.rast.aggregate input=dekads output=rain_related basename=rain_related \
+        granularity="1 months" method=sum sampling=related
+    t.rast.list input=rain_related columns=name,start_time,min,max
+    ```
+
+    ```text
+    name|start_time|min|max
+    rain_related_2026_01|2026-01-01 00:00:00|3.0|3.0
+    rain_related_2026_02|2026-02-01 00:00:00|9.0|9.0
+    rain_related_2026_03|2026-03-01 00:00:00|4.0|4.0
     ```
 
 === "Python (grass.tools)"
@@ -859,6 +884,25 @@ granule, and the granule copies it.
     temperature_copied_2020_03|2020-03-01 00:00:00|2.466666666666667|16.966666666666665
     temperature_copied_2020_06|2020-06-01 00:00:00|13.0|27.5
     temperature_copied_2020_09|2020-09-01 00:00:00|4.466666666666666|19.0
+    ```
+
+    ```python
+    tools.t_rast_aggregate(
+        input="dekads",
+        output="rain_related",
+        basename="rain_related",
+        granularity="1 months",
+        method="sum",
+        sampling="related",
+    )
+    print(tools.t_rast_list(input="rain_related", columns=columns).text)
+    ```
+
+    ```text
+    name|start_time|min|max
+    rain_related_2026_01|2026-01-01 00:00:00|3.0|3.0
+    rain_related_2026_02|2026-02-01 00:00:00|9.0|9.0
+    rain_related_2026_03|2026-03-01 00:00:00|4.0|4.0
     ```
 
 ### Null cells and empty granules

@@ -83,7 +83,7 @@
 # %end
 
 # %option G_OPT_T_SAMPLE
-# % options: equal,overlaps,overlapped,starts,started,finishes,finished,during,contains
+# % options: equal,overlaps,overlapped,starts,started,finishes,finished,during,contains,related
 # % answer: contains
 # %end
 

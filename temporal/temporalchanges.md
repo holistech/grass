@@ -864,6 +864,14 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     *t.rast.aggregate*, *t.rast.aggregate.ds* and
     `aggregate_raster_maps()` ([t.rast.aggregate](t.rast.aggregate.md#notes),
     [t.rast.aggregate.ds](t.rast.aggregate.ds.md#notes)).
+- **Sampling `related`.** *t.rast.aggregate* took only the maps that
+    stand in one of the named relations to a granule, so a map that crosses
+    the border of a granule, or one that is longer than the granule, needed
+    a list such as `contains,overlaps,overlapped,during`. Now **sampling**
+    also takes `related`, which stands for the nine relations in which a map
+    and a granule share time; together with other names it gives their union,
+    and the default stays `contains`
+    ([t.rast.aggregate](t.rast.aggregate.md#notes)).
 
 ### t.rast.colors
 

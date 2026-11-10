@@ -18,14 +18,37 @@ from grass.temporal.datetime_math import (
 from grass.temporal.state import get_tgis_message_interface
 
 
+# The nine relations under which a map and a granule share time. "before",
+# "after", "follows" and "precedes" are left out: the two do not overlap.
+RELATED_RELATIONS = (
+    "equal",
+    "overlaps",
+    "overlapped",
+    "starts",
+    "started",
+    "finishes",
+    "finished",
+    "during",
+    "contains",
+)
+
+
 def sampling_relation(names):
     """The relation from a granule to a map that the sampling names select
 
     names is the list of relation names of the sampling option. The relation
     reads from the granule's side, so "contains" selects the maps that a
-    granule contains.
+    granule contains. The name "related" stands for all of RELATED_RELATIONS,
+    so a map counts if it shares any time with the granule; together with
+    other names it gives their union.
     """
-    return ta.relation("|".join(names))
+    expanded = []
+    for name in names:
+        if name == "related":
+            expanded.extend(RELATED_RELATIONS)
+        else:
+            expanded.append(name)
+    return ta.relation("|".join(expanded))
 
 
 def aggregation_granules(input_series, granularity, *, absolute, unit):

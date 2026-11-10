@@ -42,3 +42,31 @@ def test_numeric_suffix_numbers_slots_of_equal_extent_in_order():
     target = series((day(1), day(2)), (day(1), day(2)), (day(2), day(3)))
     surviving = Series(target.slots[:2], "raster")
     assert _names(target, surviving, "b", None, "num%02", 0) == ["b_01", "b_02"]
+
+
+def test_sampling_relation_expands_related():
+    from grass.temporal.aggregation_core import RELATED_RELATIONS, sampling_relation
+
+    assert sampling_relation(["related"]).temporal == frozenset(
+        {
+            "equal",
+            "overlaps",
+            "overlapped",
+            "starts",
+            "started",
+            "finishes",
+            "finished",
+            "during",
+            "contains",
+        }
+    )
+    assert set(RELATED_RELATIONS) == sampling_relation(["related"]).temporal
+
+
+def test_sampling_relation_keeps_the_other_names():
+    from grass.temporal.aggregation_core import sampling_relation
+
+    assert sampling_relation(["equal", "precedes"]).temporal == {"equal", "precedes"}
+    assert sampling_relation(["related", "precedes"]).temporal == (
+        sampling_relation(["related"]).temporal | {"precedes"}
+    )
