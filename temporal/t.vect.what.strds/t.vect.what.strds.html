@@ -91,6 +91,14 @@ stays empty (<code>NULL</code>). The tool tries the condition on the table of ea
 before it writes the first value, and stops if it fails.
 
 <p>
+The option <b>type</b> names the feature types that <em>v.what.rast</em> reads, <code>point</code>
+(the default), <code>centroid</code> or both. The centroid of an area is the position that
+carries its category, so <code>type=centroid</code> writes one value for each area: the
+value of the cell below its centroid, not an aggregate over the area. A map
+without points, such as a map of areas, gets no value with the default; the
+columns are added and stay empty. The last example shows both runs.
+
+<p>
 The option <b>t_where</b> is an SQL condition on the vector maps of <b>input</b>,
 using the columns of the temporal database such as <code>name</code>, <code>start_time</code> and
 <code>end_time</code> (see <em><a href="t.vect.list.html">t.vect.list</a></em>). The tool changes only the
@@ -1148,6 +1156,109 @@ ERROR: Vector map &lt;stations_jan@t_vect_what_strds&gt; is not in the current
        Vector map &lt;stations_apr@t_vect_what_strds&gt; is not in the current
        mapset, so its table cannot be written
 t.vect.what.strds failed
+</pre></div>
+
+<h3>Areas instead of points</h3>
+
+The example works in the mapset <code>t_vect_what_strds_2</code> of the previous example.
+The map <code>counties</code> holds the areas of three counties, extracted from
+<code>boundary_county</code> with <em><a href="v.extract.html">v.extract</a></em>, and is registered with the
+interval January in the dataset <code>counties_ds</code>. The first call uses the default
+<b>type</b>, <code>point</code>. The map has no point, so the column of the January map is
+added and stays empty. The second call adds <b>type</b><code>=centroid</code> and
+<b>--overwrite</b>, which writes the existing column again: each county gets the
+value of the cell under its centroid.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+v.extract input=boundary_county output=counties \
+    where="NAME IN ('WAKE', 'DURHAM', 'ORANGE')"
+t.create type=stvds output=counties_ds title="Counties" \
+    description="Three counties in January"
+t.register type=vector input=counties_ds maps=counties \
+    start=2020-01-01 end=2020-02-01
+t.vect.what.strds input=counties_ds strds=precipitation_monthly@t_vect_what_strds
+v.db.select map=counties columns=cat,NAME,precipitation_monthly_2020_01
+</pre></div>
+
+<div class="code"><pre>
+cat|NAME|precipitation_monthly_2020_01
+55|ORANGE|
+56|DURHAM|
+101|WAKE|
+</pre></div>
+
+<div class="code"><pre>
+t.vect.what.strds input=counties_ds strds=precipitation_monthly@t_vect_what_strds \
+    type=centroid --overwrite
+v.db.select map=counties columns=cat,NAME,precipitation_monthly_2020_01
+</pre></div>
+
+<div class="code"><pre>
+cat|NAME|precipitation_monthly_2020_01
+55|ORANGE|132
+56|DURHAM|132
+101|WAKE|134
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.v_extract(
+    input="boundary_county",
+    output="counties",
+    where="NAME IN ('WAKE', 'DURHAM', 'ORANGE')",
+)
+tools.t_create(
+    type="stvds",
+    output="counties_ds",
+    title="Counties",
+    description="Three counties in January",
+)
+tools.t_register(
+    type="vector",
+    input="counties_ds",
+    maps="counties",
+    start="2020-01-01",
+    end="2020-02-01",
+)
+tools.t_vect_what_strds(
+    input="counties_ds", strds="precipitation_monthly@t_vect_what_strds"
+)
+print(
+    tools.v_db_select(
+        map="counties", columns="cat,NAME,precipitation_monthly_2020_01"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+cat|NAME|precipitation_monthly_2020_01
+55|ORANGE|
+56|DURHAM|
+101|WAKE|
+</pre></div>
+
+<div class="code"><pre>
+tools.t_vect_what_strds(
+    input="counties_ds",
+    strds="precipitation_monthly@t_vect_what_strds",
+    type="centroid",
+    overwrite=True,
+)
+print(
+    tools.v_db_select(
+        map="counties", columns="cat,NAME,precipitation_monthly_2020_01"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+cat|NAME|precipitation_monthly_2020_01
+55|ORANGE|132
+56|DURHAM|132
+101|WAKE|134
 </pre></div>
 
 <h2>SEE ALSO</h2>

@@ -23,6 +23,15 @@ of names and datasets must be equal. A column of a CELL (integer) raster map is
 of type INTEGER, the column of any other raster map of type DOUBLE PRECISION.
 
 <p>
+The option <b>type</b> names the feature types that <em>v.what.rast</em> reads, <code>point</code>
+(the default), <code>centroid</code> or both. With <code>type=centroid</code> a map of areas is
+observed at the centroids of its areas, one value for each area: the value of
+the cell below the centroid. The output map is a copy of the whole input with
+its boundaries and centroids, so the areas arrive intact. Without it a map
+without points gets columns that stay empty. The last example observes
+counties.
+
+<p>
 The output is made of two parts, both in the current mapset:
 
 <ul>
@@ -1007,6 +1016,78 @@ cat|temp
 3|4.2
 4|
 5|
+</pre></div>
+
+<h3>Observe areas at their centroids</h3>
+
+The example works in the mapset <code>t_vect_observe_strds_2</code> of the previous
+example. The map <code>counties</code> holds the areas of three counties, extracted from
+<code>boundary_county</code> with <em><a href="v.extract.html">v.extract</a></em>. With <b>type</b><code>=centroid</code> the
+module reads the value under the centroid of each county. Layer 1 holds the
+January map and layer 2 the February map; the output map still has three areas
+with their centroids, which <code>v.info -t</code> shows.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+v.extract input=boundary_county output=counties \
+    where="NAME IN ('WAKE', 'DURHAM', 'ORANGE')"
+t.vect.observe.strds input=counties strds=temperature_monthly@t_vect_observe_strds \
+    output=county_obs vector_output=county_points columns=temp type=centroid
+v.db.select map=county_points layer=1 columns=cat,NAME,temp
+v.db.select map=county_points layer=2
+v.info -t map=county_points | grep -E "^(boundaries|centroids|areas)="
+</pre></div>
+
+<div class="code"><pre>
+cat|NAME|temp
+55|ORANGE|3.7
+56|DURHAM|4.5
+101|WAKE|4.8
+cat|temp
+55|4.5
+56|5.4
+101|5.6
+boundaries=15
+centroids=3
+areas=3
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.v_extract(
+    input="boundary_county",
+    output="counties",
+    where="NAME IN ('WAKE', 'DURHAM', 'ORANGE')",
+)
+tools.t_vect_observe_strds(
+    input="counties",
+    strds="temperature_monthly@t_vect_observe_strds",
+    output="county_obs",
+    vector_output="county_points",
+    columns="temp",
+    type="centroid",
+)
+print(tools.v_db_select(map="county_points", layer=1, columns="cat,NAME,temp").text)
+print(tools.v_db_select(map="county_points", layer=2).text)
+for line in tools.v_info(map="county_points", flags="t").text.splitlines():
+    if line.split("=")[0] in {"boundaries", "centroids", "areas"}:
+        print(line)
+</pre></div>
+
+<div class="code"><pre>
+cat|NAME|temp
+55|ORANGE|3.7
+56|DURHAM|4.5
+101|WAKE|4.8
+cat|temp
+55|4.5
+56|5.4
+101|5.6
+boundaries=15
+centroids=3
+areas=3
 </pre></div>
 
 <h2>SEE ALSO</h2>

@@ -21,6 +21,14 @@ sampled values, one name for each dataset in the order of **strds**; the numbers
 of names and datasets must be equal. A column of a CELL (integer) raster map is
 of type INTEGER, the column of any other raster map of type DOUBLE PRECISION.
 
+The option **type** names the feature types that *v.what.rast* reads, `point`
+(the default), `centroid` or both. With `type=centroid` a map of areas is
+observed at the centroids of its areas, one value for each area: the value of
+the cell below the centroid. The output map is a copy of the whole input with
+its boundaries and centroids, so the areas arrive intact. Without it a map
+without points gets columns that stay empty. The last example observes
+counties.
+
 The output is made of two parts, both in the current mapset:
 
 - the option **vector_output** names the new vector map. It is a copy of the
@@ -991,6 +999,78 @@ the region again before the points are sampled. The mapset
     3|4.2
     4|
     5|
+    ```
+
+### Observe areas at their centroids
+
+The example works in the mapset `t_vect_observe_strds_2` of the previous
+example. The map `counties` holds the areas of three counties, extracted from
+`boundary_county` with *[v.extract](v.extract.md)*. With **type**`=centroid` the
+module reads the value under the centroid of each county. Layer 1 holds the
+January map and layer 2 the February map; the output map still has three areas
+with their centroids, which `v.info -t` shows.
+
+=== "Command line"
+
+    ```sh
+    v.extract input=boundary_county output=counties \
+        where="NAME IN ('WAKE', 'DURHAM', 'ORANGE')"
+    t.vect.observe.strds input=counties strds=temperature_monthly@t_vect_observe_strds \
+        output=county_obs vector_output=county_points columns=temp type=centroid
+    v.db.select map=county_points layer=1 columns=cat,NAME,temp
+    v.db.select map=county_points layer=2
+    v.info -t map=county_points | grep -E "^(boundaries|centroids|areas)="
+    ```
+
+    ```text
+    cat|NAME|temp
+    55|ORANGE|3.7
+    56|DURHAM|4.5
+    101|WAKE|4.8
+    cat|temp
+    55|4.5
+    56|5.4
+    101|5.6
+    boundaries=15
+    centroids=3
+    areas=3
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.v_extract(
+        input="boundary_county",
+        output="counties",
+        where="NAME IN ('WAKE', 'DURHAM', 'ORANGE')",
+    )
+    tools.t_vect_observe_strds(
+        input="counties",
+        strds="temperature_monthly@t_vect_observe_strds",
+        output="county_obs",
+        vector_output="county_points",
+        columns="temp",
+        type="centroid",
+    )
+    print(tools.v_db_select(map="county_points", layer=1, columns="cat,NAME,temp").text)
+    print(tools.v_db_select(map="county_points", layer=2).text)
+    for line in tools.v_info(map="county_points", flags="t").text.splitlines():
+        if line.split("=")[0] in {"boundaries", "centroids", "areas"}:
+            print(line)
+    ```
+
+    ```text
+    cat|NAME|temp
+    55|ORANGE|3.7
+    56|DURHAM|4.5
+    101|WAKE|4.8
+    cat|temp
+    55|4.5
+    56|5.4
+    101|5.6
+    boundaries=15
+    centroids=3
+    areas=3
     ```
 
 <!-- markdownlint-enable MD046 -->

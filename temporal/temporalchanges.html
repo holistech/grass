@@ -1269,6 +1269,13 @@ differ only in case are refused, <b>where</b> without points is reported,
 no common granule warns without dataset, values not sampled are NULL,
 and repeated columns are refused before writing
 (<a href="t.vect.observe.strds.html#notes">t.vect.observe.strds</a>).</li>
+<li><b>Areas</b> <em>(upstream)</em>. The values were read at the points of the input
+only, so a map of areas got empty columns. Now <b>type</b> is <code>point</code> (the
+default), <code>centroid</code> or both, as in <em>v.what.rast</em>, and <code>type=centroid</code>
+reads the cell below the centroid of each area; the output map keeps the
+boundaries and centroids of the input. The option was asked for in
+OSGeo/grass issue 4168
+(<a href="t.vect.observe.strds.html#description">t.vect.observe.strds</a>).</li>
 </ul>
 
 <h3>t.vect.univar</h3>
@@ -1295,6 +1302,12 @@ another unit is refused, <b>quantile</b> is an option (default 0.5), time
 instances without <code>start</code> warn, columns that differ only in case are
 refused also without <b>--overwrite</b>, and a layer given twice is refused
 (<a href="t.vect.what.strds.html#notes">t.vect.what.strds</a>).</li>
+<li><b>Areas</b> <em>(upstream)</em>. The values were read at the points of the maps
+only, so a map of areas got empty columns. Now <b>type</b> is <code>point</code> (the
+default), <code>centroid</code> or both, as in <em>v.what.rast</em>, and <code>type=centroid</code>
+reads the cell below the centroid of each area. The option was asked for
+in OSGeo/grass issue 4168
+(<a href="t.vect.what.strds.html#choose-the-columns">t.vect.what.strds</a>).</li>
 </ul>
 
 <h2>Other tools and libraries</h2>

@@ -55,6 +55,16 @@
 # % multiple: no
 # %end
 
+# %option
+# % key: type
+# % type: string
+# % description: Input feature type
+# % options: point,centroid
+# % answer: point
+# % required: no
+# % multiple: yes
+# %end
+
 # %option G_OPT_DB_WHERE
 # %end
 
@@ -373,11 +383,14 @@ def aggregate_interval(raster_maps, start, end, method, quantile, dbif):
     return new_map.get_id(), aggreagated_map_name
 
 
-def write_column(vectmap, layer, rastermap, col_name, where, existing, dbif):
+def write_column(
+    vectmap, layer, rastermap, col_name, where, existing, feature_type, dbif
+):
     """Write the values of rastermap at the points into the column col_name
 
     The column is added unless existing, the lower case names of the
     columns of the table, has it; INT for a CELL map, else DOUBLE PRECISION.
+    feature_type is the type option of v.what.rast: point, centroid or both.
     """
     coltype = "DOUBLE PRECISION"
     # Get raster type
@@ -413,6 +426,7 @@ def write_column(vectmap, layer, rastermap, col_name, where, existing, dbif):
             raster=rastermap,
             column=col_name,
             where=where,
+            type=feature_type,
         )
     except CalledModuleError:
         dbif.close()
@@ -423,7 +437,16 @@ def write_column(vectmap, layer, rastermap, col_name, where, existing, dbif):
 
 
 def sample_interval(
-    row, raster_maps, strds_sp, column, method, quantile, where, existing, dbif
+    row,
+    raster_maps,
+    strds_sp,
+    column,
+    method,
+    quantile,
+    where,
+    existing,
+    feature_type,
+    dbif,
 ):
     """Write the values of the raster maps of one interval into its vector map
 
@@ -462,7 +485,14 @@ def sample_interval(
         )
 
         write_column(
-            vectmap, layer, rastermap, col_name, where, existing[vectmap, layer], dbif
+            vectmap,
+            layer,
+            rastermap,
+            col_name,
+            where,
+            existing[vectmap, layer],
+            feature_type,
+            dbif,
         )
 
         if aggreagated_map_name:
@@ -492,6 +522,7 @@ def main():
     input = options["input"]
     strds = options["strds"]
     where = options["where"]
+    feature_type = options["type"]
     column = options["column"]
     method = options["method"]
     quantile = float(options["quantile"])
@@ -520,7 +551,16 @@ def main():
     # Sample the raster dataset with the vector dataset and run v.what.rast
     for row, raster_maps in zip(rows, interval_maps, strict=True):
         sample_interval(
-            row, raster_maps, strds_sp, column, method, quantile, where, existing, dbif
+            row,
+            raster_maps,
+            strds_sp,
+            column,
+            method,
+            quantile,
+            where,
+            existing,
+            feature_type,
+            dbif,
         )
 
     dbif.close()

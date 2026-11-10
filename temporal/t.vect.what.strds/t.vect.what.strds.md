@@ -84,6 +84,13 @@ maps. Only the points that satisfy it get a value; the column of the other point
 stays empty (`NULL`). The tool tries the condition on the table of each layer
 before it writes the first value, and stops if it fails.
 
+The option **type** names the feature types that *v.what.rast* reads, `point`
+(the default), `centroid` or both. The centroid of an area is the position that
+carries its category, so `type=centroid` writes one value for each area: the
+value of the cell below its centroid, not an aggregate over the area. A map
+without points, such as a map of areas, gets no value with the default; the
+columns are added and stay empty. The last example shows both runs.
+
 The option **t_where** is an SQL condition on the vector maps of **input**,
 using the columns of the temporal database such as `name`, `start_time` and
 `end_time` (see *[t.vect.list](t.vect.list.md)*). The tool changes only the
@@ -1128,6 +1135,109 @@ tables of vector maps of another mapset, and the block prints the message.
            Vector map <stations_apr@t_vect_what_strds> is not in the current
            mapset, so its table cannot be written
     t.vect.what.strds failed
+    ```
+
+### Areas instead of points
+
+The example works in the mapset `t_vect_what_strds_2` of the previous example.
+The map `counties` holds the areas of three counties, extracted from
+`boundary_county` with *[v.extract](v.extract.md)*, and is registered with the
+interval January in the dataset `counties_ds`. The first call uses the default
+**type**, `point`. The map has no point, so the column of the January map is
+added and stays empty. The second call adds **type**`=centroid` and
+**--overwrite**, which writes the existing column again: each county gets the
+value of the cell under its centroid.
+
+=== "Command line"
+
+    ```sh
+    v.extract input=boundary_county output=counties \
+        where="NAME IN ('WAKE', 'DURHAM', 'ORANGE')"
+    t.create type=stvds output=counties_ds title="Counties" \
+        description="Three counties in January"
+    t.register type=vector input=counties_ds maps=counties \
+        start=2020-01-01 end=2020-02-01
+    t.vect.what.strds input=counties_ds strds=precipitation_monthly@t_vect_what_strds
+    v.db.select map=counties columns=cat,NAME,precipitation_monthly_2020_01
+    ```
+
+    ```text
+    cat|NAME|precipitation_monthly_2020_01
+    55|ORANGE|
+    56|DURHAM|
+    101|WAKE|
+    ```
+
+    ```sh
+    t.vect.what.strds input=counties_ds strds=precipitation_monthly@t_vect_what_strds \
+        type=centroid --overwrite
+    v.db.select map=counties columns=cat,NAME,precipitation_monthly_2020_01
+    ```
+
+    ```text
+    cat|NAME|precipitation_monthly_2020_01
+    55|ORANGE|132
+    56|DURHAM|132
+    101|WAKE|134
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.v_extract(
+        input="boundary_county",
+        output="counties",
+        where="NAME IN ('WAKE', 'DURHAM', 'ORANGE')",
+    )
+    tools.t_create(
+        type="stvds",
+        output="counties_ds",
+        title="Counties",
+        description="Three counties in January",
+    )
+    tools.t_register(
+        type="vector",
+        input="counties_ds",
+        maps="counties",
+        start="2020-01-01",
+        end="2020-02-01",
+    )
+    tools.t_vect_what_strds(
+        input="counties_ds", strds="precipitation_monthly@t_vect_what_strds"
+    )
+    print(
+        tools.v_db_select(
+            map="counties", columns="cat,NAME,precipitation_monthly_2020_01"
+        ).text
+    )
+    ```
+
+    ```text
+    cat|NAME|precipitation_monthly_2020_01
+    55|ORANGE|
+    56|DURHAM|
+    101|WAKE|
+    ```
+
+    ```python
+    tools.t_vect_what_strds(
+        input="counties_ds",
+        strds="precipitation_monthly@t_vect_what_strds",
+        type="centroid",
+        overwrite=True,
+    )
+    print(
+        tools.v_db_select(
+            map="counties", columns="cat,NAME,precipitation_monthly_2020_01"
+        ).text
+    )
+    ```
+
+    ```text
+    cat|NAME|precipitation_monthly_2020_01
+    55|ORANGE|132
+    56|DURHAM|132
+    101|WAKE|134
     ```
 
 <!-- markdownlint-enable MD046 -->

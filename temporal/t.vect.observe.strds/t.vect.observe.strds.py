@@ -42,6 +42,16 @@
 # % multiple: yes
 # %end
 
+# %option
+# % key: type
+# % type: string
+# % description: Input feature type
+# % options: point,centroid
+# % answer: point
+# % required: no
+# % multiple: yes
+# %end
+
 # %option G_OPT_DB_WHERE
 # %end
 
@@ -440,8 +450,11 @@ def add_columns(vectmap, layer, column_defs, vector_db, overwrite):
             )
 
 
-def sample_rasters(vectmap, layer, raster_names, column_names):
-    """Write the values of the raster maps at the points into the columns"""
+def sample_rasters(vectmap, layer, raster_names, column_names, feature_type):
+    """Write the values of the raster maps at the features into the columns
+
+    feature_type is the type option of v.what.rast: point, centroid or both.
+    """
     for name, column in zip(raster_names, column_names, strict=False):
         try:
             gs.run_command(
@@ -450,6 +463,7 @@ def sample_rasters(vectmap, layer, raster_names, column_names):
                 layer=layer,
                 raster=name,
                 column=column,
+                type=feature_type,
             )
         except CalledModuleError:
             gs.fatal(
@@ -490,6 +504,7 @@ def observe_samples(
     first_strds,
     mapset,
     overwrite,
+    feature_type,
     dbif,
 ):
     """Sample the raster maps in a layer of vectmap per sample and register it
@@ -513,7 +528,7 @@ def observe_samples(
 
             column_defs = column_definitions(raster_names, column_names)
             add_columns(vectmap, count, column_defs, vector_db, overwrite)
-            sample_rasters(vectmap, count, raster_names, column_names)
+            sample_rasters(vectmap, count, raster_names, column_names, feature_type)
 
             vect = out_sp.get_new_map_instance(
                 dummy.build_id(vectmap, mapset, str(count))
@@ -549,6 +564,7 @@ def main():
     vector_output = options["vector_output"]
     strds = options["strds"]
     where = options["where"]
+    feature_type = options["type"]
     columns = options["columns"]
 
     if where in {"", " ", "\n"}:
@@ -644,6 +660,7 @@ def main():
         first_strds,
         mapset,
         overwrite,
+        feature_type,
         dbif,
     )
 

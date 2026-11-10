@@ -1194,6 +1194,13 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     no common granule warns without dataset, values not sampled are NULL,
     and repeated columns are refused before writing
     ([t.vect.observe.strds](t.vect.observe.strds.md#notes)).
+- **Areas** *(upstream)*. The values were read at the points of the input
+    only, so a map of areas got empty columns. Now **type** is `point` (the
+    default), `centroid` or both, as in *v.what.rast*, and `type=centroid`
+    reads the cell below the centroid of each area; the output map keeps the
+    boundaries and centroids of the input. The option was asked for in
+    OSGeo/grass issue 4168
+    ([t.vect.observe.strds](t.vect.observe.strds.md#description)).
 
 ### t.vect.univar
 
@@ -1216,6 +1223,12 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     instances without `start` warn, columns that differ only in case are
     refused also without **--overwrite**, and a layer given twice is refused
     ([t.vect.what.strds](t.vect.what.strds.md#notes)).
+- **Areas** *(upstream)*. The values were read at the points of the maps
+    only, so a map of areas got empty columns. Now **type** is `point` (the
+    default), `centroid` or both, as in *v.what.rast*, and `type=centroid`
+    reads the cell below the centroid of each area. The option was asked for
+    in OSGeo/grass issue 4168
+    ([t.vect.what.strds](t.vect.what.strds.md#choose-the-columns)).
 
 ## Other tools and libraries
 
