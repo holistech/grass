@@ -89,8 +89,8 @@ class ModuleCall:
     """A planned module call
 
     name is the module and parameters its parameters; for r.series over a
-    file, inputs are the related map names to write into that file at run
-    time.
+    file, inputs are the lines to write into that file at run time: the
+    related map names, each followed by |weight in a weighted aggregation.
     """
 
     name: str
@@ -301,13 +301,23 @@ class RasterBackend:
             if isinstance(node, SeriesAggregate):
                 inputs = [map_name_of(lower(arg)) for arg in node.args]
                 name = target or temporary()
-                if len(inputs) == 1:
+                if len(inputs) == 1 and (node.weights is None or node.weights == (1,)):
                     # A lone related map is copied verbatim: g.copy keeps its
                     # data type (CELL stays CELL) and its color table, which
                     # r.series would drop, and the method never touches its
-                    # values (measured 2026-10-14, see SeriesAggregate).
+                    # values (measured 2026-10-14, see SeriesAggregate). A
+                    # weight other than 1 must reach r.series, which scales
+                    # the map for a sum.
                     calls.append(ModuleCall("g.copy", {"raster": (inputs[0], name)}))
                 else:
+                    if node.weights is not None:
+                        # The file form of r.series, one "name|weight" per
+                        # line; repr() writes the shortest text that reads
+                        # back as the same double.
+                        inputs = [
+                            f"{input_}|{weight!r}"
+                            for input_, weight in zip(inputs, node.weights, strict=True)
+                        ]
                     parameters = {"output": name, "method": node.method}
                     limit = exceeded_series_limit(
                         len(inputs), file_limit=node.file_limit

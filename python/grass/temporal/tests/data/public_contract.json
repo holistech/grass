@@ -1283,6 +1283,12 @@
    },
    "origins": "repo"
   },
+  "grass.temporal.algebra.reducers": {
+   "names": {
+    "WEIGHTED_SERIES_METHODS": "repo"
+   },
+   "origins": "repo"
+  },
   "grass.temporal.algebra.sources": {
    "names": {
     "source": "repo"

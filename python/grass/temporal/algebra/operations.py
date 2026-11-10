@@ -561,6 +561,8 @@ def gather(
         related content stays unchanged. The other reducers leave the content
         of the target out, except fold(), which starts with it, and
         compare(), which compares it with each related content.
+        series_method(method, weights=...) weights each related map by the
+        time it shares with the target, see reducers.overlap_weights()
     :param missing: a target without related slot is dropped ("drop"),
         gets a null content ("null") or stays as it is ("keep")
     :param extent: the time stamp of a result slot: that of the target
@@ -601,6 +603,8 @@ def gather(
         another sort than the target
     :raises ValueError: if equal_times="pairwise" cannot pair the maps of
         a time stamp
+    :raises ValueError: for a weighted series_method() and a time instant
+        in target or among the related slots
     """
     check_series(target, "target")
     check_relation(relation)
@@ -657,8 +661,19 @@ def gather(
         if combined is None:
             continue
         time, box_space = combined
+        weights = None
+        if isinstance(reduce, reducers.SeriesMethod) and reduce.weights is not None:
+            # The weight is the share of the target's own time stamp, not of
+            # the combined one that extent chooses for the result.
+            weights = reducers.overlap_weights(
+                reduce.weights, slot.extent, [partner.extent for partner in partners]
+            )
         value = reducers.reduce(
-            reduce, slot.content, [partner.content for partner in partners], nulls
+            reduce,
+            slot.content,
+            [partner.content for partner in partners],
+            nulls,
+            weights,
         )
         extent_space = (
             box_space

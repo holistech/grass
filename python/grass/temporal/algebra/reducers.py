@@ -54,6 +54,33 @@ SERIES_METHODS = (
     "kurtosis",
 )
 
+# The methods of SERIES_METHODS that r.series computes with weights: those
+# with a w_* function in the menu of raster/r.series/main.c, kept in step by
+# a test. For any other method r.series only warns and ignores the weights.
+# count is left out although it has one: w_count sums the weights, which
+# gives the covered share of a granule, not a number of maps.
+WEIGHTED_SERIES_METHODS = (
+    "average",
+    "median",
+    "mode",
+    "stddev",
+    "sum",
+    "variance",
+    "slope",
+    "offset",
+    "detcoeff",
+    "tvalue",
+    "quart1",
+    "quart3",
+    "perc90",
+    "quantile",
+    "skewness",
+    "kurtosis",
+)
+
+# What the overlap of a related map with the target slot is divided by.
+WEIGHTS = ("granule", "map")
+
 
 @dataclass(frozen=True)
 class Fold:
@@ -102,21 +129,77 @@ class SeriesMethod:
     above which r.series runs with -z; fewer maps also do when they exceed
     the open files of the process (see series_limits). It is carried here so
     the backend can set the flag per granule.
+
+    weights is None, or how gather() weights each related map by the time it
+    shares with the target slot, see overlap_weights(): "granule" divides
+    the overlap by the length of the target slot, "map" by the length of the
+    map.
     """
 
     method: str
     file_limit: int = 1000
+    weights: str | None = None
 
 
-def series_method(method, *, file_limit=1000):
+def series_method(method, *, file_limit=1000, weights=None):
     """Return the reducer that aggregates the related maps with r.series
 
-    :raises ValueError: if method is not one of SERIES_METHODS
+    :param weights: None, "granule" or "map", see SeriesMethod; only a
+        method of WEIGHTED_SERIES_METHODS takes weights
+    :raises ValueError: if method is not one of SERIES_METHODS, if weights is
+        unknown, or if the method cannot be weighted
     """
     if method not in SERIES_METHODS:
         msg = f"Unknown r.series method {method!r}, use one of {', '.join(SERIES_METHODS)}"
         raise ValueError(msg)
-    return SeriesMethod(method, file_limit)
+    if weights is not None:
+        if weights not in WEIGHTS:
+            msg = (
+                f"Unknown weights {weights!r}, use one of {', '.join(WEIGHTS)} or None"
+            )
+            raise ValueError(msg)
+        if method not in WEIGHTED_SERIES_METHODS:
+            msg = (
+                f"The r.series method {method!r} cannot be weighted, use one of "
+                f"{', '.join(WEIGHTED_SERIES_METHODS)}"
+            )
+            raise ValueError(msg)
+    return SeriesMethod(method, file_limit, weights)
+
+
+def overlap_weights(weights, target, partners):
+    """The share of time that each partner has in common with the target
+
+    The overlap of a partner with the target is divided by the length of the
+    target for weights "granule" and by the length of the partner for "map".
+    Extents that only touch share no time and get 0. The same arithmetic
+    serves both time types: the ratio of two differences of relative times
+    (numbers of one unit) and of absolute times (timedelta / timedelta) is a
+    float.
+
+    :param weights: "granule" or "map"
+    :param target: the Extent of the target slot
+    :param partners: the Extents of the related slots
+    :raises ValueError: if the target or a partner is a time instant, which
+        has no length to weight by
+    """
+    for extent in (target, *partners):
+        if extent.end is None:
+            msg = (
+                f"The time instant {extent.start} has no length, so it cannot be "
+                "weighted by its overlap in time"
+            )
+            raise ValueError(msg)
+    shares = []
+    for partner in partners:
+        start = max(target.start, partner.start)
+        end = min(target.end, partner.end)
+        if end <= start:
+            shares.append(0.0)
+            continue
+        length = target if weights == "granule" else partner
+        shares.append((end - start) / (length.end - length.start))
+    return tuple(shares)
 
 
 def check(reducer, nulls):
@@ -209,15 +292,17 @@ _SKIP = {
 }
 
 
-def reduce(reducer, target, related, nulls):
+def reduce(reducer, target, related, nulls, weights=None):
     """Return the content that reduces the related contents
 
     Only fold() and compare() include the target; None keeps the content of the target.
+    weights are the weights of the related contents for a series_method()
+    with weights, see overlap_weights(); the other reducers take none.
     """
     if reducer is None:
         return target
     if isinstance(reducer, SeriesMethod):
-        return series_aggregate(reducer.method, related, reducer.file_limit)
+        return series_aggregate(reducer.method, related, reducer.file_limit, weights)
     if isinstance(reducer, Fold):
         return chain(reducer.operator, [target, *related])
     if isinstance(reducer, Compare):

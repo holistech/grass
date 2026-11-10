@@ -190,6 +190,7 @@ def aggregate_series(
     file_limit,
     register_null,
     overwrite,
+    weighting=False,
 ):
     """Aggregate input_series onto target and materialize the result
 
@@ -199,14 +200,26 @@ def aggregate_series(
     with a warning, if no granule has a related map. The caller sets title,
     description, semantic type and aggregation type with
     set_output_metadata().
+
+    weighting weights each map by the time it shares with its granule. For
+    method "sum" the weight is the share of the map that lies in the
+    granule, so the sum of a map that lies half in the granule counts half.
+    For the other methods it is the share of the granule that the map
+    covers; r.series normalizes the average by the sum of the weights.
+    Raises ValueError if the method has no weighted form (see
+    WEIGHTED_SERIES_METHODS in grass.temporal.algebra.reducers) or if a
+    related map is a time instant.
     """
+    weights = None
+    if weighting:
+        weights = "map" if method == "sum" else "granule"
     # missing="drop": a granule without a related map produces no map, as the
     # classic tool skips it. nulls="skip": r.series passes over null cells.
     reduced = ta.gather(
         target,
         relation,
         input_series,
-        reduce=ta.series_method(method, file_limit=int(file_limit)),
+        reduce=ta.series_method(method, file_limit=int(file_limit), weights=weights),
         missing="drop",
         nulls="skip",
     )

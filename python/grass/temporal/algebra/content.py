@@ -74,11 +74,17 @@ class SeriesAggregate:
     result was the source value, not 1, and kept the CELL type and the grey
     color table), and the open file limit that switches r.series to its -z
     mode travels with the node.
+
+    weights is None for an aggregation without weights, else one weight per
+    map in args, which r.series reads from its file as name|weight. A lone
+    map with a weight other than 1 is aggregated by r.series as well, since
+    a sum must scale it.
     """
 
     method: str
     args: tuple
     file_limit: int = 1000
+    weights: tuple | None = None
     mark: object = field(default=None, compare=False, repr=False, kw_only=True)
 
 
@@ -300,6 +306,16 @@ def series_reduce(method, contents):
     return Const(total if method == "sum" else total / len(present))
 
 
-def series_aggregate(method, contents, file_limit=1000):
-    """Return the r.series aggregation of contents"""
-    return SeriesAggregate(method, tuple(contents), file_limit)
+def series_aggregate(method, contents, file_limit=1000, weights=None):
+    """Return the r.series aggregation of contents
+
+    :param weights: None, or one weight for each content
+    :raises ValueError: if weights is not of the length of contents
+    """
+    contents = tuple(contents)
+    if weights is not None:
+        weights = tuple(weights)
+        if len(weights) != len(contents):
+            msg = f"{len(contents)} contents need as many weights, got {len(weights)}"
+            raise ValueError(msg)
+    return SeriesAggregate(method, contents, file_limit, weights)
