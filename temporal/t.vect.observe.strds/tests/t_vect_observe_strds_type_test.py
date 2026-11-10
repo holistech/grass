@@ -26,6 +26,11 @@ AREAS = (
     "C 1 1\n 1.5 1.5\n 1 2\n"
 )
 
+# One square with its centroid (category 1) and one point (category 2)
+MIXED = (
+    "B 5\n 0 1\n 1 1\n 1 2\n 0 2\n 0 1\nC 1 1\n 0.5 1.5\n 1 1\nP 1 1\n 1.5 1.5\n 1 2\n"
+)
+
 
 @pytest.fixture(scope="module")
 def rasters(tools):
@@ -108,3 +113,27 @@ def test_points_unchanged(tools, rasters, prefix):
     assert _rows(tools, explicit, 1) == [("1", "10"), ("2", "20")]
     assert _rows(tools, default, 1) == _rows(tools, explicit, 1)
     assert _rows(tools, default, 2) == _rows(tools, explicit, 2)
+
+
+def test_observe_keeps_centroids_with_where(tools, rasters, areas, prefix):
+    # where makes the helper map with v.extract; the area of category 2
+    # must arrive with its centroid.
+    vector = _observe(tools, areas, prefix, type="centroid", where="cat = 2")
+
+    topology = tools.v_info(map=vector, flags="t").stdout
+    assert "centroids=1" in topology
+    assert "areas=1" in topology
+    # ty_1 holds 10 col: the centroid of category 2 is in column 2.
+    assert _rows(tools, vector, 1) == [("2", "20")]
+
+
+def test_point_and_centroid_both_sampled(tools, rasters, tmp_path, prefix):
+    name = f"{prefix}_mixed"
+    import_ascii_vector(tools, tmp_path, name, "standard", MIXED, flags="n")
+    tools.v_db_addtable(map=name)
+
+    vector = _observe(tools, name, prefix, type="point,centroid")
+
+    # ty_1 holds 10 col: the area (centroid in column 1) reads 10, the
+    # point (column 2) reads 20.
+    assert _rows(tools, vector, 1) == [("1", "10"), ("2", "20")]

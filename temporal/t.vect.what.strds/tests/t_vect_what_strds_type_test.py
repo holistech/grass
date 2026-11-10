@@ -27,6 +27,11 @@ AREAS = (
     "C 1 1\n 1.5 1.5\n 1 2\n"
 )
 
+# One square with its centroid (category 1) and one point (category 2)
+MIXED = (
+    "B 5\n 0 1\n 1 1\n 1 2\n 0 2\n 0 1\nC 1 1\n 0.5 1.5\n 1 1\nP 1 1\n 1.5 1.5\n 1 2\n"
+)
+
 
 @pytest.fixture(scope="module")
 def rasters(tools):
@@ -95,3 +100,21 @@ def test_points_unchanged(tools, rasters, prefix):
 
     assert explicit == [("1", "10"), ("2", "20")]
     assert _rows(tools, points) == explicit
+
+
+def test_point_and_centroid_both_sampled(tools, rasters, tmp_path, prefix):
+    name = f"{prefix}_mixed"
+    import_ascii_vector(tools, tmp_path, name, "standard", MIXED, flags="n")
+    tools.v_db_addtable(map=name)
+    register_stds(
+        tools,
+        "stvds",
+        f"{prefix}_ds",
+        [MapSpec(name, None, datetime(2001, 1, 1), datetime(2001, 6, 1))],
+    )
+
+    _what(tools, prefix, type="point,centroid")
+
+    # wt_1 holds 10 col: the area (centroid in column 1) reads 10, the point
+    # (column 2) reads 20.
+    assert _rows(tools, name) == [("1", "10"), ("2", "20")]
