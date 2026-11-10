@@ -19,6 +19,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
+from contextlib import ExitStack
 from multiprocessing import Pool
 from subprocess import PIPE
 import json
@@ -274,7 +275,8 @@ def print_gridded_dataset_univar_statistics(
     :param zones: raster map with zones to calculate statistics for
     """
     # We need a database interface
-    with connection() as dbif:
+    # The stack closes the output file also when the run ends in gs.fatal().
+    with connection() as dbif, ExitStack() as stack:
         sp = open_old_stds(input, type, dbif)
 
         spatial_extent = None
@@ -316,7 +318,7 @@ def print_gridded_dataset_univar_statistics(
             return
 
         if output is not None:
-            out_file = open(output, "w")
+            out_file = stack.enter_context(open(output, "w"))
 
         if no_header is False and format != "json":
             string = fs.join(_gridded_columns(type, zones, extended, percentile))
@@ -362,9 +364,6 @@ def print_gridded_dataset_univar_statistics(
             print(output_str)
         else:
             out_file.write(output_str + "\n")
-
-        if output is not None:
-            out_file.close()
 
 
 _VECTOR_MOMENTS = (
@@ -443,9 +442,10 @@ def print_vector_dataset_univar_statistics(
 
     msgr = get_tgis_message_interface()
     # We need a database interface
-    with connection() as dbif:
+    # The stack closes the output file also when the run ends in msgr.fatal().
+    with connection() as dbif, ExitStack() as stack:
         if output is not None:
-            out_file = open(output, "w")
+            out_file = stack.enter_context(open(output, "w"))
 
         id_ = find_stds_id(input, "stvds", dbif)
 
@@ -501,8 +501,6 @@ def print_vector_dataset_univar_statistics(
                     flags=flags,
                 )
             except CalledModuleError as error:
-                if output is not None:
-                    out_file.close()
                 msgr.fatal(_("Error running v.univar on <{}>: {}").format(id_, error))
 
             if not stats:
@@ -515,6 +513,3 @@ def print_vector_dataset_univar_statistics(
                 print(string)
             else:
                 out_file.write(string + "\n")
-
-        if output is not None:
-            out_file.close()
