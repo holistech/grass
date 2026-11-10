@@ -89,9 +89,40 @@ region gets no line. <b>zones</b> takes a single raster map, not a space time
 dataset; the same zones apply to every map.
 
 <p>
-The option <b>nprocs</b> sets the number of maps that are processed at the same
-time. Its default is the variable <code>NPROCS</code> of the session, if it is set with
-<em>g.gisenv</em>, and 0 otherwise. 0 uses all CPU cores, a negative number leaves
+The option <b>granularity</b> gives statistics per granule instead of per map.
+<em>t.rast.univar</em> runs <em>r.univar</em> once for each granule with all maps of the
+granule, so the statistics are taken from the cells of these maps together,
+and prints one line per granule. The granules are those of
+<em><a href="t.rast.aggregate.html">t.rast.aggregate</a></em>: in absolute time the granularity is
+one number and one unit, such as <code>3 months</code>, in relative time an integer in
+the unit of the dataset. The first granule starts at the start of the first
+selected map, moved back to the beginning of the unit of the granularity, and
+the granules follow each other without gaps up to the one that holds the last
+map. A granule without a map gets no line. The selection by <b>where</b>, by a
+semantic label or by <b>region_relation</b> comes first: only the selected maps
+are assigned to the granules.
+
+<p>
+The option <b>sampling</b> sets which maps belong to a granule, with the temporal
+relations of <em>t.rast.aggregate</em>, read from the granule. <code>contains</code>, the
+default, takes the maps that lie within the granule; <code>related</code> takes every map
+that shares time with the granule, so a map that crosses the border of two
+granules counts in both. Several relations are separated by commas.
+<b>sampling</b> requires <b>granularity</b>.
+
+<p>
+With <b>granularity</b>, <code>start</code> and <code>end</code> are those of the granule, the column
+<code>id</code> lists the maps of the granule, separated by commas, and <code>semantic_label</code>
+stays empty. The format <code>csv</code> puts this list in double quotes if the
+separator is a comma. The format <code>json</code> has the key <code>maps</code> with the list of
+the maps instead of <code>id</code>, and no <code>semantic_label</code>. With <b>zones</b>, each
+granule gets one line per zone, taken from all maps of the granule.
+
+<p>
+The option <b>nprocs</b> sets the number of maps, or with <b>granularity</b> the
+number of granules, that are processed at the same time. Its default is the
+variable <code>NPROCS</code> of the session, if it is set with <em>g.gisenv</em>, and 0
+otherwise. 0 uses all CPU cores, a negative number leaves
 that many cores unused. The output is the same, in the same order, for any value.
 
 <p>
@@ -157,6 +188,18 @@ error "Zoning raster must be of type CELL" for a floating point map.
 The format <code>csv</code> refuses a separator of more than one character, the format
 <code>json</code> refuses <b>separator</b> and <b>-u</b>. <b>percentile</b> without <b>-e</b> is
 refused by the parser.
+
+<p>
+<b>granularity</b> refuses the flag <b>-r</b>: the maps of a granule are computed
+together in one run of <em>r.univar</em> and have no common region of their own. It
+also refuses the format <code>plain</code> with the separator <code>,</code>, because the list of
+maps in the column <code>id</code> could then not be told apart from the other columns;
+the format <code>csv</code> quotes the list. <b>sampling</b> without <b>granularity</b> is
+refused by the parser. A wrong granularity, such as <code>0 months</code>, is refused
+with the message of <em>t.rast.aggregate</em>. All these refusals come before
+anything is written. If no map belongs to any granule, <em>t.rast.univar</em> warns,
+names the granularity and the sampling, and prints what it prints when no map
+is selected.
 
 <h2>EXAMPLES</h2>
 
@@ -799,6 +842,128 @@ for stats in result.json:
 
 <div class="code"><pre>
 precipitation_monthly_2020_12@t_rast_univar: mean 81.21330822991605, median 77, percentiles {50: 77, 90: 93}
+</pre></div>
+
+<h3>Statistics per granule</h3>
+
+With <b>granularity</b>, the four quarters of 2020 each get one line: the first
+granule starts on 1 January, the start of the first map, and each quarter
+holds three monthly maps, listed in the column <code>id</code>. The statistics are taken
+from all cells of the three maps, so <code>non_null_cells</code> is <code>3 * 136502</code> =
+409506, and the mean of a quarter is its sum divided by this number.
+
+<p>
+The second block adds the map <code>precipitation_storm_2020_03_15</code> with 50 mm in
+every cell of North Carolina, from 15 March to 15 April, and registers it with
+the monthly maps of the first half year in the dataset
+<code>precipitation_storm</code>. The storm crosses the border of the first two
+quarters. With the default sampling <code>contains</code>, neither quarter takes it, and
+the means are those of the first block. With <code>sampling=related</code>, both
+quarters take it, so each has four maps and <code>4 * 136502</code> = 546008 non-null
+cells. The mean of the first quarter falls from 134.10 to
+<code>(54916330 + 50 * 136502) / 546008</code> = 113.08, because the storm brings less
+than the months: 54916330 is the sum of the first quarter in the first block.
+The commands print the columns <code>id</code>, <code>start</code>, <code>non_null_cells</code> and <code>mean</code>: on
+the command line, <em>cut</em> keeps the first, third, fifth and tenth column; in
+Python, the function <code>print_columns()</code> picks the same fields from each line.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.univar input=precipitation_monthly granularity="3 months"
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+precipitation_monthly_2020_01@t_rast_univar,precipitation_monthly_2020_02@t_rast_univar,precipitation_monthly_2020_03@t_rast_univar||2020-01-01 00:00:00|2020-04-01 00:00:00|409506|433689|88|309|221|134.10384707428|134.10384707428|28.7156588027523|824.589060476084|21.4130015128103|54916330|54916330
+precipitation_monthly_2020_04@t_rast_univar,precipitation_monthly_2020_05@t_rast_univar,precipitation_monthly_2020_06@t_rast_univar||2020-04-01 00:00:00|2020-07-01 00:00:00|409506|433689|71|347|276|129.35009743447|129.35009743447|36.1818670920443|1309.12750626636|27.9720447140555|52969641|52969641
+precipitation_monthly_2020_07@t_rast_univar,precipitation_monthly_2020_08@t_rast_univar,precipitation_monthly_2020_09@t_rast_univar||2020-07-01 00:00:00|2020-10-01 00:00:00|409506|433689|60|295|235|142.463136071266|142.463136071266|46.3127455981012|2144.87040483444|32.5085821323865|58339509|58339509
+precipitation_monthly_2020_10@t_rast_univar,precipitation_monthly_2020_11@t_rast_univar,precipitation_monthly_2020_12@t_rast_univar||2020-10-01 00:00:00|2021-01-01 00:00:00|409506|433689|55|350|295|103.768320854884|103.768320854884|30.7986830474803|948.558877459148|29.680236505466|42493750|42493750
+</pre></div>
+
+<div class="code"><pre>
+r.mapcalc expression="precipitation_storm_2020_03_15 = if(isnull(elev_state_500m), null(), 50)"
+t.create output=precipitation_storm title="Precipitation with storm" \
+    description="Monthly precipitation sum and a storm in 2020 in mm"
+t.register input=precipitation_storm \
+    maps=$(t.rast.list -u input=precipitation_monthly columns=name \
+        where="start_time &lt; '2020-07-01'" | paste -s -d, -)
+t.register input=precipitation_storm maps=precipitation_storm_2020_03_15 \
+    start=2020-03-15 end=2020-04-15
+t.rast.univar input=precipitation_storm granularity="3 months" \
+    | cut -d"|" -f1,3,5,10
+t.rast.univar input=precipitation_storm granularity="3 months" \
+    sampling=related | cut -d"|" -f1,3,5,10
+</pre></div>
+
+<div class="code"><pre>
+id|start|non_null_cells|mean
+precipitation_monthly_2020_01@t_rast_univar,precipitation_monthly_2020_02@t_rast_univar,precipitation_monthly_2020_03@t_rast_univar|2020-01-01 00:00:00|409506|134.10384707428
+precipitation_monthly_2020_04@t_rast_univar,precipitation_monthly_2020_05@t_rast_univar,precipitation_monthly_2020_06@t_rast_univar|2020-04-01 00:00:00|409506|129.35009743447
+id|start|non_null_cells|mean
+precipitation_monthly_2020_01@t_rast_univar,precipitation_monthly_2020_02@t_rast_univar,precipitation_monthly_2020_03@t_rast_univar,precipitation_storm_2020_03_15@t_rast_univar|2020-01-01 00:00:00|546008|113.07788530571
+precipitation_storm_2020_03_15@t_rast_univar,precipitation_monthly_2020_04@t_rast_univar,precipitation_monthly_2020_05@t_rast_univar,precipitation_monthly_2020_06@t_rast_univar|2020-04-01 00:00:00|546008|109.512573075852
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+result = tools.t_rast_univar(input="precipitation_monthly", granularity="3 months")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+precipitation_monthly_2020_01@t_rast_univar,precipitation_monthly_2020_02@t_rast_univar,precipitation_monthly_2020_03@t_rast_univar||2020-01-01 00:00:00|2020-04-01 00:00:00|409506|433689|88|309|221|134.10384707428|134.10384707428|28.7156588027523|824.589060476084|21.4130015128103|54916330|54916330
+precipitation_monthly_2020_04@t_rast_univar,precipitation_monthly_2020_05@t_rast_univar,precipitation_monthly_2020_06@t_rast_univar||2020-04-01 00:00:00|2020-07-01 00:00:00|409506|433689|71|347|276|129.35009743447|129.35009743447|36.1818670920443|1309.12750626636|27.9720447140555|52969641|52969641
+precipitation_monthly_2020_07@t_rast_univar,precipitation_monthly_2020_08@t_rast_univar,precipitation_monthly_2020_09@t_rast_univar||2020-07-01 00:00:00|2020-10-01 00:00:00|409506|433689|60|295|235|142.463136071266|142.463136071266|46.3127455981012|2144.87040483444|32.5085821323865|58339509|58339509
+precipitation_monthly_2020_10@t_rast_univar,precipitation_monthly_2020_11@t_rast_univar,precipitation_monthly_2020_12@t_rast_univar||2020-10-01 00:00:00|2021-01-01 00:00:00|409506|433689|55|350|295|103.768320854884|103.768320854884|30.7986830474803|948.558877459148|29.680236505466|42493750|42493750
+</pre></div>
+
+<div class="code"><pre>
+def print_columns(result):
+    for line in result.text.splitlines():
+        fields = line.split("|")
+        print("|".join(fields[k] for k in (0, 2, 4, 9)))
+
+
+tools.r_mapcalc(
+    expression="precipitation_storm_2020_03_15 ="
+    " if(isnull(elev_state_500m), null(), 50)"
+)
+tools.t_create(
+    output="precipitation_storm",
+    title="Precipitation with storm",
+    description="Monthly precipitation sum and a storm in 2020 in mm",
+)
+months = tools.t_rast_list(
+    input="precipitation_monthly",
+    columns="name",
+    where="start_time &lt; '2020-07-01'",
+    flags="u",
+)
+tools.t_register(input="precipitation_storm", maps=",".join(months.text.split()))
+tools.t_register(
+    input="precipitation_storm",
+    maps="precipitation_storm_2020_03_15",
+    start="2020-03-15",
+    end="2020-04-15",
+)
+print_columns(tools.t_rast_univar(input="precipitation_storm", granularity="3 months"))
+print_columns(
+    tools.t_rast_univar(
+        input="precipitation_storm", granularity="3 months", sampling="related"
+    )
+)
+</pre></div>
+
+<div class="code"><pre>
+id|start|non_null_cells|mean
+precipitation_monthly_2020_01@t_rast_univar,precipitation_monthly_2020_02@t_rast_univar,precipitation_monthly_2020_03@t_rast_univar|2020-01-01 00:00:00|409506|134.10384707428
+precipitation_monthly_2020_04@t_rast_univar,precipitation_monthly_2020_05@t_rast_univar,precipitation_monthly_2020_06@t_rast_univar|2020-04-01 00:00:00|409506|129.35009743447
+id|start|non_null_cells|mean
+precipitation_monthly_2020_01@t_rast_univar,precipitation_monthly_2020_02@t_rast_univar,precipitation_monthly_2020_03@t_rast_univar,precipitation_storm_2020_03_15@t_rast_univar|2020-01-01 00:00:00|546008|113.07788530571
+precipitation_storm_2020_03_15@t_rast_univar,precipitation_monthly_2020_04@t_rast_univar,precipitation_monthly_2020_05@t_rast_univar,precipitation_monthly_2020_06@t_rast_univar|2020-04-01 00:00:00|546008|109.512573075852
 </pre></div>
 
 <h3>Maps with extents of their own</h3>

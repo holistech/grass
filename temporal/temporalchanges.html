@@ -1117,6 +1117,17 @@ printed nothing, the parser did not check <b>region_relation</b>, and
 holds with <b>zones</b>, an empty selection prints <code>[]</code>, the parser checks
 <b>region_relation</b>, and floating point zones are refused as in 2D
 (<a href="t.rast.univar.html#notes">t.rast.univar</a>).</li>
+<li><b>Statistics per granule.</b> <em>t.rast.univar</em> printed the statistics of each
+map; statistics of a quarter or a year needed an aggregated dataset
+first. Now <b>granularity</b> prints one line per granule with the
+statistics of all maps of the granule together, on the granules of
+<em>t.rast.aggregate</em>, and <b>sampling</b> sets which maps belong to a granule,
+<code>contains</code> by default and <code>related</code> for every map that shares time with
+it. The options were asked for in OSGeo/grass issue 3042 and proposed in
+pull request 7244; this implementation takes the granules from
+<em>t.rast.aggregate</em>, so a map that crosses the border of a granule is
+assigned by the sampling, not by its start time
+(<a href="t.rast.univar.html#description">t.rast.univar</a>).</li>
 </ul>
 
 <h3>t.rast.what</h3>

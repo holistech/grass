@@ -76,9 +76,37 @@ label) after the four columns of the map. A zone without any cell in the
 region gets no line. **zones** takes a single raster map, not a space time
 dataset; the same zones apply to every map.
 
-The option **nprocs** sets the number of maps that are processed at the same
-time. Its default is the variable `NPROCS` of the session, if it is set with
-*g.gisenv*, and 0 otherwise. 0 uses all CPU cores, a negative number leaves
+The option **granularity** gives statistics per granule instead of per map.
+*t.rast.univar* runs *r.univar* once for each granule with all maps of the
+granule, so the statistics are taken from the cells of these maps together,
+and prints one line per granule. The granules are those of
+*[t.rast.aggregate](t.rast.aggregate.md)*: in absolute time the granularity is
+one number and one unit, such as `3 months`, in relative time an integer in
+the unit of the dataset. The first granule starts at the start of the first
+selected map, moved back to the beginning of the unit of the granularity, and
+the granules follow each other without gaps up to the one that holds the last
+map. A granule without a map gets no line. The selection by **where**, by a
+semantic label or by **region_relation** comes first: only the selected maps
+are assigned to the granules.
+
+The option **sampling** sets which maps belong to a granule, with the temporal
+relations of *t.rast.aggregate*, read from the granule. `contains`, the
+default, takes the maps that lie within the granule; `related` takes every map
+that shares time with the granule, so a map that crosses the border of two
+granules counts in both. Several relations are separated by commas.
+**sampling** requires **granularity**.
+
+With **granularity**, `start` and `end` are those of the granule, the column
+`id` lists the maps of the granule, separated by commas, and `semantic_label`
+stays empty. The format `csv` puts this list in double quotes if the
+separator is a comma. The format `json` has the key `maps` with the list of
+the maps instead of `id`, and no `semantic_label`. With **zones**, each
+granule gets one line per zone, taken from all maps of the granule.
+
+The option **nprocs** sets the number of maps, or with **granularity** the
+number of granules, that are processed at the same time. Its default is the
+variable `NPROCS` of the session, if it is set with *g.gisenv*, and 0
+otherwise. 0 uses all CPU cores, a negative number leaves
 that many cores unused. The output is the same, in the same order, for any value.
 
 The option **format** chooses the form of the output:
@@ -134,6 +162,17 @@ error "Zoning raster must be of type CELL" for a floating point map.
 The format `csv` refuses a separator of more than one character, the format
 `json` refuses **separator** and **-u**. **percentile** without **-e** is
 refused by the parser.
+
+**granularity** refuses the flag **-r**: the maps of a granule are computed
+together in one run of *r.univar* and have no common region of their own. It
+also refuses the format `plain` with the separator `,`, because the list of
+maps in the column `id` could then not be told apart from the other columns;
+the format `csv` quotes the list. **sampling** without **granularity** is
+refused by the parser. A wrong granularity, such as `0 months`, is refused
+with the message of *t.rast.aggregate*. All these refusals come before
+anything is written. If no map belongs to any granule, *t.rast.univar* warns,
+names the granularity and the sampling, and prints what it prints when no map
+is selected.
 
 ## EXAMPLES
 
@@ -770,6 +809,127 @@ prints the mean, the median and the percentiles from it.
 
     ```text
     precipitation_monthly_2020_12@t_rast_univar: mean 81.21330822991605, median 77, percentiles {50: 77, 90: 93}
+    ```
+
+### Statistics per granule
+
+With **granularity**, the four quarters of 2020 each get one line: the first
+granule starts on 1 January, the start of the first map, and each quarter
+holds three monthly maps, listed in the column `id`. The statistics are taken
+from all cells of the three maps, so `non_null_cells` is `3 * 136502` =
+409506, and the mean of a quarter is its sum divided by this number.
+
+The second block adds the map `precipitation_storm_2020_03_15` with 50 mm in
+every cell of North Carolina, from 15 March to 15 April, and registers it with
+the monthly maps of the first half year in the dataset
+`precipitation_storm`. The storm crosses the border of the first two
+quarters. With the default sampling `contains`, neither quarter takes it, and
+the means are those of the first block. With `sampling=related`, both
+quarters take it, so each has four maps and `4 * 136502` = 546008 non-null
+cells. The mean of the first quarter falls from 134.10 to
+`(54916330 + 50 * 136502) / 546008` = 113.08, because the storm brings less
+than the months: 54916330 is the sum of the first quarter in the first block.
+The commands print the columns `id`, `start`, `non_null_cells` and `mean`: on
+the command line, *cut* keeps the first, third, fifth and tenth column; in
+Python, the function `print_columns()` picks the same fields from each line.
+
+=== "Command line"
+
+    ```sh
+    t.rast.univar input=precipitation_monthly granularity="3 months"
+    ```
+
+    ```text
+    id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+    precipitation_monthly_2020_01@t_rast_univar,precipitation_monthly_2020_02@t_rast_univar,precipitation_monthly_2020_03@t_rast_univar||2020-01-01 00:00:00|2020-04-01 00:00:00|409506|433689|88|309|221|134.10384707428|134.10384707428|28.7156588027523|824.589060476084|21.4130015128103|54916330|54916330
+    precipitation_monthly_2020_04@t_rast_univar,precipitation_monthly_2020_05@t_rast_univar,precipitation_monthly_2020_06@t_rast_univar||2020-04-01 00:00:00|2020-07-01 00:00:00|409506|433689|71|347|276|129.35009743447|129.35009743447|36.1818670920443|1309.12750626636|27.9720447140555|52969641|52969641
+    precipitation_monthly_2020_07@t_rast_univar,precipitation_monthly_2020_08@t_rast_univar,precipitation_monthly_2020_09@t_rast_univar||2020-07-01 00:00:00|2020-10-01 00:00:00|409506|433689|60|295|235|142.463136071266|142.463136071266|46.3127455981012|2144.87040483444|32.5085821323865|58339509|58339509
+    precipitation_monthly_2020_10@t_rast_univar,precipitation_monthly_2020_11@t_rast_univar,precipitation_monthly_2020_12@t_rast_univar||2020-10-01 00:00:00|2021-01-01 00:00:00|409506|433689|55|350|295|103.768320854884|103.768320854884|30.7986830474803|948.558877459148|29.680236505466|42493750|42493750
+    ```
+
+    ```sh
+    r.mapcalc expression="precipitation_storm_2020_03_15 = if(isnull(elev_state_500m), null(), 50)"
+    t.create output=precipitation_storm title="Precipitation with storm" \
+        description="Monthly precipitation sum and a storm in 2020 in mm"
+    t.register input=precipitation_storm \
+        maps=$(t.rast.list -u input=precipitation_monthly columns=name \
+            where="start_time < '2020-07-01'" | paste -s -d, -)
+    t.register input=precipitation_storm maps=precipitation_storm_2020_03_15 \
+        start=2020-03-15 end=2020-04-15
+    t.rast.univar input=precipitation_storm granularity="3 months" \
+        | cut -d"|" -f1,3,5,10
+    t.rast.univar input=precipitation_storm granularity="3 months" \
+        sampling=related | cut -d"|" -f1,3,5,10
+    ```
+
+    ```text
+    id|start|non_null_cells|mean
+    precipitation_monthly_2020_01@t_rast_univar,precipitation_monthly_2020_02@t_rast_univar,precipitation_monthly_2020_03@t_rast_univar|2020-01-01 00:00:00|409506|134.10384707428
+    precipitation_monthly_2020_04@t_rast_univar,precipitation_monthly_2020_05@t_rast_univar,precipitation_monthly_2020_06@t_rast_univar|2020-04-01 00:00:00|409506|129.35009743447
+    id|start|non_null_cells|mean
+    precipitation_monthly_2020_01@t_rast_univar,precipitation_monthly_2020_02@t_rast_univar,precipitation_monthly_2020_03@t_rast_univar,precipitation_storm_2020_03_15@t_rast_univar|2020-01-01 00:00:00|546008|113.07788530571
+    precipitation_storm_2020_03_15@t_rast_univar,precipitation_monthly_2020_04@t_rast_univar,precipitation_monthly_2020_05@t_rast_univar,precipitation_monthly_2020_06@t_rast_univar|2020-04-01 00:00:00|546008|109.512573075852
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    result = tools.t_rast_univar(input="precipitation_monthly", granularity="3 months")
+    print(result.text)
+    ```
+
+    ```text
+    id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+    precipitation_monthly_2020_01@t_rast_univar,precipitation_monthly_2020_02@t_rast_univar,precipitation_monthly_2020_03@t_rast_univar||2020-01-01 00:00:00|2020-04-01 00:00:00|409506|433689|88|309|221|134.10384707428|134.10384707428|28.7156588027523|824.589060476084|21.4130015128103|54916330|54916330
+    precipitation_monthly_2020_04@t_rast_univar,precipitation_monthly_2020_05@t_rast_univar,precipitation_monthly_2020_06@t_rast_univar||2020-04-01 00:00:00|2020-07-01 00:00:00|409506|433689|71|347|276|129.35009743447|129.35009743447|36.1818670920443|1309.12750626636|27.9720447140555|52969641|52969641
+    precipitation_monthly_2020_07@t_rast_univar,precipitation_monthly_2020_08@t_rast_univar,precipitation_monthly_2020_09@t_rast_univar||2020-07-01 00:00:00|2020-10-01 00:00:00|409506|433689|60|295|235|142.463136071266|142.463136071266|46.3127455981012|2144.87040483444|32.5085821323865|58339509|58339509
+    precipitation_monthly_2020_10@t_rast_univar,precipitation_monthly_2020_11@t_rast_univar,precipitation_monthly_2020_12@t_rast_univar||2020-10-01 00:00:00|2021-01-01 00:00:00|409506|433689|55|350|295|103.768320854884|103.768320854884|30.7986830474803|948.558877459148|29.680236505466|42493750|42493750
+    ```
+
+    ```python
+    def print_columns(result):
+        for line in result.text.splitlines():
+            fields = line.split("|")
+            print("|".join(fields[k] for k in (0, 2, 4, 9)))
+
+
+    tools.r_mapcalc(
+        expression="precipitation_storm_2020_03_15 ="
+        " if(isnull(elev_state_500m), null(), 50)"
+    )
+    tools.t_create(
+        output="precipitation_storm",
+        title="Precipitation with storm",
+        description="Monthly precipitation sum and a storm in 2020 in mm",
+    )
+    months = tools.t_rast_list(
+        input="precipitation_monthly",
+        columns="name",
+        where="start_time < '2020-07-01'",
+        flags="u",
+    )
+    tools.t_register(input="precipitation_storm", maps=",".join(months.text.split()))
+    tools.t_register(
+        input="precipitation_storm",
+        maps="precipitation_storm_2020_03_15",
+        start="2020-03-15",
+        end="2020-04-15",
+    )
+    print_columns(tools.t_rast_univar(input="precipitation_storm", granularity="3 months"))
+    print_columns(
+        tools.t_rast_univar(
+            input="precipitation_storm", granularity="3 months", sampling="related"
+        )
+    )
+    ```
+
+    ```text
+    id|start|non_null_cells|mean
+    precipitation_monthly_2020_01@t_rast_univar,precipitation_monthly_2020_02@t_rast_univar,precipitation_monthly_2020_03@t_rast_univar|2020-01-01 00:00:00|409506|134.10384707428
+    precipitation_monthly_2020_04@t_rast_univar,precipitation_monthly_2020_05@t_rast_univar,precipitation_monthly_2020_06@t_rast_univar|2020-04-01 00:00:00|409506|129.35009743447
+    id|start|non_null_cells|mean
+    precipitation_monthly_2020_01@t_rast_univar,precipitation_monthly_2020_02@t_rast_univar,precipitation_monthly_2020_03@t_rast_univar,precipitation_storm_2020_03_15@t_rast_univar|2020-01-01 00:00:00|546008|113.07788530571
+    precipitation_storm_2020_03_15@t_rast_univar,precipitation_monthly_2020_04@t_rast_univar,precipitation_monthly_2020_05@t_rast_univar,precipitation_monthly_2020_06@t_rast_univar|2020-04-01 00:00:00|546008|109.512573075852
     ```
 
 ### Maps with extents of their own

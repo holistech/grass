@@ -61,6 +61,25 @@
 # % multiple: no
 # %end
 
+# %option
+# % key: granularity
+# % type: string
+# % description: Compute the statistics of the maps of each granule together instead of each map: for absolute time one number and one unit, such as "3 months" (years, months, weeks, days, hours, minutes, seconds); for relative time an integer in the unit of the dataset
+# % required: no
+# % multiple: no
+# % guisection: Granularity
+# %end
+
+# The standard option answers "start", which is no relation of a granule and
+# would reach the library in every run. The empty answer leaves sampling unset
+# unless it is given; without it the library takes contains.
+# %option G_OPT_T_SAMPLE
+# % options: equal,overlaps,overlapped,starts,started,finishes,finished,during,contains,related
+# % answer:
+# % description: Relation of a granule to the maps it takes, contains if not given; related takes all maps that share time with the granule
+# % guisection: Granularity
+# %end
+
 # %option G_OPT_F_SEP
 # % label: Field separator character between the output columns
 # % answer:
@@ -91,6 +110,7 @@
 
 # %rules
 # % requires: percentile,-e
+# % requires: sampling,granularity
 # %end
 
 import grass.script as gs
@@ -109,6 +129,8 @@ def main():
     nprocs = gs.resolve_nprocs(options["nprocs"])
     where = options["where"]
     region_relation = options["region_relation"]
+    granularity = options["granularity"] or None
+    sampling = options["sampling"].split(",") if options["sampling"] else None
     extended = flags["e"]
     no_header = flags["u"]
     rast_region = bool(flags["r"])
@@ -152,6 +174,8 @@ def main():
         region_relation=region_relation,
         nprocs=nprocs,
         format=output_format,
+        granularity=granularity,
+        sampling=sampling,
     )
 
 

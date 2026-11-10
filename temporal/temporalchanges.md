@@ -1064,6 +1064,17 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     holds with **zones**, an empty selection prints `[]`, the parser checks
     **region_relation**, and floating point zones are refused as in 2D
     ([t.rast.univar](t.rast.univar.md#notes)).
+- **Statistics per granule.** *t.rast.univar* printed the statistics of each
+    map; statistics of a quarter or a year needed an aggregated dataset
+    first. Now **granularity** prints one line per granule with the
+    statistics of all maps of the granule together, on the granules of
+    *t.rast.aggregate*, and **sampling** sets which maps belong to a granule,
+    `contains` by default and `related` for every map that shares time with
+    it. The options were asked for in OSGeo/grass issue 3042 and proposed in
+    pull request 7244; this implementation takes the granules from
+    *t.rast.aggregate*, so a map that crosses the border of a granule is
+    assigned by the sampling, not by its start time
+    ([t.rast.univar](t.rast.univar.md#description)).
 
 ### t.rast.what
 
