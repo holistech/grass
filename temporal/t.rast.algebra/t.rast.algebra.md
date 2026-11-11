@@ -348,12 +348,12 @@ must be given in parenthesis.
 ```sh
 td(A)                    Returns a list of time intervals of STDS A
 
-start_time(A)            Start time as HH::MM:SS
+start_time(A)            Start time as HH:MM:SS
 start_date(A)            Start date as yyyy-mm-DD
 start_datetime(A)        Start datetime as yyyy-mm-DD HH:MM:SS
 end_time(A)              End time as HH:MM:SS
 end_date(A)              End date as yyyy-mm-DD
-end_datetime(A)          End datetime as  yyyy-mm-DD HH:MM
+end_datetime(A)          End datetime as yyyy-mm-DD HH:MM:SS
 
 start_doy(A)             Day of year (doy) from the start time [1 - 366]
 start_dow(A)             Day of week (dow) from the start time [1 - 7], the start of the week is Monday == 1
@@ -369,7 +369,7 @@ end_dow(A)               Day of week (dow) from the end time [1 - 7], the start 
 end_year(A)              The year of the end time [0 - 9999]
 end_month(A)             The month of the end time [1 - 12]
 end_week(A)              Week of year of the end time [1 - 54]
-end_day(A)               Day of month from the start time [1 - 31]
+end_day(A)               Day of month from the end time [1 - 31]
 end_hour(A)              The hour of the end time [0 - 23]
 end_minute(A)            The minute of the end time [0 - 59]
 end_second(A)            The second of the end time [0 - 59]
@@ -3785,6 +3785,84 @@ block names its result `PUB`, which replaces the one before.
     name|start_time|end_time|min|max
     pub_0|2001-01-01 00:00:00|2001-02-01 00:00:00|1.5|1.5
     ```
+
+    Some printed forms are misprints. Typed as printed, they are refused or
+    compute something other than the figure shows; the readable forms follow.
+
+    The caption of Figure A7 writes `preceedes`, which is a syntax error; the
+    drawing and the algebra name the relation `precedes`, as in
+    `A {+,follows|precedes,d} G` above. The publication writes the relation
+    `equal` as `equals`; the algebra reads `equals` as another name of
+    `equal`.
+
+    Figure A8 writes `{-,overlaps,i}`, but its left map, 4 to 9 January,
+    starts inside the right map, 1 to 6 January: the left map is overlapped
+    by the right one. With the maps of the figure the printed `overlaps`
+    relates no map, and the expression produces no map. The relation
+    `overlapped` gives the drawn result: the intersection, 4 to 6 January,
+    with the value `1 - 1`.
+
+    ```sh
+    r.mapcalc --overwrite expression="puba8a = 1"
+    r.mapcalc --overwrite expression="puba8b = 1"
+    t.create --overwrite output=A8A title="Figure A8, A" \
+        description="The left dataset of Figure A8 of the publication"
+    t.register input=A8A maps=puba8a start=2001-01-04 end=2001-01-09
+    t.create --overwrite output=A8B title="Figure A8, B" \
+        description="The right dataset of Figure A8 of the publication"
+    t.register input=A8B maps=puba8b start=2001-01-01 end=2001-01-06
+    t.rast.algebra --overwrite expression="PUB = A8A {-,overlapped,i} A8B" basename=pub
+    t.rast.list input=PUB columns=name,start_time,end_time,min,max
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    pub_0|2001-01-04 00:00:00|2001-01-06 00:00:00|0.0|0.0
+    ```
+
+    Figures A2 and A3 compare `start_time()` with a date and set the date in
+    typographic quotes, as Appendix C.3 sets the size of the temporal buffer.
+    Copied from the publication, these quotes are a syntax error; the algebra
+    reads a text in plain double or single quotes. The releases before GRASS
+    8.6 read single quotes around the size of `buff_t()`, but not around a
+    date. `start_time()` is the time of day, and a date compared with it
+    counts as midnight, so it does not select by the date: for maps that
+    start at midnight, `start_time(A) >= "2001-03-01"` holds for every map,
+    and the result is `A` throughout.
+
+    ```sh
+    t.rast.algebra --overwrite expression='PUB = if(start_time(A) >= "2001-03-01", A, F)' basename=pub
+    t.rast.list input=PUB columns=name,start_time,end_time,min,max
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    pub_0|2001-01-01 00:00:00|2001-02-01 00:00:00|1.5|1.5
+    pub_1|2001-02-01 00:00:00|2001-03-01 00:00:00|2.5|2.5
+    pub_2|2001-03-01 00:00:00|2001-04-01 00:00:00|3.5|3.5
+    pub_3|2001-04-01 00:00:00|2001-05-01 00:00:00|4.5|4.5
+    ```
+
+    The comparison of the figures needs `start_date()`: the maps of `A` from
+    March on, and the maps of `F` before.
+
+    ```sh
+    t.rast.algebra --overwrite expression='PUB = if(start_date(A) >= "2001-03-01", A, F)' basename=pub
+    t.rast.list input=PUB columns=name,start_time,end_time,min,max
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    pub_0|2001-01-01 00:00:00|2001-02-01 00:00:00|5.0|5.0
+    pub_1|2001-02-01 00:00:00|2001-03-01 00:00:00|6.0|6.0
+    pub_2|2001-03-01 00:00:00|2001-04-01 00:00:00|3.5|3.5
+    pub_3|2001-04-01 00:00:00|2001-05-01 00:00:00|4.5|4.5
+    ```
+
+    The tables of Appendix B have three more misprints. `start_time()` gives
+    the time as `HH:MM:SS`, not `HH::MM:SS`; `end_day()` is the day of month
+    of the end time, not of the start time; and `round()`, listed among the
+    spatial functions, is no function of the algebra in any release.
 
 <!-- markdownlint-enable MD046 -->
 
