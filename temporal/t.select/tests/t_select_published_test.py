@@ -58,7 +58,7 @@ def select(expression, basename):
     return rows
 
 
-def test_the_core_selects_what_the_reference_selects(series):
+def test_the_lower_case_selection_gives_a1_and_a2(series):
     """The selection of the paper in lower case gives a1 and a2"""
     assert select(LOWER_CASE, "fa") == SELECTED
 

@@ -13,7 +13,7 @@ difference under -n that the case itself describes.
 
 t_rast_algebra_paper_test.py checks the figures of the paper against their
 printed results. The caption of one figure misspells precedes; that spelling
-is a syntax error and the only printed form that is refused.
+is a syntax error. The manual names the other misprints of the paper.
 """
 
 import datetime

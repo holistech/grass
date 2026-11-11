@@ -3,9 +3,13 @@
 Gebbert, Leppelt and Pebesma (2019): A Topology Based Spatio-Temporal Map
 Algebra for Big Data Analysis. Data 4(2), 86. conftest.py rebuilds the
 datasets of the figures with constant maps. The paper prints the relation
-name equals, single quotes, and start_time compared with a date; no version
-of the algebra reads these (checked 12 October 2026 with GRASS 8.4.2), so
-the expressions use equal, double quotes and start_date.
+name equals, the dates of Figures A2 and A3 in typographic quotes, and
+start_time compared with a date. GRASS 8.4.2 read neither equals nor a date
+in single quotes (checked 12 October 2026). The algebra now reads equals and
+a date in plain double or single quotes, but start_time is the time of day,
+so a date compared with it does not select by the date (checked 11 November
+2026; the catalog of the publication in the manual shows it). The expressions
+here use equal, double quotes and start_date, which the figures need.
 """
 
 import pytest
