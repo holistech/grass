@@ -8,6 +8,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import errno
+import multiprocessing
 from datetime import datetime
 
 import pytest
@@ -100,7 +101,19 @@ def test_a_granularity_of_a_3d_raster_dataset(tools):
         )
 
 
-@pytest.mark.parametrize("nprocs", [1, 2])
+@pytest.mark.parametrize(
+    "nprocs",
+    [
+        1,
+        pytest.param(
+            2,
+            marks=pytest.mark.skipif(
+                multiprocessing.get_start_method() != "fork",
+                reason="the worker processes see the patch of the test only with fork",
+            ),
+        ),
+    ],
+)
 def test_a_granule_with_too_many_maps_for_one_command_line(
     tools, tmp_path, monkeypatch, nprocs
 ):
@@ -112,7 +125,8 @@ def test_a_granule_with_too_many_maps_for_one_command_line(
     def refused_by_the_system(module):
         raise OSError(errno.E2BIG, "Argument list too long")
 
-    # The worker processes are forked and inherit the replaced method.
+    # With nprocs the worker processes are forked and inherit the replaced
+    # method; the case is skipped for the other start methods.
     monkeypatch.setattr(Module, "run", refused_by_the_system)
     output = tmp_path / "out.txt"
 
