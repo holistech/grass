@@ -1331,6 +1331,12 @@ open at null cells, extreme levels, border rings and saddles are traced,
 <code>minlevel &gt; maxlevel</code> is an error, <b>cut</b> works after snapping, no
 line has one point, and a map without values gives an empty map
 (<a href="r.contour.html">r.contour</a>).</li>
+<li><b><em>r.series</em> with weights and <code>method=kurtosis</code>.</b> The weighted kurtosis
+summed the third power of the deviations instead of the fourth and gave a
+wrong value, for example -2.7279 instead of -1.2381 for the values 7 and
+14 with the weights 0.7 and 0.3. Now it uses the fourth power, and
+<em>t.rast.aggregate</em> <b>-w</b> takes <code>kurtosis</code>
+(<a href="r.series.html">r.series</a>, <a href="t.rast.aggregate.html#aggregation">t.rast.aggregate</a>).</li>
 <li><b><em>r.univar</em> and <em>r3.univar</em>.</b> Without a valid cell, <em>r.univar</em> printed
 <code>-1.79769e+308</code> as maximum and <code>-nan</code>; <em>r3.univar</em> counted cells masked
 by the 3D mask and rounded floating point zones without notice. Now

@@ -45,15 +45,14 @@ def test_weighted_methods_match_r_series():
     Left out are the weighted forms whose result means nothing: count sums
     the weights instead of counting the maps, the four regression methods add
     the weights to an int in lib/stats/c_reg.c and give null for weights
-    below 1, and kurtosis sums the third instead of the fourth power of the
-    deviations in lib/stats/c_kurt.c.
+    below 1.
     """
     menu = re.findall(
         r'\{c_\w+,\s*(w_\w+|NULL),\s*[^,]+,\s*"(\w+)"', MAIN_C.read_text()
     )
     assert len(menu) == len(reducers.SERIES_METHODS)
     weighted = {name for function, name in menu if function != "NULL"}
-    meaningless = {"count", "slope", "offset", "detcoeff", "tvalue", "kurtosis"}
+    meaningless = {"count", "slope", "offset", "detcoeff", "tvalue"}
     assert set(reducers.WEIGHTED_SERIES_METHODS) == weighted - meaningless
 
 
@@ -71,7 +70,6 @@ def test_weighted_methods_match_r_series():
         "offset",
         "detcoeff",
         "tvalue",
-        "kurtosis",
     ],
 )
 def test_series_method_refuses_weights_for_a_method_without_them(method):

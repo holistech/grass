@@ -85,8 +85,7 @@ With **-w**, the methods `minimum`, `maximum`, `range`, `min_raster`,
 form of them. Refused as well are the methods whose weighted form in
 *r.series* gives no meaningful result: `count` adds up the weights instead of
 counting the maps; `slope`, `offset` and `detcoeff` give null cells, because
-*r.series* counts the weights as whole numbers; and `kurtosis` uses the third
-power of the deviations instead of the fourth. A time instant has no length
+*r.series* counts the weights as whole numbers. A time instant has no length
 to weight by, so a selected map that is a time instant is refused as well. A
 map that only touches a granule would get the weight 0, and a granule whose
 weights add up to 0 gives null cells, as *r.series* computes it; every

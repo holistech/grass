@@ -63,11 +63,7 @@ SERIES_METHODS = (
 # - slope, offset, detcoeff and tvalue: regression_w() in lib/stats/c_reg.c
 #   adds the weights to an int, so weights below 1 count as 0 and the result
 #   is null (measured 2026-11-10 with r.series file= of two maps 7 and 14
-#   weighted 0.7 and 0.3: null for all four);
-# - kurtosis: w_kurt in lib/stats/c_kurt.c sums the third power of the
-#   deviations, not the fourth, so it gives the third moment over the squared
-#   variance minus 3 (same measurement: -2.727891156462585, the hand-derived
-#   kurtosis of these weights is -1.2381).
+#   weighted 0.7 and 0.3: null for all four).
 WEIGHTED_SERIES_METHODS = (
     "average",
     "median",
@@ -80,6 +76,7 @@ WEIGHTED_SERIES_METHODS = (
     "perc90",
     "quantile",
     "skewness",
+    "kurtosis",
 )
 
 # What the overlap of a related map with the target slot is divided by.

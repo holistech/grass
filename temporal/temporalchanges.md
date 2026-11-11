@@ -1250,6 +1250,12 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     `minlevel > maxlevel` is an error, **cut** works after snapping, no
     line has one point, and a map without values gives an empty map
     ([r.contour](r.contour.md)).
+- ***r.series* with weights and `method=kurtosis`.** The weighted kurtosis
+    summed the third power of the deviations instead of the fourth and gave a
+    wrong value, for example -2.7279 instead of -1.2381 for the values 7 and
+    14 with the weights 0.7 and 0.3. Now it uses the fourth power, and
+    *t.rast.aggregate* **-w** takes `kurtosis`
+    ([r.series](r.series.md), [t.rast.aggregate](t.rast.aggregate.md#aggregation)).
 - ***r.univar* and *r3.univar*.** Without a valid cell, *r.univar* printed
     `-1.79769e+308` as maximum and `-nan`; *r3.univar* counted cells masked
     by the 3D mask and rounded floating point zones without notice. Now

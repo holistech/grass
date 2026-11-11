@@ -90,6 +90,24 @@ def test_weighted_average(tools, weekly):
     assert _aggregate(tools, weekly, "w_average", "average") == _expected(9.1, 18.2, 21)
 
 
+def test_weighted_kurtosis(tools, weekly):
+    # Weights are overlap / 10 days of the granule, as for the average. With
+    # two values and the weights p and 1 - p the deviations from the mean are
+    # d1 = -(1 - p) * s and d2 = p * s for the distance s of the values; the
+    # fourth moment over the squared variance is (1 - 3 * p * (1 - p)) /
+    # (p * (1 - p)), kurtosis is that minus 3.
+    # [1, 11): 7 with 0.7 and 14 with 0.3, s = 7, p * (1 - p) = 0.21:
+    #   mean 9.1, variance 10.29, fourth moment 186.5577,
+    #   186.5577 / 10.29^2 - 3 = 37 / 21 - 3 = -26 / 21
+    # [11, 21): 14 with 0.4 and 21 with 0.6, s = 7, p * (1 - p) = 0.24:
+    #   mean 18.2, variance 11.76, fourth moment 161.3472,
+    #   161.3472 / 11.76^2 - 3 = 7 / 6 - 3 = -11 / 6
+    # [21, 31): wm2 alone is copied, 21, as for the other methods.
+    assert _aggregate(tools, weekly, "w_kurtosis", "kurtosis") == _expected(
+        -26 / 21, -11 / 6, 21
+    )
+
+
 def test_weighted_sum(tools, weekly):
     # Weights are overlap / 7 days of the map.
     # [1, 11): wm0 7/7, wm1 3/7: 7 + 14 * 3/7 = 13
@@ -197,7 +215,6 @@ def with_instant(tools):
         ("slope", "related"),
         ("offset", "related"),
         ("detcoeff", "related"),
-        ("kurtosis", "related"),
     ],
 )
 def test_weighted_refusals(tools, weekly, with_instant, method, sampling):
@@ -210,7 +227,7 @@ def test_weighted_refusals(tools, weekly, with_instant, method, sampling):
         expected = (
             f"The method <{method}> cannot be weighted by temporal overlap; use "
             "the flag -w with one of: average, median, mode, stddev, sum, "
-            "variance, quart1, quart3, perc90, quantile, skewness"
+            "variance, quart1, quart3, perc90, quantile, skewness, kurtosis"
         )
     before = inventory(tools)
     with pytest.raises(ToolError) as error:

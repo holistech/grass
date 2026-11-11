@@ -90,8 +90,7 @@ With <b>-w</b>, the methods <code>minimum</code>, <code>maximum</code>, <code>ra
 form of them. Refused as well are the methods whose weighted form in
 <em>r.series</em> gives no meaningful result: <code>count</code> adds up the weights instead of
 counting the maps; <code>slope</code>, <code>offset</code> and <code>detcoeff</code> give null cells, because
-<em>r.series</em> counts the weights as whole numbers; and <code>kurtosis</code> uses the third
-power of the deviations instead of the fourth. A time instant has no length
+<em>r.series</em> counts the weights as whole numbers. A time instant has no length
 to weight by, so a selected map that is a time instant is refused as well. A
 map that only touches a granule would get the weight 0, and a granule whose
 weights add up to 0 gives null cells, as <em>r.series</em> computes it; every
