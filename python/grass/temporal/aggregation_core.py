@@ -177,7 +177,6 @@ def _report_granules(reduced):
 def aggregate_series(
     input_series,
     target,
-    relation,
     method,
     *,
     sampling,
@@ -194,9 +193,9 @@ def aggregate_series(
 ):
     """Aggregate input_series onto target and materialize the result
 
-    relation is the relation from a granule to a map, see sampling_relation().
-    sampling is the list of names it was built from; it only names the
-    sampling in the warning. Returns the new space time dataset, or None,
+    sampling is the list of the names of the relations from a granule to a
+    map that take the map into the granule, see sampling_relation(); the
+    warning names it, too. Returns the new space time dataset, or None,
     with a warning, if no granule has a related map. The caller sets title,
     description, semantic type and aggregation type with
     set_output_metadata().
@@ -219,7 +218,7 @@ def aggregate_series(
     # classic tool skips it. nulls="skip": r.series passes over null cells.
     reduced = ta.gather(
         target,
-        relation,
+        sampling_relation(sampling),
         input_series,
         reduce=ta.series_method(method, file_limit=int(file_limit), weights=weights),
         missing="drop",

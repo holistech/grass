@@ -114,7 +114,6 @@ def main():
     from grass.temporal.aggregation_core import (
         aggregate_series,
         aggregation_granules,
-        sampling_relation,
         set_output_metadata,
     )
     from grass.temporal.algebra.reducers import WEIGHTED_SERIES_METHODS
@@ -187,7 +186,6 @@ def main():
         dataset = aggregate_series(
             input_series,
             target,
-            sampling_relation(sampling),
             method,
             sampling=sampling,
             output=output,
