@@ -115,6 +115,18 @@ is two days long.
 A dataset of another mapset (`input=name@mapset`) is read like one of the
 current mapset. The 3D raster map is created in the current mapset.
 
+### Displaying the cube
+
+To look at the cube, set the region to it with `g.region raster_3d=<cube>`, as
+the first example shows. The 3D view mode of the
+*[wxGUI](wxGUI.nviz.md)* shows the cube within this region. The cell
+size in the vertical direction is a time span (years, months or days), the
+cells in the horizontal direction are in the length unit of the project, often
+meters, so the cube looks flat or extremely tall unless the **vertical
+exaggeration** of the 3D view is set for the unit of the time axis. Show slices
+first, since they show the values of single layers, and try isosurfaces
+afterwards.
+
 ### Management of open file limits
 
 *r.to.rast3* opens all maps of the dataset at the same time, so the number of
@@ -163,9 +175,12 @@ of the region and twelve layers, one for each month. It starts at month 1441
 the vertical unit is `months`. The data type is `DCELL` like the maps.
 
 The third block prints the time stamp of the cube from the temporal database.
-The last block sets the region to the lowest layer of the cube, the month
+The fourth block sets the region to the lowest layer of the cube, the month
 January, and prints the smallest and the largest value of the cube there with
-*r3.univar*, then the same for the layer of July, month 1447. The layers lie
+*r3.univar*, then the same for the layer of July, month 1447. The fifth block
+sets the region to the whole cube with **raster_3d** and prints its top,
+bottom, vertical resolution and number of layers, which is the region to
+display the cube in. The layers lie
 in the order of time, the earliest at the bottom. By the formula of the
 generated series, January is the coldest and July the warmest month.
 
@@ -224,6 +239,18 @@ generated series, January is the coldest and July the warmest month.
     max=7.5
     min=13.9
     max=28.4
+    ```
+
+    ```sh
+    g.region raster_3d=temperature_cube
+    g.region -3 -g | grep -E "^(b|t|tbres|depths)="
+    ```
+
+    ```text
+    t=1453
+    b=1441
+    tbres=1
+    depths=12
     ```
 
 === "Python (grass.tools)"
@@ -312,6 +339,18 @@ generated series, January is the coldest and July the warmest month.
     max=7.5
     min=13.9
     max=28.4
+    ```
+
+    ```python
+    tools.g_region(raster_3d="temperature_cube")
+    print_keys(tools.g_region(flags="3g"), "t", "b", "tbres", "depths")
+    ```
+
+    ```text
+    t=1453
+    b=1441
+    tbres=1
+    depths=12
     ```
 
 ### Stack the maps of a dataset
