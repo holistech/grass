@@ -428,8 +428,8 @@ The tests of a tool are pytest tests in ``temporal/<name>/tests/``, in files nam
 ``<name_with_underscores>_test.py``, such as ``t_shift_test.py``. They use the fixtures
 of ``temporal/conftest.py`` (``tools`` for a project of its own with a one-cell region,
 ``prefix`` for names that do not collide, ``two_mapsets`` for a tool that crosses
-mapsets, ``algebra_setting`` for the tools of the algebra) and the helpers of
-``grass.temporal.testing``, which build datasets and read the result back as values.
+mapsets) and the helpers of ``grass.temporal.testing``, which build datasets and read
+the result back as values.
 The conventions that apply to every test of GRASS (the session fixture, ``env``
 for ``grass.script``, ``grass.tools``, the layout of the files) are in
 ``doc/development/testing.md``, which also lists the helpers; they are not repeated

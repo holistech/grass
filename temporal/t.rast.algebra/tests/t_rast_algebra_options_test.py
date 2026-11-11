@@ -157,7 +157,16 @@ def test_algebra_variable_has_no_effect(algebra, tool):
     Tools(env=env).t_rast_algebra(
         expression="OPT_VARIABLE = B {:,contains,r} A", basename="opt_variable"
     )
-    assert len(list_maps(tool, "OPT_VARIABLE")) == 4
+    tool.t_rast_algebra(
+        expression="OPT_PLAIN = B {:,contains,r} A", basename="opt_plain"
+    )
+    with_variable = list_maps(tool, "OPT_VARIABLE")
+    without = list_maps(tool, "OPT_PLAIN")
+    assert len(without) == 4
+    # The names differ only in the basename; times and values must be equal.
+    for row in with_variable:
+        row["name"] = row["name"].replace("opt_variable", "opt_plain", 1)
+    assert with_variable == without
 
 
 @pytest.mark.parametrize("nprocs", [1, 2, 4])

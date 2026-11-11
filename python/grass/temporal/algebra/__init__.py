@@ -105,10 +105,11 @@ A run of t.rast.algebra
 The tool creates a TemporalRasterAlgebraParser. With -g,
 setup_common_granularity() finds the datasets in the syntax tree and their
 common granularity. parse() calls parser.evaluate() with the profile CORE.
-The grammar of the profile reads the expression into an ast.Statement; the translator reads each dataset with source(), with -g
-sampled by sample_by_granularity(), and builds the result series with the
-operations. plan() gives the process chain that a dry run
-prints, and materialize() computes and registers the maps.
+The grammar (grammar.py) reads the expression into an ast.Statement; the
+translator reads each dataset with source(), with -g sampled by
+sample_by_granularity(), and builds the result series with the operations.
+plan() gives the process chain that a dry run prints, and materialize()
+computes and registers the maps.
 
 Entry points
 ------------
