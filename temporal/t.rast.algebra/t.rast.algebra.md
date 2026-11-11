@@ -3786,14 +3786,15 @@ block names its result `PUB`, which replaces the one before.
     pub_0|2001-01-01 00:00:00|2001-02-01 00:00:00|1.5|1.5
     ```
 
+    The publication writes the relation `equal` as `equals`. That is no
+    misprint for the algebra: it reads `equals` as another name of `equal`.
+
     Some printed forms are misprints. Typed as printed, they are refused or
     compute something other than the figure shows; the readable forms follow.
 
     The caption of Figure A7 writes `preceedes`, which is a syntax error; the
     drawing and the algebra name the relation `precedes`, as in
-    `A {+,follows|precedes,d} G` above. The publication writes the relation
-    `equal` as `equals`; the algebra reads `equals` as another name of
-    `equal`.
+    `A {+,follows|precedes,d} G` above.
 
     Figure A8 writes `{-,overlaps,i}`, but its left map, 4 to 9 January,
     starts inside the right map, 1 to 6 January: the left map is overlapped
@@ -3859,10 +3860,12 @@ block names its result `PUB`, which replaces the one before.
     pub_3|2001-04-01 00:00:00|2001-05-01 00:00:00|4.5|4.5
     ```
 
-    The tables of Appendix B have three more misprints. `start_time()` gives
-    the time as `HH:MM:SS`, not `HH::MM:SS`; `end_day()` is the day of month
-    of the end time, not of the start time; and `round()`, listed among the
-    spatial functions, is no function of the algebra in any release.
+    The tables of Appendix B have four more misprints. `start_time()` gives
+    the time as `HH:MM:SS`, not `HH::MM:SS`; `end_datetime()` gives the
+    seconds as well, `yyyy-mm-DD HH:MM:SS`, as `start_datetime()` does;
+    `end_day()` is the day of month of the end time, not of the start time;
+    and `round()`, listed among the spatial functions, is no function of the
+    algebra in any release.
 
 <!-- markdownlint-enable MD046 -->
 
