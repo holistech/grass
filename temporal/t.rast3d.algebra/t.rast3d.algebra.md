@@ -528,9 +528,11 @@ as without the flag, so that maps of equal time are combined. Operators
 with temporal relations in curly brackets cannot be used in this mode, and
 all datasets need a valid temporal topology and the same temporal type.
 
-Single maps given with `map()` or `tmap()` are not sampled. The differences
-between the two algebras listed under "Core and classic algebra" apply with
-**-g** as well, for example item 4, the right reference.
+Single maps given with `map()` or `tmap()` are not sampled; an expression
+without any space time dataset is computed as without the flag, with a
+warning. The differences between the two algebras listed under "Core and
+classic algebra" apply with **-g** as well, for example item 4, the right
+reference.
 
 See the example "Sample the maps with a common granularity" below and the
 manual of [t.rast.algebra](t.rast.algebra.md).

@@ -306,6 +306,67 @@ def test_granularity_algebra_with_the_classic_flag(algebra, core_tool):
     assert values(core_tool, "OPT_GRAN_CLASSIC") == [6, 7, 9, 10]
 
 
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        # N != 1.5 holds for n1..n4 (11..14), so every day takes the map of B
+        # sampled on it: b1 = 5 on days 1 and 2, b2 = 6 on days 3 and 4.
+        ("if(N != 1.5, B, A)", [5, 5, 6, 6]),
+        # n2 = 12 fails the condition, so day 2 takes a2 = 2 instead.
+        ("if(N != 12, B, A)", [5, 2, 6, 6]),
+    ],
+)
+def test_granularity_flag_computes_not_equal(algebra, core_tool, expression, expected):
+    """-g finds the datasets of an expression with !=
+
+    N and A have daily maps on days 1 to 4, B maps of two days from day 1, so
+    the common granularity is one day and every dataset has a map on each of
+    the four days.
+    """
+    core_tool.t_rast_algebra(
+        expression=f"OPT_GRAN_NE = {expression}",
+        basename="opt_gran_ne",
+        flags="g",
+        overwrite=True,
+    )
+    maps = list_maps(core_tool, "OPT_GRAN_NE")
+    assert [row["min"] for row in maps] == expected
+    assert [row["start_time"] for row in maps] == [
+        f"2001-01-0{number} 00:00:00" for number in range(1, 5)
+    ]
+
+
+@pytest.mark.fixed_algebra
+def test_granularity_flag_without_dataset(algebra, core_tool):
+    """An expression of single maps has nothing to sample: -g computes it as
+    without the flag, with a warning
+
+    singletmap (99) is time stamped 3 to 4 January, so the result is one map
+    of these days with the value 2 * 99 = 198.
+    """
+    result = core_tool.t_rast_algebra(
+        expression="OPT_GRAN_NONE = tmap(singletmap) * 2",
+        basename="opt_gran_none",
+        flags="g",
+        overwrite=True,
+    )
+    assert (
+        "The expression names no space time dataset; it is computed without "
+        "granularity sampling"
+    ) in message(result)
+    assert "Traceback" not in result.stderr
+    assert list_maps(core_tool, "OPT_GRAN_NONE") == [
+        {
+            "name": "opt_gran_none_0",
+            "start_time": "2001-01-03 00:00:00",
+            "end_time": "2001-01-04 00:00:00",
+            "min": 198,
+            "max": 198,
+        }
+    ]
+
+
 def test_without_granularity_unrelated_datasets_give_nothing(algebra, tool):
     """The same expression without -g relates only equal maps: none here"""
     tool.t_rast_algebra(expression="OPT_NOGRAN = A + B", basename="opt_nogran")

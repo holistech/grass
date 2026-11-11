@@ -100,24 +100,25 @@ From the bottom up:
    uses as well.
 7. Syntax, in parser/: lexer.py, grammar.py, ast.py and operators.py read
    the syntax of the core with PLY; translate.py turns the syntax tree into
-   operations (Translator); granularity.py samples the datasets for the
-   granularity mode (-g). The classic profile has its own grammar
-   (classic_grammar.py with the productions in classic_productions.py) and
-   translator (classic.py with classic_maps.py and classic_numbers.py);
-   shared.py has what both translators check alike. switch.py chooses the
-   algebra, __init__.py has evaluate(), and facade.py the public parser
-   classes.
+   operations (Translator); granularity.py finds the datasets of the
+   granularity mode (-g) and their common granularity and samples them. The
+   classic profile has its own grammar (classic_grammar.py with the
+   productions in classic_productions.py) and translator (classic.py with
+   classic_maps.py and classic_numbers.py); shared.py has what both
+   translators check alike. switch.py chooses the algebra, __init__.py has
+   evaluate(), and facade.py the public parser classes.
 
 A run of t.rast.algebra
 -----------------------
 
 The tool creates a TemporalRasterAlgebraParser. With -g,
-setup_common_granularity() of the reference finds the common granularity of
-the datasets. parse() calls parser.evaluate() with the profile CORE, or
-CLASSIC if the classic algebra is selected. The grammar of the profile reads
-the expression into an ast.Statement; the translator reads each dataset with
-source(), with -g sampled by sample_by_granularity(), and builds the result
-series with the operations. plan() gives the process chain that a dry run
+setup_common_granularity() finds the datasets in the syntax tree and their
+common granularity (the classic algebra asks the reference). parse() calls
+parser.evaluate() with the profile CORE, or CLASSIC if the classic algebra
+is selected. The grammar of the profile reads the expression into an
+ast.Statement; the translator reads each dataset with source(), with -g
+sampled by sample_by_granularity(), and builds the result series with the
+operations. plan() gives the process chain that a dry run
 prints, and materialize() computes and registers the maps.
 
 Entry points

@@ -46,11 +46,7 @@ def run_algebra(session, expression, flags="", nprocs=1, classic=None):
         classic=classic,
     )
     if "g" in flags:
-        assert parser.setup_common_granularity(
-            expression=full,
-            stdstype="str3ds",
-            lexer=tgis.TemporalRasterAlgebraLexer(),
-        )
+        assert parser.setup_common_granularity(expression=full, stdstype="str3ds")
     parser.parse(full, name, True)
     return name
 

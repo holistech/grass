@@ -8,7 +8,7 @@ classic profile (see ``switch.classic_selected``).
 
 Each class keeps an object of the class of the reference implementation
 (``grass.temporal.classic``) for its map type, built only when something asks
-for it: ``setup_common_granularity()`` of the granularity mode is computed by
+for it: ``setup_common_granularity()`` of the classic algebra is computed by
 the reference, and an attribute that the facade does not have is read from
 the reference object, so that code written for the classes of the reference
 keeps working. The object gets the arguments of the constructor of the
@@ -33,18 +33,26 @@ from grass.temporal.classic.temporal_raster3d_algebra import (
 from grass.temporal.classic.temporal_raster_algebra import (
     TemporalRasterAlgebraParser as _RasterReference,
 )
+from grass.temporal.classic.temporal_raster_base_algebra import (
+    TemporalRasterAlgebraLexer,
+)
 from grass.temporal.classic.temporal_vector_algebra import (
+    TemporalVectorAlgebraLexer,
     TemporalVectorAlgebraParser as _VectorReference,
 )
+from grass.temporal.state import get_tgis_message_interface
 
 from . import evaluate
+from .granularity import GranularityModeError, common_granularity, dataset_names
 from .switch import classic_selected
 
 
 class _AlgebraParser:
     """What the three public parser classes share
 
-    The subclasses name the class of the reference and the map type. The
+    The subclasses name the class of the reference, the class of the lexer
+    that the reference finds the datasets of the granularity mode with, and
+    the map type. The
     constructor arguments are kept as attributes with the same names that
     the reference has, so that code which reads or sets ``run`` or ``debug``
     after the construction keeps working. They are handed to the reference
@@ -52,6 +60,7 @@ class _AlgebraParser:
     """
 
     _reference_class: type
+    _reference_lexer: type
     _kind: str
     _options = ("pid", "run", "debug", "spatial")
 
@@ -83,6 +92,8 @@ class _AlgebraParser:
         self.debug = debug
         self.spatial = spatial
         self.classic = classic
+        self.granularity = None
+        self.use_granularity = False
         self._reference_object = None
 
     def _reference(self):
@@ -118,49 +129,82 @@ class _AlgebraParser:
             names |= set(vars(self._reference_object))
         return sorted(names)
 
-    @property
-    def granularity(self):
-        """The common granularity of the granularity mode, None before it"""
-        return (
-            None
-            if self._reference_object is None
-            else self._reference_object.granularity
-        )
-
-    @property
-    def use_granularity(self) -> bool:
-        """True after ``setup_common_granularity`` succeeded"""
-        return (
-            self._reference_object is not None
-            and self._reference_object.use_granularity
-        )
-
-    def setup_common_granularity(
-        self, expression, stdstype="strds", lexer=None
-    ) -> bool:
+    def setup_common_granularity(self, expression, stdstype="strds") -> bool:
         """Use the common granularity of all datasets of the expression
 
-        Analyzes the expression for space time datasets, computes the common
+        Finds the space time datasets of the expression, computes the common
         granularity of their maps and samples all datasets with it in
         ``parse()``. The only meaningful temporal relation is then "equal".
 
-        The classic algebra computes the granularity of each dataset and the
-        common granule of all of them with its own copies of the functions of
-        the library; the core takes the granularity that the library stored
-        with the maps and the common granule of the library.
+        The core reads the names of the datasets from its syntax tree (see
+        ``granularity.dataset_names()``), takes the granularity that the
+        library stored with the maps and the common granule of the library.
+        An expression without any dataset, only single maps of ``map()`` and
+        ``tmap()``, has nothing to sample: a warning says so and ``parse()``
+        computes it as without the mode. The classic algebra computes the
+        mode with the reference implementation, which computes the
+        granularity of each dataset and their common granule with its own
+        copies of the functions of the library.
+
+        After a success ``granularity`` is the common granularity and
+        ``use_granularity`` says whether ``parse()`` samples with it; a
+        failure leaves both as they were.
 
         :param expression: The whole statement, ``"R = A + B"``
         :param stdstype: The dataset type of the datasets in the expression
-        :param lexer: The lexer that finds the dataset names, the one of the
-            map type of the tool
         :return: True if successful, False otherwise (a message tells why)
+        :raises SyntaxError: for a statement that the parser of the core
+            refuses
+        :raises grass.exceptions.FatalError: for a dataset that does not
+            exist
         """
-        return self._reference().setup_common_granularity(
+        if self._classic():
+            return self._classic_granularity(expression, stdstype)
+        msgr = get_tgis_message_interface()
+        if any(brace in expression.partition("=")[2] for brace in "{}"):
+            msgr.error(
+                _(
+                    "Spatio-temporal topological operators are not"
+                    " supported in granularity algebra mode"
+                )
+            )
+            return False
+        names = dataset_names(expression)
+        if not names:
+            msgr.warning(
+                _(
+                    "The expression names no space time dataset; it is computed "
+                    "without granularity sampling"
+                )
+            )
+            self.granularity = None
+            self.use_granularity = False
+            return True
+        try:
+            self.granularity = common_granularity(names, stdstype)
+        except GranularityModeError as error:
+            msgr.error(str(error))
+            return False
+        self.use_granularity = True
+        return True
+
+    def _classic_granularity(self, expression, stdstype) -> bool:
+        """setup_common_granularity() of the reference, for the classic algebra
+
+        The reference finds the dataset names with the lexer of the classic
+        algebra of the map type, the one that t.rast.algebra and
+        t.rast3d.algebra gave it.
+        """
+        reference = self._reference()
+        succeeded = reference.setup_common_granularity(
             expression=expression,
             stdstype=stdstype,
-            lexer=lexer,
-            stored_granularity=not self._classic(),
+            lexer=self._reference_lexer(),
         )
+        if succeeded:
+            self.granularity = reference.granularity
+            self.use_granularity = reference.use_granularity
+        return succeeded
 
     def _classic(self) -> bool:
         return classic_selected(self.classic)
@@ -268,6 +312,7 @@ class TemporalRasterAlgebraParser(_GriddedAlgebraParser):
     """
 
     _reference_class = _RasterReference
+    _reference_lexer = TemporalRasterAlgebraLexer
     _kind = "raster"
 
 
@@ -279,6 +324,7 @@ class TemporalRaster3DAlgebraParser(_GriddedAlgebraParser):
     """
 
     _reference_class = _Raster3DReference
+    _reference_lexer = TemporalRasterAlgebraLexer
     _kind = "raster3d"
 
 
@@ -290,6 +336,7 @@ class TemporalVectorAlgebraParser(_AlgebraParser):
     """
 
     _reference_class = _VectorReference
+    _reference_lexer = TemporalVectorAlgebraLexer
     _kind = "vector"
 
     def parse(self, expression, basename: str | None = None, overwrite: bool = False):

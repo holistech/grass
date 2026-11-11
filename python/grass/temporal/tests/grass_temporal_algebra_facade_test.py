@@ -88,14 +88,10 @@ class StubReference:
         self.granularity = None
         self.use_granularity = False
         self.calls = []
-        self.stored_granularity = []
         self.names = {"x": 1}
 
-    def setup_common_granularity(
-        self, expression, stdstype, lexer, *, stored_granularity=False
-    ):
+    def setup_common_granularity(self, expression, stdstype, lexer):
         self.calls.append((expression, stdstype, lexer))
-        self.stored_granularity.append(stored_granularity)
         self.granularity = "1 day"
         self.use_granularity = True
         return True
@@ -106,10 +102,16 @@ class StubbedParser(facade.TemporalRasterAlgebraParser):
 
 
 def test_the_granularity_mode_goes_to_one_engine_with_the_options_of_the_facade():
-    parser = StubbedParser(pid=7, run=True, debug=False, nprocs=3, time_suffix="gran")
-    assert parser.setup_common_granularity("R = A + B", "strds", "lexer") is True
+    """The classic algebra computes the mode with the reference"""
+    parser = StubbedParser(
+        pid=7, run=True, debug=False, nprocs=3, time_suffix="gran", classic=True
+    )
+    assert parser.setup_common_granularity("R = A + B", "str3ds") is True
     reference_object = parser._reference_object
-    assert reference_object.calls == [("R = A + B", "strds", "lexer")]
+    [(expression, stdstype, lexer)] = reference_object.calls
+    assert (expression, stdstype) == ("R = A + B", "str3ds")
+    # The lexer that t.rast.algebra and t.rast3d.algebra gave the reference
+    assert isinstance(lexer, tgis.TemporalRasterAlgebraLexer)
     assert reference_object.arguments == {
         "pid": 7,
         "run": True,
@@ -126,17 +128,24 @@ def test_the_granularity_mode_goes_to_one_engine_with_the_options_of_the_facade(
     assert parser._reference_object is reference_object
 
 
-@pytest.mark.parametrize(("classic", "stored"), [(False, True), (True, False)])
-def test_only_the_core_takes_the_stored_granularity(classic, stored):
-    """The classic algebra computes the granularity of a dataset with its own
-    copy of the function of the library, the core reads the stored one"""
-    parser = StubbedParser(classic=classic)
-    parser.setup_common_granularity("R = A + B")
-    assert parser._reference_object.stored_granularity == [stored]
+def test_the_core_computes_the_granularity_mode_without_the_reference(monkeypatch):
+    """The core finds the datasets in its syntax tree and asks the library"""
+    calls = []
+
+    def common_granularity(names, stds_type):
+        calls.append((names, stds_type))
+        return "2 days"
+
+    monkeypatch.setattr(facade, "common_granularity", common_granularity)
+    parser = StubbedParser(classic=False)
+    assert parser.setup_common_granularity("R = if(A != 1, B)", "str3ds") is True
+    assert calls == [(["A", "B"], "str3ds")]
+    assert (parser.granularity, parser.use_granularity) == ("2 days", True)
+    assert parser._reference_object is None
 
 
 def test_options_set_after_the_construction_reach_the_engine():
-    parser = StubbedParser(run=False)
+    parser = StubbedParser(run=False, classic=True)
     parser.setup_common_granularity("R = A + B")
     parser.run = True
     parser.setup_common_granularity("R = A + B")

@@ -111,9 +111,7 @@ def main():
     )
 
     try:
-        if granularity and not p.setup_common_granularity(
-            expression=expression, lexer=tgis.TemporalRasterAlgebraLexer()
-        ):
+        if granularity and not p.setup_common_granularity(expression=expression):
             gs.fatal(_("Unable to process the expression in granularity algebra mode"))
 
         pc = p.parse(expression, basename, gs.overwrite())

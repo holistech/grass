@@ -97,9 +97,7 @@ def test_parser_samples_with_the_common_granularity(series_3d):
     and 2, w2 for days 3 and 4"""
     parser = tgis.TemporalRaster3DAlgebraParser(run=True, debug=False, classic=False)
     assert parser.setup_common_granularity(
-        expression="fac_gran = A + W",
-        stdstype="str3ds",
-        lexer=tgis.TemporalRasterAlgebraLexer(),
+        expression="fac_gran = A + W", stdstype="str3ds"
     )
     chain = parser.parse("fac_gran = A + W", "fac_gran", True)
     # Only the core quotes the names of the maps in the expression.

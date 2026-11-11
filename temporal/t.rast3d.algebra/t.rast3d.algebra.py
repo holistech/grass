@@ -96,9 +96,7 @@ def main():
 
     try:
         if granularity and not p.setup_common_granularity(
-            expression=expression,
-            stdstype="str3ds",
-            lexer=tgis.TemporalRasterAlgebraLexer(),
+            expression=expression, stdstype="str3ds"
         ):
             gs.fatal(_("Unable to process the expression in granularity algebra mode"))
 

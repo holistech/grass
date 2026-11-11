@@ -2,9 +2,10 @@
 
 In the granularity mode of t.rast.algebra and t.rast3d.algebra (-g), every
 dataset of an expression is replaced by its maps on a regular grid of
-granules before the expression is computed. This module rebuilds that
-sampling from the core operations, so that both algebras sample a dataset
-alike; the rest of the expression is translated as without the mode.
+granules before the expression is computed. This module finds the datasets
+of an expression and their common granularity, and rebuilds the sampling
+from the core operations, so that both algebras sample a dataset alike; the
+rest of the expression is translated as without the mode.
 
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team
@@ -28,6 +29,15 @@ from grass.temporal.algebra.relations import (
 from grass.temporal.algebra.series import Series
 from grass.temporal.algebra.time_functions import granules
 from grass.temporal.datetime_math import increment_datetime_by_string
+from grass.temporal.db import connection
+from grass.temporal.open_stds import open_old_stds
+from grass.temporal.temporal_granularity import (
+    compute_common_absolute_time_granularity,
+    compute_common_relative_time_granularity,
+)
+
+from . import ast
+from .grammar import parse
 
 # A granule takes its map from the first of these relations that relates
 # any map, read as "granule R map". This is the order of
@@ -35,6 +45,89 @@ from grass.temporal.datetime_math import increment_datetime_by_string
 # names the relations from the side of the map. A map that overlaps the
 # granule therefore wins over a map that lies within it.
 GRANULE_RELATIONS = (equal, during, overlaps, overlapped, contains)
+
+# The functions whose arguments name single maps; the mode samples only
+# space time datasets.
+_SINGLE_MAP_FUNCTIONS = ("map", "tmap")
+
+
+def dataset_names(expression):
+    """Return the names of the space time datasets that an expression reads
+
+    The names come from the syntax tree of the core, so a text such as the
+    "1 day" of tshift() and the result name left of "=" are no datasets. The
+    arguments of map() and tmap() name single maps and are left out too. An
+    index such as A[1] names the dataset A, and a call such as STRDS(A) or
+    td(A) the dataset of its argument, also for a function that the
+    translator does not know: the translation reports that one later.
+
+    :param expression: the whole statement, such as "R = A + B"
+    :return: the names as written, in the order of their first occurrence,
+        each once
+    :raises SyntaxError: for a statement that the parser of the core refuses
+    """
+    names = _names_in(parse(expression).expression)
+    return list(dict.fromkeys(names))
+
+
+def _names_in(node):
+    """Yield the dataset names of a node of the syntax tree from left to right"""
+    if isinstance(node, ast.Name):
+        yield node.ident
+    elif isinstance(node, ast.Index):
+        yield node.name
+    elif isinstance(node, ast.Negative):
+        yield from _names_in(node.operand)
+    elif isinstance(node, ast.Binary):
+        yield from _names_in(node.left)
+        yield from _names_in(node.right)
+    elif isinstance(node, ast.Function) and node.name not in _SINGLE_MAP_FUNCTIONS:
+        for argument in node.arguments:
+            yield from _names_in(argument)
+
+
+class GranularityModeError(Exception):
+    """A refusal of the granularity mode; the text is the message for the user"""
+
+
+def common_granularity(names, stds_type):
+    """Return the common granularity of the datasets of the granularity mode
+
+    Each dataset gives the granularity stored with its maps and its start
+    time; the library computes the common granularity from them, and its
+    result is returned as it is.
+
+    :param names: the names of the datasets, see dataset_names(); not empty
+    :param stds_type: the type of the datasets, such as "strds"
+    :return: a text such as "1 day" for absolute time, a whole number of the
+        unit for relative time
+    :raises GranularityModeError: for a dataset without a valid temporal
+        topology and for datasets of different temporal types
+    :raises grass.exceptions.FatalError: for a dataset that does not exist
+    """
+    granularities = []
+    start_times = []
+    temporal_types = set()
+    with connection() as dbif:
+        for name in names:
+            stds = open_old_stds(name, stds_type, dbif)
+            if stds.check_temporal_topology() is False:
+                raise GranularityModeError(
+                    _(
+                        "All input space time datasets must have a valid temporal "
+                        "topology."
+                    )
+                )
+            granularities.append(stds.get_granularity())
+            start_times.append(stds.get_temporal_extent_as_tuple()[0])
+            temporal_types.add(stds.get_temporal_type())
+    if len(temporal_types) > 1:
+        raise GranularityModeError(
+            _("All input space time datasets must have the same temporal type.")
+        )
+    if "absolute" in temporal_types:
+        return compute_common_absolute_time_granularity(granularities, start_times)
+    return compute_common_relative_time_granularity(granularities)
 
 
 def sample_by_granularity(series, granularity):

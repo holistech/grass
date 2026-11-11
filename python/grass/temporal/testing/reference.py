@@ -107,10 +107,12 @@ def setup_granularity(parser, kind, expression):
     """Sample the datasets of an expression with their common granularity
 
     Does what the granularity mode (-g) of t.rast.algebra and t.rast3d.algebra
-    does before ``parse()``: ``parser.setup_common_granularity`` with the lexer
-    and dataset type of the kind. It works on a parser of the reference and on
-    an object of the public parser classes alike, so the algebra core can be
-    run in the mode too.
+    does before ``parse()``: ``parser.setup_common_granularity`` with the
+    dataset type of the kind, and for a parser of the reference with the lexer
+    of the kind as well (the public parser classes find the names
+    themselves). It works on a parser of the reference and on an object of the
+    public parser classes alike, so the algebra core can be run in the mode
+    too.
 
     :param parser: A parser of ``reference_parser`` or an object of a public
         parser class
@@ -123,6 +125,7 @@ def setup_granularity(parser, kind, expression):
     :raises ValueError: for kind ``"select"``, which has no such mode
     """
     from grass.exceptions import FatalError
+    from grass.temporal.classic.temporal_algebra import TemporalAlgebraParser
     from grass.temporal.classic.temporal_raster_base_algebra import (
         TemporalRasterAlgebraLexer,
     )
@@ -137,6 +140,8 @@ def setup_granularity(parser, kind, expression):
         arguments = {"stdstype": "str3ds", "lexer": TemporalRasterAlgebraLexer()}
     else:
         arguments = {"stdstype": "stvds", "lexer": TemporalVectorAlgebraLexer()}
+    if not isinstance(parser, TemporalAlgebraParser):
+        del arguments["lexer"]
     if not parser.setup_common_granularity(expression=expression, **arguments):
         msg = "Unable to process the expression in granularity algebra mode"
         raise FatalError(msg)

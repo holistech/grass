@@ -328,9 +328,7 @@ class Algebra:
         parser = tgis.TemporalRasterAlgebraParser(run=True, **kwargs)
         statement = f"R = {expression}"
         if granularity:
-            assert parser.setup_common_granularity(
-                expression=statement, lexer=tgis.TemporalRasterAlgebraLexer()
-            )
+            assert parser.setup_common_granularity(expression=statement)
         return parser.parse(statement, basename, True)
 
     def dry_times(self, expression, **kwargs):

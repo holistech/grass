@@ -1,5 +1,5 @@
 """Sampling of a series with a common granularity, as the granularity mode
-of the algebra does
+of the algebra does, and the names of the datasets that the mode samples
 
 The expected maps were computed on 2026-10-13 with
 AbstractSpaceTimeDataset.resample_maplist_by_granularity() on the same time
@@ -9,7 +9,10 @@ stamps, in a temporary XY project.
 import pytest
 
 from grass.temporal.algebra.content import MapRef
-from grass.temporal.algebra.parser.granularity import sample_by_granularity
+from grass.temporal.algebra.parser.granularity import (
+    dataset_names,
+    sample_by_granularity,
+)
 from grass.temporal.algebra.series import Series, Space
 
 
@@ -94,3 +97,29 @@ def test_an_empty_series_stays_empty():
     sampled = sample_by_granularity(Series(kind="raster3d"), "1 day")
     assert sampled.slots == ()
     assert sampled.kind == "raster3d"
+
+
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        ("R = A + B", ["A", "B"]),
+        ("R = if(N != 1.5, B, HA)", ["N", "B", "HA"]),
+        ("R = td(A) + A", ["A"]),
+        ("R = STRDS(A) : STRDS(B)", ["A", "B"]),
+        # A text is no name, as the increment of tshift()
+        ('R = tshift(A, "1 day") + B', ["A", "B"]),
+        # map() and tmap() name single maps, which are not sampled
+        ("R = A + map(m) * tmap(t)", ["A"]),
+        ("R = map(m) * 2", []),
+        ("R = A[1] + B@other - -C", ["A", "B@other", "C"]),
+        # The result is no input, also when an input has its name
+        ("A = B + A", ["B", "A"]),
+    ],
+)
+def test_dataset_names_reads_the_core_syntax_tree(expression, expected):
+    assert dataset_names(expression) == expected
+
+
+def test_dataset_names_raises_the_error_of_the_core_parser():
+    with pytest.raises(SyntaxError, match="near '\\)' at position 8"):
+        dataset_names("R = A + )")
