@@ -25,6 +25,9 @@ def test_output_file_closed_on_fatal(tools, values, broken_tools, tmp_path):
     with pytest.raises(ToolError) as error:
         dev_tools.t_rast_univar(input=values, output=str(output), overwrite=True)
 
+    # A run that stopped before it opened the file would pass the checks
+    # below without testing anything; the file exists once it was opened.
+    assert output.exists()
     text = message(error.value)
     assert "ResourceWarning" not in text
     assert "unclosed file" not in text
