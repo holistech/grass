@@ -1,34 +1,231 @@
-"""The reference implementation of t.select against the comparison helpers
+"""Comparison of the algebra core with the reference implementation for t.select
 
-The reference implementation (grass.temporal.classic) fails where a
-selection would hold the value of a time function; the comparison of
-grass.temporal.testing.differential accepts only that class of error against
-the refusal of the core.
+The core and the reference implementation (grass.temporal.classic) select from
+the same datasets (conftest.py); the registered maps must agree, except for
+the differences that the manual lists between the core and the releases before
+GRASS 8.6. The reference runs in each test.
 """
+
+import itertools
+from datetime import datetime
 
 import pytest
 
+import grass.temporal as tgis
+from grass.temporal.algebra.parser import evaluate
 from grass.temporal.testing import differential
+from grass.tools import Tools
 
-TIME_FUNCTION_SELECTED = "if(start_doy(A)<3,start_doy(A, 1), A)"
+DAY0 = datetime(2001, 1, 1)
+counter = itertools.count()
+
+SAME = [
+    "A : B",
+    "A !: B",
+    "A {:, during} B",
+    "A {:, contains} B",
+    "A {:, over} B",
+    "A {:,during,l} D",
+    "A {:,during,r} D",
+    "A {:,overlaps,i} B",
+    "A {:,overlaps,u} B",
+    "A {:,overlaps,d} B",
+    "A : B !: D",
+    "A {:,during} B {:,during} D",
+    "A {:,equal} B {:,equal} B",
+    "if(start_doy(A) > 20, A)",
+    "if(start_doy(A) > 20, A, B)",
+    "if(A {#, contains} B > 1, A)",
+    "if(td(A) == 10, A) : B",
+    "if({equal}, A {#, contains} B > 1, A {:, contains} B)",
+    "tsnap(A)",
+    'A : tshift(B, "5 days")',
+    'buff_t(A, "1 days") {:,contains} B',
+    'buff_t(A, "1 days") {:,overlaps} B',
+    # b2 [22,27) and b9 [28,29) lie inside the shrunk a3 [21,29)
+    'buff_t(A, "-1 days") {:,contains} B',
+    'buff_t(A, "-1 days") {:,during} D',
+    "A : X@other",
+    "X@other {:, precedes} A",
+]
+
+# Each changed rule with the item of the manual's difference list, and what
+# the core gives: "maps" for the registered maps (possibly none) or the name
+# of the error, so that a crash does not pass for a difference. The marker is
+# the core's outcome, which the test asserts. The mixed-result case, where
+# the core and the reference register maps and only the copy numbers differ,
+# is checked separately below, because this comparison cannot see the numbers.
+DIFFERENT = {
+    # The core reads the neighbourhood modifier A[1] and copies the shifted
+    # map; the reference reports a syntax error.
+    "A[1]": ("maps", "the core reads A[1] and A[-1]"),
+    # The core reads the name of a spatial relation, with and without -s; the
+    # reference does not know it (see also the test with the flag below).
+    "A {:,equal|overlap} B": ("maps", "the core reads spatial relations"),
+    # The core reads an expression that is only a dataset, the reference
+    # reports a syntax error.
+    "A": ("maps", "the core reads a bare dataset"),
+    # A computed result is no selection on the core.
+    "A + B": ("ValueError", "t.select selects maps, it computes none"),
+    # A negative buffer that leaves a map no time is an error on the core;
+    # the reference makes instants (end == start) without a message or
+    # keeps the old time (end < start) and prints one ERROR line per map
+    # ("End time must be greater than start time ...", exit code 0).
+    'buff_t(A, "-5 days") {:,during} D': (
+        "ValueError",
+        "a negative buffer must leave every map some time",
+    ),
+    'buff_t(A, "-6 days") {:,during} D': (
+        "ValueError",
+        "a negative buffer must leave every map some time",
+    ),
+    # The core refuses a time function as the conclusion of if(); the
+    # reference only where its value would be selected. a1, the only map that
+    # meets the condition, has no predecessor, so else gives a2 to a4.
+    "if(start_doy(A) < 3, start_doy(A, -1), A)": (
+        "ValueError",
+        "the core refuses a time function as the conclusion of if()",
+    ),
+}
 
 
-def selection_outcome(
-    runner, basename, expression=TIME_FUNCTION_SELECTED, stdstype="strds"
-):
+def selected(session, expression):
+    """The registered maps of a tool run as (identifier without the result
+    name, start day, end day), through the subprocess the session chooses"""
+    name = f"diff_core_{next(counter)}"
+    tools = Tools(session=session, overwrite=True)
+    tools.t_select(expression=f"{name} = {expression}")
+    listing = tools.t_rast_list(
+        input=name, columns="id,start_time,end_time", format="json"
+    )
+    rows = []
+    for row in listing["data"]:
+        start = (datetime.strptime(row["start_time"], "%Y-%m-%d %H:%M:%S") - DAY0).days
+        end = (datetime.strptime(row["end_time"], "%Y-%m-%d %H:%M:%S") - DAY0).days
+        rows.append((row["id"].replace(name, "C", 1), start, end))
+    return sorted(rows)
+
+
+def selection_outcome(runner, basename, expression, stdstype="strds", **options):
+    """differential.outcome() of a selection with the runner that RUNNERS names"""
     return differential.outcome(
         "select",
         expression,
         differential.RUNNERS[runner],
         basename=basename,
         stdstype=stdstype,
+        **options,
     )
+
+
+def days(result):
+    """The (start day, end day) of each map of an outcome"""
+    return [
+        (
+            (datetime.fromisoformat(start) - DAY0).days,
+            (datetime.fromisoformat(end) - DAY0).days,
+        )
+        for _, start, end, *_ in result["maps"]
+    ]
+
+
+@pytest.mark.parametrize("expression", SAME)
+def test_same_result(series, expression):
+    reference = selection_outcome("reference", "fa", expression)
+    core = selection_outcome("core", "fb", expression)
+    assert differential.compare("select", expression, reference, core) is None
+    # Two errors or two empty results are equal and would compare nothing.
+    assert core.get("maps"), "the expression selects no map and compares nothing"
+
+
+def outcome(expression, spatial=False):
+    """The word "maps" for a result dataset, None for none, or the error name
+
+    The parser runs in this process, so that the error class is visible.
+    """
+    name = f"diff_core_{next(counter)}"
+    try:
+        evaluate(
+            f"{name} = {expression}",
+            kind="raster",
+            basename=name,
+            overwrite=True,
+            run=True,
+            spatial=spatial,
+            selection=True,
+        )
+    except (SyntaxError, ValueError, TypeError, tgis.FatalError) as error:
+        return type(error).__name__
+    dataset = tgis.dataset_factory("strds", f"{name}@{tgis.get_current_mapset()}")
+    if not dataset.is_in_db():
+        return None
+    return "maps"
+
+
+@pytest.mark.parametrize("expression", sorted(DIFFERENT))
+def test_listed_differences_still_differ(series, expression):
+    """A listed difference that no longer differs must leave the list"""
+    reference = selection_outcome("reference", "fa", expression)
+    core = selection_outcome("core", "fb", expression)
+    assert differential.compare("select", expression, reference, core) is not None, (
+        DIFFERENT[expression][1]
+    )
+    assert outcome(expression) == DIFFERENT[expression][0]
+
+
+def test_spatial_relation_is_read_by_the_core_only(series):
+    """The core reads the spatial relation and selects maps, with and without
+    -s; the reference reports a syntax error for the name, with or without
+    -s"""
+    expression = "A {:,equal|overlap} B"
+    assert outcome(expression) == "maps"
+    assert outcome(expression, spatial=True) == "maps"
+    reference = selection_outcome("reference", "fa", expression, spatial=True)
+    assert reference["error"] == "SyntaxError"
+
+
+def test_right_reference_gives_one_map_per_pair(series):
+    """a3 contains b2 and b9: the core registers a map for each pair, the
+    reference only the last pair of each map of A (measured 2026-10-14 on
+    this fixture: 4 maps against 3, the map of b2 missing)"""
+    expression = "A {:,contains,r} B"
+    core = selected(series.session, expression)
+    assert [(start, end) for _, start, end in core] == [
+        (0, 4),
+        (22, 27),
+        (28, 29),
+        (35, 40),
+    ]
+    reference = selection_outcome("reference", "fa", expression)
+    assert days(reference) == [(0, 4), (28, 29), (35, 40)]
+
+
+def test_mixed_result_numbers_the_copies_in_time_order(series):
+    """A result that mixes maps registered unchanged with retimed copies: the
+    unchanged maps keep their names, and the copies are numbered from 1 in the
+    time order of the result (the releases before GRASS 8.6 numbered them
+    among all result maps, C_4 to C_6 here)"""
+    expression = "merge(A {:,during,l} D, A {:,during,r} D)"
+    core = selected(series.session, expression)
+    assert [i for i, _, _ in core if not i.startswith("C_")] == [
+        "a2@PERMANENT",
+        "a3@PERMANENT",
+        "a4@PERMANENT",
+    ]
+    assert [i for i, _, _ in core if i.startswith("C_")] == [
+        "C_1@PERMANENT",
+        "C_2@PERMANENT",
+        "C_3@PERMANENT",
+    ]
+
+
+TIME_FUNCTION_SELECTED = "if(start_doy(A)<3,start_doy(A, 1), A)"
 
 
 def test_the_reference_fails_on_a_time_function_as_the_selected_maps(series):
     """The reference never computes the value of start_doy(A, 1) and fails
     when it copies that map into the result"""
-    reference = selection_outcome("reference", "tfref")
+    reference = selection_outcome("reference", "tfref", TIME_FUNCTION_SELECTED)
     assert reference["error"] == "Other:CalledModuleError"
     assert "g.copy raster=tmp_map_name_" in reference["msg"]
 
