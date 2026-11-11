@@ -80,7 +80,7 @@ void w_kurt(DCELL *result, DCELL (*values)[2], int n,
 
         d = values[i][0] - ave;
         sumsq += d * d * values[i][1];
-        sumqt += d * d * d * values[i][1];
+        sumqt += d * d * d * d * values[i][1];
     }
 
     var = sumsq / count;
