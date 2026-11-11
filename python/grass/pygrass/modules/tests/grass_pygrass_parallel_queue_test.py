@@ -232,6 +232,48 @@ def test_error_reported(helpers):
     assert queue.get_num_run_procs() == 0
 
 
+def test_first_failure_in_put_order(helpers):
+    """wait() raises the failure of the earliest put(), not the earliest end
+
+    The third put() collects failing_fast while failing_slow waits for the
+    release, so failing_fast is collected first; failing_slow was put first.
+    """
+    queue = ParallelModuleQueue(nprocs=2)
+    failing_slow = helpers.module("failing_slow", slow=True, fail=True)
+    failing_fast = helpers.module("failing_fast", fail=True)
+    third = helpers.module("third")
+    for module in (failing_slow, failing_fast, third):
+        queue.put(module)
+    assert failing_fast.returncode == 1
+    assert failing_slow.returncode is None
+    helpers.release()
+    with pytest.raises(CalledModuleError) as excinfo:
+        queue.wait()
+    assert str(helpers.marker("failing_slow")) in str(excinfo.value)
+    assert excinfo.value.__notes__ == ["1 other module(s) of the queue failed as well"]
+    assert done_names(queue.get_finished_modules()) == ["third.done"]
+
+
+def test_module_waited_for_by_the_caller_frees_its_slot(helpers):
+    """A module the caller already waited for counts as ended"""
+    queue = ParallelModuleQueue(nprocs=2)
+    first = helpers.module("first")
+    slow = helpers.module("slow", slow=True)
+    third = helpers.module("third")
+    queue.put(first)
+    first.wait()
+    queue.put(slow)
+    queue.put(third)
+    assert not helpers.marker("slow").exists()
+    helpers.release()
+    queue.wait()
+    assert done_names(queue.get_finished_modules()) == [
+        "first.done",
+        "slow.done",
+        "third.done",
+    ]
+
+
 def test_multimodule_takes_one_slot(helpers):
     """A MultiModule takes one slot, and its modules come back together"""
     queue = ParallelModuleQueue(nprocs=2)

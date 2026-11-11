@@ -230,7 +230,7 @@ class ParallelModuleQueue:
         3
         >>> new_mapcalc = copy.deepcopy(mapcalc)
         >>> mapcalc_list.append(new_mapcalc)
-        >>> m = new_mapcalc(expression="test_pygrass_%i = %i" % (i, i))
+        >>> m = new_mapcalc(expression="test_pygrass_4 =4")
         >>> queue.put(m)  # Waits until one process finished, starts m in its slot
         >>> queue.get_num_run_procs()
         3
@@ -425,7 +425,9 @@ class ParallelModuleQueue:
 def _has_ended(proc):
     """Return True if the process of a Module or MultiModule has ended"""
     if isinstance(proc, Module):
-        return proc._popen.poll() is not None
+        # Module.wait() drops the process handle; a module that the caller
+        # already waited for has ended, and waiting for it again returns at once.
+        return proc._popen is None or proc._popen.poll() is not None
     # The child process of a MultiModule cannot end before the parent reads
     # the modules it sends back if they fill the pipe of the queue, so modules
     # in the queue count as an end, too; MultiModule.wait() reads them first.
