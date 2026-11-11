@@ -12,7 +12,8 @@ import pytest
 
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 
-# Every test sets the algebra itself, see the marker in pyproject.toml.
+# Every test runs on the algebra core, whatever GRASS_TEMPORAL_ALGEBRA says,
+# see the marker in pyproject.toml.
 pytestmark = pytest.mark.fixed_algebra
 
 A1 = "(A1A {+,contains,l} A1B) {/,equal,l} (A1A {#,contains,l} A1B)"
@@ -131,10 +132,10 @@ EXAMPLES = {
 }  # fmt: skip
 
 
-def outcome(paper, monkeypatch, name, algebra):
-    """The maps of an example as (start, end, value), or the error name"""
+def outcome(paper, monkeypatch, name):
+    """The maps of an example on the core as (start, end, value), or the error name"""
     expression, spatial, _maps = EXAMPLES[name]
-    monkeypatch.setenv(ALGEBRA_VARIABLE, algebra)
+    monkeypatch.setenv(ALGEBRA_VARIABLE, "core")
     # Each example starts in the base region of the fixture (PAPER_REGION).
     paper.tools.g_region(n=3, s=0, e=3, w=0, res=1)
     try:
@@ -155,10 +156,4 @@ def outcome(paper, monkeypatch, name, algebra):
 
 @pytest.mark.parametrize("name", list(EXAMPLES))
 def test_core_computes_the_published_maps(paper, monkeypatch, name):
-    assert outcome(paper, monkeypatch, name, "core") == EXAMPLES[name][2]
-
-
-@pytest.mark.parametrize("name", list(EXAMPLES))
-def test_classic_algebra_computes_the_published_maps(paper, monkeypatch, name):
-    """Results published with the classic algebra stay reproducible"""
-    assert outcome(paper, monkeypatch, name, "classic") == EXAMPLES[name][2]
+    assert outcome(paper, monkeypatch, name) == EXAMPLES[name][2]

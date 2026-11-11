@@ -1,114 +1,220 @@
-"""The expressions of the paper that introduced the algebra, in a gold corpus
+"""The expressions of the paper that introduced the algebra, with fixed values
 
 Gebbert, Leppelt and Pebesma (2019): A Topology Based Spatio-Temporal Map
 Algebra for Big Data Analysis. Data 4(2), 86. The expressions are the printed
-ones, with the names of the datasets replaced. The corpus checks that the
-classic profile (what -c runs) computes what the reference implementation
-(grass.temporal.classic) computes. The paper writes the relation equals; both
-read it as another name of equal.
+ones, with the names of the datasets replaced; the data are those of the
+fixture below. The paper writes the relation equals, which the algebra reads
+as another name of equal.
+
+Each expected map is derived by hand in the comment above it. The values
+equal those the reference implementation of the releases before GRASS 8.6
+computed, recorded from the reference implementation on 2026-11-11, with one
+difference under -n that the case itself describes.
 
 t_rast_algebra_paper_test.py checks the figures of the paper against their
-printed results; this module compares the two implementations on the
-expressions and pins three results computed by hand.
-
-Every printed expression runs in the reference, the profile and the core. The
-caption of one figure misspells precedes; that spelling is a syntax error in
-all three and the only printed form that is refused.
+printed results. The caption of one figure misspells precedes; that spelling
+is a syntax error and the only printed form that is refused.
 """
 
 import datetime
 
 import pytest
 
+import grass.temporal as tgis
+from grass.temporal.algebra.parser import evaluate
 from grass.temporal.testing import io_cache
-from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.temporal.testing.differential import (
-    RUNNERS,
-    compare,
-    outcome,
-    outcome_of_runner,
-)
 from grass.tools import Tools
 
 KIND = "raster"
 
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
+# The tests call the algebra core directly, whatever GRASS_TEMPORAL_ALGEBRA
+# says, see the marker in pyproject.toml.
 pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
 
-# (expression, options of the runners, data). The test ids name the section
-# of the paper; the data are those of the fixture below. A name other than
-# "paper" in the last field would name another fixture.
+
+def months(*values, first=1):
+    """Monthly maps of 2001 from month first on, as (start, end, value)"""
+    return [
+        (f"2001-{month:02d}-01", f"2001-{month + 1:02d}-01", value)
+        for month, value in enumerate(values, first)
+    ]
+
+
+def january(first, *values):
+    """Daily maps of January 2001 from day first on, as (start, end, value)"""
+    return [
+        (f"2001-01-{day:02d}", f"2001-01-{day + 1:02d}", value)
+        for day, value in enumerate(values, first)
+    ]
+
+
+# (expression, options of the algebra, expected maps). The test ids name the
+# section of the paper. A map is (start, end, value); the value None is a map
+# without a valid cell, which -n registers.
 PUBLISHED = [
+    # (nir - red) / (nir + red) on the three days:
+    # (8.5 - 2.5) / (8.5 + 2.5) = 6 / 11, (9.5 - 3.5) / (9.5 + 3.5) = 6 / 13,
+    # (10.5 - 4.5) / (10.5 + 4.5) = 6 / 15.
     pytest.param(
-        "(NIR - RED) / (NIR + RED)", {}, "paper", id="section 4.1, Landsat NDVI"
+        "(NIR - RED) / (NIR + RED)",
+        {},
+        january(1, 6 / 11, 6 / 13, 6 / 15),
+        id="section 4.1, Landsat NDVI",
     ),
+    # The maps of NIR and RED have equal times and extents, so the spatial
+    # relation equivalent holds beside equal: the values of section 4.1.
     pytest.param(
         "(NIR {-,equal|equivalent,l} RED) {/,equal|equivalent,l} "
         "(NIR {+,equal|equivalent,l} RED)",
         {"spatial": True},
-        "paper",
+        january(1, 6 / 11, 6 / 13, 6 / 15),
         id="section 4.2, Sentinel-2 NDVI",
     ),
+    # Day number n (from 0 on) has T = n % 20 and P = n % 7 + 1; DM adds its
+    # value once to numerator and denominator.
+    # January, DM = 1, days 0 to 30: T >= 10 on days 10 to 19 (T = 10 to 19)
+    # and day 30 (T = 10). P is 4 5 6 7 1 2 3 4 5 6 (sum 43) and 3: numerator
+    # 1 + 46 = 47; T sums to 145 + 10 = 155: denominator 1 + 15.5 = 16.5.
+    # February, DM = 2, days 31 to 58: T >= 10 on days 31 to 39 (T = 11 to
+    # 19) and 50 to 58 (T = 10 to 18). P is 4 5 6 7 1 2 3 4 5 (sum 37) and
+    # 2 3 4 5 6 7 1 2 3 (sum 33): numerator 2 + 70 = 72; T sums to
+    # 135 + 126 = 261: denominator 2 + 26.1 = 28.1.
     pytest.param(
         "(DM {+,contains,l} if(T >= 10.0, P, 0.0)) / "
         "(DM {+,contains,l} if(T >= 10.0, T / 10.0, 0.0))",
         {},
-        "paper",
+        months(47 / 16.5, 72 / 28.1),
         id="section 4.3, hydrothermal coefficient",
     ),
+    # a1 contains e1, e2, e3: (1.5 + 1.5 + 2.5 + 3.5) / 3 = 3. a2 to a4
+    # contain no map of E and give no map.
     pytest.param(
         "(A {+,contains,l} E) {/,equals,l} (A {#,contains,l} E)",
         {},
-        "paper",
+        months(3),
         id="appendix A.1, hash operator with equals",
     ),
+    # e1 to e3 are during a1: 1.5 + 1.5, 2.5 + 1.5, 3.5 + 1.5.
     pytest.param(
         "E {+,equals|during|equivalent,l} A",
         {},
-        "paper",
+        january(5, 3, 4, 5),
         id="section 3.1.3, list of relations",
     ),
-    pytest.param("E {:,during,l} A", {}, "paper", id="appendix C.1, selection"),
+    # e1 to e3 are during a1 and are selected with their values.
     pytest.param(
-        "A !: B {:,contains,l} E", {}, "paper", id="appendix C.1, inverse selection"
+        "E {:,during,l} A",
+        {},
+        january(5, 1.5, 2.5, 3.5),
+        id="appendix C.1, selection",
     ),
-    pytest.param("A {+,contains,l} E", {}, "paper", id="appendix C.2, contains"),
-    pytest.param("E {+,during,l} A", {}, "paper", id="appendix C.2, during"),
+    # From left to right: no map of A is equal to b1 or b2, so A !: B is A;
+    # of its maps only a1 contains maps of E.
     pytest.param(
-        "A {+,follows|precedes,d} G", {}, "paper", id="appendix C.2, disjoint union"
+        "A !: B {:,contains,l} E",
+        {},
+        months(1.5),
+        id="appendix C.1, inverse selection",
     ),
-    pytest.param("A {-,overlaps,i} B", {}, "paper", id="appendix C.2, intersection"),
-    pytest.param("A {+,equals|equivalent,l} F", {}, "paper", id="appendix C.2, equals"),
+    # a1 contains e1 to e3: 1.5 + 1.5 + 2.5 + 3.5 = 9.
+    pytest.param("A {+,contains,l} E", {}, months(9), id="appendix C.2, contains"),
+    # As in section 3.1.3: 1.5 + 1.5, 2.5 + 1.5, 3.5 + 1.5.
+    pytest.param(
+        "E {+,during,l} A", {}, january(5, 3, 4, 5), id="appendix C.2, during"
+    ),
+    # G has g1 = 10, g2 = 20, g3 = 30 on February to April. a1 precedes g1:
+    # January to March, 1.5 + 10. a2 precedes g2: February to April,
+    # 2.5 + 20. a3 follows g1 and precedes g3: February to May,
+    # 3.5 + 10 + 30. a4 follows g2: March to May, 4.5 + 20.
+    pytest.param(
+        "A {+,follows|precedes,d} G",
+        {},
+        [
+            ("2001-01-01", "2001-03-01", 11.5),
+            ("2001-02-01", "2001-04-01", 22.5),
+            ("2001-02-01", "2001-05-01", 43.5),
+            ("2001-03-01", "2001-05-01", 24.5),
+        ],
+        id="appendix C.2, disjoint union",
+    ),
+    # b1 = 10 runs from January 15 to February 15, b2 = 20 from February 15
+    # to March 15. a1 overlaps b1: January 15 to February 1, 1.5 - 10. a2
+    # overlaps b2: February 15 to March 1, 2.5 - 20.
+    pytest.param(
+        "A {-,overlaps,i} B",
+        {},
+        [("2001-01-15", "2001-02-01", -8.5), ("2001-02-15", "2001-03-01", -17.5)],
+        id="appendix C.2, intersection",
+    ),
+    # Month for month a + f: 1.5 + 5, 2.5 + 6, 3.5 + 7, 4.5 + 8.
+    pytest.param(
+        "A {+,equals|equivalent,l} F",
+        {},
+        months(6.5, 8.5, 10.5, 12.5),
+        id="appendix C.2, equals",
+    ),
+    # The buffered maps: a1 December 1 to March 1, a2 January 1 to April 1,
+    # a3 February 1 to May 1, a4 March 1 to June 1; b1 December 15 to March
+    # 15, b2 January 15 to April 15. a1 overlaps b1 and b2; a2 is overlapped
+    # by b1 and overlaps b2; a3 and a4 are overlapped by b1 and b2. Each map
+    # of A is the union with both maps of B: 1.5 + 30, 2.5 + 30, 3.5 + 30,
+    # 4.5 + 30.
     pytest.param(
         'buff_t(A, "1 month") {+,equals|overlaps|overlapped,u} buff_t(B, "1 month")',
         {},
-        "paper",
+        [
+            ("2000-12-01", "2001-04-15", 31.5),
+            ("2000-12-15", "2001-04-15", 32.5),
+            ("2000-12-15", "2001-05-01", 33.5),
+            ("2000-12-15", "2001-06-01", 34.5),
+        ],
         id="appendix C.3, temporal buffer with equals",
     ),
+    # H has 1.5 to 6.5 on January 10 to 15; only h3 and h4 have two
+    # neighbours on each side: (1.5 + 2.5 + 3.5 + 4.5 + 5.5) / 5 and
+    # (2.5 + 3.5 + 4.5 + 5.5 + 6.5) / 5.
     pytest.param(
         "(H[-2] + H[-1] + H + H[1] + H[2]) / 5.0",
         {},
-        "paper",
+        january(12, 3.5, 4.5),
         id="appendix C.4, moving average",
     ),
-    pytest.param("(A[-1] + A) / td(A)", {}, "paper", id="appendix C.4, gradient"),
+    # The first map has no predecessor and gives no map. February has 28
+    # days, March 31 and April 30 (2001 is no leap year):
+    # (1.5 + 2.5) / 28, (2.5 + 3.5) / 31, (3.5 + 4.5) / 30.
+    pytest.param(
+        "(A[-1] + A) / td(A)",
+        {},
+        months(4 / 28, 6 / 31, 8 / 30, first=2),
+        id="appendix C.4, gradient",
+    ),
+    # a > 1 holds on each month, f > 6 for f = 7 and 8 only, so the
+    # condition is false, false, true, true. r.mapcalc gives 0 where an if
+    # without else is false: 0, 0, 3.5, 4.5.
     pytest.param(
         "if(A > 1 {&&,equals,&,l} F > 6, A)",
         {},
-        "paper",
+        months(0, 0, 3.5, 4.5),
         id="section 3.2.1, logical operator with equals",
     ),
+    # With L = 0.5 the numerator is (nir - red) * 1.5 = 6 * 1.5 = 9 on each
+    # day and the denominator nir + red + 0.5: 11.5, 13.5, 15.5.
     pytest.param(
         "((NIR - RED) * (map(L) + 1)) / (NIR + RED + map(L))",
         {},
-        "paper",
+        january(1, 9 / 11.5, 9 / 13.5, 9 / 15.5),
         id="appendix C.3, SAVI",
     ),
+    # a1 contains e1 to e3, all above 1, and a1 > 1: the condition holds and
+    # the result is a1 = 1.5. a2 to a4 contain no map of E. Under -n the core
+    # registers a map without a valid cell for each of them, which -n asks
+    # for (a left map without related map); the reference implementation
+    # registered only the map of January. This is how the core behaves.
     pytest.param(
         "if(A > 1 {&&,contains,&,l} E > 1, A)",
         {},
-        "paper",
+        months(1.5, None, None, None),
         id="section 3.2.1, logical operator with contains",
     ),
 ]
@@ -246,67 +352,55 @@ def cached_io(paper):
     """Replace the fixture of conftest.py: the caches run through paper"""
 
 
-def run(runner, expression, basename, **options):
-    return outcome_of_runner(KIND, expression, runner, basename, **options)
+def day_text(moment):
+    """The date of a time stamp; every time of these data is at midnight"""
+    assert moment.time() == datetime.time(), moment
+    return f"{moment:%Y-%m-%d}"
 
 
-@pytest.mark.parametrize(("expression", "options", "data"), PUBLISHED)
-def test_the_profile_computes_what_the_reference_computes(
-    paper, expression, options, data
-):
-    assert data == "paper"
-    reference = reference_outcome(KIND, expression, register_null=True, **options)
-    profile = run("classic", expression, "fb", **options)
-    assert compare(KIND, expression, reference, profile) is None
-    # Two refusals would make the comparison vacuous.
-    assert "error" not in reference
-    assert reference["maps"]
+def run(expression, basename="fc", **options):
+    """Compute R = expression on the algebra core and return the maps of R
+
+    Calls the core as t.rast.algebra does without -c, with -n unless
+    register_null says otherwise. A map is (start, end, value) with the
+    dates only; every map of these data is constant, so its minimum is its
+    value, and None is a map without a valid cell.
+    """
+    result = tgis.SpaceTimeRasterDataset("R@PERMANENT")
+    if result.is_in_db():
+        result.delete()
+    options = {"register_null": True, **options}
+    evaluate(
+        f"R = {expression}", kind=KIND, basename=basename, overwrite=True, **options
+    )
+    rows = []
+    dataset = tgis.open_old_stds("R", "strds")
+    for raster in dataset.get_registered_maps_as_objects(order="start_time") or []:
+        raster.select()
+        start, end = raster.get_temporal_extent_as_tuple()
+        low, high = raster.metadata.get_min(), raster.metadata.get_max()
+        assert low == high, raster.get_id()
+        rows.append((day_text(start), None if end is None else day_text(end), low))
+    return sorted(rows, key=lambda row: (row[0], row[1] or "", row[2] or 0))
 
 
-@pytest.mark.parametrize(("expression", "options", "data"), PUBLISHED)
+def approximately(maps):
+    """The expected maps with each value compared up to rounding"""
+    return [
+        (start, end, None if value is None else pytest.approx(value))
+        for start, end, value in maps
+    ]
+
+
+@pytest.mark.parametrize(("expression", "options", "expected"), PUBLISHED)
 def test_the_core_computes_what_the_reference_computes(
-    paper, expression, options, data
+    paper, expression, options, expected
 ):
-    """Every printed expression runs in the core and gives the maps of the
-    reference
-
-    One expression differs by the meaning of -n, which the runner sets: the
-    core also registers a null map for each map of A that contains no map of E
-    (a2 to a4), the reference registers only the map with partners. The map
-    with partners is the same.
-    """
-    assert data == "paper"
-    reference = reference_outcome(KIND, expression, register_null=True, **options)
-    core = run("core", expression, "fc", **options)
-    assert "error" not in core, core
-    assert core["maps"]
-    difference = compare(KIND, expression, reference, core)
-    if difference is None:
-        return
-    assert "{&&,contains" in expression, difference
-    kept = [row for row in core["maps"] if row[3] is not None]
-    assert [row[1:] for row in kept] == [row[1:] for row in reference["maps"]]
-    assert len(core["maps"]) - len(kept) == 3
+    """Every printed expression runs in the core and gives the expected maps"""
+    assert run(expression, **options) == approximately(expected)
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic"])
-def test_equals_by_hand(paper, runner):
-    """A and F have four monthly maps each, month for month the same time
-
-    {+,equals,l}: a + f = 1.5 + 5, 2.5 + 6, 3.5 + 7, 4.5 + 8 = 6.5, 8.5,
-    10.5, 12.5.
-    equals|equal names the relation twice and relates the partner twice:
-    a + f + f = 1.5 + 10, 2.5 + 12, 3.5 + 14, 4.5 + 16 = 11.5, 14.5, 17.5,
-    20.5.
-    """
-    once = values(run(runner, "A {+,equals,l} F", "fa"))
-    twice = values(run(runner, "A {+,equals|equal,l} F", "fb"))
-    assert [row[2] for row in once] == [6.5, 8.5, 10.5, 12.5]
-    assert [row[2] for row in twice] == [11.5, 14.5, 17.5, 20.5]
-
-
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
-def test_a_spatial_relation_name_works_without_the_flag(paper, runner):
+def test_a_spatial_relation_name_works_without_the_flag(paper):
     """Appendix C.2 prints equals|equivalent without -s
 
     A and F have four monthly maps each, month for month the same time and
@@ -315,29 +409,23 @@ def test_a_spatial_relation_name_works_without_the_flag(paper, runner):
     The regions are equivalent, not a cover of one another, so the name cover
     relates no pair and no map results.
     """
-    related = run(runner, "A {+,equal|equivalent,l} F", "fa")
-    assert [row[2] for row in values(related)] == [6.5, 8.5, 10.5, 12.5]
-    unrelated = run(runner, "A {+,equal|cover,l} F", "fb")
-    assert "error" not in unrelated
-    assert not unrelated["maps"]
+    related = run("A {+,equal|equivalent,l} F", "fa")
+    assert related == approximately(months(6.5, 8.5, 10.5, 12.5))
+    assert run("A {+,equal|cover,l} F", "fb") == []
 
 
 @pytest.mark.parametrize("spatial", [False, True], ids=["", "-s"])
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
-def test_a_spatial_relation_name_alone_is_refused(paper, runner, spatial):
+def test_a_spatial_relation_name_alone_is_refused(paper, spatial):
     """A spatial name needs a temporal one beside it, as in equal|equivalent
 
     A related map is found by the temporal relations; with none written no map
-    can relate. The reference used to give an empty result without a message
-    for every data; all three now refuse the expression with the same error.
+    can relate.
     """
-    refused = run(runner, "A {+,equivalent,l} F", "fa", spatial=spatial)
-    assert refused["error"] == "Other:ValueError"
-    assert "needs a temporal one" in refused["msg"]
+    with pytest.raises(ValueError, match="needs a temporal one"):
+        run("A {+,equivalent,l} F", "fa", spatial=spatial)
 
 
 @pytest.mark.parametrize("register_null", [False, True], ids=["", "-n"])
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [
@@ -354,59 +442,40 @@ def test_a_spatial_relation_name_alone_is_refused(paper, runner, spatial):
         ("if(A > 1 {&&,contains,&,l} E > 1, A)", [1.5]),
     ],
 )
-def test_if_without_else_gives_zero(paper, runner, expression, expected, register_null):
+def test_if_without_else_gives_zero(paper, expression, expected, register_null):
     """An if without else is 0 where the condition is false, as in r.mapcalc
 
-    The reference and the classic profile register these maps with and
-    without -n. With -n the core also registers a null map for each map of A
-    without a partner in E, which is what -n asks for (a left map without
-    related map), not a property of the missing else.
+    With -n the core also registers a null map for each map of A without a
+    partner in E, which is what -n asks for (a left map without related map),
+    not a property of the missing else.
     """
-    result = outcome(
-        KIND,
-        expression,
-        RUNNERS[runner],
-        basename="fa",
-        register_null=register_null,
-    )
-    assert "error" not in result
-    found = [row[3] for row in result["maps"]]
-    if runner == "core" and register_null and "contains" in expression:
+    found = [value for *_, value in run(expression, register_null=register_null)]
+    if register_null and "contains" in expression:
         expected = [*expected, None, None, None]
     assert found == pytest.approx(expected)
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic"])
-@pytest.mark.parametrize("name", ["EQUALS", "Equals", "EQUAL"])
-def test_the_relation_names_stay_lower_case(paper, runner, name):
-    assert run(runner, f"A {{+,{name},l}} F", "fa")["error"] == "SyntaxError"
-
-
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
-def test_a_dataset_may_be_named_like_a_capital_function(paper, runner):
+def test_a_dataset_may_be_named_like_a_capital_function(paper):
     """STRDS is a function name only before an opening parenthesis
 
     The dataset STRDS has the values 10, 20, 30, 40 on the months of A (1.5,
     2.5, 3.5, 4.5).
     STRDS + 1 = 11, 21, 31, 41; A + STRDS = 11.5, 22.5, 33.5, 44.5.
     """
-    plus_one = values(run(runner, "STRDS + 1", "fa"))
-    assert [row[2] for row in plus_one] == [11, 21, 31, 41]
-    sums = values(run(runner, "A + STRDS", "fb"))
-    assert [row[2] for row in sums] == [11.5, 22.5, 33.5, 44.5]
+    assert run("STRDS + 1", "fa") == approximately(months(11, 21, 31, 41))
+    assert run("A + STRDS", "fb") == approximately(months(11.5, 22.5, 33.5, 44.5))
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
-def test_the_dataset_function_is_no_raster_operand(paper, runner):
+def test_the_dataset_function_is_no_raster_operand(paper):
     """STRDS(A) is the selection form of t.select, not an operand here"""
-    assert run(runner, "STRDS(A) + 1", "fa")["error"] == "SyntaxError"
+    with pytest.raises(SyntaxError):
+        run("STRDS(A) + 1", "fa")
 
 
 def test_the_spelling_preceedes_of_the_caption_is_refused(paper):
     """The caption of the paper misspells precedes; no version reads it"""
-    expression = "A {+,follows|preceedes,d} G"
-    for runner in ("reference", "classic", "core"):
-        assert run(runner, expression, "fa")["error"] == "SyntaxError"
+    with pytest.raises(SyntaxError):
+        run("A {+,follows|preceedes,d} G", "fa")
 
 
 @pytest.mark.parametrize(
@@ -418,93 +487,4 @@ def test_the_long_form_of_a_comparison(paper, expression):
     a >= f is false on each month (1.5 < 5, 2.5 < 6, 3.5 < 7, 4.5 < 8), so
     the else part F is the result: 5, 6, 7 and 8.
     """
-    for runner in ("reference", "classic", "core"):
-        result = run(runner, expression, "fa")
-        assert [row[3] for row in result["maps"]] == [5, 6, 7, 8]
-
-
-def values(result):
-    """The maps of an outcome as (start, end, value) with the dates only
-
-    Every map of these data is constant, so its minimum is its value.
-    """
-    assert result["stds"], result
-    assert all(low == high for *_, low, high in result["maps"]), result
-    return [
-        (start[:10], end[:10] if end else None, pytest.approx(low, rel=1e-5))
-        for _name, start, end, low, _high in result["maps"]
-    ]
-
-
-@pytest.mark.parametrize("runner", ["reference", "classic"])
-def test_landsat_ndvi_by_hand(paper, runner):
-    """(NIR - RED) / (NIR + RED) of the maps of one day each
-
-    day 1: (8.5 - 2.5) / (8.5 + 2.5) = 6 / 11
-    day 2: (9.5 - 3.5) / (9.5 + 3.5) = 6 / 13
-    day 3: (10.5 - 4.5) / (10.5 + 4.5) = 6 / 15
-    """
-    result = run(runner, "(NIR - RED) / (NIR + RED)", "fa")
-    assert values(result) == [
-        ("2001-01-01", "2001-01-02", 6 / 11),
-        ("2001-01-02", "2001-01-03", 6 / 13),
-        ("2001-01-03", "2001-01-04", 6 / 15),
-    ]
-
-
-@pytest.mark.parametrize("runner", ["reference", "classic"])
-def test_hydrothermal_coefficient_by_hand(paper, runner):
-    """The sum of P over the days with T >= 10 divided by the sum of T / 10
-
-    DM adds its value once to numerator and denominator. Day number n (from
-    0 on) has T = n % 20 and P = n % 7 + 1.
-
-    January, DM = 1, days 0 to 30. T >= 10 on days 10 to 19 (T = 10 to 19)
-    and day 30 (T = 10). P on days 10 to 19 is 4 5 6 7 1 2 3 4 5 6 (sum 43),
-    on day 30 it is 3: numerator 1 + 46 = 47. The T of these days sum to
-    145 + 10 = 155: denominator 1 + 15.5 = 16.5. 47 / 16.5.
-
-    February, DM = 2, days 31 to 58. T >= 10 on days 31 to 39 (T = 11 to 19)
-    and 50 to 58 (T = 10 to 18). P on days 31 to 39 is 4 5 6 7 1 2 3 4 5
-    (sum 37), on days 50 to 58 it is 2 3 4 5 6 7 1 2 3 (sum 33): numerator
-    2 + 70 = 72. The T sum to 135 + 126 = 261: denominator 2 + 26.1 = 28.1.
-    72 / 28.1.
-    """
-    expression = (
-        "(DM {+,contains,l} if(T >= 10.0, P, 0.0)) / "
-        "(DM {+,contains,l} if(T >= 10.0, T / 10.0, 0.0))"
-    )
-    assert values(run(runner, expression, "fa")) == [
-        ("2001-01-01", "2001-02-01", 47 / 16.5),
-        ("2001-02-01", "2001-03-01", 72 / 28.1),
-    ]
-
-
-@pytest.mark.parametrize("runner", ["reference", "classic"])
-def test_gradient_by_hand(paper, runner):
-    """(A[-1] + A) / td(A) on the monthly maps 1.5, 2.5, 3.5 and 4.5
-
-    The first map has no predecessor and gives no map. February has 28 days,
-    March 31 and April 30 (2001 is no leap year):
-    (1.5 + 2.5) / 28, (2.5 + 3.5) / 31, (3.5 + 4.5) / 30.
-    """
-    assert values(run(runner, "(A[-1] + A) / td(A)", "fa")) == [
-        ("2001-02-01", "2001-03-01", 4 / 28),
-        ("2001-03-01", "2001-04-01", 6 / 31),
-        ("2001-04-01", "2001-05-01", 8 / 30),
-    ]
-
-
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
-def test_the_soil_adjusted_vegetation_index(paper, runner):
-    """Appendix C.3, a number added to map(L)
-
-    With L = 0.5 the numerator is (NIR - RED) * 1.5 = 6 * 1.5 = 9 on each day
-    and the denominator NIR + RED + 0.5: 11.5, 13.5 and 15.5.
-    """
-    expression = "((NIR - RED) * (map(L) + 1)) / (NIR + RED + map(L))"
-    assert values(run(runner, expression, "fa")) == [
-        ("2001-01-01", "2001-01-02", 9 / 11.5),
-        ("2001-01-02", "2001-01-03", 9 / 13.5),
-        ("2001-01-03", "2001-01-04", 9 / 15.5),
-    ]
+    assert run(expression, "fa") == approximately(months(5, 6, 7, 8))
