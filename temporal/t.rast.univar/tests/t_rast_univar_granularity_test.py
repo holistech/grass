@@ -382,8 +382,9 @@ RECORDED = {
 def test_without_granularity_unchanged(tools, zoned, relative, case):
     # The outputs were recorded on 2026-11-10 with the tool and the library
     # of commit a061ece033, before the granularity existed, from
-    # zoned_dataset() and relative_dataset(). The JSON of the relative
-    # dataset keeps a quirk of that code: a start of 0 is null.
+    # zoned_dataset() and relative_dataset(). Only the start of the first
+    # map of the relative dataset differs from that recording: the JSON
+    # wrote null for a start of 0, and the record now holds "0".
     recorded = json.loads(DATA.joinpath("without_granularity.json").read_text())
     name, options = RECORDED[case]
 

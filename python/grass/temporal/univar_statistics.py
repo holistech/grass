@@ -106,8 +106,8 @@ def compute_univar_stats(
             "semantic_label": semantic_label
             if stats_module.name == "r.univar" and semantic_label
             else None,
-            "start": str(start) if start else None,
-            "end": str(end) if end else None,
+            "start": str(start) if start is not None else None,
+            "end": str(end) if end is not None else None,
         }
         return _json_stats(univar_stats, id_, leading)
     return _text_stats(univar_stats, id_, semantic_label, start, end, fs, stats_module)

@@ -7,6 +7,7 @@ import math
 
 import pytest
 
+from grass.temporal.testing.data import MapSpec, create_stds, small_region
 from grass.temporal.testing.readback import message
 from grass.tools import ToolError
 
@@ -220,3 +221,27 @@ def test_a_dash_as_output_means_the_standard_output(
     result = tools.t_rast3d_univar(input=values, where=ONE_MAP, output="-")
 
     _check_row(result.stdout.splitlines()[1].split("|"))
+
+
+def test_json_writes_a_relative_start_of_zero(tools):
+    # Two maps of one voxel, 5 and 7, in a relative dataset in days; the
+    # first starts at 0. The start of a map is the number as text, so the
+    # first map gives "0" (not null) and the second "1", the same form as
+    # the end of the first.
+    small_region(tools, 1, 1, depths=1)
+    create_stds(
+        tools,
+        "str3ds",
+        "ur3_zero",
+        [MapSpec("ur3_z1", 5, 0, 1), MapSpec("ur3_z2", 7, 1, 2)],
+        temporaltype="relative",
+        unit="days",
+    )
+
+    result = tools.t_rast3d_univar(input="ur3_zero", format="json")
+
+    data = json.loads(result.stdout)
+    assert [(entry["start"], entry["end"]) for entry in data] == [
+        ("0", "1"),
+        ("1", "2"),
+    ]

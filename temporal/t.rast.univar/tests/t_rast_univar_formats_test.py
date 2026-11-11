@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.readback import message
 from grass.tools import ToolError
 
@@ -203,3 +204,27 @@ def test_a_dash_as_output_means_the_standard_output(tools, values):
     result = tools.t_rast_univar(input=values, where=ONE_MAP, output="-")
 
     assert result.stdout.splitlines()[1].split("|") == FIRST_ROW
+
+
+def test_json_writes_a_relative_start_of_zero(tools, values):
+    # Two maps of one cell, 5 and 7, in a relative dataset in days; the first
+    # starts at 0. The start of a map is the number as text, so the first map
+    # gives "0" (not null) and the second "1", the form of the end of the
+    # first.
+    tools.g_region(n=1, s=0, e=1, w=0, res=1)
+    create_stds(
+        tools,
+        "strds",
+        "ur_zero",
+        [MapSpec("ur_z1", 5, 0, 1), MapSpec("ur_z2", 7, 1, 2)],
+        temporaltype="relative",
+        unit="days",
+    )
+
+    result = tools.t_rast_univar(input="ur_zero", format="json")
+
+    data = json.loads(result.stdout)
+    assert [(entry["start"], entry["end"]) for entry in data] == [
+        ("0", "1"),
+        ("1", "2"),
+    ]

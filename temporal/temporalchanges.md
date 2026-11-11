@@ -1075,6 +1075,11 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     holds with **zones**, an empty selection prints `[]`, the parser checks
     **region_relation**, and floating point zones are refused as in 2D
     ([t.rast.univar](t.rast.univar.md#notes)).
+- **Relative start of 0.** With **format=json**, a map of a relative dataset
+    that starts at 0 got `"start": null`, while the plain and csv output and
+    the lines per granule wrote `0`. Now the JSON writes `"0"`, as it writes
+    the other relative times, and null only stays where a map has no time
+    ([t.rast.univar](t.rast.univar.md#description)).
 - **Statistics per granule.** *t.rast.univar* printed the statistics of each
     map; statistics of a quarter or a year needed an aggregated dataset
     first. Now **granularity** prints one line per granule with the
