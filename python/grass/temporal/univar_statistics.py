@@ -31,6 +31,7 @@ import csv
 import io
 import json
 import os
+from typing import NamedTuple
 
 import grass.script as gs
 from grass.exceptions import CalledModuleError
@@ -113,6 +114,17 @@ def compute_univar_stats(
     return _text_stats(univar_stats, id_, semantic_label, start, end, fs, stats_module)
 
 
+class _NoStatistics(NamedTuple):
+    """r.univar printed nothing for the maps of a granule
+
+    The worker process returns this instead of warning itself: warnings that
+    several workers of nprocs write at once mix on stderr, so the parent
+    warns, in the order of the granules.
+    """
+
+    names: str
+
+
 class _GranuleNotStartedError(Exception):
     """r.univar could not be started for the maps of a granule
 
@@ -145,8 +157,7 @@ def _granule_stats(granule, stats_module, fs, output_format):
 
     univar_stats = stats_module.outputs.stdout
     if not univar_stats:
-        gs.warning(_("Unable to get statistics for the raster maps <{}>").format(names))
-        return None
+        return _NoStatistics(names)
 
     if output_format == "json":
         leading = {"maps": ids, "start": str(start), "end": str(end)}
@@ -283,6 +294,37 @@ def _starmap(function, arguments, nprocs):
         return [function(*item) for item in arguments]
     with Pool(min(nprocs, len(arguments))) as pool:
         return pool.starmap(function, arguments)
+
+
+def _all_granule_stats(granules, stats_module, fs, output_format, nprocs):
+    """The output of _granule_stats for each granule, None where it has none
+
+    Warns for each granule without statistics, in the order of the granules,
+    and ends with a message if r.univar could not be started for one.
+    """
+    try:
+        results = _starmap(
+            _granule_stats,
+            [(granule, stats_module, fs, output_format) for granule in granules],
+            max(nprocs, 1),
+        )
+    except _GranuleNotStartedError as error:
+        start, reason = error.args
+        get_tgis_message_interface().fatal(
+            _(
+                "Unable to run r.univar for the maps of the granule that "
+                "starts at <{start}>: {reason}. All maps of a granule are "
+                "passed in one command line; use a smaller granularity"
+            ).format(start=start, reason=reason)
+        )
+    for item in results:
+        if isinstance(item, _NoStatistics):
+            gs.warning(
+                _("Unable to get statistics for the raster maps <{}>").format(
+                    item.names
+                )
+            )
+    return [None if isinstance(item, _NoStatistics) else item for item in results]
 
 
 def _check_granule_options(type, granularity, sampling, rast_region, format, fs):
@@ -509,21 +551,7 @@ def print_gridded_dataset_univar_statistics(
                 max(nprocs, 1),
             )
         else:
-            try:
-                strings = _starmap(
-                    _granule_stats,
-                    [(granule, univar_module, fs, format) for granule in granules],
-                    max(nprocs, 1),
-                )
-            except _GranuleNotStartedError as error:
-                start, reason = error.args
-                get_tgis_message_interface().fatal(
-                    _(
-                        "Unable to run r.univar for the maps of the granule that "
-                        "starts at <{start}>: {reason}. All maps of a granule are "
-                        "passed in one command line; use a smaller granularity"
-                    ).format(start=start, reason=reason)
-                )
+            strings = _all_granule_stats(granules, univar_module, fs, format, nprocs)
 
         if format == "json":
             json_out = []

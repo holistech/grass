@@ -367,6 +367,25 @@ def test_a_granule_without_statistics_warns(tools, monthly, broken_tools):
     )
 
 
+def test_the_warnings_of_parallel_granules_stay_whole_and_in_order(
+    monthly, broken_tools
+):
+    # Both quarters have no statistics and are computed in two processes. The
+    # warnings must not mix on stderr and follow the order of the granules.
+    silent = broken_tools("r.univar", status=0)
+
+    text = message(
+        silent.t_rast_univar(input=monthly, granularity="3 months", nprocs=2)
+    )
+
+    first = f"Unable to get statistics for the raster maps <{_first_quarter()}>"
+    second = f"Unable to get statistics for the raster maps <{_second_quarter()}>"
+    assert text.count("Unable to get statistics") == 2
+    assert first in text
+    assert second in text
+    assert text.index(first) < text.index(second)
+
+
 RECORDED = {
     "plain": ("gr_zoned", {}),
     "plain_zones": ("gr_zoned", {"zones": "gr_zones"}),
