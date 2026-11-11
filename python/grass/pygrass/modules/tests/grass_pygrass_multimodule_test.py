@@ -264,8 +264,10 @@ def test_the_queue_is_usable_after_a_failure(session):
 def test_a_full_queue_waits_for_every_process_before_it_raises(session):
     """wait() waits for every process of a full queue before it raises
 
-    With more than one process put() does not raise: it only waits for a free
-    slot, and the second put() finds one.
+    With more than one process the second put() finds a free slot without
+    collecting the failed process, so it does not raise and the failure comes
+    from wait(). A put() that had to collect the failure would raise it itself
+    through wait(), see ParallelModuleQueue.put().
     """
     queue = ParallelModuleQueue(nprocs=2)
     queue.put(failing_module())
