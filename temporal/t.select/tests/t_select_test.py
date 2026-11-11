@@ -728,6 +728,36 @@ def test_core_refuses_a_time_function_as_the_selected_maps(series):
     assert tools.g_list(type="raster", mapset="PERMANENT").text.split() == rasters
 
 
+MAP_ELEMENTS = {"strds": "raster", "stvds": "vector", "str3ds": "raster_3d"}
+
+
+@pytest.mark.parametrize("stdstype", ["strds", "stvds", "str3ds"])
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "if(start_doy(A)<3,start_doy(A, 1), A)",
+        "start_doy(A, 1)",
+        'tshift(start_doy(A, 1), "1 day")',
+    ],
+)
+def test_core_refuses_every_time_function_result(series, expression, stdstype):
+    """A result that holds a value of a time function, also one moved in
+    time, is refused for each map type before anything is created
+
+    The test checks the refusal itself, not its text: the core reports the
+    conclusion of if() and a bare time function with a ValueError and the
+    shifted one as a syntax error, each with its own message.
+    """
+    tools = Tools(session=series.session, overwrite=True)
+    element = MAP_ELEMENTS[stdstype]
+    maps = tools.g_list(type=element, mapset="PERMANENT").text.split()
+    with pytest.raises(ToolError) as error:
+        tools.t_select(type=stdstype, expression=f"timeresult = {expression}")
+    assert "Traceback" not in error.value.stderr
+    assert "timeresult@PERMANENT" not in tools.t_list(type=stdstype).text.split()
+    assert tools.g_list(type=element, mapset="PERMANENT").text.split() == maps
+
+
 def test_classic_flag_is_unknown(series):
     """-c is no flag of the tool: the parser refuses it before anything is made"""
     tools = Tools(session=series.session, consistent_return_value=True)
