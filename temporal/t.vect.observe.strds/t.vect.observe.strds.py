@@ -42,14 +42,9 @@
 # % multiple: yes
 # %end
 
-# %option
-# % key: type
-# % type: string
-# % description: Input feature type
+# %option G_OPT_V_TYPE
 # % options: point,centroid
 # % answer: point
-# % required: no
-# % multiple: yes
 # %end
 
 # %option G_OPT_DB_WHERE
