@@ -59,9 +59,11 @@ class ParallelModuleQueue:
     exited with a return code other than 0. A note on the exception gives the
     number of the further processes that failed as well. This holds for
     :py:class:`MultiModule` processes run asynchronously, too: they report the
-    failure of their child process. A failure of a process that
-    :py:meth:`put` waited for is raised by :py:meth:`wait` as well, except
-    in a queue of one process, where :py:meth:`put` raises it at once.
+    failure of their child process. If :py:meth:`put` finds a failed process
+    while it waits for a free slot, it does not start its module but calls
+    :py:meth:`wait`, so that the failure is raised in the same way by that
+    put(). In a queue of one process :py:meth:`put` raises the failure of
+    its own module at once.
 
     :Usage:
 
@@ -278,16 +280,21 @@ class ParallelModuleQueue:
         of the Module must be set to False.
 
         If all slots of the queue are taken, the method waits until one of
-        the processes ends and starts the module in its slot. A failure of
-        that process is raised later by :py:meth:`wait`. With a queue of one
-        process the method returns after the module ended and raises its
-        failure at once.
+        the processes ends and starts the module in its slot. If that process
+        failed, the method does not start the module: it calls
+        :py:meth:`wait`, which waits for the other processes and raises the
+        first failure. With a queue of one process the method returns after
+        the module ended and raises its failure at once.
 
         :param module: a preconfigured Module or MultiModule object that were configured
                        with ``run_`` and ``finish_`` set to False,
         :type module: Module or MultiModule object
         """
         slot = self._free_slot()
+        # Starting more modules after a failure only adds work whose result
+        # the caller discards once the failure is raised.
+        if self._failures:
+            self.wait()
         # Force that finish is False, otherwise the execution
         # will not be parallel
         module.finish_ = False
@@ -402,7 +409,10 @@ class ParallelModuleQueue:
         :py:class:`~grass.exceptions.CalledModuleError` is raised, with a note
         that gives the number of further failures. First means first in the
         order of put(); the failures of processes that :py:meth:`put` waited
-        for count as well. Any other exception is raised at once.
+        for count as well. :py:meth:`put` calls this method as soon as it
+        has collected a failure, so a failure is raised either by the next
+        put() that needs a slot or by this method. Any other exception is
+        raised at once. The queue can be used again afterwards.
         """
         try:
             for slot, proc in enumerate(self._list):

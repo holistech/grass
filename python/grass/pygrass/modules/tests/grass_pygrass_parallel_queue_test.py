@@ -10,7 +10,9 @@ too early fails a test instead of hanging it.
 import os
 import stat
 import sys
+import threading
 import time
+from contextlib import contextmanager
 from subprocess import PIPE
 
 import pytest
@@ -142,6 +144,28 @@ def wait_for_files(paths):
         time.sleep(0.01)
 
 
+@contextmanager
+def release_when(helpers, condition):
+    """Release the slow modules from a thread as soon as condition() is true
+
+    A put() that collects a failure waits for the slow module in the same
+    call, so the test cannot release it between the two steps itself.
+    """
+
+    def release():
+        deadline = time.monotonic() + RELEASE_DEADLINE
+        while not condition() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        helpers.release()
+
+    thread = threading.Thread(target=release)
+    thread.start()
+    try:
+        yield
+    finally:
+        thread.join()
+
+
 def done_names(modules):
     """The marker names of the modules, which identify them also after the
     modules came back from the child process of a MultiModule as copies"""
@@ -207,51 +231,68 @@ def test_nprocs_one_is_synchronous(helpers):
 
 
 def test_error_reported(helpers):
-    """A failure collected by put() is raised by wait() after all processes
+    """A failure collected by put() is raised by that put() after all processes
 
     The third put() collects failing_1, the only module that can end before
-    the release. wait() raises it as the first failure, in the order of put(),
-    with a note on failing_2.
+    the release. slow is released only then, so the put() has to wait for it
+    before it raises the failure. failing_2 is not started, and the queue
+    takes new modules afterwards.
     """
     queue = ParallelModuleQueue(nprocs=2)
     failing_1 = helpers.module("failing_1", fail=True)
     slow = helpers.module("slow", slow=True)
     failing_2 = helpers.module("failing_2", fail=True)
-    for module in (failing_1, slow, failing_2):
-        queue.put(module)
-    assert failing_1.returncode == 1
-    assert not helpers.marker("slow").exists()
-    helpers.release()
-    with pytest.raises(CalledModuleError) as excinfo:
-        queue.wait()
+    after = helpers.module("after")
+    queue.put(failing_1)
+    queue.put(slow)
+    with (
+        release_when(helpers, lambda: failing_1.returncode is not None),
+        pytest.raises(CalledModuleError) as excinfo,
+    ):
+        queue.put(failing_2)
     assert str(helpers.marker("failing_1")) in str(excinfo.value)
-    assert excinfo.value.__notes__ == ["1 other module(s) of the queue failed as well"]
+    assert not hasattr(excinfo.value, "__notes__")
+    assert failing_1.returncode == 1
     assert slow.returncode == 0
-    assert failing_2.returncode == 1
+    # A started module keeps its process handle until it is waited for.
+    assert failing_2._popen is None
+    assert failing_2.returncode is None
+    assert not helpers.marker("failing_2").exists()
     assert done_names(queue.get_finished_modules()) == ["slow.done"]
     assert queue.get_num_run_procs() == 0
+    queue.put(after)
+    queue.wait()
+    assert done_names(queue.get_finished_modules()) == ["slow.done", "after.done"]
 
 
 def test_first_failure_in_put_order(helpers):
-    """wait() raises the failure of the earliest put(), not the earliest end
+    """put() raises the failure of the earliest put(), not the earliest end
 
     The third put() collects failing_fast while failing_slow waits for the
     release, so failing_fast is collected first; failing_slow was put first.
+    failing_slow is released only after that, the put() waits for it and
+    raises its failure; third is not started.
     """
     queue = ParallelModuleQueue(nprocs=2)
     failing_slow = helpers.module("failing_slow", slow=True, fail=True)
     failing_fast = helpers.module("failing_fast", fail=True)
     third = helpers.module("third")
-    for module in (failing_slow, failing_fast, third):
-        queue.put(module)
-    assert failing_fast.returncode == 1
-    assert failing_slow.returncode is None
-    helpers.release()
-    with pytest.raises(CalledModuleError) as excinfo:
-        queue.wait()
+    queue.put(failing_slow)
+    queue.put(failing_fast)
+    with (
+        release_when(helpers, lambda: failing_fast.returncode is not None),
+        pytest.raises(CalledModuleError) as excinfo,
+    ):
+        queue.put(third)
     assert str(helpers.marker("failing_slow")) in str(excinfo.value)
     assert excinfo.value.__notes__ == ["1 other module(s) of the queue failed as well"]
-    assert done_names(queue.get_finished_modules()) == ["third.done"]
+    assert failing_fast.returncode == 1
+    assert failing_slow.returncode == 1
+    assert third._popen is None
+    assert third.returncode is None
+    assert not helpers.marker("third").exists()
+    assert queue.get_finished_modules() == []
+    assert queue.get_num_run_procs() == 0
 
 
 def test_module_waited_for_by_the_caller_frees_its_slot(helpers):
