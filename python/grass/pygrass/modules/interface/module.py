@@ -1,4 +1,6 @@
+from bisect import bisect_right
 from multiprocessing import Process, Queue
+from operator import itemgetter
 from queue import Empty
 import time
 from xml.etree.ElementTree import fromstring
@@ -21,6 +23,15 @@ from itertools import zip_longest
 # ended without sending them.
 _POLL_SECONDS = 1
 
+# How long ParallelModuleQueue.put() sleeps between two looks at the processes
+# of a full queue. A slot so stays free for at most this long after its
+# process ended, little against the run of even a short module, and the looks
+# cost the parent almost no CPU time. Measured 2026-11-11 with a script in
+# grass --tmp-project XY: g.region -p through Module took 18 ms (median of 20
+# runs); a put() that waited 5.2 s for one of two r.mapcalc runs on
+# 8000 x 8000 cells used 1 ms of CPU time.
+_SLOT_POLL_SECONDS = 0.01
+
 
 def _get_bash(self, *args, **kargs):
     return self.get_bash()
@@ -33,9 +44,10 @@ class ParallelModuleQueue:
     Objects of type :py:class:`grass.pygrass.modules.Module` or
     :py:class:`grass.pygrass.modules.MultiModule` can be put into the
     queue using :py:meth:`put` method. When the queue is full with the maximum
-    number of parallel processes it will wait for all processes to finish,
-    sets the stdout and stderr of the Module object and removes it
-    from the queue when its finished.
+    number of parallel processes it will wait until one of the processes
+    finished, sets the stdout and stderr of its Module object, removes it
+    from the queue and starts the new process in its place. With a queue
+    of one process, :py:meth:`put` waits for each process to finish.
 
     To finish the queue before the maximum number of parallel
     processes was reached, call :py:meth:`wait`.
@@ -47,8 +59,9 @@ class ParallelModuleQueue:
     exited with a return code other than 0. A note on the exception gives the
     number of the further processes that failed as well. This holds for
     :py:class:`MultiModule` processes run asynchronously, too: they report the
-    failure of their child process. :py:meth:`put` waits in the same way when
-    the queue is full.
+    failure of their child process. A failure of a process that
+    :py:meth:`put` waited for is raised by :py:meth:`wait` as well, except
+    in a queue of one process, where :py:meth:`put` raises it at once.
 
     :Usage:
 
@@ -212,17 +225,15 @@ class ParallelModuleQueue:
         >>> new_mapcalc = copy.deepcopy(mapcalc)
         >>> mapcalc_list.append(new_mapcalc)
         >>> m = new_mapcalc(expression="test_pygrass_3 =3")
-        >>> queue.put(
-        ...     m
-        ... )  # Now it will wait until all procs finish and set the counter back to 0
+        >>> queue.put(m)  # Now all three slots are taken
         >>> queue.get_num_run_procs()
-        0
+        3
         >>> new_mapcalc = copy.deepcopy(mapcalc)
         >>> mapcalc_list.append(new_mapcalc)
         >>> m = new_mapcalc(expression="test_pygrass_%i = %i" % (i, i))
-        >>> queue.put(m)
+        >>> queue.put(m)  # Waits until one process finished, starts m in its slot
         >>> queue.get_num_run_procs()
-        1
+        3
         >>> queue.wait()
         >>> mapcalc_list = queue.get_finished_modules()
         >>> queue.get_num_run_procs()
@@ -251,8 +262,14 @@ class ParallelModuleQueue:
         nprocs = resolve_nprocs(nprocs) if nprocs else available_cpus()
         self._num_procs = nprocs
         self._list = nprocs * [None]
-        self._proc_count = 0
+        # The number of the put() call of the process in each slot. The
+        # processes end in any order; these numbers keep the finished modules
+        # and the failures in the order of put().
+        self._put_numbers = nprocs * [None]
+        self._put_count = 0
         self._finished_modules = []  # Store all processed modules in a list
+        self._finished_put_numbers = []
+        self._failures = []
 
     def put(self, module):
         r"""Put the next Module or MultiModule object in the queue
@@ -260,19 +277,75 @@ class ParallelModuleQueue:
         To run the Module objects in parallel the ``run_`` and ``finish_`` options
         of the Module must be set to False.
 
+        If all slots of the queue are taken, the method waits until one of
+        the processes ends and starts the module in its slot. A failure of
+        that process is raised later by :py:meth:`wait`. With a queue of one
+        process the method returns after the module ended and raises its
+        failure at once.
+
         :param module: a preconfigured Module or MultiModule object that were configured
                        with ``run_`` and ``finish_`` set to False,
         :type module: Module or MultiModule object
         """
-        self._list[self._proc_count] = module
+        slot = self._free_slot()
         # Force that finish is False, otherwise the execution
         # will not be parallel
-        self._list[self._proc_count].finish_ = False
-        self._list[self._proc_count].run()
-        self._proc_count += 1
+        module.finish_ = False
+        module.run()
+        self._list[slot] = module
+        self._put_numbers[slot] = self._put_count
+        self._put_count += 1
 
-        if self._proc_count == self._num_procs:
+        if self._num_procs == 1:
             self.wait()
+
+    def _free_slot(self):
+        """Return the number of a free slot, after waiting for one if needed
+
+        Neither the operating system nor the standard library offers a
+        portable way to wait for the first of several Popen and
+        multiprocessing processes to end (os.wait() would also collect
+        processes that the caller started, a pidfd exists only on Linux), so
+        the method looks at the processes and sleeps in between.
+        """
+        while True:
+            for slot, proc in enumerate(self._list):
+                if proc is None:
+                    return slot
+            for slot, proc in enumerate(self._list):
+                if _has_ended(proc):
+                    self._collect(slot)
+                    return slot
+            # A module that writes into a pipe or reads its input from one
+            # can block until Module.wait() communicates with it, so it may
+            # never end while it is only looked at. Waiting for the oldest of
+            # them keeps the queue going.
+            piped = [slot for slot, proc in enumerate(self._list) if _uses_pipes(proc)]
+            if piped:
+                slot = min(piped, key=self._put_numbers.__getitem__)
+                self._collect(slot)
+                return slot
+            time.sleep(_SLOT_POLL_SECONDS)
+
+    def _collect(self, slot):
+        """Wait for the process in the slot and free the slot
+
+        The finished modules are kept in the order of put(), a
+        CalledModuleError is kept for wait(). Any other exception is raised.
+        """
+        proc = self._list[slot]
+        number = self._put_numbers[slot]
+        self._list[slot] = None
+        self._put_numbers[slot] = None
+        try:
+            finished = proc.wait()
+        except CalledModuleError as error:
+            self._failures.append((number, error))
+            return
+        modules = [finished] if isinstance(proc, Module) else finished
+        index = bisect_right(self._finished_put_numbers, number)
+        self._finished_put_numbers[index:index] = [number] * len(modules)
+        self._finished_modules[index:index] = modules
 
     def get(self, num):
         """Get a Module object or list of Module objects from the queue
@@ -288,11 +361,11 @@ class ParallelModuleQueue:
 
     def get_num_run_procs(self):
         """Get the number of Module processes that are in the queue running
-        or finished
+        or finished, but not yet waited for
 
-        :returns: the number of Module processes running/finished in the queue
+        :returns: the number of slots of the queue that hold a process
         """
-        return self._proc_count
+        return sum(proc is not None for proc in self._list)
 
     def get_max_num_procs(self):
         """Return the maximum number of parallel Module processes
@@ -315,7 +388,8 @@ class ParallelModuleQueue:
     def get_finished_modules(self):
         """Return all finished processes that were run by this queue
 
-        :return: A list of Module objects
+        :return: A list of Module objects, in the order in which they were
+            put into the queue
         """
         return self._finished_modules
 
@@ -326,30 +400,46 @@ class ParallelModuleQueue:
         A failing process does not stop the waiting: the remaining processes
         are waited for as well and the queue is emptied. Afterwards the first
         :py:class:`~grass.exceptions.CalledModuleError` is raised, with a note
-        that gives the number of further failures. Any other exception is
-        raised at once.
+        that gives the number of further failures. First means first in the
+        order of put(); the failures of processes that :py:meth:`put` waited
+        for count as well. Any other exception is raised at once.
         """
-        failures = []
         try:
-            for proc in self._list:
-                if not proc:
-                    continue
-                try:
-                    if isinstance(proc, Module):
-                        self._finished_modules.append(proc.wait())
-                    else:
-                        self._finished_modules.extend(proc.wait())
-                except CalledModuleError as error:
-                    failures.append(error)
+            for slot, proc in enumerate(self._list):
+                if proc is not None:
+                    self._collect(slot)
         finally:
             self._list = self._num_procs * [None]
-            self._proc_count = 0
+            self._put_numbers = self._num_procs * [None]
+            failures, self._failures = self._failures, []
         if failures:
+            failures.sort(key=itemgetter(0))
+            first = failures[0][1]
             if len(failures) > 1:
-                failures[0].add_note(
+                first.add_note(
                     f"{len(failures) - 1} other module(s) of the queue failed as well"
                 )
-            raise failures[0]
+            raise first
+
+
+def _has_ended(proc):
+    """Return True if the process of a Module or MultiModule has ended"""
+    if isinstance(proc, Module):
+        return proc._popen.poll() is not None
+    # The child process of a MultiModule cannot end before the parent reads
+    # the modules it sends back if they fill the pipe of the queue, so modules
+    # in the queue count as an end, too; MultiModule.wait() reads them first.
+    return not proc.q.empty() or not proc.p.is_alive()
+
+
+def _uses_pipes(proc):
+    """Return True if the process of a Module has a pipe for stdin, stdout or
+    stderr; the child process of a MultiModule handles the pipes itself"""
+    # The settings of the module and not the attributes of its Popen object:
+    # grass.script.core.Popen wraps stdin also when there is no pipe.
+    if not isinstance(proc, Module):
+        return False
+    return PIPE in (proc.stdin_, proc.stdout_, proc.stderr_)
 
 
 class Module:

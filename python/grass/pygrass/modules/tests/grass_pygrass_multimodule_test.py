@@ -262,13 +262,18 @@ def test_the_queue_is_usable_after_a_failure(session):
 
 @pytest.mark.timeout(60)
 def test_a_full_queue_waits_for_every_process_before_it_raises(session):
-    """put() waits for the whole round when the queue is full"""
+    """wait() waits for every process of a full queue before it raises
+
+    With more than one process put() does not raise: it only waits for a free
+    slot, and the second put() finds one.
+    """
     queue = ParallelModuleQueue(nprocs=2)
     queue.put(failing_module())
     late = writing_module("late")
+    queue.put(late)
     with pytest.raises(CalledModuleError, match="no_such_map"):
-        queue.put(late)
+        queue.wait()
     # The map alone may also appear when nobody waited for its process, so
-    # the finished list tells that put() waited for it.
+    # the finished list tells that wait() waited for it.
     assert queue.get_finished_modules() == [late]
     assert map_exists(session, "late")
