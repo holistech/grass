@@ -393,6 +393,7 @@
  "Unable to remove timestamp for vector map <%s>",
  "Unable to rename Space time %s dataset <%s>. Name <%s> is in use, please use the overwrite flag.",
  "Unable to rename dataset <%(ds)s> of type %(type)s in the temporal database. The mapset of the database does not match the current mapset",
+ "Unable to run r.univar for the maps of the granule that starts at <{start}>: {reason}. All maps of a granule are passed in one command line; use a smaller granularity",
  "Unable to run v.what.rast for vector map <%s> and raster map <%s>",
  "Unable to run v.what.rast for vector map <%s> with layer %i and raster map <%s>",
  "Unable to select the points of <%s> with where",

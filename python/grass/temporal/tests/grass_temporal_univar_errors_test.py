@@ -7,12 +7,14 @@ SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
+import errno
 from datetime import datetime
 
 import pytest
 
 import grass.temporal as tgis
 from grass.pygrass.messages import FatalError
+from grass.pygrass.modules import Module
 from grass.temporal.testing.data import (
     MapSpec,
     create_stds,
@@ -96,3 +98,44 @@ def test_a_granularity_of_a_3d_raster_dataset(tools):
         tgis.print_gridded_dataset_univar_statistics(
             "str3ds", "nosuch", None, None, False, granularity="1 month"
         )
+
+
+@pytest.mark.parametrize("nprocs", [1, 2])
+def test_a_granule_with_too_many_maps_for_one_command_line(
+    tools, tmp_path, monkeypatch, nprocs
+):
+    """The identifiers of all maps of a granule go into one argument of
+    r.univar; when the system refuses to start it, the run ends with a
+    message instead of a traceback, also from the worker processes of nprocs
+    """
+
+    def refused_by_the_system(module):
+        raise OSError(errno.E2BIG, "Argument list too long")
+
+    # The worker processes are forked and inherit the replaced method.
+    monkeypatch.setattr(Module, "run", refused_by_the_system)
+    output = tmp_path / "out.txt"
+
+    with pytest.raises(
+        FatalError,
+        match=r"granule that starts at <2001-01-01 00:00:00>.*"
+        r"Argument list too long.*smaller granularity",
+    ):
+        tgis.print_gridded_dataset_univar_statistics(
+            "strds",
+            "uvr",
+            str(output),
+            None,
+            False,
+            nprocs=nprocs,
+            granularity="1 month",
+            # The granule and the map are equal, which contains does not take.
+            sampling=["related"],
+        )
+
+    # As after a failed v.univar: the file is closed and holds the header.
+    header = (
+        "id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|"
+        "mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs"
+    )
+    assert output.read_text().splitlines() == [header]

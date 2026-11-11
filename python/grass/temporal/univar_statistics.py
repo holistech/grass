@@ -113,6 +113,15 @@ def compute_univar_stats(
     return _text_stats(univar_stats, id_, semantic_label, start, end, fs, stats_module)
 
 
+class _GranuleNotStartedError(Exception):
+    """r.univar could not be started for the maps of a granule
+
+    The arguments are the start of the granule and the text of the OSError.
+    They are all the exception holds, so that it reaches the parent
+    unchanged from a worker process of nprocs.
+    """
+
+
 def _granule_stats(granule, stats_module, fs, output_format):
     """Compute univariate statistics over all maps of a granule with r.univar
 
@@ -126,7 +135,13 @@ def _granule_stats(granule, stats_module, fs, output_format):
     names = ",".join(ids)
     stats_module.inputs.nprocs = 1
     stats_module.inputs.map = ids
-    stats_module.run()
+    try:
+        stats_module.run()
+    except OSError as error:
+        # All identifiers go into one argument map=a,b,..., which the system
+        # may refuse to pass (Linux limits one argument to 128 KiB, Windows
+        # the whole command line to 32,767 characters).
+        raise _GranuleNotStartedError(start, str(error)) from error
 
     univar_stats = stats_module.outputs.stdout
     if not univar_stats:
@@ -494,11 +509,21 @@ def print_gridded_dataset_univar_statistics(
                 max(nprocs, 1),
             )
         else:
-            strings = _starmap(
-                _granule_stats,
-                [(granule, univar_module, fs, format) for granule in granules],
-                max(nprocs, 1),
-            )
+            try:
+                strings = _starmap(
+                    _granule_stats,
+                    [(granule, univar_module, fs, format) for granule in granules],
+                    max(nprocs, 1),
+                )
+            except _GranuleNotStartedError as error:
+                start, reason = error.args
+                get_tgis_message_interface().fatal(
+                    _(
+                        "Unable to run r.univar for the maps of the granule that "
+                        "starts at <{start}>: {reason}. All maps of a granule are "
+                        "passed in one command line; use a smaller granularity"
+                    ).format(start=start, reason=reason)
+                )
 
         if format == "json":
             json_out = []

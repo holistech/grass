@@ -174,6 +174,13 @@ anything is written. If no map belongs to any granule, *t.rast.univar* warns,
 names the granularity and the sampling, and prints what it prints when no map
 is selected.
 
+The names of all maps of a granule go into one argument of *r.univar*. If
+the system refuses so long a command line (on Linux one argument holds at
+most 128 KiB, on Windows the whole command line 32,767 characters),
+*t.rast.univar* stops with a message that names the start of the granule; a
+smaller granularity puts fewer maps into each granule. The file of
+**output** then holds at most the line with the column names.
+
 ## EXAMPLES
 
 The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
