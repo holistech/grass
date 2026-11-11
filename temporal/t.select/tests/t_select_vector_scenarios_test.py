@@ -196,48 +196,37 @@ def test_conditions_on_vector_maps(vectors, expression, parts):
     assert _rows(vectors, expression) == _expected(*parts)
 
 
-# && binds more strongly than || in the core; the classic algebra evaluates
-# conditions on temporal variables from left to right (t.select.md), so the
-# same text means something else there. A condition on two datasets is true
-# for the maps of either, and the then part takes the test2 maps equal to them.
+# && binds more strongly than || (t.select.md). A condition on two datasets is
+# true for the maps of either, and the then part takes the test2 maps equal to
+# them.
 PRECEDENCE = [
-    # test2 days: always true || (days 16 to 19) is every map; from left to
-    # right (true || < 20) && > 15 leaves the days 16 to 29
+    # test2 days: always true || (days 16 to 19) is every map
     (
         (
             "if(start_year(test2) == 2013 || start_day(test2) < 20"
             " && start_day(test2) > 15, test2)"
         ),
         [("test2", _ones(21, 40))],
-        [("test2", _ones(27, 40))],
     ),
-    # (days 10 and 11) or (days 16 to 19) against ((days 10 to 19) and > 15),
-    # the days 16 to 19
+    # (days 10 and 11) or (days 16 to 19)
     (
         (
             "if(start_day(test2) < 12 || start_day(test2) < 20"
             " && start_day(test2) > 15, test2)"
         ),
         [("test2", [21, 22, 27, 28, 29, 30])],
-        [("test2", _ones(27, 30))],
     ),
-    # test1 is true on the days 0 to 19, test2 on the days 16 to 19 (core): the
-    # test2 maps equal to either are the days 9 to 19. From left to right,
-    # (test1 or the test2 days before the 20th) and the days after the 15th
-    # leave the days 15 to 19 (maps 27 to 31).
+    # test1 is true on the days 0 to 19, test2 on the days 16 to 19: the test2
+    # maps equal to either are the days 9 to 19.
     (
         "if(td(test1) == 1 || start_day(test2) < 20 && start_day(test2) > 15, test2)",
         [("test2", _ones(21, 31))],
-        [("test2", _ones(27, 31))],
     ),
 ]
 
 
-@pytest.mark.parametrize(("expression", "core", "classic"), PRECEDENCE)
-def test_and_binds_stronger_than_or_only_in_the_core(
-    vectors, algebra, expression, core, classic
-):
-    parts = core if algebra == "core" else classic
+@pytest.mark.parametrize(("expression", "parts"), PRECEDENCE)
+def test_and_binds_stronger_than_or(vectors, expression, parts):
     assert _rows(vectors, expression) == _expected(*parts)
 
 
@@ -285,14 +274,11 @@ def _creates(vectors, expression, name):
 
 
 @pytest.mark.parametrize("expression", EMPTY)
-def test_a_selection_without_maps_creates_an_empty_dataset(
-    vectors, algebra, expression
-):
-    """t.select.md: "An expression that selects no map creates an empty space
-    time dataset in both algebras." The reference implementation creates no
-    vector dataset; the classic algebra follows the manual since 19.10.2026."""
+def test_a_selection_without_maps_creates_an_empty_dataset(vectors, expression):
+    """t.select.md: an expression that selects no map creates an empty space
+    time dataset. The reference implementation creates no vector dataset."""
     # A name per expression, so that a dataset of an earlier case cannot pass.
-    name = f"empty_{algebra}_{EMPTY.index(expression)}"
+    name = f"empty_{EMPTY.index(expression)}"
     assert _creates(vectors, expression, name)
     tools = Tools(session=vectors)
     assert tools.t_vect_list(input=name, format="json")["data"] == []

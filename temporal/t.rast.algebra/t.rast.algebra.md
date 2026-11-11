@@ -57,12 +57,11 @@ of that name is replaced only with **--overwrite**; without it the tool stops
 with the error
 `Space time dataset <C@t_rast_algebra> exists. Use the overwrite flag.` The
 name of the result must not contain a dot or a mapset. The parser
-stops at the dot: the new algebra with the error "Unexpected character '.'",
-the classic algebra (**-c**) with a syntax error. No dataset is created. A
-dataset of another mapset is named `name@mapset` in the expression. A name
-without mapset is searched in the current mapset first, then in the mapsets
-of the search path; the classic algebra (**-c**) searches only the current
-mapset (see the example "Use datasets of another mapset").
+stops at the dot with the error "Unexpected character '.'". No dataset is
+created. A dataset of another mapset is named `name@mapset` in the expression.
+A name without mapset is searched in the current mapset first, then in the
+mapsets of the search path (see the example "Use datasets of another
+mapset").
 
 The option **basename** is required. The result maps are named `basename_0`,
 `basename_1` and so on, numbered in the order in which the algebra computes
@@ -70,29 +69,25 @@ them. This is not always the order of their time. The number is padded with
 zeros to the digits of the count of computed maps: ten maps are named
 `basename_00` to `basename_09` (see the example "Catalog: merge, single maps
 and the neighbourhood modifier"). A map that is null everywhere is not
-registered unless **-n** is given. The new algebra numbers only the registered
+registered unless **-n** is given. The algebra numbers only the registered
 maps, so such a map leaves no gap: the next registered map takes its number
 (see the example "Spatially related maps and empty maps"). A neighbourhood
-modifier that reaches before the first map makes such a map in the new
-algebra, see the last example of "Catalog: the expressions of the original
-manual". The dry run with **-d** shows the names of a run that registers every
-computed map. The classic algebra keeps the number of a map that it computes
-and does not register, so its numbers can have a gap. An expression that
-leaves no map to register ends with the warning "The expression produced no
-map, the result is empty", and the result is an empty dataset.
+modifier that reaches before the first map makes such a map, see the last
+example of "Catalog: the expressions of the original manual". The dry run with
+**-d** shows the names of a run that registers every computed map. An
+expression that leaves no map to register ends with the warning "The
+expression produced no map, the result is empty", and the result is an empty
+dataset.
 
 The option **suffix** changes the part of the names after the basename. `num`,
 the default, is the number described above. For absolute time, `gran` takes the
 start time of the map cut to the granularity of the result and `time` the full
 start time, see the example "Name the result maps and plan a run". A monthly
 result from the last day of a month (January 31, February 28) has the
-granularity of one month, so `gran` gives year and month (`2026_01`); the
-classic algebra (**-c**) computes the granularity by the rules of the releases
-before GRASS 8.6 with the correction of item 18 under "Corrections to the
-classic algebra", one day here, and gives `2026_01_31` (see the
-[introduction](temporalintro.md)). `num%NN` pads the number with zeros to NN
+granularity of one month, so `gran` gives year and month (`2026_01`), see the
+[introduction](temporalintro.md). `num%NN` pads the number with zeros to NN
 digits: `suffix=num%03` names the maps `basename_000`, `basename_001` and so on,
-as in *t.rast.extract*. The classic algebra takes `num%NN` as `num`.
+as in *t.rast.extract*.
 
 The option **nprocs** is the number of *r.mapcalc* processes that run at the
 same time. The default is 1. The result is the same for any number.
@@ -101,15 +96,10 @@ same time. The default is 1. The result is the same for any number.
 
 **-s** also checks the spatial topology of temporally related maps and processes
 only maps that are related in space too. **-n** registers maps that are null
-everywhere, which are left out by default; this concerns the new algebra, see
-above for **-c**. **-g** uses the granularity algebra instead of the temporal
-topology of the maps, see "Granularity algebra" below. **-d** performs a dry
-run: it plans the maps and prints the process chain, but computes no map and
-creates no dataset. **-c** selects the classic algebra, which gives the results
-of the releases before GRASS 8.6 with the exceptions that the page
-[changes in GRASS 8.6](temporalchanges.md#classic-algebra) lists; see "Core and
-classic algebra" below. The environment variable `GRASS_TEMPORAL_ALGEBRA`
-selects it for a whole session.
+everywhere, which are left out by default. **-g** uses the granularity algebra
+instead of the temporal topology of the maps, see "Granularity algebra" below.
+**-d** performs a dry run: it plans the maps and prints the process chain, but
+computes no map and creates no dataset.
 
 ## TEMPORAL RASTER ALGEBRA
 
@@ -162,8 +152,8 @@ The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B.
 
 Gebbert, Leppelt and Pebesma (2019) write the relation `equal` as `equals`;
-the new algebra and **-c** read both names. The releases before GRASS 8.6
-refused `equals` with a syntax error.
+the algebra reads both names. The releases before GRASS 8.6 refused `equals`
+with a syntax error.
 
 Topological relations must be specified with curly brackets {}.
 
@@ -295,9 +285,8 @@ The conditions are comparison expressions that are used to evaluate
 space time datasets. Specific values of temporal variables are compared
 by logical operators and evaluated for each map of the STRDS.  
 **Important:** `&&` binds stronger than `||`, as in *r.mapcalc*, and
-conditions can be grouped with parentheses. The classic algebra (**-c**)
-evaluates conditions on temporal variables from left to right instead (see
-NOTES).
+conditions can be grouped with parentheses. GRASS 8.5 evaluated conditions
+on temporal variables from left to right instead (see NOTES).
 
 The relation reads from the condition to the conclusion:
 `if({contains}, condition, A)` takes the maps of A that lie within a map
@@ -426,8 +415,7 @@ if all comparisons are true (aggregation `&`) or if any is true
 are optional, the aggregation operator is `&` and the temporal operator `l`
 by default, and the relations default to `equal` if the braces are left
 out. The short form `A >= F` is the operator `{>=, equal, &, l}`. A map of
-the first dataset without a related map gives no map in the classic
-algebra and a null map in the new algebra:
+the first dataset without a related map gives a null map:
 
 ```sh
 if(A {>=, contains, |} E, A, 0)
@@ -438,13 +426,11 @@ if(A >= F, A, F)
 The first expression is true for a map of A if it is greater than or equal
 to any related map of E; the last one gives, for each map of A, the value
 of A where it is not smaller than the map of F with the same time, and the
-value of F otherwise. In the new algebra the short form compares maps of
-equal time stamps cell by cell, as `A + F` does, and stops with an error if
-the time stamps differ. With the temporal reference `r`, the new algebra
-compares each pair on its own, as it does for `&&` and `||`, where the
-classic algebra gives every related map the whole condition of its left
-map. Earlier GRASS releases did not read the comparison of two datasets,
-neither in braces nor as `A >= F`; both algebras do now. The granularity
+value of F otherwise. The short form compares maps of equal time stamps cell
+by cell, as `A + F` does, and stops with an error if the time stamps differ.
+With the temporal reference `r`, the algebra compares each pair on its own,
+as it does for `&&` and `||`. Earlier GRASS releases did not read the
+comparison of two datasets, neither in braces nor as `A >= F`. The granularity
 mode (**-g**) reads the short form; it refuses the operator in braces, as
 it refuses every operator in braces.
 
@@ -491,17 +477,16 @@ tshift(A, size)         Shift STDS A with granule ("1 month" or 5)
 tsnap(A)                Snap time instances and intervals of STDS A
 ```
 
-A negative size shrinks the maps; the new algebra stops with an error where
-a map would keep no time, see "Core and classic algebra".
+A negative size shrinks the maps; the algebra stops with an error where a map
+would keep no time, see "Differences from GRASS 8.5".
 
 `tsnap()` ends a last map that is a time instance one granularity of the maps
 after its start. A granularity of months counts from the first map, with the cut
 to the end of a shorter month: the time instances January 31, February 28 and
 March 31 have the granularity of one month, and the last one ends on April 30;
-after an instance on April 30 in the same series it ends on May 31. The classic
-algebra (**-c**) computes the granularity by the rules of the releases before
-GRASS 8.6 with the correction of item 18 under "Corrections to the classic
-algebra", one day here, and ends the instance of March 31 on April 1.
+after an instance on April 30 in the same series it ends on May 31. GRASS 8.5
+computed the granularity of one day here and ended the instance of March 31 on
+April 1.
 
 #### Merge function
 
@@ -558,7 +543,7 @@ Symbol  description     precedence
 A division of two integers is an integer division, as in *r.mapcalc*, and
 the result is truncated towards zero: `7 / 2` is 3, `-7 / 2` is -3 and
 `7.0 / 2` is 3.5. In `7 / 2 / 2 * A` the numbers are divided first, so the
-chain multiplies A by 1. Both algebras compute it so.
+chain multiplies A by 1.
 
 And raster functions:
 
@@ -683,8 +668,7 @@ and *meet*). The relations *equivalent*, *cover*, *overlap*, *in*,
 *contain* and *meet* can also be named in the curly brackets of a
 spatial operator, for example `{+,equal|overlap}`; the maps then need
 this spatial relation in addition to the temporal one. Such a name builds
-the spatial topology for its operator also without **-s**, as in the
-classic algebra.
+the spatial topology for its operator also without **-s**.
 
 Maps are computed in the current region. A map that the result takes over
 unchanged, for example one that a selection stamps with a new time, is
@@ -706,34 +690,27 @@ temporal relations").
 An existing result dataset without **--overwrite** stops a dry run with
 **-d** as it stops a real run.
 
-### Core and classic algebra
+### Differences from GRASS 8.5
 
-Since GRASS 8.6, *t.rast.algebra* computes its expressions with the
-functions of the Python package `grass.temporal.algebra`. The implementation
-that computed them before, the reference implementation in
-`grass.temporal.classic`, stays in the source code, and its rules stay
-available as the classic algebra, so that published results remain
-reproducible. The classic algebra is a set of rules of the same functions: it
-reads the syntax of the reference implementation and applies its rules for
-relations, order and results. The flag **-c** selects
-it for one call, the environment variable `GRASS_TEMPORAL_ALGEBRA=classic`
-for a whole session or script; `GRASS_TEMPORAL_ALGEBRA=core` or an unset or
-empty variable selects the new algebra, and the flag takes precedence over the
-variable. In Python, `TemporalRasterAlgebraParser` takes the keyword
-`classic=True` for the same purpose. Both algebras compute the granularity
-mode (**-g**), see below.
-
-The two algebras differ in the following points. The examples use four
-daily maps in A with the values 1 to 4, two maps of two days in B that
+Since GRASS 8.6, *t.rast.algebra* computes its expressions with the functions of
+the Python package `grass.temporal.algebra`. The implementation of the releases
+up to GRASS 8.5 is no longer part of GRASS; it is available in those releases
+and in the history of the source code (tag `classic-reference-corpus`). The
+expressions of the publication cited under REFERENCES compute in GRASS 8.6, see
+"Catalog: expressions of the publication". Some expressions give other results
+than in GRASS 8.5, as the following points describe; where such an expression
+also meets one of the cases under "Results corrected since GRASS 8.5" below,
+GRASS 8.5 behaved as described there for the earlier versions. The examples use
+four daily maps in A with the values 1 to 4, two maps of two days in B that
 start with A, and time instances in I.
 
 1. **One result per conclusion map.** If a map of the conclusion of an
     `if` has several related condition maps, their conditions are joined
-    with and; written as `{during,|}`, the relation joins them with or. The
-    classic algebra gives one result for each pair of condition map and
-    conclusion map, so that a conclusion map can occur several times. The
-    first expression keeps the cells of B where both maps of A within the
-    map of B are greater than 1, the second where one of them is:
+    with and; written as `{during,|}`, the relation joins them with or.
+    GRASS 8.5 gave one result for each pair of condition map and conclusion
+    map, so that a conclusion map could occur several times. The first
+    expression keeps the cells of B where both maps of A within the map of B
+    are greater than 1, the second where one of them is:
 
     ```sh
     C = if({during}, A > 1, B, 0)
@@ -742,21 +719,20 @@ start with A, and time instances in I.
 
 2. **Equal time stamps for then and else.** With a condition on map
     values, the then and the else part need equal time stamps; otherwise the
-    algebra stops with an error. The classic algebra computes only the maps
-    whose time stamp occurs in both parts and leaves out the others without
-    notice. This expression is therefore an error, where the classic
-    algebra gives an empty result:
+    algebra stops with an error. GRASS 8.5 computed only the maps whose time
+    stamp occurs in both parts and left out the others without notice. This
+    expression is therefore an error, where GRASS 8.5 gave an empty result:
 
     ```sh
     C = if(A > 2, A, B)
     ```
 
 3. **Precedence.** `&&` binds stronger than `||`, and conditions can be
-    grouped with parentheses. The classic algebra evaluates conditions on
-    temporal variables from left to right and does not accept parentheses
-    around conditions. The first expression takes all maps of A, because
-    `td(A) == 1` is true for each of them; the classic algebra reads it as
-    the second expression and takes none:
+    grouped with parentheses. GRASS 8.5 evaluated conditions on temporal
+    variables from left to right and did not accept parentheses around
+    conditions. The first expression takes all maps of A, because
+    `td(A) == 1` is true for each of them; GRASS 8.5 read it as the second
+    expression and took none:
 
     ```sh
     C = if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)
@@ -765,13 +741,12 @@ start with A, and time instances in I.
 
 4. **Right reference.** `A {:,R,r} B` and `A {op,R,r} B` give one map
     per related pair, with the time stamp of the right map and, for an
-    operator, the value of this pair. The classic algebra keeps only the
-    last pair of a selection, and an operator combines the left map with
-    all of its related right maps in every result. The first expression gives
-    four maps, the time stamps of A with the values of B; the classic
-    algebra gives one map per map of B. If a map b1 contains the maps a1 and
-    a2, the second expression gives `b1 + a1` and `b1 + a2`, the classic
-    algebra `b1 + a1 + a2` for both:
+    operator, the value of this pair. GRASS 8.5 kept only the last pair of a
+    selection, and an operator combined the left map with all of its related
+    right maps in every result. The first expression gives four maps, the
+    time stamps of A with the values of B; GRASS 8.5 gave one map per map of
+    B. If a map b1 contains the maps a1 and a2, the second expression gives
+    `b1 + a1` and `b1 + a2`, GRASS 8.5 gave `b1 + a1 + a2` for both:
 
     ```sh
     C = B {:,contains,r} A
@@ -779,24 +754,23 @@ start with A, and time instances in I.
     ```
 
     The inverse selection `A {!:,R,t} B` takes only the temporal operator
-    `l`, because its maps have no related map to combine with; the classic
-    algebra accepts the other operators.
+    `l`, because its maps have no related map to combine with; GRASS 8.5
+    accepted the other operators.
 
 5. **td() of a time instance** is null instead of an error, so a condition
-    on it is neither true nor false. This expression gives no map; the
-    classic algebra stops with an error:
+    on it is neither true nor false. This expression gives no map; GRASS 8.5
+    stopped with an error:
 
     ```sh
     C = if(td(I) > 0, I)
     ```
 
     A temporal variable that a map does not have, such as `end_doy()` of a
-    time instance or the calendar values of relative time, is an error in
-    both algebras.
+    time instance or the calendar values of relative time, is an error.
 
 6. **More syntax.** Comparisons, temporal functions and the minus sign may
     stand anywhere in an expression, and a dataset may have the name of a
-    function. The classic algebra reports a syntax error for each of these
+    function. GRASS 8.5 reported a syntax error for each of these
     expressions; the last one adds 1 to a dataset named `td`:
 
     ```sh
@@ -810,39 +784,37 @@ start with A, and time instances in I.
 
 7. **Intersection with several related maps.** With the temporal
     operator `i`, a map whose related maps have no common intersection is
-    left out. The classic algebra intersects the map with its related maps
-    until the first one that has no common time with the result so far,
-    so that its result depends on the order of the related maps. If a
-    dataset H has a map from day 2 to day 4, this map follows the map of A
-    of day 1 and precedes the one of day 4; the intersections are the time
-    instances of day 2 and day 4, and the map is left out:
+    left out. GRASS 8.5 intersected the map with its related maps until the
+    first one that had no common time with the result so far, so that its
+    result depended on the order of the related maps. If a dataset H has a
+    map from day 2 to day 4, this map follows the map of A of day 1 and
+    precedes the one of day 4; the intersections are the time instances of
+    day 2 and day 4, and the map is left out:
 
     ```sh
     C = H {:,follows|precedes,i} A
     ```
 
 8. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
-    by that size at both ends. The new algebra stops with an error if a map
+    by that size at both ends. The algebra stops with an error if a map
     would keep no time, that is if its end would fall on or before its start,
-    and for a time instance, which has no duration to shrink. The classic
-    algebra goes on instead: for a map whose end would fall before its
-    start it prints an error message and keeps the old time stamp, and it
-    makes a time instance of a map whose end equals its start. For maps
-    of two days, the first expression shrinks them to one day and the
-    second is an error:
+    and for a time instance, which has no duration to shrink. GRASS 8.5 went
+    on instead: for a map whose end would fall before its start it printed
+    an error message and kept the old time stamp, and it made a time instance
+    of a map whose end equals its start. For maps of two days, the first
+    expression shrinks them to one day and the second is an error:
 
     ```sh
     C = buff_t(B, "-12 hours")
     C = buff_t(B, "-1 day")
     ```
 
-9. **merge() of maps read at an offset.** The new algebra takes two maps
-    with equal content and time stamps as one map. The classic algebra, as
-    the reference implementation, makes a new map for each map read with a
-    temporal neighbourhood modifier and for each value of a temporal
-    function with an offset, and `merge()` keeps such a map next to an
-    equal one. The first two expressions give four maps in the new algebra
-    and eight in the classic algebra, the third three and six:
+9. **merge() of maps read at an offset.** Two maps with equal content and
+    time stamps are one map. GRASS 8.5 made a new map for each map read with
+    a temporal neighbourhood modifier and for each value of a temporal
+    function with an offset, and `merge()` kept such a map next to an equal
+    one. The first two expressions give four maps, where GRASS 8.5 gave
+    eight, the third three, where GRASS 8.5 gave six:
 
     ```sh
     C = merge(A[0], A[0])
@@ -852,50 +824,46 @@ start with A, and time instances in I.
 
 10. **tsnap() of maps that start together.** Of maps with the same start,
     `tsnap()` snaps only one to the start of the next later map; the others
-    keep their own ends. The new algebra takes the map that ends last, so
-    its result does not depend on the order of the maps. The classic
-    algebra takes the map listed last, so that the order of the arguments
-    of `merge()` matters. If C has a map from day 2 to day 4, it starts
-    with the map of A on days 2 to 3. The new algebra gives both
-    expressions the same maps, the map of C ends on day 3. The classic
-    algebra gives this result for the first expression only; in the second
-    the map of C keeps its end on day 4 and the map of A ends on day 3:
+    keep their own ends. The algebra takes the map that ends last, so its
+    result does not depend on the order of the maps. If C has a map from day
+    2 to day 4, it starts with the map of A on days 2 to 3. Both expressions
+    give the same maps, the map of C ends on day 3. GRASS 8.5 snapped such
+    maps differently, see item 12 under "Results corrected since GRASS 8.5":
 
     ```sh
     D = tsnap(merge(A, C))
     D = tsnap(merge(C, A))
     ```
 
-11. **Integers beyond 32 bits.** The new algebra keeps an integer
-    constant beyond 32 bits and writes it as a floating point number, so the
-    result map is of type DCELL. The classic algebra reads it as *r.mapcalc*
-    does, which keeps only its lower 32 bits: 3000000000 becomes
-    -1294967296, and 2147483648 becomes null. Each map of A lasts one day,
-    so this expression gives 3000000001 in the new algebra and -1294967295
-    in the classic algebra:
+11. **Integers beyond 32 bits.** The algebra keeps an integer constant
+    beyond 32 bits and writes it as a floating point number, so the result
+    map is of type DCELL. GRASS 8.5 read it as *r.mapcalc* does, which keeps
+    only its lower 32 bits: 3000000000 becomes -1294967296, and 2147483648
+    becomes null. Each map of A lasts one day, so this expression gives
+    3000000001, where GRASS 8.5 gave -1294967295:
 
     ```sh
     C = if(td(A) <= 0.5, A, 3000000000) + td(A)
     ```
 
-    The classic algebra also computes arithmetic on time function values
-    as *r.mapcalc* does, in 32 bits, also in a condition; the new algebra
-    computes with all digits. If the two maps of RS last 3000000000 seconds
-    each, `td(RS) * td(RS)` wraps around to -494665728 in the classic
-    algebra, so this expression gives the value 1 for both maps there and
-    the maps of RS in the new algebra. A time function on its own, as in
-    `if(td(RS) > 2000000000, RS, 1)`, keeps all its digits in both
-    algebras.
+    GRASS 8.5 also computed arithmetic on time function values as
+    *r.mapcalc* does, in 32 bits, also in a condition; the algebra computes
+    with all digits. If the two maps of RS last 3000000000 seconds each,
+    `td(RS) * td(RS)` wrapped around to -494665728 in GRASS 8.5, so this
+    expression gave the value 1 for both maps there, and it gives the maps of
+    RS now. A time function on its own, as in
+    `if(td(RS) > 2000000000, RS, 1)`, kept all its digits in GRASS 8.5 as
+    well.
 
     ```sh
     C = if(td(RS) * td(RS) > 5, RS, 1)
     ```
 
 12. **A number beside a temporal operator.** An operator in braces or the
-    hash operator `#` needs a space time dataset on both sides. The
-    classic algebra reads the number with the expression behind it as the
-    right operand, so that the first expression is the second; the new
-    algebra reports a syntax error for the first and computes the second:
+    hash operator `#` needs a space time dataset on both sides. GRASS 8.5
+    read the number with the expression behind it as the right operand, so
+    that the first expression was the second; the algebra reports a syntax
+    error for the first and computes the second:
 
     ```sh
     C = A {*,equal} 2 - B
@@ -905,42 +873,45 @@ start with A, and time instances in I.
     ```
 
     With an operator in braces, the same holds for a number with an
-    expression in front of it as the left operand. The classic algebra reads
-    this expression, the new algebra reports a syntax error:
+    expression in front of it as the left operand. GRASS 8.5 read this
+    expression, the algebra reports a syntax error:
 
     ```sh
     C = A - 1.5 {%,starts} A
     ```
 
-13. **Maps without a related map under -n.** With **-n**, the new algebra
+13. **Maps without a related map under -n.** With **-n**, the algebra
     registers a null map for each map of the left side of `{&&,...}` that
-    has no related map; the classic algebra never registers one. In this
-    expression the maps of A that contain no map of E give a null map each
-    in the new algebra and no map in the classic algebra:
+    has no related map; GRASS 8.5 never registered one. In this expression
+    the maps of A that contain no map of E give a null map each, where
+    GRASS 8.5 gave no map:
 
     ```sh
     C = if(A > 1 {&&,contains,&,l} E > 1, A)
     ```
 
-In Python, both algebras raise `SyntaxError` for an expression they cannot
-read. For one they cannot compute, the new algebra raises `ValueError` or
-`TypeError`, where the classic algebra raises `FatalError`. Both raise
-`FatalError` for a missing dataset or map and, without overwrite, for an
-existing result dataset or map; a dry run of the classic algebra stops only
-at an existing result map. The tool stops with the error message in both
-algebras.
+14. **Maps that touch under -s.** Under **-s**, a selection with the temporal
+    operator `r` or `u` takes the time of the maps that are related in time
+    and in space. GRASS 8.5 chose the maps with the spatial test but took the
+    time from the maps related in time, also from one whose box only touches
+    the map at a corner, which is no spatial relation.
 
-Two corrections apply to both algebras, so **-c** gives the rules of the
-classic algebra, not the results of a particular release. First,
+In Python, the algebra raises `SyntaxError` for an expression it cannot
+read. For one it cannot compute, it raises `ValueError` or `TypeError`,
+where GRASS 8.5 raised `FatalError`. It raises `FatalError` for a missing
+dataset or map and, without overwrite, for an existing result dataset or
+map. The tool stops with the error message.
+
+Two more differences concern conditions on temporal variables.
 `if({R}, condition, conclusion)` reads "condition R conclusion" also for
 conditions on temporal variables, as it always did for conditions on map
-values. Second, with a temporal relation beyond `equal`, the else part of
-a condition on temporal variables also takes the maps that no condition
-map is related to (see CONDITIONAL STATEMENTS). Figure A3 of Gebbert,
-Leppelt and Pebesma (2019) needs both: A has maps from day 1 to 3, 3 to 5
-and 5 to 7 of January 2001, B has daily maps from day 1 to 10, and this
-expression gives the first two maps of A and the maps of B from day 5 on,
-as the figure shows, while GRASS 8.4 gives only the two maps of A:
+values. With a temporal relation beyond `equal`, the else part of a
+condition on temporal variables also takes the maps that no condition map
+is related to (see CONDITIONAL STATEMENTS). Figure A3 of Gebbert, Leppelt
+and Pebesma (2019) needs both: A has maps from day 1 to 3, 3 to 5 and 5 to 7
+of January 2001, B has daily maps from day 1 to 10, and this expression
+gives the first two maps of A and the maps of B from day 5 on, as the figure
+shows, while GRASS 8.4 gives only the two maps of A:
 
 ```sh
 C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)
@@ -949,20 +920,11 @@ C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)
 Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with.
 
-#### Corrections to the classic algebra
+#### Results corrected since GRASS 8.5
 
-The classic algebra gives the results of the releases before GRASS 8.6, except
-where those releases were corrected; the page
-[changes in GRASS 8.6](temporalchanges.md#classic-algebra) lists all
-corrections. The items below describe some of them with examples. In them those
-releases computed wrongly, ended in an error that had no reason, or reported the
-wrong error. **-c** now gives the result described here. The reference
-implementation was corrected in the same way, except in item 15: it still raises
-the `CalledModuleError` of a failed module. The new algebra never computed these
-cases wrongly; only the items on infinite values, on month steps, on dates
-beyond the year 9999, on a map that starts with the next map in tsnap(), on a
-failed module and on the granularity concerned the library and with it both
-algebras. Results of earlier GRASS versions that used one of these forms need a
+In the following cases GRASS 8.5 computed wrongly, ended in an error that had
+no reason, or reported the wrong error; GRASS 8.6 gives the result described
+here. Results of earlier GRASS versions that used one of these forms need a
 new run. The examples use the datasets of the list above and, in addition, N
 with daily maps of the values 11 to 14 and RT with maps of relative time.
 
@@ -986,16 +948,14 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
     ```
 
 3. **Increments that the library refuses.** An increment of `tshift()` or
-    `buff_t()` that does not fit the temporal type is a syntax error and
-    leaves no result dataset: a text with a time unit on relative time, a
-    number without unit on absolute time, or a text that is not a time step.
-    Earlier versions raised a `TypeError` for `buff_t()` on relative time,
-    and for `tshift()` they did not report the increment as the cause: the
-    result was missing, or an enclosing operator complained about its input.
-    Each of these expressions is a syntax error. The new algebra refuses the
-    same increments with a `ValueError`. A number with a fraction, such as
-    `buff_t(RT, 1.5)`, stays valid on relative time in the classic algebra;
-    the new algebra reads whole numbers only and reports a syntax error:
+    `buff_t()` that does not fit the temporal type is an error and leaves no
+    result dataset: a text with a time unit on relative time, a number
+    without unit on absolute time, or a text that is not a time step. Earlier
+    versions raised a `TypeError` for `buff_t()` on relative time, and for
+    `tshift()` they did not report the increment as the cause: the result was
+    missing, or an enclosing operator complained about its input. Each of
+    these expressions is an error. A number with a fraction, such as
+    `buff_t(RT, 1.5)`, is a syntax error on relative time:
 
     ```sh
     C = tshift(A, "1 DAY")
@@ -1011,10 +971,9 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
     compared, so a dataset may hold integer and floating point maps. The
     first expression gives the four maps of A and the single map. The second
     gives the maps of A and the floating point maps computed from them; it
-    ran in those releases as well. Both algebras refuse `merge()` with
-    `map()`, as in `merge(A, map(a1))`: the classic algebra reports a syntax
-    error, the new algebra that a map without time stamp forms a series of
-    its own.
+    ran in those releases as well. `merge()` with `map()`, as in
+    `merge(A, map(a1))`, is refused, because a map without time stamp forms
+    a series of its own.
 
     ```sh
     C = merge(A, tmap(singletmap))
@@ -1024,10 +983,9 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
 5. **Time constants with offset.** A temporal function with an offset needs a
     map with the time value it returns. On a map without it, such as
     `end_month()` of a time instance or `start_month()` of relative time, the
-    expression stops with an error that says the function requires absolute
-    time, as the same function in a condition does. The releases before
-    GRASS 8.6 ended with a Python traceback (`AttributeError`) while they read
-    the expression:
+    expression stops with an error, as the same function in a condition does.
+    The releases before GRASS 8.6 ended with a Python traceback
+    (`AttributeError`) while they read the expression:
 
     ```sh
     C = A + end_month(I, 0)
@@ -1069,14 +1027,13 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
 9. **Chains that start with a number or map().** A chain of operators whose
     first operand is a number or a map without time stamp, such as
     `map(L) - 1 - A`, was grouped from the right, as `map(L) - (1 - A)`. It is
-    grouped from the left now, as in mathematics and in the new algebra. With
-    0.5 in L and the values 1 to 4 in A, the expression gave 0.5, 1.5, 2.5 and
-    3.5 and now gives -1.5, -2.5, -3.5 and -4.5, the result of
-    `(map(L) - 1) - A`. The same holds for `2 * map(L) + A`, `1 - 2 - 3 - A` and
-    chains inside `if()`. Chains after a dataset, such as
-    `A + (map(L) - 1 - 1)`, which ended in a syntax error, are read now. A chain
-    of numbers or maps alone, as in `map(L) - 1 - 1`, has no dataset to compute
-    and stays a syntax error:
+    grouped from the left now, as in mathematics. With 0.5 in L and the values
+    1 to 4 in A, the expression gave 0.5, 1.5, 2.5 and 3.5 and now gives -1.5,
+    -2.5, -3.5 and -4.5, the result of `(map(L) - 1) - A`. The same holds for
+    `2 * map(L) + A`, `1 - 2 - 3 - A` and chains inside `if()`. Chains after a
+    dataset, such as `A + (map(L) - 1 - 1)`, which ended in a syntax error, are
+    read now. A chain of numbers or maps alone, as in `map(L) - 1 - 1`, has no
+    dataset to compute and stays a syntax error:
 
     ```sh
     C = map(L) - 1 - A
@@ -1086,10 +1043,10 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
     `A + td(A) / A` was computed as `(A + td(A)) / A`, because `td()` could only
     stand right of an operator. The operators `*`, `/` and `%`, also with a
     temporal operator in braces, bind stronger than `+` and `-` now, as in
-    mathematics and in the new algebra. With daily maps and the values 1 to 4 in
-    A, `td(A)` is one day. The expression gave 2, 1.5, 1.3333 and 1.25 and now
-    gives 2, 2.5, 3.3333 and 4.25. A `td()` at the start of a product, such as
-    `td(A) * 2`, was a syntax error and is read now:
+    mathematics. With daily maps and the values 1 to 4 in A, `td(A)` is one
+    day. The expression gave 2, 1.5, 1.3333 and 1.25 and now gives 2, 2.5,
+    3.3333 and 4.25. A `td()` at the start of a product, such as `td(A) * 2`,
+    was a syntax error and is read now:
 
     ```sh
     C = A + td(A) / A
@@ -1099,8 +1056,8 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
     relation names only, such as `A {+,equivalent,l} N`, related no map, because
     maps are related by their temporal relations, and gave an empty result
     without a message. It stops now with the error "equivalent is a spatial
-    relation and needs a temporal one, as in equal|overlap", as in the new
-    algebra. Write a temporal relation beside the spatial one:
+    relation and needs a temporal one, as in equal|overlap". Write a temporal
+    relation beside the spatial one:
 
     ```sh
     C = A {+,equal|equivalent,l} N
@@ -1110,10 +1067,8 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
     of each map to the start of the next map. A map that starts at the same time
     as the next map keeps its own end instead. Earlier versions gave it the end
     of the next map, so the two maps swapped their ends. In the datasets above,
-    the map of A on days 2 to 3 and the map of C on days 2 to 4 start together.
-    In the classic algebra (**-c**, `GRASS_TEMPORAL_ALGEBRA=classic` and the
-    reference implementation) the map listed first keeps its end. The new
-    algebra orders such maps by their end instead, see item 10 of the
+    the map of A on days 2 to 3 and the map of C on days 2 to 4 start together;
+    of such maps the one that ends last is snapped, see item 10 of the
     differences above:
 
     ```sh
@@ -1122,12 +1077,11 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
 
 13. **Month and year steps from the end of a month.** `tshift()` and `buff_t()`
     by months or years ended in an error ("day is out of range for month") when
-    a time stamp moved to a day that the target month lacks, in both algebras.
-    Such a step now ends on the last day of that month. With a dataset M whose
-    map lasts from 31 January to 31 March 2001, the first expression gives a map
-    from 28 February to 30 April 2001, the second one a map from 31 December
-    2000 to 30 April 2001. A year step from 29 February 2004 ends on 28 February
-    2005:
+    a time stamp moved to a day that the target month lacks. Such a step now
+    ends on the last day of that month. With a dataset M whose map lasts from
+    31 January to 31 March 2001, the first expression gives a map from 28
+    February to 30 April 2001, the second one a map from 31 December 2000 to 30
+    April 2001. A year step from 29 February 2004 ends on 28 February 2005:
 
     ```sh
     C = tshift(M, "1 months")
@@ -1143,20 +1097,20 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
 
 14. **A date beyond the year 9999.** A step that ends behind the year 9999 or
     before the year 1, for example `buff_t(A, "365 days")` on a map that ends on
-    1 December 9999, ended with a traceback ("date value out of range") in both
-    algebras. It now ends with the error "... is beyond the year 9999" or "...
-    is before the year 1"; no map and no dataset is created.
+    1 December 9999, ended with a traceback ("date value out of range"). It now
+    ends with the error "... is beyond the year 9999" or "... is before the year
+    1"; no map and no dataset is created.
 
 15. **A failed module.** If a module fails while the maps are computed, for
-    example *r.mapcalc* on a floating point map as an operand of `&&`, both
-    algebras ended with a Python traceback. They now end with the error
+    example *r.mapcalc* on a floating point map as an operand of `&&`, the tool
+    ended with a Python traceback. It now ends with the error
     `Module <r.mapcalc> failed with return code 1, see the error output above`;
     the cause is in the error output of the module above it. No dataset is
     created.
 
 16. **The relation equals.** The releases before GRASS 8.6 refused the spelling
-    `equals` of the paper with a syntax error. The classic algebra reads it as
-    `equal`, so this expression gives the same maps as `C = A {+,equal,l} B`:
+    `equals` of the paper with a syntax error. It is read as `equal`, so this
+    expression gives the same maps as `C = A {+,equal,l} B`:
 
     ```sh
     C = A {+,equals,l} B
@@ -1164,7 +1118,7 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
 
 17. **Comparison of related maps.** The releases before GRASS 8.6 refused the
     comparison of two space time datasets, in braces and as `A >= F`, with a
-    syntax error. **-c** reads it as described in the comparison of related maps
+    syntax error. It is read as described in the comparison of related maps
     above:
 
     ```sh
@@ -1182,88 +1136,13 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
     differs between the two ends still counts: from 10:30 to 11:30 ten days
     later the granularity is `241 hours`.
 
-#### Differences from the reference implementation
-
-Besides the corrections, **-c** differs from the reference implementation in the
-following points. Three of them change the outcome of an expression, the items
-on lists of absolute and relative time, on a relative time instance in a
-selection and on boxes that touch at a corner under **-s**; the others concern
-messages, output and the class of an error.
-
-- **Message texts.** The texts of warnings and errors are those of the
-    new algebra. A `merge()` that meets maps identical in content and time
-    warns "merge() dropped 4 duplicate map(s)" for `C = merge(A, A)` instead
-    of "merge() keeps 4 maps of both operands only once". A refused increment
-    of `tshift()` reports that the text cannot be read as a time step, for
-    `tshift(A, "1 DAY")` instead of "cannot shift absolute time by".
-- **Debug output.** In Python, with `debug=True`, the classic algebra
-    prints each module call as a command line like the new algebra, for
-    example `r.mapcalc expression=q_0=(a1@t_rast_algebra + 1) nprocs=1`. The
-    reference implementation printed the *r.mapcalc* commands and the
-    resulting statement.
-- **Order of the errors.** Both implementations reject an invalid
-    expression, but they can report another class of error. The classic
-    algebra reads the whole expression before it computes. An expression with
-    a syntax error is therefore a syntax error, where the reference
-    implementation could stop with the error of a computation before it
-    reached the syntax error. The classic algebra also reads a dataset that is
-    an argument of a function before the arguments after it. A dataset of
-    another temporal type stops it there (`FatalError`), where the reference
-    implementation reads such a dataset last and can stop with an error of a
-    later argument, for example a `SyntaxError` of `buff_t()` in
-    `if(end_year(A) > 3, RT, buff_t(A, 2))`. In this expression the dataset
-    `nosuch` does not exist and a bracket is too many; the reference
-    implementation reported the missing dataset (`FatalError`):
-
-    ```sh
-    C = nosuch + A )
-    ```
-
-- **Existing result.** In Python, without `tgis.init(raise_fatal_error=True)`,
-    the reference implementation exits the process with `SystemExit` for an
-    existing result map. The classic algebra raises `FatalError`, as the new
-    algebra does. The tools are not affected, because they initialise the
-    library with `raise_fatal_error=True`.
-- **Lists of absolute and relative time.** A relation over a list that
-    mixes maps of absolute and of relative time, made with `merge()` and
-    `tmap()`, stopped the reference implementation with a `TypeError` while it
-    related the maps. The classic algebra does not reproduce this crash: maps
-    of the two types relate to nothing, so this expression selects the maps
-    of `RT` as `RT : RT` does:
-
-    ```sh
-    C = merge(tmap(sinst), RT) : RT
-    ```
-
-- **A relative time instance in a selection.** A selection on relative time with
-    a time instance on the right and the temporal operator `r`, such as
-    `RT {:,contains,r} tmap(rinst)`, stops the reference implementation with a
-    `TypeError`, as it stopped the releases before GRASS 8.6. The classic
-    algebra selects the map with the time of the instance, as the new algebra
-    does; the last block of the
-    [catalog](#catalog-where-the-classic-algebra-differs) where the classic
-    algebra differs shows it.
-- **Boxes that touch at a corner under -s.** With **-s** two maps are related
-    when they are related in time and in space. Boxes with a common edge meet
-    and are related in both implementations. Boxes that touch at a corner only
-    are related by the reference implementation, but not by **-c**, as in the
-    new algebra. A selection such as `A {:,precedes,r} B` gives no map for such
-    maps in both, but an inverse selection such as `A {!:,precedes,r} B`
-    differs: for a map of A from 1 to 2 January and a map of B from 2 to 3
-    January whose box meets that of A at a corner, **-c** keeps the map with its
-    own time 1 to 2 January, where the reference implementation takes the time
-    of the partner, 2 to 3 January. Without **-s** only the time relates the
-    maps.
-
 ### Granularity algebra
 
 With the flag **-g**, each space time dataset of the expression is first sampled
 with the common granularity of all datasets of the expression. A monthly series
 from the last day of a month (January 31, February 28 and March 31) has the
-granularity of one month and gets a granule per month; the classic algebra
-(**-c**) computes the granularity from the maps by the rules of the releases
-before GRASS 8.6 with the correction of item 18 under "Corrections to the
-classic algebra", one day here, and gets a granule per day. If the start times
+granularity of one month and gets a granule per month; GRASS 8.5 computed
+one day here and got a granule per day. If the start times
 of the datasets differ in a finer unit than their common granularity, the
 granules are one unit long, in the finest unit in which the start times differ,
 so that the maps of every dataset start with a granule: a monthly series from
@@ -1290,9 +1169,8 @@ all datasets need a valid temporal topology and the same temporal type.
 
 Single maps given with `map()` or `tmap()` are not sampled; an expression
 without any space time dataset is computed as without the flag, with a
-warning. The differences between the two algebras listed under "Core and
-classic algebra" apply with **-g** as well, for example item 4, the right
-reference.
+warning. The differences listed under "Differences from GRASS 8.5" apply
+with **-g** as well, for example item 4, the right reference.
 
 See the example "Sample the maps with a common granularity" below.
 
@@ -1625,15 +1503,15 @@ earlier examples.
     by_time
     ```
 
-### Use the classic algebra
+### Combine each map with its related map
 
 With the temporal operator `r`, the result takes the time of the right
 dataset. The expression `B {+,contains,r} A` gives one map for each map of
-`A`: the new algebra adds to each map of `A` the map of `B` that contains it,
-so the results are 11, 12, 23 and 24 with the times of `A`. The flag **-c**
-selects the classic algebra, which adds to each of them all maps of `A` that
-the map of `B` contains: 13, 13, 27 and 27, with the same times. This is item
-4 in the NOTES; the other differences are listed there.
+`A`: the algebra adds to each map of `A` the map of `B` that contains it, so
+the results are 11, 12, 23 and 24 with the times of `A`. GRASS 8.5 added to
+each of them all maps of `A` that the map of `B` contains: 13, 13, 27 and 27,
+with the same times. This is item 4 of the differences from GRASS 8.5 in the
+NOTES.
 
 === "Command line"
 
@@ -1648,20 +1526,6 @@ the map of `B` contains: 13, 13, 27 and 27, with the same times. This is item
     core_sum_1|2026-03-02 00:00:00|2026-03-03 00:00:00|12.0|12.0
     core_sum_2|2026-03-03 00:00:00|2026-03-04 00:00:00|23.0|23.0
     core_sum_3|2026-03-04 00:00:00|2026-03-05 00:00:00|24.0|24.0
-    ```
-
-    ```sh
-    t.rast.algebra -c expression="classic_sum = B {+,contains,r} A" \
-        basename=classic_sum
-    t.rast.list input=classic_sum columns=name,start_time,end_time,min,max
-    ```
-
-    ```text
-    name|start_time|end_time|min|max
-    classic_sum_0|2026-03-01 00:00:00|2026-03-02 00:00:00|13.0|13.0
-    classic_sum_1|2026-03-02 00:00:00|2026-03-03 00:00:00|13.0|13.0
-    classic_sum_2|2026-03-03 00:00:00|2026-03-04 00:00:00|27.0|27.0
-    classic_sum_3|2026-03-04 00:00:00|2026-03-05 00:00:00|27.0|27.0
     ```
 
 === "Python (grass.tools)"
@@ -1681,27 +1545,6 @@ the map of `B` contains: 13, 13, 27 and 27, with the same times. This is item
     core_sum_3|2026-03-04 00:00:00|2026-03-05 00:00:00|24.0|24.0
     ```
 
-    ```python
-    tools.t_rast_algebra(
-        expression="classic_sum = B {+,contains,r} A",
-        basename="classic_sum",
-        flags="c",
-    )
-    print(
-        tools.t_rast_list(
-            input="classic_sum", columns="name,start_time,end_time,min,max"
-        ).text
-    )
-    ```
-
-    ```text
-    name|start_time|end_time|min|max
-    classic_sum_0|2026-03-01 00:00:00|2026-03-02 00:00:00|13.0|13.0
-    classic_sum_1|2026-03-02 00:00:00|2026-03-03 00:00:00|13.0|13.0
-    classic_sum_2|2026-03-03 00:00:00|2026-03-04 00:00:00|27.0|27.0
-    classic_sum_3|2026-03-04 00:00:00|2026-03-05 00:00:00|27.0|27.0
-    ```
-
 ### Spatially related maps and empty maps
 
 The dataset `patches` has three daily maps with the values 100, 200 and 300
@@ -1717,9 +1560,7 @@ count the registered maps only: the first block gives the maps `plain_0`
 as well: `with_null_1` has no minimum or maximum, which the list shows as
 `None`. With **-s** the maps of the second day are not related in space, so
 the algebra does not compute that pair, and with **-n** there is no empty map
-either: `spatial_0` and `spatial_1` hold 101 and 303. The classic algebra
-(**-c**) registers no empty map even with **-n**: `classic_0` and `classic_1`
-hold 101 and 303.
+either: `spatial_0` and `spatial_1` hold 101 and 303.
 
 === "Command line"
 
@@ -1764,17 +1605,6 @@ hold 101 and 303.
     name|start_time|end_time|min|max
     spatial_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
     spatial_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
-    ```
-
-    ```sh
-    t.rast.algebra -n -c expression="classic = A + patches" basename=classic
-    t.rast.list input=classic columns=name,start_time,end_time,min,max
-    ```
-
-    ```text
-    name|start_time|end_time|min|max
-    classic_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
-    classic_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
     ```
 
 === "Python (grass.tools)"
@@ -1836,19 +1666,6 @@ hold 101 and 303.
     name|start_time|end_time|min|max
     spatial_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
     spatial_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
-    ```
-
-    ```python
-    tools.t_rast_algebra(expression="classic = A + patches", basename="classic", flags="nc")
-    print(
-        tools.t_rast_list(input="classic", columns="name,start_time,end_time,min,max").text
-    )
-    ```
-
-    ```text
-    name|start_time|end_time|min|max
-    classic_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
-    classic_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
     ```
 
 ### Sample the maps with a common granularity
@@ -2042,8 +1859,7 @@ current mapset: its maps are new maps in `t_rast_algebra_2`, as the column
 
 The second block adds `t_rast_algebra` to the search path with
 *[g.mapsets](g.mapsets.md)*, and `A` without mapset is found there. The
-classic algebra (**-c**) searches only the current mapset and still fails.
-The last command returns to `t_rast_algebra` for the following examples.
+last command returns to `t_rast_algebra` for the following examples.
 
 === "Command line"
 
@@ -2071,9 +1887,6 @@ The last command returns to `t_rast_algebra` for the following examples.
     g.mapsets operation=add mapset=t_rast_algebra
     t.rast.algebra expression="doubled = A * 2" basename=doubled
     t.rast.list input=doubled columns=name,mapset,min,max
-    if ! t.rast.algebra -c expression="doubled_c = A * 2" basename=doubled_c 2>&1; then
-        echo "t.rast.algebra -c failed"
-    fi
     g.mapset mapset=t_rast_algebra
     ```
 
@@ -2083,8 +1896,6 @@ The last command returns to `t_rast_algebra` for the following examples.
     doubled_1|t_rast_algebra_2|4.0|4.0
     doubled_2|t_rast_algebra_2|6.0|6.0
     doubled_3|t_rast_algebra_2|8.0|8.0
-    ERROR: Space time raster dataset <A@t_rast_algebra_2> not found
-    t.rast.algebra -c failed
     ```
 
 === "Python (grass.tools)"
@@ -2117,13 +1928,6 @@ The last command returns to `t_rast_algebra` for the following examples.
     tools.g_mapsets(operation="add", mapset="t_rast_algebra")
     tools.t_rast_algebra(expression="doubled = A * 2", basename="doubled")
     print(tools.t_rast_list(input="doubled", columns="name,mapset,min,max").text)
-    try:
-        tools.t_rast_algebra(
-            expression="doubled_c = A * 2", basename="doubled_c", flags="c"
-        )
-    except ToolError as error:
-        print(error.stderr.strip())
-        print("t.rast.algebra -c failed")
     tools.g_mapset(mapset="t_rast_algebra")
     ```
 
@@ -2133,8 +1937,6 @@ The last command returns to `t_rast_algebra` for the following examples.
     doubled_1|t_rast_algebra_2|4.0|4.0
     doubled_2|t_rast_algebra_2|6.0|6.0
     doubled_3|t_rast_algebra_2|8.0|8.0
-    ERROR: Space time raster dataset <A@t_rast_algebra_2> not found
-    t.rast.algebra -c failed
     ```
 
 ### Catalog: select and combine maps by temporal relations
@@ -2753,18 +2555,16 @@ giving 0.5, 1, 1.5 and 2.
     c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|12.0|849.0
     ```
 
-### Catalog: where the classic algebra differs
+### Catalog: differences from GRASS 8.5
 
 <!-- example: shell-only -->
 
-Each pair of blocks computes one expression of the list "Core and classic
-algebra" in the NOTES, first with the new algebra and then with **-c**; the last
-block shows a form that the releases before GRASS 8.6 refused with a
-`TypeError`, which the classic algebra now computes and the reference
-implementation still refuses. The first pair is item 1: the conditions of the
-two maps of `A` within a map of `B` are joined with and, so the new algebra
-gives 0 and 20; the classic algebra gives one result for each pair of a
-condition map and a conclusion map, and four maps in total.
+Each block computes one expression of the list "Differences from GRASS 8.5"
+in the NOTES; the last block shows a form that the releases before GRASS 8.6
+refused with a `TypeError`. The first block is item 1: the conditions of the
+two maps of `A` within a map of `B` are joined with and, so the algebra gives 0
+and 20; GRASS 8.5 gave one result for each pair of a condition map and a
+conclusion map, and four maps in total.
 
 === "Command line"
 
@@ -2781,25 +2581,10 @@ condition map and a conclusion map, and four maps in total.
     c_1|2026-03-03 00:00:00|2026-03-05 00:00:00|20.0|20.0
     ```
 
-    ```sh
-    t.rast.algebra -c --overwrite \
-        expression="C = if({during}, A > 1, B, 0)" basename=c
-    t.rast.list input=C order=start_time,name \
-        columns=name,start_time,end_time,min,max
-    ```
-
-    ```text
-    name|start_time|end_time|min|max
-    c_0|2026-03-01 00:00:00|2026-03-03 00:00:00|0.0|0.0
-    c_1|2026-03-01 00:00:00|2026-03-03 00:00:00|10.0|10.0
-    c_2|2026-03-03 00:00:00|2026-03-05 00:00:00|20.0|20.0
-    c_3|2026-03-03 00:00:00|2026-03-05 00:00:00|20.0|20.0
-    ```
-
     Item 2, equal time stamps: the then part `A` and the else part `B` have
-    different time stamps. The new algebra stops with an error and creates no
-    dataset; the classic algebra computes only the maps whose time stamp occurs
-    in both parts, which are none, and the result is an empty dataset.
+    different time stamps. The algebra stops with an error and creates no
+    dataset; GRASS 8.5 computed only the maps whose time stamp occurs in both
+    parts, which are none, and the result was an empty dataset.
 
     ```sh
     if ! t.rast.algebra expression="E1 = if(A > 2, A, B)" basename=e1 2>&1; then
@@ -2815,19 +2600,9 @@ condition map and a conclusion map, and four maps in total.
     t.rast.algebra failed
     ```
 
-    ```sh
-    t.rast.algebra -c expression="E2 = if(A > 2, A, B)" basename=e2
-    t.info -g type=strds input=E2 | grep "^number_of_maps="
-    ```
-
-    ```text
-    number_of_maps=0
-    ```
-
-    Item 3, precedence: `&&` binds stronger than `||` in the new algebra, so
-    each map of `A` is taken because `td(A) == 1` is true. The classic algebra
-    reads the condition from left to right and takes no map; the tool warns
-    and the result dataset is empty.
+    Item 3, precedence: `&&` binds stronger than `||`, so each map of `A` is
+    taken because `td(A) == 1` is true. GRASS 8.5 read the condition from left
+    to right and took no map.
 
     ```sh
     t.rast.algebra --overwrite \
@@ -2844,19 +2619,9 @@ condition map and a conclusion map, and four maps in total.
     c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
     ```
 
-    ```sh
-    t.rast.algebra -c expression="E3 = if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)" \
-        basename=e3
-    t.info -g type=strds input=E3 | grep "^number_of_maps="
-    ```
-
-    ```text
-    number_of_maps=0
-    ```
-
-    Item 5, `td()` of a time instance: the new algebra gives null, so the
-    condition is neither true nor false and no map remains. The classic
-    algebra stops with an error.
+    Item 5, `td()` of a time instance: the algebra gives null, so the
+    condition is neither true nor false and no map remains. GRASS 8.5 stopped
+    with an error.
 
     ```sh
     t.rast.algebra expression="E4 = if(td(I) > 0, I)" basename=e4
@@ -2867,21 +2632,8 @@ condition map and a conclusion map, and four maps in total.
     number_of_maps=0
     ```
 
-    ```sh
-    if ! t.rast.algebra -c expression="E5 = if(td(I) > 0, I)" basename=e5 2>&1; then
-        echo "t.rast.algebra failed"
-    fi
-    ```
-
-    ```text
-    ERROR: Function td() requires a time interval, but map <i_1@t_rast_algebra>
-           is a time instance.
-    t.rast.algebra failed
-    ```
-
     Item 6, more syntax: the minus sign may stand at the start of an
-    expression in the new algebra, which gives 9, 8, 7 and 6. The classic
-    algebra reports a syntax error.
+    expression, which gives 9, 8, 7 and 6. GRASS 8.5 reported a syntax error.
 
     ```sh
     t.rast.algebra --overwrite expression="C = -A + 10" basename=c
@@ -2896,22 +2648,10 @@ condition map and a conclusion map, and four maps in total.
     c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|6.0|6.0
     ```
 
-    ```sh
-    if ! t.rast.algebra -c expression="E6 = -A + 10" basename=e6 2>&1; then
-        echo "t.rast.algebra failed"
-    fi
-    ```
-
-    ```text
-    ERROR: syntax error on line 1, position 5 token SUB near '-' expression 'E6
-           = -A + 10'
-    t.rast.algebra failed
-    ```
-
     Item 7, intersection: the map of `H` follows the map of `A` of the first
-    day and precedes the one of the fourth day. The new algebra leaves it out,
-    because the two intersections are not the same time; the classic algebra
-    gives one time instance.
+    day and precedes the one of the fourth day. The algebra leaves it out,
+    because the two intersections are not the same time; GRASS 8.5 gave one
+    time instance.
 
     ```sh
     t.rast.algebra expression="E7 = H {:,follows|precedes,i} A" basename=e7
@@ -2922,20 +2662,10 @@ condition map and a conclusion map, and four maps in total.
     number_of_maps=0
     ```
 
-    ```sh
-    t.rast.algebra -c expression="E8 = H {:,follows|precedes,i} A" basename=e8
-    t.rast.list input=E8 columns=name,start_time,end_time,min,max
-    ```
-
-    ```text
-    name|start_time|end_time|min|max
-    e8_0|2026-03-02 00:00:00|None|5.0|5.0
-    ```
-
     Item 8, negative buffer: the maps of `B` last two days, so a buffer of -1
-    day on both sides leaves no time. The new algebra stops with an error. The
-    classic algebra goes on and makes a time instance of each map, at the
-    middle of its interval: 2 and 4 March.
+    day on both sides leaves no time. The algebra stops with an error. GRASS
+    8.5 went on and made a time instance of each map, at the middle of its
+    interval: 2 and 4 March.
 
     ```sh
     if ! t.rast.algebra expression='E9 = buff_t(B, "-1 day")' basename=e9 2>&1; then
@@ -2949,19 +2679,8 @@ condition map and a conclusion map, and four maps in total.
     t.rast.algebra failed
     ```
 
-    ```sh
-    t.rast.algebra -c expression='E10 = buff_t(B, "-1 day")' basename=e10
-    t.rast.list input=E10 columns=name,start_time,end_time,min,max
-    ```
-
-    ```text
-    name|start_time|end_time|min|max
-    e10_0|2026-03-02 00:00:00|None|10.0|10.0
-    e10_1|2026-03-04 00:00:00|None|20.0|20.0
-    ```
-
-    Item 9: `merge()` of two equal maps read at an offset gives four maps in the
-    new algebra and eight in the classic one.
+    Item 9: `merge()` of two equal maps read at an offset gives four maps;
+    GRASS 8.5 gave eight.
 
     ```sh
     t.rast.algebra expression="E11 = merge(A[0], A[0])" basename=e11
@@ -2972,20 +2691,9 @@ condition map and a conclusion map, and four maps in total.
     number_of_maps=4
     ```
 
-    ```sh
-    t.rast.algebra -c expression="E12 = merge(A[0], A[0])" basename=e12
-    t.info -g type=strds input=E12 | grep "^number_of_maps="
-    ```
-
-    ```text
-    number_of_maps=8
-    ```
-
-    Item 10, `tsnap()` of maps that start together: the map of `H` and the second
-    map of `A` both start on 2 March, and `H` ends on 4 March. The new algebra
-    snaps the map of `H` to 3 March in both expressions. The classic algebra
-    does so for the first expression only; in the second it takes the map
-    listed last and lets `H` keep its end on 4 March.
+    Item 10, `tsnap()` of maps that start together: the map of `H` and the
+    second map of `A` both start on 2 March, and `H` ends on 4 March. The
+    algebra snaps the map of `H` to 3 March in both expressions.
 
     ```sh
     t.rast.algebra --overwrite expression="C = tsnap(merge(A, H))" basename=c
@@ -3017,25 +2725,9 @@ condition map and a conclusion map, and four maps in total.
     c_4|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
     ```
 
-    ```sh
-    t.rast.algebra -c --overwrite expression="C = tsnap(merge(H, A))" basename=c
-    t.rast.list input=C order=start_time,name \
-        columns=name,start_time,end_time,min,max
-    ```
-
-    ```text
-    name|start_time|end_time|min|max
-    c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|1.0
-    c_1|2026-03-02 00:00:00|2026-03-04 00:00:00|5.0|5.0
-    c_2|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0|2.0
-    c_3|2026-03-03 00:00:00|2026-03-04 00:00:00|3.0|3.0
-    c_4|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
-    ```
-
-    Item 11, integers beyond 32 bits: the new algebra keeps the constant
-    3000000000 and adds the one day of each map to it. The classic algebra
-    reads it as *r.mapcalc* does, with its lower 32 bits only, which is
-    -1294967296.
+    Item 11, integers beyond 32 bits: the algebra keeps the constant
+    3000000000 and adds the one day of each map to it. GRASS 8.5 read it as
+    *r.mapcalc* does, with its lower 32 bits only, which is -1294967296.
 
     ```sh
     t.rast.algebra --overwrite \
@@ -3051,27 +2743,11 @@ condition map and a conclusion map, and four maps in total.
     c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|3000000001.0|3000000001.0
     ```
 
-    ```sh
-    t.rast.algebra -c --overwrite \
-        expression="C = if(td(A) <= 0.5, A, 3000000000) + td(A)" basename=c
-    t.rast.list input=C columns=name,start_time,end_time,min,max
-    ```
-
-    ```text
-    name|start_time|end_time|min|max
-    c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|-1294967295.0|-1294967295.0
-    c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|-1294967295.0|-1294967295.0
-    c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|-1294967295.0|-1294967295.0
-    c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|-1294967295.0|-1294967295.0
-    ```
-
     A selection on relative time with a time instance on the right and the
     temporal operator `r` ended with a `TypeError` in the releases before
-    GRASS 8.6. The classic algebra now computes it as the new algebra does,
-    while the reference implementation still ends with the `TypeError`: of the
-    two maps of `flow` (hours 0 to 2 and 2 to 4, values 6 and 8), the second
-    contains the time instance `pulse` at hour 3 and is selected with the time
-    of the instance.
+    GRASS 8.6: of the two maps of `flow` (hours 0 to 2 and 2 to 4, values 6
+    and 8), the second contains the time instance `pulse` at hour 3 and is
+    selected with the time of the instance.
 
     ```sh
     r.mapcalc expression="flow_1 = 6"
@@ -3083,7 +2759,7 @@ condition map and a conclusion map, and four maps in total.
     t.create output=pulses temporaltype=relative title="Pulses" \
         description="One time instance"
     t.register input=pulses maps=pulse start=3 unit=hours
-    t.rast.algebra -c --overwrite \
+    t.rast.algebra --overwrite \
         expression="C = flow {:,contains,r} tmap(pulse)" basename=c
     t.rast.list input=C columns=name,start_time,end_time,min,max
     ```
@@ -3313,13 +2989,12 @@ explicitly; it gives the same maps.
     the year of the start of the predecessor. The first two maps have no
     complete neighbourhood and are left out, so the result has three maps, for
     March to May, with the values 32, 60 and 91, the start days of February,
-    March and April. The new algebra also computes a map for February, but
+    March and April. The algebra also computes a map for February, but
     `A[-2]` has no map there, so it is null everywhere and not registered; the
     registered maps take the numbers from 0, `doy_0` to `doy_2`. With **-n**
     the second block registers it as `doyn_0`, without minimum and maximum, and
-    the others follow as `doyn_1` to `doyn_3`. The classic algebra computes no
-    map for February and numbers the three maps `doyc_0` to `doyc_2`. The
-    result is named `B`, which replaces the dataset of the block before.
+    the others follow as `doyn_1` to `doyn_3`. The result is named `B`, which
+    replaces the dataset of the block before.
 
     ```sh
     t.rast.algebra --overwrite \
@@ -3348,20 +3023,6 @@ explicitly; it gives the same maps.
     doyn_1|2001-03-01 00:00:00|2001-04-01 00:00:00|32.0|32.0
     doyn_2|2001-04-01 00:00:00|2001-05-01 00:00:00|60.0|60.0
     doyn_3|2001-05-01 00:00:00|2001-06-01 00:00:00|91.0|91.0
-    ```
-
-    ```sh
-    t.rast.algebra -c --overwrite \
-        expression="B = if(A > 0.0 && A[-1] > 0.0 && A[-2] > 0.0, start_doy(A, -1), 0)" \
-        basename=doyc
-    t.rast.list input=B columns=name,start_time,end_time,min,max
-    ```
-
-    ```text
-    name|start_time|end_time|min|max
-    doyc_0|2001-03-01 00:00:00|2001-04-01 00:00:00|32.0|32.0
-    doyc_1|2001-04-01 00:00:00|2001-05-01 00:00:00|60.0|60.0
-    doyc_2|2001-05-01 00:00:00|2001-06-01 00:00:00|91.0|91.0
     ```
 
     Figure A3 of the publication needs the else rule described in the NOTES: `A`

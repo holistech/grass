@@ -30,21 +30,13 @@ def test_td_in_arithmetic(algebra, expression, expected):
     assert algebra.triples(expression) == expected
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(("expression", "count"), [("E + td(E)", 4), ("I + td(I)", 3)])
 def test_td_of_time_instants_is_null(algebra, expression, count):
     """Instants have no length, so td() is null and so is the sum; such maps
     are registered only with register_null"""
-    assert algebra.run(expression, classic=False) == []
-    rows = algebra.run(expression, register_null=True, classic=False)
+    assert algebra.run(expression) == []
+    rows = algebra.run(expression, register_null=True)
     assert [row.min for row in rows] == [None] * count
-
-
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize("expression", ["E + td(E)", "I + td(I)"])
-def test_td_of_time_instants_is_an_error_in_the_classic_algebra(algebra, expression):
-    with pytest.raises(algebra.errors, match="requires a time interval"):
-        algebra.parse(expression, classic=True)
 
 
 def test_buff_t_buffers_both_sides(algebra):
@@ -147,25 +139,17 @@ def test_tsnap_keeps_the_end_of_a_map_that_starts_with_the_next_map(algebra):
     ]
 
 
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize(
-    ("classic", "expected"),
-    [
-        # Sorted by start and end, a2 [2,3] comes before c1 [2,4]: a2 keeps
-        # its end, c1 ends at the start of a3.
-        (False, [(1, 2, 1), (2, 3, 2), (2, 3, 7), (3, 4, 3), (4, 5, 4)]),
-        # In list order c1 comes first and keeps its end, a2 ends at the
-        # start of a3.
-        (True, [(1, 2, 1), (2, 3, 2), (2, 4, 7), (3, 4, 3), (4, 5, 4)]),
-    ],
-)
-def test_tsnap_of_maps_that_start_together_in_the_order_of_the_list(
-    algebra, classic, expected
-):
-    """The core orders maps that start together by their end, the classic
-    algebra by the list of merge(), so only the classic result depends on
-    the order of the arguments"""
-    assert algebra.triples("tsnap(merge(C, A))", classic=classic) == expected
+def test_tsnap_of_maps_that_start_together_by_their_end(algebra):
+    """Maps that start together are ordered by their end, not by the list of
+    merge(): a2 [2,3] comes before c1 [2,4], so a2 keeps its end and c1 ends
+    at the start of a3"""
+    assert algebra.triples("tsnap(merge(C, A))") == [
+        (1, 2, 1),
+        (2, 3, 2),
+        (2, 3, 7),
+        (3, 4, 3),
+        (4, 5, 4),
+    ]
 
 
 def test_tsnap_closes_gaps(algebra):
@@ -209,18 +193,16 @@ def test_merge_nested_and_with_shift(algebra):
     assert algebra.values('merge(A, tshift(A, "10 days"))') == [1, 2, 3, 4, 1, 2, 3, 4]
 
 
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize("classic", [False, True])
 @pytest.mark.parametrize(
     "expression",
     ["merge(A, tmap(singletmap))", "merge(tmap(singletmap), A)"],
 )
-def test_merge_with_a_single_map(algebra, classic, expression):
+def test_merge_with_a_single_map(algebra, expression):
     """A dataset and a single map can be merged, in either order. The
     reference implementation (grass.temporal.classic) refused it because it
     compared the data type of a map read from a dataset, which it had not
     loaded, with that of the single map."""
-    assert algebra.triples(expression, classic=classic) == [
+    assert algebra.triples(expression) == [
         (1, 2, 1),
         (2, 3, 2),
         (3, 4, 3),

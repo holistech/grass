@@ -2,12 +2,11 @@
 
 Expressions that relate datasets of different types.
 
-Every case runs in the reference implementation (grass.temporal.classic), in
-the classic profile and in the core. The expected maps are those the old
-assertions describe (number of maps, extent, minimum, maximum, topology,
+Every case runs in the reference implementation (grass.temporal.classic) and
+in the core. The expected maps are those the old assertions describe (number of maps, extent, minimum, maximum, topology,
 granularity); the comment of a case repeats them. CORE holds the cases where
-the core calculates differently according to the manual ("Core and classic
-algebra"); SHAPE what the old test asserted besides the maps. The datasets
+the core calculates differently according to the manual ("Differences
+from GRASS 8.5"); SHAPE what the old test asserted besides the maps. The datasets
 are those of algebra_cases, see its builder for the data.
 """
 
@@ -18,10 +17,7 @@ from grass.tools import Tools
 
 KIND = "select"
 
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = pytest.mark.fixed_algebra
-
-RUNNERS = ["reference", "classic", "core"]
+RUNNERS = ["reference", "core"]
 
 CASES = [
     # Old assertions: n 2, minmin 2, maxmax 3, start 2001-01-02, end 2001-01-04, topo True, gran 1 day
@@ -127,11 +123,11 @@ DRY = [
     ),
 ]
 
-# What the classic profile and the core plan where they differ from the
-# reference. Their run of this expression makes a str3ds, as the run of the
-# reference does (test_mixed_runs_make_a_str3ds); their plan names that type,
-# while the plan of the reference names the stdstype of the call, which the
-# old test asserted. Decided 19.10.2026: the plan names what the run makes.
+# What the core plans where it differs from the reference. Its run of this
+# expression makes a str3ds, as the run of the reference does
+# (test_mixed_runs_make_a_str3ds); its plan names that type, while the plan of
+# the reference names the stdstype of the call, which the old test asserted.
+# Decided 19.10.2026: the plan names what the run makes.
 DRY_AS_RUN = {
     "different stds handling2 (dry run)": {"register": 2, "stdstype": "str3ds"},
 }
@@ -183,7 +179,7 @@ def test_dry_runs(data, request, runner, expression, options, expected):
 @pytest.mark.parametrize("runner", RUNNERS)
 def test_mixed_runs_make_a_str3ds(data, runner):
     # The run of the planned expression: the type of its result is what the
-    # plans of the classic profile and the core name (DRY_AS_RUN).
+    # plan of the core names (DRY_AS_RUN).
     algebra_cases.check_case(
         KIND,
         runner,

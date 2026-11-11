@@ -2,7 +2,7 @@ Extending the algebra core
 ==========================
 
 This page shows how the algebra core of the temporal framework is built, how a
-function or an operator is added to it, and which tests keep the classic algebra
+function or an operator is added to it, and which tests keep the algebra
 computing as before. It complements the section on the algebra core in
 :doc:`temporal_framework` and the manual of *t.rast.algebra*, which describes
 the syntax for users.
@@ -18,18 +18,10 @@ The page uses the terms of the docstring of :mod:`grass.temporal.algebra`:
 
 the core
     :mod:`grass.temporal.algebra`, the package.
-the classic algebra
-    The language of the temporal algebra as the manuals and the publications
-    define it. The flag ``-c`` of *t.rast.algebra*, *t.rast3d.algebra*,
-    *t.vect.algebra* and *t.select*, or ``GRASS_TEMPORAL_ALGEBRA=classic``,
-    selects it.
-the classic profile
-    ``grass.temporal.algebra.parser.classic.CLASSIC``, the classic algebra
-    computed on the core.
 the reference implementation
-    :mod:`grass.temporal.classic`, the implementation of the classic algebra that
-    is older than the core, kept because published results rely on it. After
-    its first mention it is called "the reference".
+    :mod:`grass.temporal.classic`, the implementation of the algebra that is
+    older than the core and that the releases up to GRASS 8.5 computed with.
+    After its first mention it is called "the reference".
 the public parser classes
     :class:`~grass.temporal.algebra.parser.facade.TemporalRasterAlgebraParser`,
     :class:`~grass.temporal.algebra.parser.facade.TemporalRaster3DAlgebraParser`
@@ -76,7 +68,7 @@ The core is built in layers, from the bottom up:
    :class:`~grass.temporal.algebra.profile.Profile` and
    ``grass.temporal.algebra.profile.CORE``, the rules of the core;
    :mod:`~grass.temporal.algebra.variants` has the helpers of the operations that
-   the classic profile uses as well.
+   a profile other than the core would use.
 7. Syntax, in :mod:`~grass.temporal.algebra.parser`: the lexer, the grammar, the
    nodes of the syntax tree and the operators in braces of the core
    (:mod:`~grass.temporal.algebra.parser.lexer`,
@@ -85,16 +77,10 @@ The core is built in layers, from the bottom up:
    :mod:`~grass.temporal.algebra.parser.operators`); the
    :class:`~grass.temporal.algebra.parser.translate.Translator`, which gives the
    tree its meaning with the operations; the granularity mode
-   (:mod:`~grass.temporal.algebra.parser.granularity`). The classic profile has
-   its own grammar (:mod:`~grass.temporal.algebra.parser.classic_grammar` with
-   the productions in :mod:`~grass.temporal.algebra.parser.classic_productions`)
-   and translator (:mod:`~grass.temporal.algebra.parser.classic`, a subclass of
-   the translator of the core, with
-   :mod:`~grass.temporal.algebra.parser.classic_maps` and
-   :mod:`~grass.temporal.algebra.parser.classic_numbers`);
-   :mod:`~grass.temporal.algebra.parser.shared` has what both translators check
-   alike. :mod:`~grass.temporal.algebra.parser.switch` chooses the algebra, the
-   package :mod:`~grass.temporal.algebra.parser` has
+   (:mod:`~grass.temporal.algebra.parser.granularity`);
+   :mod:`~grass.temporal.algebra.parser.shared` has checks of the translator
+   that do not depend on the syntax tree. The package
+   :mod:`~grass.temporal.algebra.parser` has
    :func:`~grass.temporal.algebra.parser.evaluate`, and
    :mod:`~grass.temporal.algebra.parser.facade` the public parser classes.
 
@@ -106,12 +92,10 @@ The way of an expression
 calls its ``parse()`` method; with ``-g`` the tool first lets the parser find
 the common granularity of the datasets
 (``grass.temporal.algebra.parser.facade.TemporalRasterAlgebraParser.setup_common_granularity``).
-The parser chooses the profile: the classic one if
-``-c`` is given or :func:`~grass.temporal.algebra.parser.switch.classic_selected`
-finds ``GRASS_TEMPORAL_ALGEBRA=classic``, the core otherwise.
+The parser passes the expression and its options on:
 
 .. literalinclude:: ../../temporal/algebra/parser/facade.py
-    :caption: The choice of the profile in grass.temporal.algebra.parser.facade
+    :caption: The call of evaluate in grass.temporal.algebra.parser.facade
     :language: python
     :pyobject: _AlgebraParser._evaluate
 
@@ -314,42 +298,18 @@ syntax error and fails on the core as soon as ``round`` is in
 means changing that test, which is a decision of the maintainers, not a side
 effect.
 
-The classic algebra
-^^^^^^^^^^^^^^^^^^^
+The published expressions
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The classic profile reads the expression with its own grammar, a frozen copy of
-the productions of the reference
-(``grass.temporal.algebra.parser.classic_productions.TEXTS``) with the lexer of
-the reference. It knows the functions of the cells as tokens of their own:
-
-.. literalinclude:: ../../temporal/algebra/parser/classic_productions.py
-    :caption: The functions of the cells in the classic grammar
-    :language: python
-    :start-after: "p_mapcalc_function": """
-    :end-before: "p_mapcalc_operation1": """
-
-A function added to the translator of the core therefore stays a syntax error
-with ``-c``. The classic translator
-(``grass.temporal.algebra.parser.classic.ClassicTranslator``) overrides
-``grass.temporal.algebra.parser.classic.ClassicTranslator._function`` and
-``grass.temporal.algebra.parser.classic.ClassicTranslator._call``, but both hand
-a function of the cells to the methods of the core (``_call`` once for each
-unit of a classic map list), so the new name would be known there; the classic
-grammar never builds the node. Adding a function to the classic syntax changes
-the classic algebra. Changing the copy alone fails the tests of
-``grass_temporal_algebra_classic_grammar_test.py``, among them
-``test_frozen_copy_equals_the_parser_classes``, which keeps the copy equal to the
-productions of the reference.
-
-The classic profile computes with the same operations, content trees and
-backends as the core. A change there can change a result of the classic
-algebra as well, and the comparisons with the recorded results of the reference
-(see `The safeguards`_) show it. Every change of what ``-c`` computes, a
-different map, a different value, or an expression that is accepted instead of
-refused or the other way round, needs an explicit decision of the maintainers,
-a test, and an entry in the section Classic algebra of the manual page
-*temporalchanges* (the manual of *t.rast.algebra* lists some of them). Published results rely on the classic algebra, so it changes
-only where it was wrong.
+A new function or operator adds to the language; it must not change what an
+expression that was valid before computes. The expressions printed in the
+publication of the algebra (Gebbert, Leppelt and Pebesma, 2019) are kept with
+their results in ``t_rast_algebra_published_test.py`` and
+``t_select_published_test.py``, with values derived by hand. Every change of
+what such an expression computes, a different map, a different value, or an
+expression that is accepted instead of refused or the other way round, needs an
+explicit decision of the maintainers, a test, and an entry in the manual page
+*temporalchanges*.
 
 An operator
 ^^^^^^^^^^^
@@ -375,15 +335,12 @@ the core:
 - the backend: how ``grass.temporal.algebra.backends.RasterBackend._call``
   writes it.
 
-The classic grammar has its own tokens and precedence, so the same holds as for
-a function: an operator of the core is a syntax error with ``-c`` unless the
-classic algebra is changed on purpose.
-
 The safeguards
 --------------
 
-The tests below keep the classic algebra computing as it did and the tools on
-the core computing as they did before the core.
+The tests below keep the algebra computing as the releases before the core
+did, except for the differences that the manuals list, and the tools on the
+core computing as they did before the core.
 
 The gold corpus
     :mod:`grass.temporal.testing.corpus` holds what the reference computed for
@@ -393,13 +350,9 @@ The gold corpus
     corpus was recorded and the comparisons started to read it; since then,
     cases were added and a few entries recorded again, in the commits that
     ``git log classic-reference-corpus.. -- python/grass/temporal/testing/corpus``
-    lists. A change that makes the classic profile
-    compute another result fails these comparisons, for example
-    ``test_profile_equals_reference`` in
-    ``temporal/t.rast.algebra/tests/t_rast_algebra_differential_test.py``. The
-    corpus key holds the node id of the test, so a test that is renamed or moved
-    finds no entry and fails, until the corpus is recorded again
-    (``GRASS_TEMPORAL_REFERENCE=record``, see the module docstring).
+    lists. The corpus key holds the node id of the test, so a test that is
+    renamed or moved finds no entry and fails, until the corpus is recorded
+    again (``GRASS_TEMPORAL_REFERENCE=record``, see the module docstring).
 
 ``GRASS_TEMPORAL_REFERENCE=live``
     runs the reference instead of reading the corpus and fails where the
@@ -413,23 +366,22 @@ Unread entries
     ``python3 -m grass.temporal.testing.corpus_orphans <directory>`` lists the
     entries of the corpus that no test read and exits with 1 if there is one.
     The directory is the one that ``GRASS_TEMPORAL_CORPUS_TRACE_DIR`` named
-    during a run of the tests in both settings of the algebra; with a part of
-    the tests, it lists the entries of the others.
+    during a run of the tests; with a part of the tests, it lists the entries
+    of the others.
 
 Differential tests
     The files ``*_differential_test.py`` of *t.rast.algebra*,
     *t.rast3d.algebra*, *t.vect.algebra* and *t.select* compute each expression
-    of their lists with the core and the classic profile and compare the maps,
-    except for the differences that the manual lists, and compare the classic
-    profile with the corpus. :mod:`grass.temporal.testing.differential` runs
-    them; ``t_rast_algebra_published_test.py`` and
+    of their lists with the core and the reference and compare the maps,
+    except for the differences that the manual lists.
+    :mod:`grass.temporal.testing.differential` runs them; ``t_rast_algebra_published_test.py`` and
     ``t_select_published_test.py`` hold the expressions printed in the
     publication of the algebra (Gebbert, Leppelt and Pebesma, 2019).
 
 Characterization tests
     *t.rast.aggregate*, *t.rast.aggregate.ds*, *t.rast.mapcalc*,
-    *t.rast3d.mapcalc* and *t.sample* have no flag for the classic algebra;
-    they compute on the core and keep the results they had before. Their files
+    *t.rast3d.mapcalc* and *t.sample* compute on the core and keep the
+    results they had before. Their files
     ``*_characterization_test.py`` hold the results measured on the tools before
     the port onto the core. A change of the backends that computes a map of a
     granule otherwise fails them: when a granule with one map is computed with
@@ -438,17 +390,6 @@ Characterization tests
     ``test_two_map_granule_method_families`` in
     ``temporal/t.rast.aggregate/tests/t_rast_aggregate_characterization_test.py``
     fail.
-
-The marker ``fixed_algebra``
-    The tests of the algebra tools compute on the algebra that
-    ``GRASS_TEMPORAL_ALGEBRA`` selects, so a second run with
-    ``GRASS_TEMPORAL_ALGEBRA=classic`` checks the classic profile with the same
-    tests (the tests of *t.select* take both settings from the fixture
-    ``algebra_setting``). A test that chooses the algebra itself, such as a
-    comparison of both, carries ``@pytest.mark.fixed_algebra``; the classic run
-    deselects it with ``-m "not fixed_algebra"``, so that it runs once. The
-    testing guide ``doc/development/testing.md`` describes the settings and the
-    corpus in full.
 
 The manuals
 -----------
@@ -463,19 +404,17 @@ manual shows.
 The semantics test of *t.rast.algebra*
 (``temporal/t.rast.algebra/tests/t_rast_algebra_semantics_test.py``) reads every
 assignment of the manual: the lines ``X = ...`` of its ``sh`` code blocks and
-the ``expression=`` of each *t.rast.algebra* command, where ``-c`` chooses the
-classic algebra. ``test_manual_example_runs`` plans each of them as a dry run
-on the datasets of its fixture, or expects the error that the lists
-``MANUAL_ERRORS`` and ``CLASSIC_MANUAL_ERRORS`` of the test name for it; an
+the ``expression=`` of each *t.rast.algebra* command.
+``test_manual_example_runs`` plans each of them as a dry run on the datasets of
+its fixture, or expects the error that the list ``MANUAL_ERRORS`` of the test
+names for it; an
 assignment that reads a map or dataset the fixture lacks is skipped. A change of
 the core that breaks an expression of the manual fails it: without ``exp`` in
 ``grass.temporal.algebra.parser.translate._CELL_FUNCTIONS``, the case
 ``C = exp(A * 1000)`` fails with "Unknown function exp()". An expression of the
 manual that a change makes valid, or invalid, is changed in the manual text and
-in these lists in the same commit.
+in this list in the same commit.
 
-The catalogs of *t.rast.algebra* keep the expressions of the original manual
-and of the publication as they were printed, so that a reader can find them;
-``test_original_manual_example_plans_in_the_classic_algebra`` plans those of the
-original manual with the classic algebra as well, where its fixture has the
-datasets.
+The catalogs of *t.rast.algebra* keep the expressions of the publication and
+those of the original manual that the algebra computes as they were printed, so
+that a reader can find them.

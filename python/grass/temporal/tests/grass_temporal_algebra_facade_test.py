@@ -51,7 +51,6 @@ def test_the_defaults_are_those_of_the_classes_before_the_engine_was_separated(
 ):
     parser = parser_class()
     assert (parser.run, parser.debug, parser.spatial) == (False, True, False)
-    assert parser.classic is None
 
 
 @pytest.mark.parametrize(("name", "parser_class"), CLASSES)
@@ -63,13 +62,13 @@ def test_a_facade_lists_the_names_of_the_engine(name, parser_class):
 
 @pytest.mark.parametrize(("name", "parser_class"), CLASSES)
 def test_a_facade_can_be_copied_and_pickled(name, parser_class):
-    parser = parser_class(run=True, debug=False, classic=True)
+    parser = parser_class(run=True, debug=False)
     for clone in (
         copy.copy(parser),
         copy.deepcopy(parser),
         pickle.loads(pickle.dumps(parser)),  # noqa: S301, our own object
     ):
-        assert (clone.run, clone.debug, clone.classic) == (True, False, True)
+        assert (clone.run, clone.debug) == (True, False)
         assert clone._reference_object is None
 
 
@@ -85,33 +84,17 @@ class StubReference:
 
     def __init__(self, **arguments):
         self.arguments = arguments
-        self.granularity = None
-        self.use_granularity = False
-        self.calls = []
         self.names = {"x": 1}
-
-    def setup_common_granularity(self, expression, stdstype, lexer):
-        self.calls.append((expression, stdstype, lexer))
-        self.granularity = "1 day"
-        self.use_granularity = True
-        return True
 
 
 class StubbedParser(facade.TemporalRasterAlgebraParser):
     _reference_class = StubReference
 
 
-def test_the_granularity_mode_goes_to_one_engine_with_the_options_of_the_facade():
-    """The classic algebra computes the mode with the reference"""
-    parser = StubbedParser(
-        pid=7, run=True, debug=False, nprocs=3, time_suffix="gran", classic=True
-    )
-    assert parser.setup_common_granularity("R = A + B", "str3ds") is True
+def test_one_engine_gets_the_options_of_the_facade():
+    parser = StubbedParser(pid=7, run=True, debug=False, nprocs=3, time_suffix="gran")
+    assert parser.names == {"x": 1}
     reference_object = parser._reference_object
-    [(expression, stdstype, lexer)] = reference_object.calls
-    assert (expression, stdstype) == ("R = A + B", "str3ds")
-    # The lexer that t.rast.algebra and t.rast3d.algebra gave the reference
-    assert isinstance(lexer, tgis.TemporalRasterAlgebraLexer)
     assert reference_object.arguments == {
         "pid": 7,
         "run": True,
@@ -122,9 +105,8 @@ def test_the_granularity_mode_goes_to_one_engine_with_the_options_of_the_facade(
         "nprocs": 3,
         "time_suffix": "gran",
     }
-    assert (parser.granularity, parser.use_granularity) == ("1 day", True)
     # The same reference object answers later calls.
-    parser.setup_common_granularity("R = A + B")
+    assert parser.names == {"x": 1}
     assert parser._reference_object is reference_object
 
 
@@ -137,7 +119,7 @@ def test_the_core_computes_the_granularity_mode_without_the_reference(monkeypatc
         return "2 days"
 
     monkeypatch.setattr(facade, "common_granularity", common_granularity)
-    parser = StubbedParser(classic=False)
+    parser = StubbedParser()
     assert parser.setup_common_granularity("R = if(A != 1, B)", "str3ds") is True
     assert calls == [(["A", "B"], "str3ds")]
     assert (parser.granularity, parser.use_granularity) == ("2 days", True)
@@ -145,10 +127,11 @@ def test_the_core_computes_the_granularity_mode_without_the_reference(monkeypatc
 
 
 def test_options_set_after_the_construction_reach_the_engine():
-    parser = StubbedParser(run=False, classic=True)
-    parser.setup_common_granularity("R = A + B")
+    parser = StubbedParser(run=False)
+    assert parser.names == {"x": 1}
     parser.run = True
-    parser.setup_common_granularity("R = A + B")
+    assert parser.names == {"x": 1}
+    assert parser._reference_object.arguments["run"] is False
     assert parser._reference_object.run is True
 
 

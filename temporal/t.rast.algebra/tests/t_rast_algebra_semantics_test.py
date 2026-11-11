@@ -4,12 +4,6 @@ The tests compare expressions with each other (metamorphic tests) and with
 an independent oracle (Python booleans, hand written relation tables)
 instead of fixing single outputs, so that they find inconsistencies nobody
 thought of. The datasets are described in the algebra fixture.
-
-Where a case takes classic, it is passed to the parser: None follows
-GRASS_TEMPORAL_ALGEBRA where both algebras agree, False runs the core for a
-rule that the classic algebra does not meet, and True keeps the result of the
-classic algebra where the core differs, so that the tests of both algebras
-pass whatever the variable says.
 """
 
 import itertools
@@ -21,7 +15,6 @@ from pathlib import Path
 import pytest
 
 import grass.temporal as tgis
-from grass.exceptions import FatalError
 from grass.temporal.algebra.parser import ast as syntax
 from grass.temporal.algebra.parser import parse
 from grass.tools import Tools
@@ -146,52 +139,37 @@ def test_relative_result_replaces_absolute_result_maps(algebra, expression):
 
 # (expression, expression that gives the conclusion maps): a conditional
 # gives at most one result per conclusion map, at its time stamp.
-# The classic algebra gives one result per pair of maps for a condition on
-# map values, so those two cases run on the core.
 CONDITION_CORPUS = [
-    ("if(A > 2, A)", "A : A", None),
-    ("if(td(A) == 1, A)", "A : A", None),
-    ("if({contains}, td(B) == 2, A)", "A : A", None),
-    pytest.param(
-        "if({during}, A > 1, B)", "B : B", False, marks=pytest.mark.fixed_algebra
-    ),
-    ("if({during}, start_day(A) > 1, B)", "B : B", None),
-    pytest.param(
-        "if({during}, A > 1 || start_day(A) == 1, B)",
-        "B : B",
-        False,
-        marks=pytest.mark.fixed_algebra,
-    ),
+    ("if(A > 2, A)", "A : A"),
+    ("if(td(A) == 1, A)", "A : A"),
+    ("if({contains}, td(B) == 2, A)", "A : A"),
+    ("if({during}, A > 1, B)", "B : B"),
+    ("if({during}, start_day(A) > 1, B)", "B : B"),
+    ("if({during}, A > 1 || start_day(A) == 1, B)", "B : B"),
     (
         "if({equal|contains}, HB {#,contains} HA == 2, HB {+,contains,l} HA)",
         "HB : HB",
-        None,
     ),
 ]
 
 
-@pytest.mark.parametrize(("expression", "conclusion", "classic"), CONDITION_CORPUS)
-def test_one_result_per_conclusion_map(algebra, expression, conclusion, classic):
+@pytest.mark.parametrize(("expression", "conclusion"), CONDITION_CORPUS)
+def test_one_result_per_conclusion_map(algebra, expression, conclusion):
     """No duplicate time stamps, and only time stamps of conclusion maps"""
-    times = algebra.dry_times(expression, register_null=True, classic=classic)
+    times = algebra.dry_times(expression, register_null=True)
     assert len(times) == len(set(times))
-    assert set(times) <= set(algebra.dry_times(conclusion, classic=classic))
+    assert set(times) <= set(algebra.dry_times(conclusion))
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     "operator", ["{#,contains,r}", "{#,contains,u}", "{#,contains,i}",
                  "{#,contains,d}", "{#,contains,right}"],
 )  # fmt: skip
-@pytest.mark.parametrize(
-    ("classic", "message"),
-    [(False, "no temporal reference other than l"), (True, "temporal operator")],
-)
-def test_hash_rejects_temporal_operators(algebra, operator, classic, message):
+def test_hash_rejects_temporal_operators(algebra, operator):
     """The count keeps the time stamps of the left maps, r, u, i and d have
     no meaning for it"""
-    with pytest.raises(SyntaxError, match=message):
-        algebra.parse(f"B {operator} A", classic=classic)
+    with pytest.raises(SyntaxError, match="no temporal reference other than l"):
+        algebra.parse(f"B {operator} A")
 
 
 @pytest.mark.parametrize("operator", ["{#,contains}", "{#,contains,l}"])
@@ -238,7 +216,6 @@ def test_merge_of_select_and_inverse_select_is_the_dataset(algebra, relation):
     ) == algebra.dry_times("A : A")
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("expression", "count"),
     [
@@ -247,10 +224,7 @@ def test_merge_of_select_and_inverse_select_is_the_dataset(algebra, relation):
         ("merge(A {:,during} B, A {!:,during} B)", 0),
     ],
 )
-@pytest.mark.parametrize("classic", [False, True])
-def test_merge_warns_about_identical_maps(
-    algebra, monkeypatch, expression, count, classic
-):
+def test_merge_warns_about_identical_maps(algebra, monkeypatch, expression, count):
     """capfd stays empty although the warning shows in the captured stderr of
     the report (observed 2026-10-11); probably the messenger, a process wide
     singleton, keeps the stderr of the first test that used it. The test
@@ -258,7 +232,7 @@ def test_merge_warns_about_identical_maps(
     warnings = []
     messenger = tgis.get_tgis_message_interface()
     monkeypatch.setattr(messenger, "warning", warnings.append)
-    algebra.run(expression, classic=classic)
+    algebra.run(expression)
     if count:
         assert len(warnings) == 1
         assert f"dropped {count} duplicate map(s)" in warnings[0]
@@ -285,8 +259,8 @@ RELATION_SETS = [
 # operator + give no map at all. They are left out of
 # test_select_has_the_time_stamps_of_the_operator, because comparing two empty
 # lists proves nothing. Measured 2026-10-12 by running both dry for every
-# pair, relation and temporal operator in both algebras: these are empty with
-# every temporal operator in both.
+# pair, relation and temporal operator in the core and the classic algebra:
+# these are empty with every temporal operator in both.
 EMPTY_SELECTIONS = {
     (*case, temporal)
     for case in [
@@ -304,71 +278,48 @@ EMPTY_SELECTIONS = {
 }
 # Empty in the core only, in the same measurement: hb1 [2,4] follows ha1 and
 # precedes ha4, and the intersection with both is empty, so the map is left
-# out. The classic algebra stops at ha4 and keeps the intersection with ha1,
-# so the case runs on the classic algebra only.
+# out.
 EMPTY_IN_THE_CORE = {("HB", "HA", "follows|precedes", "i")}
-# Cases in which the classic algebra gives the selection other time stamps
-# than the operator + (measured 2026-10-11): it keeps only the last related
-# map for r.
-CLASSIC_SELECT_EXTENT_DIFFERS = {
-    ("B", "A", "contains", "r"),
-    ("B", "A", "starts|finishes|started|finished", "r"),
-    ("HB", "HA", "contains", "r"),
-    ("HB", "HA", "starts|finishes|started|finished", "r"),
-    ("HB", "HA", "follows|precedes", "r"),
-}
 
 
 def select_extent_cases():
-    cases = []
-    for (left, right), relations, temporal in itertools.product(
-        [("A", "B"), ("B", "A"), ("HB", "HA"), ("rel", "ref")],
-        RELATION_SETS,
-        TEMPORAL_OPERATORS,
-    ):
-        case = (left, right, relations, temporal)
-        if case in EMPTY_SELECTIONS:
-            continue
-        if case in EMPTY_IN_THE_CORE:
-            cases.append(pytest.param(*case, True, marks=pytest.mark.fixed_algebra))
-        elif case in CLASSIC_SELECT_EXTENT_DIFFERS:
-            cases.append(pytest.param(*case, False, marks=pytest.mark.fixed_algebra))
-        else:
-            cases.append((*case, None))
-    return cases
+    return [
+        (left, right, relations, temporal)
+        for (left, right), relations, temporal in itertools.product(
+            [("A", "B"), ("B", "A"), ("HB", "HA"), ("rel", "ref")],
+            RELATION_SETS,
+            TEMPORAL_OPERATORS,
+        )
+        if (left, right, relations, temporal)
+        not in EMPTY_SELECTIONS | EMPTY_IN_THE_CORE
+    ]
 
 
 @pytest.mark.parametrize(
-    ("left", "right", "relations", "temporal", "classic"), select_extent_cases()
+    ("left", "right", "relations", "temporal"), select_extent_cases()
 )
 def test_select_has_the_time_stamps_of_the_operator(
-    algebra, left, right, relations, temporal, classic
+    algebra, left, right, relations, temporal
 ):
     """X {:,R,t} Y has the time stamps of X {+,R,t} Y"""
-    selected = algebra.dry_times(
-        f"{left} {{:,{relations},{temporal}}} {right}", classic=classic
-    )
+    selected = algebra.dry_times(f"{left} {{:,{relations},{temporal}}} {right}")
     assert selected
-    assert selected == algebra.dry_times(
-        f"{left} {{+,{relations},{temporal}}} {right}", classic=classic
-    )
+    assert selected == algebra.dry_times(f"{left} {{+,{relations},{temporal}}} {right}")
 
 
-@pytest.mark.fixed_algebra
 def test_select_with_right_reference_gives_one_map_per_pair(algebra):
     """Each map of B contains two maps of A: two results per map of B, with
     the values of B and the time stamps of A"""
-    assert fresh_triples(algebra, "B {:,contains,r} A", classic=False) == [
+    assert fresh_triples(algebra, "B {:,contains,r} A") == [
         (1, 2, 5), (2, 3, 5), (3, 4, 6), (4, 5, 6),
     ]  # fmt: skip
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("temporal", ["r", "u", "i", "d"])
 def test_inverse_select_rejects_temporal_operators(algebra, temporal):
     """Maps without partner have no extent to combine with"""
     with pytest.raises(SyntaxError, match="no temporal reference other than l"):
-        algebra.parse(f"A {{!:,during,{temporal}}} B", classic=False)
+        algebra.parse(f"A {{!:,during,{temporal}}} B")
 
 
 # ref R probe: the probes that the reference has the relation to, derived
@@ -414,30 +365,14 @@ def test_temporal_condition_relation_reads_condition_to_conclusion(
 
 
 @pytest.mark.parametrize(
-    ("expression", "classic", "expected"),
+    ("expression", "expected"),
     [
-        # b1 [1,3] has the conditions a1, a2 (during), b2 [3,5] a3, a4. The
-        # classic algebra has no aggregation in the relation.
-        ("if({during}, start_day(A) > 1, B)", None, [(3, 5, 6)]),
-        pytest.param(
-            "if({during,&}, start_day(A) > 1, B)",
-            False,
-            [(3, 5, 6)],
-            marks=pytest.mark.fixed_algebra,
-        ),
-        pytest.param(
-            "if({during,|}, start_day(A) > 1, B)",
-            False,
-            [(1, 3, 5), (3, 5, 6)],
-            marks=pytest.mark.fixed_algebra,
-        ),
-        ("if({during}, start_day(A) > 1, B, 0)", None, [(1, 3, 0), (3, 5, 6)]),
-        pytest.param(
-            "if({during,|}, start_day(A) > 2, B, 0)",
-            False,
-            [(1, 3, 0), (3, 5, 6)],
-            marks=pytest.mark.fixed_algebra,
-        ),
+        # b1 [1,3] has the conditions a1, a2 (during), b2 [3,5] a3, a4.
+        ("if({during}, start_day(A) > 1, B)", [(3, 5, 6)]),
+        ("if({during,&}, start_day(A) > 1, B)", [(3, 5, 6)]),
+        ("if({during,|}, start_day(A) > 1, B)", [(1, 3, 5), (3, 5, 6)]),
+        ("if({during}, start_day(A) > 1, B, 0)", [(1, 3, 0), (3, 5, 6)]),
+        ("if({during,|}, start_day(A) > 2, B, 0)", [(1, 3, 0), (3, 5, 6)]),
         # The manual example of t.select with A, B and C of this fixture: the
         # buffered maps of A are [k-1, k+2], all three days long. b1 [1,3] is
         # contained (finished, started) by the buffers of a1 and a2, b2 [3,5]
@@ -445,17 +380,14 @@ def test_temporal_condition_relation_reads_condition_to_conclusion(
         # its condition is true and the else part gives nothing.
         (
             'if({contains}, td(buff_t(A, "1 days")) == 3, B, C)',
-            None,
             [(1, 3, 5), (3, 5, 6)],
         ),
     ],
 )
-def test_temporal_condition_aggregates_per_conclusion(
-    algebra, expression, classic, expected
-):
+def test_temporal_condition_aggregates_per_conclusion(algebra, expression, expected):
     """One result per conclusion map; the conditions of its condition maps
     are joined with & (default) or |"""
-    assert fresh_triples(algebra, expression, classic=classic) == expected
+    assert fresh_triples(algebra, expression) == expected
 
 
 def test_equal_time_conditions_are_broadcast_to_one_conclusion(algebra):
@@ -489,7 +421,6 @@ def test_map_condition_relation_reads_condition_to_conclusion(
     )
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [
@@ -503,31 +434,23 @@ def test_map_condition_relation_reads_condition_to_conclusion(
     ],
 )
 def test_map_condition_aggregates_per_conclusion(algebra, expression, expected):
-    """The classic algebra gives one result per pair of maps instead"""
-    assert fresh_triples(algebra, expression, classic=False) == expected
+    """One result per conclusion map also for conditions on map values"""
+    assert fresh_triples(algebra, expression) == expected
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("aggregate", ["", ",|"])
 def test_both_paths_agree_on_aggregation(algebra, aggregate):
     """A > 1 and start_day(A) > 1 are true for the same maps of A"""
     assert fresh_triples(
-        algebra, f"if({{during{aggregate}}}, A > 1, B, 0)", classic=False
-    ) == fresh_triples(
-        algebra, f"if({{during{aggregate}}}, start_day(A) > 1, B, 0)", classic=False
-    )
+        algebra, f"if({{during{aggregate}}}, A > 1, B, 0)"
+    ) == fresh_triples(algebra, f"if({{during{aggregate}}}, start_day(A) > 1, B, 0)")
 
 
-@pytest.mark.fixed_algebra
 def test_equal_time_map_conditions_are_broadcast(algebra):
     """Four condition maps of equal time, one conclusion: e1 > 2 and e2 > 2
     are false, so b1 is 0 with &, and has the value of b1 with |"""
-    assert fresh_triples(algebra, "if({during}, E > 2, B)", classic=False) == [
-        (1, 3, 0)
-    ]
-    assert fresh_triples(algebra, "if({during,|}, E > 2, B)", classic=False) == [
-        (1, 3, 5)
-    ]
+    assert fresh_triples(algebra, "if({during}, E > 2, B)") == [(1, 3, 0)]
+    assert fresh_triples(algebra, "if({during,|}, E > 2, B)") == [(1, 3, 5)]
 
 
 @pytest.mark.parametrize(
@@ -573,7 +496,6 @@ def test_condition_without_related_map_gives_empty_result(algebra, expression):
     assert algebra.run(expression, fresh_basename()) == []
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     "expression",
     [
@@ -586,7 +508,7 @@ def test_map_condition_needs_then_and_else_of_equal_time(algebra, expression):
     """A condition on map values chooses per cell between then and else, so
     it stops with an error unless both have the same time stamps"""
     with pytest.raises(ValueError, match="equal time stamps"):
-        algebra.run(expression, fresh_basename(), classic=False)
+        algebra.run(expression, fresh_basename())
 
 
 @pytest.mark.parametrize(
@@ -678,24 +600,12 @@ def expected_values(condition, python_formula):
     """The values of T that if(condition, T) gives
 
     A condition of time stamps selects whole maps. A condition on map values
-    keeps all eight maps and gives 0 where it is false, in both algebras.
+    keeps all eight maps and gives 0 where it is false.
     """
     chosen = selected(python_formula)
     if uses_map_values(condition):
         return [k if k in chosen else 0 for k in range(8)]
     return chosen
-
-
-def classic_setting(condition, python_formula):
-    """The classic argument of a truth table or random case: None (follow
-    the variable) if the classic algebra computes it, False (run the core)
-    otherwise
-
-    The classic algebra knows no parentheses around conditions.
-    """
-    if "(" in re.sub(r"\w+\(T\)", "", condition):
-        return False
-    return None
 
 
 def render(rng, depth, kind):
@@ -745,28 +655,17 @@ def truth_table_condition(condition, kind):
     return condition.format(**texts)
 
 
-def truth_table_cases():
-    cases = []
-    for (condition, formula), kind in itertools.product(FORMULAS, KINDS):
-        classic = classic_setting(truth_table_condition(condition, kind), formula)
-        if kind == "time" and condition == "{a} || {b} && {c}":
-            # The classic algebra joins conditions of time stamps from left
-            # to right. The case "a && b || c" gives the same maps that way.
-            classic = False
-        marks = [] if classic is None else [pytest.mark.fixed_algebra]
-        cases.append(pytest.param(condition, formula, kind, classic, marks=marks))
-    return cases
-
-
 @pytest.mark.parametrize(
-    ("condition", "formula", "kind", "classic"), truth_table_cases()
+    ("condition", "formula", "kind"),
+    [
+        (condition, formula, kind)
+        for (condition, formula), kind in itertools.product(FORMULAS, KINDS)
+    ],
 )
-def test_precedence_truth_table(algebra, condition, formula, kind, classic):
+def test_precedence_truth_table(algebra, condition, formula, kind):
     """&& before ||, parentheses group, in every kind of condition"""
     text = truth_table_condition(condition, kind)
-    assert fresh_values(algebra, f"if({text}, T)", classic=classic) == expected_values(
-        text, formula
-    )
+    assert fresh_values(algebra, f"if({text}, T)") == expected_values(text, formula)
 
 
 def random_condition(seed):
@@ -775,27 +674,13 @@ def random_condition(seed):
     return render(rng, 3, rng.choice(["time", "map", "mixed"]))
 
 
-def random_condition_cases():
-    """The seeds; those whose classic setting is not None choose the algebra"""
-    return [
-        pytest.param(
-            seed,
-            marks=[]
-            if classic_setting(*random_condition(seed)) is None
-            else [pytest.mark.fixed_algebra],
-        )
-        for seed in range(40)
-    ]
-
-
-@pytest.mark.parametrize("seed", random_condition_cases())
+@pytest.mark.parametrize("seed", range(40))
 def test_random_conditions_match_python(algebra, seed):
     """Random formulas of temporal, map and mixed conditions"""
     condition, formula = random_condition(seed)
-    classic = classic_setting(condition, formula)
-    assert fresh_values(
-        algebra, f"if({condition}, T)", classic=classic
-    ) == expected_values(condition, formula), condition
+    assert fresh_values(algebra, f"if({condition}, T)") == expected_values(
+        condition, formula
+    ), condition
 
 
 # Conditions of time stamps, of map values, with || and with parentheses.
@@ -815,50 +700,23 @@ NESTED_PAIRS = [
 ]
 
 
-def classic_pairs(operator, nested=False):
-    """The pairs of CONDITIONS that the classic algebra joins correctly
-
-    It knows no parentheses around conditions, so they are joined without
-    them; this changes the meaning of && if only one of them contains ||.
-    For a nested if see NESTED_PAIRS.
-    """
-    pairs = []
-    for first, second in itertools.product(CONDITIONS[:3], repeat=2):
-        if operator == "&&" and ("||" in first) != ("||" in second):
-            continue
-        if nested and uses_map_values(first) != uses_map_values(second):
-            continue
-        pairs.append((first, second))
-    return pairs
-
-
-def joined(first, operator, second, classic):
+def joined(first, operator, second):
     """The core groups each condition, see test_nested_if_is_conjunction"""
-    if classic:
-        return f"{first} {operator} {second}"
     return f"({first}) {operator} ({second})"
 
 
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize(
-    ("first", "second", "classic"),
-    [(*pair, False) for pair in NESTED_PAIRS]
-    + [(*pair, True) for pair in classic_pairs("&&", nested=True)],
-)
-def test_nested_if_is_conjunction(algebra, first, second, classic):
+@pytest.mark.parametrize(("first", "second"), NESTED_PAIRS)
+def test_nested_if_is_conjunction(algebra, first, second):
     """if(c1, if(c2, X)) == if((c1) && (c2), X)
 
     The parentheses keep a condition with || together: && binds stronger,
     so "c && a || b" is "(c && a) || b".
     """
-    nested = fresh_values(algebra, f"if({first}, if({second}, T))", classic=classic)
-    conjunction = fresh_values(
-        algebra, f"if({joined(first, '&&', second, classic)}, T)", classic=classic
-    )
+    nested = fresh_values(algebra, f"if({first}, if({second}, T))")
+    conjunction = fresh_values(algebra, f"if({joined(first, '&&', second)}, T)")
     assert nested == conjunction
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("dataset", "condition"),
     [(dataset, condition) for _bit, dataset, condition in TRUTH_TABLE_BITS],
@@ -867,28 +725,20 @@ def test_map_conditions_select_like_time_stamp_conditions(algebra, dataset, cond
     """A condition on map values and one of time stamps that are true for the
     same maps give the same maps: T where it is true and 0 where it is false,
     which a condition on map values gives without else"""
-    assert fresh_values(algebra, f"if({dataset} == 1, T)", classic=False) == (
-        fresh_values(algebra, f"if({condition}, T, 0)", classic=False)
+    assert fresh_values(algebra, f"if({dataset} == 1, T)") == (
+        fresh_values(algebra, f"if({condition}, T, 0)")
     )
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
-    ("operator", "first", "second", "classic"),
-    [(operator, *pair, False) for operator in ["&&", "||"] for pair in CONDITION_PAIRS]
-    + [
-        (operator, *pair, True)
-        for operator in ["&&", "||"]
-        for pair in classic_pairs(operator)
-    ],
+    ("operator", "first", "second"),
+    [(operator, *pair) for operator in ["&&", "||"] for pair in CONDITION_PAIRS],
 )
-def test_conditions_commute(algebra, operator, first, second, classic):
+def test_conditions_commute(algebra, operator, first, second):
     """c1 op c2 == c2 op c1, joined as in test_nested_if_is_conjunction"""
     assert fresh_values(
-        algebra, f"if({joined(first, operator, second, classic)}, T)", classic=classic
-    ) == fresh_values(
-        algebra, f"if({joined(second, operator, first, classic)}, T)", classic=classic
-    )
+        algebra, f"if({joined(first, operator, second)}, T)"
+    ) == fresh_values(algebra, f"if({joined(second, operator, first)}, T)")
 
 
 def test_spatial_run_keeps_the_region(algebra):
@@ -917,15 +767,9 @@ def test_spatial_run_keeps_the_region(algebra):
 
 MANUAL = Path(__file__).parents[1] / "t.rast.algebra.md"
 
-# The notes on the core and the classic algebra show expressions that only
-# the core reads, expressions that the core rejects, and, in the subsections
-# on corrections and differences, expressions that both algebras reject. The
-# core runs them all; MANUAL_ERRORS is the class of error the manual describes
-# for it. CLASSIC_MANUAL_ERRORS is the class of error of the classic algebra
-# for the expressions that the manual describes as errors there. The examples
-# of the differences to the classic algebra show errors of both: a command
-# without -c runs the core, one with -c the classic algebra.
-CORE_NOTES = "### Core and classic algebra"
+# The notes on the differences from GRASS 8.5 show expressions that GRASS 8.5
+# did not read and expressions that the algebra rejects. MANUAL_ERRORS is the
+# class of error the manual describes for an expression.
 MANUAL_ERRORS = {
     "C = if(A > 2, A, B)": ValueError,
     # B has maps of two days, so one day on each side leaves no time.
@@ -936,40 +780,22 @@ MANUAL_ERRORS = {
     "C = buff_t(A, 3)": ValueError,
     "C = A + end_month(I, 0)": ValueError,
     "C = A + start_month(RT, 1)": ValueError,
-    "C = nosuch + A )": SyntaxError,
-    # The core wants a dataset on both sides of the operator in braces.
+    # The algebra wants a dataset on both sides of the operator in braces.
     "C = A {*,equal} 2 - B": SyntaxError,
     "C = A # 2 - B": SyntaxError,
     "C = A - 1.5 {%,starts} A": SyntaxError,
-    # The core relates no series of different temporal types.
-    "C = merge(tmap(sinst), RT) : RT": ValueError,
     "E1 = if(A > 2, A, B)": ValueError,
     'E9 = buff_t(B, "-1 day")': ValueError,
 }
-CLASSIC_MANUAL_ERRORS = {
-    'C = tshift(A, "1 DAY")': SyntaxError,
-    'C = tshift(RT, "1 month")': SyntaxError,
-    'C = buff_t(RT, "3 hours")': SyntaxError,
-    "C = buff_t(A, 3)": SyntaxError,
-    "C = A + end_month(I, 0)": FatalError,
-    "C = A + start_month(RT, 1)": FatalError,
-    "C = nosuch + A )": SyntaxError,
-    "E5 = if(td(I) > 0, I)": FatalError,
-    "E6 = -A + 10": SyntaxError,
-}
 
 
-def manual_assignments(text):
-    """(assignment, classic) for the assignments 'X = ...' in the sh code
-    blocks of a manual text
+def manual_expressions(text):
+    """Assignments 'X = ...' in the sh code blocks of a manual text
 
     An assignment stands on a line of its own, as in the notes, or is the
     value of the option expression of a t.rast.algebra command, as in the
-    examples, also within a shell condition that shows an error. classic is
-    None for a line of its own, which may run with either algebra, and for a
-    command whether it has the flag -c, alone or with other flags: the
-    examples run without GRASS_TEMPORAL_ALGEBRA, so a command without -c runs
-    the core. The other flags of a command do not reach the dry run.
+    examples, also within a shell condition that shows an error. The flags of
+    a command do not reach the dry run.
     """
     assignments = []
     for block in re.findall(r"```sh\n(.*?)```", text, flags=re.DOTALL):
@@ -977,68 +803,34 @@ def manual_assignments(text):
         for line in re.sub(r"\\\n\s*", " ", block).splitlines():
             line = line.strip()
             if re.match(r"^[A-Za-z_]\w* = ", line):
-                assignments.append((line, None))
+                assignments.append(line)
             elif re.search(r"(^|\s)t\.rast\.algebra\s", line):
-                words = shlex.split(line, comments=True)
-                classic = any(re.fullmatch(r"-[a-z]*c[a-z]*", word) for word in words)
                 assignments.extend(
-                    (word.removeprefix("expression="), classic)
-                    for word in words
+                    word.removeprefix("expression=")
+                    for word in shlex.split(line, comments=True)
                     if word.startswith("expression=")
                 )
     return assignments
-
-
-def manual_expressions(text):
-    """Assignments 'X = ...' in the sh code blocks of a manual text"""
-    return [assignment for assignment, _classic in manual_assignments(text)]
 
 
 # Single maps of the fixture; map() and tmap() of any other map cannot run.
 FIXTURE_SINGLE_MAPS = {"singletmap", "sinst", "singlemap"}
 
 
-def split_core_notes(text):
-    """Return the notes on the core and the classic algebra and the rest of
-    the manual
-
-    The notes end at the next heading of their own level or a higher one, so
-    that their subsections belong to them and a section added after them runs
-    with either algebra. Lines in code blocks are no headings, though a shell
-    comment starts with "#" as well.
-    """
-    lines = text.splitlines(keepends=True)
-    start = lines.index(CORE_NOTES + "\n")
-    end = start + 1
-    fenced = False
-    while end < len(lines):
-        if lines[end].lstrip().startswith("```"):
-            fenced = not fenced
-        elif not fenced and re.match(r"#{1,3} ", lines[end]):
-            break
-        end += 1
-    return "".join(lines[start:end]), "".join(lines[:start] + lines[end:])
-
-
 def manual_cases():
-    """(assignment, classic): the examples of the notes on the core and the
-    classic algebra run with the core, the commands of the examples with the
-    algebra their flags choose, all other lines with either algebra"""
-    notes, rest = split_core_notes(MANUAL.read_text())
+    """The assignments of the manual, skipped where they read single maps
+    that the fixture does not have"""
     cases = []
-    for in_notes, text in [(False, rest), (True, notes)]:
-        for assignment, classic in manual_assignments(text):
-            if in_notes:
-                classic = False
-            marks = [] if classic is None else [pytest.mark.fixed_algebra]
-            missing = sorted(
-                set(re.findall(r"\bt?map\((\w+)\)", assignment)) - FIXTURE_SINGLE_MAPS
-            )
-            if missing:
-                marks.append(
-                    pytest.mark.skip(reason=f"maps not in the fixture: {missing}")
-                )
-            cases.append(pytest.param(assignment, classic, marks=marks))
+    for assignment in manual_expressions(MANUAL.read_text()):
+        missing = sorted(
+            set(re.findall(r"\bt?map\((\w+)\)", assignment)) - FIXTURE_SINGLE_MAPS
+        )
+        marks = (
+            [pytest.mark.skip(reason=f"maps not in the fixture: {missing}")]
+            if missing
+            else []
+        )
+        cases.append(pytest.param(assignment, marks=marks))
     return cases
 
 
@@ -1081,68 +873,22 @@ def skip_without_datasets(algebra, assignment):
         pytest.skip(f"datasets not in the fixture: {missing}")
 
 
-@pytest.mark.parametrize(("assignment", "classic"), manual_cases())
-def test_manual_example_runs(algebra, assignment, classic):
+@pytest.mark.parametrize("assignment", manual_cases())
+def test_manual_example_runs(algebra, assignment):
     """Every example of the manual on datasets of the fixture parses and plans
     (dry run), or raises the error that the manual describes"""
     _name, expression = assignment.split(" = ", 1)
-    errors = CLASSIC_MANUAL_ERRORS if classic else MANUAL_ERRORS
-    if errors.get(assignment) is not SyntaxError:
+    if MANUAL_ERRORS.get(assignment) is not SyntaxError:
         # An expression that cannot be read has no datasets to look for.
         skip_without_datasets(algebra, assignment)
-    if assignment in errors:
-        with pytest.raises(errors[assignment]):
-            algebra.dry_times(expression, classic=classic)
+    if assignment in MANUAL_ERRORS:
+        with pytest.raises(MANUAL_ERRORS[assignment]):
+            algebra.dry_times(expression)
     else:
-        algebra.dry_times(expression, classic=classic)
+        algebra.dry_times(expression)
 
 
 def test_every_listed_manual_error_is_in_the_manual():
-    """An example edited out of the manual must leave the error lists too, or
-    they test an expression that the manual no longer shows"""
-    examples = set(manual_expressions(MANUAL.read_text()))
-    assert set(MANUAL_ERRORS) - examples == set()
-    assert set(CLASSIC_MANUAL_ERRORS) - examples == set()
-
-
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize("assignment", list(CLASSIC_MANUAL_ERRORS))
-def test_manual_example_error_of_the_classic_algebra(algebra, assignment):
-    """The examples that the notes describe as errors of the classic algebra
-    raise the error class they name"""
-    _name, expression = assignment.split(" = ", 1)
-    with pytest.raises(CLASSIC_MANUAL_ERRORS[assignment]):
-        algebra.dry_times(expression, classic=True)
-
-
-ORIGINAL_MANUAL = "### Catalog: the expressions of the original manual"
-
-
-def original_manual_cases():
-    """The assignments that the catalog of the expressions of the original
-    manual runs with the core, each once
-
-    They are expressions of the releases before GRASS 8.6, so the classic
-    algebra reads them as well; the examples show only the result of the
-    core, except for the last neighbourhood example.
-    """
-    text = MANUAL.read_text()
-    start = text.index(ORIGINAL_MANUAL + "\n")
-    end = text.index("\n### ", start)
-    return sorted(
-        {
-            assignment
-            for assignment, classic in manual_assignments(text[start:end])
-            if not classic
-        }
-    )
-
-
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize("assignment", original_manual_cases())
-def test_original_manual_example_plans_in_the_classic_algebra(algebra, assignment):
-    """The expressions of the original manual plan in the classic algebra too
-    (dry run), not only in the core that the examples run"""
-    _name, expression = assignment.split(" = ", 1)
-    skip_without_datasets(algebra, assignment)
-    algebra.dry_times(expression, classic=True)
+    """An example edited out of the manual must leave the error list too, or
+    it tests an expression that the manual no longer shows"""
+    assert set(MANUAL_ERRORS) - set(manual_expressions(MANUAL.read_text())) == set()

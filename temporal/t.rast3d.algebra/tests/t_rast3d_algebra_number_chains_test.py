@@ -11,8 +11,7 @@ from grass.temporal.testing.differential import RUNNERS, outcome, prepare
 
 KIND = "raster3d"
 
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
+pytestmark = pytest.mark.slow
 
 # (expression, value of the four maps, value before the correction)
 CHAINS = [
@@ -36,7 +35,7 @@ def cached_io(datasets):
     """Replace the fixture of conftest.py: the caches run through datasets"""
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new", "old"), CHAINS)
 def test_a_chain_is_grouped_from_the_left(datasets, runner, expression, new, old):
     assert new != old

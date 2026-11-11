@@ -1,12 +1,10 @@
 """A selection with r or u under -s and maps whose boxes only touch
 
 Under -s two maps are related when they are related in time and in space.
-Touching at an edge or a corner is no spatial relation. The classic profile and
-the core follow this; the reference implementation (grass.temporal.classic)
-picks the maps to keep with the spatial test but takes the time to stamp from
-the temporal relations alone, so a partner that only touches changes the
-result. Decision of 23.10.2026: the profile stays as it is and the difference
-is documented as a correction of the classic algebra.
+Touching at an edge or a corner is no spatial relation. The core follows this;
+the reference implementation (grass.temporal.classic) picks the maps to keep
+with the spatial test but takes the time to stamp from the temporal relations
+alone, so a partner that only touches changes the result.
 
 The maps of the datasets are single cells, a value 1 to 4 in A and 11 to 13
 in B, so the result tells which input map a result map comes from. Boxes
@@ -36,9 +34,6 @@ from grass.temporal.testing.differential import RUNNERS, outcome
 from grass.tools import Tools
 
 KIND = "raster"
-
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = pytest.mark.fixed_algebra
 
 # name: (value, west, east, south, north, first day, last day)
 MAPS = {
@@ -87,25 +82,11 @@ def stamped(expression, runner):
     return sorted((int(row[3]), row[1][:10], row[2][:10]) for row in result["maps"])
 
 
-def test_inverse_selection_keeps_a_map_without_a_related_partner_as_it_is(touching):
-    # a1 is related to b1: same box, and a1 precedes b1 because 01.-02. ends
-    # where 02.-03. begins. It is dropped. a2 precedes b1 and b2 in time, but
-    # their boxes are 90 and 190 units away. a3 follows both. a4 precedes b1
-    # in time but shares only the corner (10, 10) with it, which is no spatial
-    # relation. None of the three has a related partner, so each keeps its
-    # own time.
-    assert stamped("A {!:,precedes,r} B", "classic") == [
-        (2, "2001-01-01", "2001-01-02"),
-        (3, "2001-01-05", "2001-01-06"),
-        (4, "2001-01-01", "2001-01-02"),
-    ]
-
-
 def test_the_reference_stamps_a_touching_partner(touching):
-    # The reference keeps a4 for the same reason as the classic profile, but
-    # stamps it with the time of b1, whose box touches that of a4 only.
-    # Measured 23.10.2026 with this test; the hand value is the one of the
-    # profile above.
+    # a4 precedes b1 in time but shares only the corner (10, 10) with it, which
+    # is no spatial relation, so a4 has no related partner and is kept. The
+    # reference stamps it with the time of b1 all the same. Measured 23.10.2026
+    # with this test.
     assert stamped("A {!:,precedes,r} B", "reference") == [
         (2, "2001-01-01", "2001-01-02"),
         (3, "2001-01-05", "2001-01-06"),
@@ -120,7 +101,6 @@ def test_the_core_refuses_a_time_operator_other_than_l_in_an_inverse_selection(
     assert result["error"] == "SyntaxError"
 
 
-@pytest.mark.parametrize("runner", ["classic", "core"])
 @pytest.mark.parametrize(
     ("operator", "a1", "a4"),
     [
@@ -134,10 +114,8 @@ def test_the_core_refuses_a_time_operator_other_than_l_in_an_inverse_selection(
         ("u", ("2001-01-01", "2001-01-03"), ("2001-01-01", "2001-01-05")),
     ],
 )
-def test_selection_takes_the_time_of_related_partners_only(
-    touching, runner, operator, a1, a4
-):
-    assert stamped(f"A {{:,precedes,{operator}}} C", runner) == [
+def test_selection_takes_the_time_of_related_partners_only(touching, operator, a1, a4):
+    assert stamped(f"A {{:,precedes,{operator}}} C", "core") == [
         (1, *a1),
         (4, *a4),
     ]

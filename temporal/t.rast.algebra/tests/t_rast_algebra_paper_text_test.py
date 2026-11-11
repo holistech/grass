@@ -17,17 +17,6 @@ import datetime
 import pytest
 
 from grass.temporal.algebra.parser import evaluate
-from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
-
-# Every test runs on the algebra core, whatever GRASS_TEMPORAL_ALGEBRA says,
-# see the marker in pyproject.toml.
-pytestmark = pytest.mark.fixed_algebra
-
-
-@pytest.fixture(autouse=True)
-def core(monkeypatch):
-    """Run the public parser of the fixtures on the algebra core"""
-    monkeypatch.setenv(ALGEBRA_VARIABLE, "core")
 
 
 def days(first, *values):

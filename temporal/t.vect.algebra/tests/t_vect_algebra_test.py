@@ -27,16 +27,14 @@ def day(n):
     return f"2001-01-{n:02d} 00:00:00"
 
 
-def run_algebra(session, expression, flags="", overwrite=True, classic=None):
+def run_algebra(session, expression, flags="", overwrite=True):
     """Run the algebra in this process and return the name of the result dataset.
 
-    This mirrors what the tool does with its flags. classic=None follows
-    GRASS_TEMPORAL_ALGEBRA where both algebras agree; True and False choose
-    the algebra where they differ.
+    This mirrors what the tool does with its flags.
     """
     name = f"res{next(_counter)}"
     parser = tgis.TemporalVectorAlgebraParser(
-        run=True, debug=False, spatial="s" in flags, classic=classic
+        run=True, debug=False, spatial="s" in flags
     )
     parser.parse(f"{name} = {expression}", name, overwrite)
     return name
@@ -71,17 +69,17 @@ def list_maps(session, name):
     return rows
 
 
-def timeline(session, expression, flags="", classic=None):
+def timeline(session, expression, flags=""):
     """(start day, end day) of the maps resulting from an expression"""
-    name = run_algebra(session, expression, flags, classic=classic)
+    name = run_algebra(session, expression, flags)
     rows = list_maps(session, name)
     assert rows is not None
     return [(row["start_time"], row["end_time"]) for row in rows]
 
 
-def counts(session, expression, key="areas", flags="", classic=None):
+def counts(session, expression, key="areas", flags=""):
     """Per-map value of a metadata column for the maps of the result"""
-    name = run_algebra(session, expression, flags, classic=classic)
+    name = run_algebra(session, expression, flags)
     rows = list_maps(session, name)
     assert rows is not None
     return [row[key] for row in rows]
@@ -125,13 +123,10 @@ def test_selection_picks_input_maps(vector_series, expression, expected_ids):
     "expression",
     ["aa {!:,during} wide", "aa {:,contains} wide"],
 )
-@pytest.mark.parametrize(("classic", "expected"), [(False, []), (True, None)])
-@pytest.mark.fixed_algebra
-def test_selection_without_maps(vector_series, expression, classic, expected):
-    """An empty result creates an empty dataset; the classic algebra creates
-    no dataset (None)"""
-    name = run_algebra(vector_series.session, expression, classic=classic)
-    assert list_maps(vector_series.session, name) == expected
+def test_selection_without_maps(vector_series, expression):
+    """An empty result creates an empty dataset"""
+    name = run_algebra(vector_series.session, expression)
+    assert list_maps(vector_series.session, name) == []
 
 
 @pytest.mark.parametrize(
@@ -196,23 +191,19 @@ def test_temporal_shift_and_snap(vector_series, expression, expected):
     assert timeline(vector_series.session, expression) == expected
 
 
-@pytest.mark.parametrize("classic", [False, True])
-@pytest.mark.fixed_algebra
-def test_time_function_that_changes_nothing_registers_the_inputs(
-    vector_series, classic
-):
+def test_time_function_that_changes_nothing_registers_the_inputs(vector_series):
     """tsnap() of gapless maps leaves every time stamp as it is, so the result
     dataset registers the maps aa1..aa3 themselves and makes no copies (measured
-    2026-10-14 on both algebras), while a shift gives a new extent and so
+    2026-10-14), while a shift gives a new extent and so
     copies named after the result"""
     session = vector_series.session
-    snapped = run_algebra(session, "tsnap(aa)", classic=classic)
+    snapped = run_algebra(session, "tsnap(aa)")
     assert [row["id"] for row in list_maps(session, snapped)] == [
         "aa1@PERMANENT",
         "aa2@PERMANENT",
         "aa3@PERMANENT",
     ]
-    shifted = run_algebra(session, 'tshift(aa, "1 day")', classic=classic)
+    shifted = run_algebra(session, 'tshift(aa, "1 day")')
     assert [row["id"] for row in list_maps(session, shifted)] == [
         f"{shifted}_{number}@PERMANENT" for number in range(3)
     ]
@@ -323,31 +314,22 @@ def test_overlay_maps_with_several_areas(vector_series, expression, expected_are
     )
 
 
-@pytest.mark.parametrize(("classic", "expected_areas"), [(False, [1]), (True, [1, 0])])
-@pytest.mark.fixed_algebra
-def test_overlay_without_common_area(vector_series, classic, expected_areas):
+def test_overlay_without_common_area(vector_series):
     """ac1 & ab1: the square of ac1 at x=0 overlaps ab1, so one area remains.
     ac2 & ab2 do not overlap, so the overlay has no areas.
 
-    A vector map without primitives is not registered; the classic algebra
-    registers it.
+    A vector map without primitives is not registered.
     """
-    assert counts(vector_series.session, "ac & ab", classic=classic) == expected_areas
+    assert counts(vector_series.session, "ac & ab") == [1]
 
 
-@pytest.mark.parametrize(("classic", "expected_areas"), [(False, [1]), (True, [0, 1])])
-@pytest.mark.fixed_algebra
-def test_overlay_implicit_aggregation(vector_series, classic, expected_areas):
+def test_overlay_implicit_aggregation(vector_series):
     """wide1 contains aa1 and aa2, so both are overlaid with it: c1 = w1 & a1 & a2.
 
     The strip of aa1 inside wide1 does not meet aa2, hence the map has no area
-    and is not registered; the classic algebra registers it. wide2 & aa3
-    leaves one area.
+    and is not registered. wide2 & aa3 leaves one area.
     """
-    assert (
-        counts(vector_series.session, "wide {&,contains} aa", classic=classic)
-        == expected_areas
-    )
+    assert counts(vector_series.session, "wide {&,contains} aa") == [1]
 
 
 def test_overlay_aggregation_is_not_symmetric(vector_series):
@@ -429,20 +411,15 @@ def test_buffer_combined_with_overlay(vector_series):
     assert len(timeline(vector_series.session, "buff_l(la, 2) & aa")) == 3
 
 
-@pytest.mark.parametrize(
-    ("classic", "expected_areas"), [(False, [1, 1]), (True, [1, 1, 0])]
-)
-@pytest.mark.fixed_algebra
-def test_buffers_combined_without_common_area(vector_series, classic, expected_areas):
+def test_buffers_combined_without_common_area(vector_series):
     """The buffers of pa3 and aa3 do not meet: the point of pa3 nearest to
     aa3 (x 40 to 50, y 0 to 10) is (20, 30), 28.3 from the corner (40, 10),
     which is more than the sum 26 of both distances.
 
-    A vector map without primitives is not registered; the classic algebra
-    registers it.
+    A vector map without primitives is not registered.
     """
     expression = "buff_p(pa, 6) & buff_a(aa, 20)"
-    assert counts(vector_series.session, expression, classic=classic) == expected_areas
+    assert counts(vector_series.session, expression) == [1, 1]
 
 
 def test_buffer_line_and_area_overlay_area_count(vector_series):
@@ -540,44 +517,15 @@ def test_spatial_topology_flag_keeps_overlapping_maps(vector_series):
     assert counts(vector_series.session, "aa & ab", flags="s") == [1, 1]
 
 
-@pytest.mark.fixed_algebra
-def test_classic_flag_selects_the_classic_algebra(vector_series):
-    """An empty result creates an empty dataset in the core and none in the
-    classic algebra"""
-    # The flag must win over the variable, which therefore selects the core.
-    env = {**vector_series.session.env, "GRASS_TEMPORAL_ALGEBRA": "core"}
-    tools = Tools(env=env, overwrite=True)
-    # No daily map of aa contains one of the two-day maps of wide.
-    expression = "{name} = aa {{:,contains}} wide"
-    tools.t_vect_algebra(
-        expression=expression.format(name="flag_core"), basename="flag_core"
-    )
-    tools.t_vect_algebra(
-        expression=expression.format(name="flag_classic"),
-        basename="flag_classic",
-        flags="c",
-    )
-    assert list_maps(vector_series.session, "flag_core") == []
-    assert list_maps(vector_series.session, "flag_classic") is None
-
-
-@pytest.mark.fixed_algebra
-def test_classic_flag_runs_the_classic_profile(vector_series):
-    """The tool with -c computes on the classic profile of the core, not on
-    the reference implementation (grass.temporal.classic): an increment the
-    library refuses is reported with the message of the library, where the
-    reference names tshift() and the unit"""
-    tools = Tools(session=vector_series.session, overwrite=True)
+def test_classic_flag_is_unknown(vector_series):
+    """-c is no flag of the tool: the parser refuses it before anything is made"""
+    tools = Tools(session=vector_series.session, consistent_return_value=True)
     with pytest.raises(ToolError) as error:
         tools.t_vect_algebra(
-            expression='profiled = tshift(aa, "1 DAY")',
-            basename="profiled",
-            flags="c",
+            expression="no_c = buff_p(pa, 1)", basename="no_c", flags="c"
         )
-    assert "Cannot read '1 DAY' as a time step, use e.g. \"1 day\"" in (
-        error.value.stderr
-    )
-    assert "Function tshift()" not in error.value.stderr
+    assert "<c>" in error.value.stderr
+    assert not tools.t_list(type="stvds", where="name = 'no_c'").stdout.strip()
 
 
 # Names, overwrite and empty results
@@ -631,15 +579,12 @@ def test_overwrite_replaces_result(vector_series):
     assert len(list_maps(vector_series.session, "twice")) == 3
 
 
-@pytest.mark.parametrize(("classic", "expected"), [(False, []), (True, None)])
-@pytest.mark.fixed_algebra
-def test_empty_selection_creates_an_empty_dataset(vector_series, classic, expected):
+def test_empty_selection_creates_an_empty_dataset(vector_series):
     """A selection without hits creates an empty result dataset, as in
-    t.rast.algebra; the classic algebra leaves no dataset behind (None).
-    Neither raises an error.
+    t.rast.algebra, and raises no error.
     """
-    name = run_algebra(vector_series.session, "aa {:,during} tmap(ev)", classic=classic)
-    assert list_maps(vector_series.session, name) == expected
+    name = run_algebra(vector_series.session, "aa {:,during} tmap(ev)")
+    assert list_maps(vector_series.session, name) == []
 
 
 def test_overlay_of_maps_without_areas_reports_error(vector_series):
@@ -648,18 +593,16 @@ def test_overlay_of_maps_without_areas_reports_error(vector_series):
         run_algebra(vector_series.session, "pc & pc")
 
 
-@pytest.mark.parametrize("classic", [False, True])
 @pytest.mark.parametrize("expression", ["buff_p(aa, 1) ^ ac", "buff_p(ac, 2) & aa"])
-@pytest.mark.fixed_algebra
 def test_overlay_with_an_empty_intermediate_map_drops_the_result(
-    vector_series, expression, classic
+    vector_series, expression
 ):
     """buff_p() of a map without points leaves a map whose number of areas
     is unknown (None) rather than 0. v.overlay cannot work on it, so the
     result is dropped with a warning like for any other map without areas,
     and the run neither fails nor registers a map.
     """
-    name = run_algebra(vector_series.session, expression, classic=classic)
+    name = run_algebra(vector_series.session, expression)
     assert not list_maps(vector_series.session, name)
 
 
@@ -709,7 +652,7 @@ def test_invalid_expressions_fail(vector_series, expression):
     """Syntax errors and unknown datasets are reported as exceptions"""
     parser = tgis.TemporalVectorAlgebraParser(run=True, debug=False)
     # The core reads "one" in buff_p(aa, one) as a dataset and does not find
-    # it, where the classic grammar reports a syntax error.
+    # it.
     with pytest.raises((SyntaxError, FatalError)):
         parser.parse(expression, "bad", True)
     assert list_maps(vector_series.session, "res") is None
@@ -772,10 +715,9 @@ def test_blanks_in_overlay_operator(vector_series, expression):
     assert counts(vector_series.session, expression) == [1, 1]
 
 
-@pytest.mark.fixed_algebra
 def test_debug_output(vector_series, capsys):
     """debug=True prints each module call as a command line"""
-    parser = tgis.TemporalVectorAlgebraParser(run=True, debug=True, classic=False)
+    parser = tgis.TemporalVectorAlgebraParser(run=True, debug=True)
     parser.parse("dbg = aa & ab", "dbg", True)
     assert (
         "v.overlay ainput=aa1@PERMANENT binput=ab1@PERMANENT operator=and"
@@ -785,42 +727,24 @@ def test_debug_output(vector_series, capsys):
     assert "g.copy vector=aa1@PERMANENT,dbg_0" in capsys.readouterr().out
 
 
-@pytest.mark.fixed_algebra
 def test_debug_output_without_run(vector_series, capsys):
     """With run=False only the syntax is checked, so nothing is planned and
     debug=True prints nothing"""
-    parser = tgis.TemporalVectorAlgebraParser(run=False, debug=True, classic=False)
-    parser.parse("dbg = aa & ab", "dbg", True)
-    assert not capsys.readouterr().out
-
-
-@pytest.mark.fixed_algebra
-def test_debug_output_of_the_classic_profile(vector_series, capsys):
-    """-c prints the planned module calls like the core, and with run=False
-    nothing"""
-    parser = tgis.TemporalVectorAlgebraParser(run=True, debug=True, classic=True)
-    parser.parse("dbg = aa & ab", "dbg", True)
-    assert (
-        "v.overlay ainput=aa1@PERMANENT binput=ab1@PERMANENT operator=and"
-        in capsys.readouterr().out
-    )
-    parser = tgis.TemporalVectorAlgebraParser(run=False, debug=True, classic=True)
+    parser = tgis.TemporalVectorAlgebraParser(run=False, debug=True)
     parser.parse("dbg = aa & ab", "dbg", True)
     assert not capsys.readouterr().out
 
 
 @pytest.mark.parametrize("run", [True, False])
-@pytest.mark.fixed_algebra
 def test_debug_output_of_the_reference(vector_series, capsys, run):
     """With debug=True the reference prints the parsed rules, with or
-    without running. Only the reference keeps this output; the classic
-    profile prints the module calls like the core."""
+    without running. Only the reference keeps this output; the core prints
+    the module calls."""
     parser = reference_parser("vector", run=run, debug=True)
     parser.parse("dbg = aa & ab", "dbg", True)
     assert "aa&ab" in capsys.readouterr().out
 
 
-@pytest.mark.fixed_algebra
 def test_deprecated_overlay_cmd_value_alias(vector_series, monkeypatch):
     """overlay_cmd_value forwards to operator_cmd_value with the new arguments"""
     parser = reference_parser("vector", run=True, debug=False)
@@ -840,25 +764,8 @@ def test_deprecated_overlay_cmd_value_alias(vector_series, monkeypatch):
         "pa {:,equal} tsnap(aa {:,during} tmap(ev))",
     ],
 )
-@pytest.mark.parametrize(("classic", "expected"), [(False, []), (True, None)])
-@pytest.mark.fixed_algebra
-def test_tsnap_and_tshift_of_no_maps_give_an_empty_result(
-    vector_series, expression, classic, expected
-):
+def test_tsnap_and_tshift_of_no_maps_give_an_empty_result(vector_series, expression):
     """Without maps to snap or shift the result is empty like any other empty
-    vector result: an empty dataset in the core, none in the classic algebra.
-    Neither raises an error."""
-    name = run_algebra(vector_series.session, expression, classic=classic)
-    assert list_maps(vector_series.session, name) == expected
-
-
-@pytest.mark.parametrize("expression", ['tshift(aa, "1 DAY")', 'tshift(aa, "1 d")'])
-@pytest.mark.fixed_algebra
-def test_tshift_with_a_refused_increment_is_a_syntax_error_classic(
-    vector_series, expression
-):
-    """An increment that the library refuses is an error in the classic
-    algebra, not an absent result. The core raises a ValueError. The message is
-    that of the library: it does not name tshift as the reference does."""
-    with pytest.raises(SyntaxError, match="time step"):
-        run_algebra(vector_series.session, expression, classic=True)
+    vector result: an empty dataset, and no error."""
+    name = run_algebra(vector_series.session, expression)
+    assert list_maps(vector_series.session, name) == []

@@ -1,25 +1,18 @@
 """Comparison of the algebra core with the classic algebra
 
-The core and the classic profile compute each expression; the registered maps
-(start, end, minimum, maximum) must agree, except for the differences that the
-manual lists between the core and the classic algebra. Values are compared
-rather than r.mapcalc expressions, because the two write them differently.
-
-The classic profile in turn must give what the reference implementation
-(grass.temporal.classic) of the classic algebra gives, for every expression of
-the lists, the differences included.
+The outcome of the classic algebra is that of the reference implementation
+(grass.temporal.classic), which runs in each test. The registered maps (start,
+end, minimum and maximum, rounded to 6 significant digits) must agree, except
+for the differences that the manual lists between the core and the releases
+before GRASS 8.6. Values are compared rather than r.mapcalc expressions,
+because the two write them differently.
 """
 
 import random
 
 import pytest
 
-from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 from grass.temporal.testing import differential
-from grass.temporal.testing.corpus import reference_outcome
-
-# Every test sets the algebra itself, see the marker in pyproject.toml.
-pytestmark = pytest.mark.fixed_algebra
 
 SAME = [
     "A + N",
@@ -74,8 +67,8 @@ SAME = [
 
 # Each changed rule with a short form of its item in the list of differences
 # in the manual, and what the core gives: "maps" for registered maps, which
-# may be none, or the name of the error. A crash of the core then does not
-# pass for a difference.
+# may be none, or the class of the error as differential.outcome() names it.
+# A crash of the core then does not pass for a difference.
 DIFFERENT = {
     "B {:,contains,r} A": (
         "maps",
@@ -87,7 +80,7 @@ DIFFERENT = {
         "&& binds stronger than ||",
     ),
     "if(A > 2, A, D)": (
-        "ValueError",
+        "Other:ValueError",
         "then and else of a map condition need equal time stamps",
     ),
     "if(td(I) > 0, I)": ("maps", "td() of a time instance is null"),
@@ -101,19 +94,19 @@ DIFFERENT = {
     # would precede it, printing one ERROR line per map ("End time must be
     # greater than start time ...", exit code 0; measured 2026-10-14).
     'buff_t(B, "-1 day")': (
-        "ValueError",
+        "Other:ValueError",
         "a negative buffer must leave every map some time (end == start)",
     ),
     'buff_t(A, "-1 day")': (
-        "ValueError",
+        "Other:ValueError",
         "a negative buffer must leave every map some time (end < start)",
     ),
     'buff_t(I, "-1 day")': (
-        "ValueError",
+        "Other:ValueError",
         "a negative buffer cannot shrink a time instance",
     ),
     "buff_t(RT, -1)": (
-        "ValueError",
+        "Other:ValueError",
         "a negative buffer must leave every map some time (relative time)",
     ),
     # Both maps of HB are such maps, so the core registers none.
@@ -128,8 +121,8 @@ DIFFERENT = {
     ),
 }
 
-# The new grammar reads forms that the classic grammar has no rule for. Each
-# must give what an expression of the classic grammar gives.
+# The core reads forms that the grammar of the reference has no rule for. Each
+# must give what an expression of that grammar gives.
 EXTENDED = {
     "A": "A * 1",
     "-A + 10": "10 - A",
@@ -139,7 +132,7 @@ EXTENDED = {
 }
 
 # The granularity mode (-g) samples each dataset with the common granularity
-# of the expression before both algebras compute it.
+# of the expression before the reference and the core compute it.
 GRANULARITY_SAME = [
     # B has maps of two days, so that each counts for two days of A.
     "A + B",
@@ -173,71 +166,65 @@ GRANULARITY_DIFFERENT = {
 }
 
 
-def outcome(algebra, monkeypatch, expression, parser, **keywords):
-    """The registered maps, or the name of the error
+def without_names(result):
+    """The outcome without the names of the maps
 
-    parser is "core" or "classic" (the profile).
+    The reference and the core count the maps in another order, so the names
+    differ; the comparison of the core with the classic profile, which this
+    test made before, did not read them either.
     """
-    monkeypatch.setenv(ALGEBRA_VARIABLE, parser)
-    try:
-        rows = algebra.run(expression, f"d{parser}", register_null=True, **keywords)
-    except (*algebra.errors, SyntaxError, ValueError, TypeError) as error:
-        return type(error).__name__
-    return [(row.start, row.end, row.min, row.max) for row in rows]
+    if "maps" in result:
+        result = {**result, "maps": [[None, *row[1:]] for row in result["maps"]]}
+    return result
 
 
-# The result of the reference comes from the recorded corpus, which stores the
-# form of differential.outcome(), so the profile is read in that form as well.
-# That form rounds minimum and maximum to 6 significant digits, so this
-# comparison is coarser than the one of the core with the profile, which
-# outcome() above reads in full.
-def profile_difference(expression, **options):
-    """What compare() finds between the reference and -c"""
+def run(runner, expression, **options):
+    """The outcome of a runner of differential.RUNNERS, without map names"""
+    basename = {"reference": "fa", "core": "fb"}[runner]
     options = {"register_null": True, **options}
-    reference = reference_outcome("raster", expression, **options)
-    profile = differential.outcome(
-        "raster", expression, differential.RUNNERS["classic"], basename="fb", **options
+    return without_names(
+        differential.outcome(
+            "raster",
+            expression,
+            differential.RUNNERS[runner],
+            basename=basename,
+            **options,
+        )
     )
-    return differential.compare("raster", expression, reference, profile)
+
+
+def difference(expression, **options):
+    """What compare() finds between the reference and the core"""
+    reference = run("reference", expression, **options)
+    return differential.compare(
+        "raster", expression, reference, run("core", expression, **options)
+    )
+
+
+def kind(result):
+    """The class of the error of an outcome, or "maps" without an error"""
+    return result.get("error", "maps")
 
 
 @pytest.mark.parametrize("expression", SAME)
-def test_same_result(algebra, monkeypatch, expression):
-    assert outcome(algebra, monkeypatch, expression, "core") == outcome(
-        algebra, monkeypatch, expression, "classic"
-    )
+def test_same_result(algebra, expression):
+    assert difference(expression) is None
 
 
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
-def test_listed_differences_still_differ(algebra, monkeypatch, expression):
+def test_listed_differences_still_differ(algebra, expression):
     """A listed difference that no longer differs must leave the list"""
-    core = outcome(algebra, monkeypatch, expression, "core")
-    assert core != outcome(algebra, monkeypatch, expression, "classic")
-    assert ("maps" if isinstance(core, list) else core) == DIFFERENT[expression][0]
+    assert difference(expression) is not None
+    assert kind(run("core", expression)) == DIFFERENT[expression][0]
 
 
 @pytest.mark.parametrize(("expression", "equivalent"), EXTENDED.items())
-def test_extended_syntax(algebra, monkeypatch, expression, equivalent):
-    assert outcome(algebra, monkeypatch, expression, "classic") == "SyntaxError"
-    expected = outcome(algebra, monkeypatch, equivalent, "classic")
-    assert isinstance(expected, list)
-    assert outcome(algebra, monkeypatch, expression, "core") == expected
-
-
-@pytest.mark.parametrize(
-    "expression", [*SAME, *sorted(DIFFERENT), *EXTENDED, *EXTENDED.values()]
-)
-def test_profile_equals_reference(algebra, expression):
-    """-c computes what the reference of the classic algebra computed, also
-    where the core differs and where the classic grammar has no rule"""
-    assert profile_difference(expression) is None
-
-
-@pytest.mark.parametrize(
-    "expression", [*GRANULARITY_SAME, *sorted(GRANULARITY_DIFFERENT)]
-)
-def test_granularity_profile_equals_reference(algebra, expression):
-    assert profile_difference(expression, granularity=True) is None
+def test_extended_syntax(algebra, expression, equivalent):
+    assert kind(run("reference", expression)) == "SyntaxError"
+    expected = run("reference", equivalent)
+    assert kind(expected) == "maps"
+    core = run("core", expression)
+    assert differential.compare("raster", expression, expected, core) is None
 
 
 RANDOM_DATASETS = ("A", "N", "D", "HA")
@@ -276,72 +263,44 @@ RANDOM = [random_expression(random.Random(seed)) for seed in range(30)]
 
 
 @pytest.mark.parametrize("expression", RANDOM)
-def test_random_expressions(algebra, monkeypatch, expression):
-    assert outcome(algebra, monkeypatch, expression, "core") == outcome(
-        algebra, monkeypatch, expression, "classic"
-    )
+def test_random_expressions(algebra, expression):
+    assert difference(expression) is None
+
+
+def mapcalc_calls(chain):
+    return sum(process["name"] == "r.mapcalc" for process in chain["processes"])
 
 
 @pytest.mark.parametrize("expression", SAME)
-def test_no_more_mapcalc_calls(algebra, monkeypatch, expression):
-    """The core computes each result map with one r.mapcalc call, and needs
-    no more calls than the classic algebra"""
-
-    def chain(parser):
-        monkeypatch.setenv(ALGEBRA_VARIABLE, parser)
-        return algebra.parse(expression, dry_run=True)
-
-    def calls(processes):
-        return sum(process["name"] == "r.mapcalc" for process in processes)
-
-    core = chain("core")
-    assert calls(core["processes"]) == len(core["register"])
-    assert calls(core["processes"]) <= calls(chain("classic")["processes"])
+def test_one_mapcalc_call_per_map(algebra, expression):
+    """The core computes each result map with one r.mapcalc call"""
+    chain = algebra.parse(expression, dry_run=True)
+    assert mapcalc_calls(chain) == len(chain["register"])
 
 
 @pytest.mark.parametrize("expression", GRANULARITY_SAME)
-def test_granularity_same_result(algebra, monkeypatch, expression):
-    assert outcome(
-        algebra, monkeypatch, expression, "core", granularity=True
-    ) == outcome(algebra, monkeypatch, expression, "classic", granularity=True)
+def test_granularity_same_result(algebra, expression):
+    assert difference(expression, granularity=True) is None
 
 
 @pytest.mark.parametrize("expression", sorted(GRANULARITY_DIFFERENT))
-def test_granularity_listed_differences_still_differ(algebra, monkeypatch, expression):
+def test_granularity_listed_differences_still_differ(algebra, expression):
     """A listed difference that no longer differs must leave the list"""
-    core = outcome(algebra, monkeypatch, expression, "core", granularity=True)
-    assert core != outcome(
-        algebra, monkeypatch, expression, "classic", granularity=True
-    )
-    assert ("maps" if isinstance(core, list) else core) == GRANULARITY_DIFFERENT[
-        expression
-    ][0]
+    assert difference(expression, granularity=True) is not None
+    core = run("core", expression, granularity=True)
+    assert kind(core) == GRANULARITY_DIFFERENT[expression][0]
 
 
-def test_granularity_with_the_spatial_flag(algebra, monkeypatch):
+def test_granularity_with_the_spatial_flag(algebra):
     """The sampled maps keep their spatial extent, so that the spatial
     relation of -s finds them"""
-    core = outcome(
-        algebra, monkeypatch, "A + B", "core", granularity=True, spatial=True
-    )
-    assert len(core) == 4
-    assert core == outcome(
-        algebra, monkeypatch, "A + B", "classic", granularity=True, spatial=True
-    )
+    assert len(run("core", "A + B", granularity=True, spatial=True)["maps"]) == 4
+    assert difference("A + B", granularity=True, spatial=True) is None
 
 
 @pytest.mark.parametrize("expression", GRANULARITY_SAME)
-def test_granularity_no_more_mapcalc_calls(algebra, monkeypatch, expression):
-    """In the granularity mode, too, the core needs no more r.mapcalc calls
-    than the classic algebra"""
-
-    def chain(parser):
-        monkeypatch.setenv(ALGEBRA_VARIABLE, parser)
-        return algebra.parse(expression, dry_run=True, granularity=True)
-
-    def calls(processes):
-        return sum(process["name"] == "r.mapcalc" for process in processes)
-
-    core = chain("core")
-    assert calls(core["processes"]) == len(core["register"])
-    assert calls(core["processes"]) <= calls(chain("classic")["processes"])
+def test_granularity_one_mapcalc_call_per_map(algebra, expression):
+    """In the granularity mode, too, the core computes each result map with
+    one r.mapcalc call"""
+    chain = algebra.parse(expression, dry_run=True, granularity=True)
+    assert mapcalc_calls(chain) == len(chain["register"])

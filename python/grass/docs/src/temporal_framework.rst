@@ -26,7 +26,7 @@ The document :download:`The GRASS Temporal Framework: Object oriented code desig
 examples that run against the code. This page lists the modules and shows
 short examples; the guide :doc:`temporal_framework_tools` shows how to write a
 new temporal tool, and the guide :doc:`temporal_framework_algebra` how to extend
-the algebra core without changing what the classic algebra computes. The
+the algebra core without changing what valid expressions compute. The
 document of the same name that accompanies the 2017 publication of Gebbert and
 Pebesma shows the state of 2017 and is linked in the references.
 
@@ -612,8 +612,8 @@ The modules of the package:
   slot into module calls
 - :mod:`~grass.temporal.algebra.materialize`: planning a series as module
   calls and map names, and running the plan with registration of the maps
-- :mod:`~grass.temporal.algebra.profile`: the variant of the algebra that
-  ``evaluate`` computes, the core or the classic one
+- :mod:`~grass.temporal.algebra.profile`: the rules of the algebra that
+  ``evaluate`` computes
 
 The syntax of :program:`t.rast.algebra` is translated onto these functions
 by :func:`grass.temporal.algebra.parser.evaluate`, which also gives the
@@ -631,15 +631,6 @@ process chain of a dry run. The package
 - :mod:`~grass.temporal.algebra.parser.granularity`: the sampling of space
   time datasets with a common granularity
 - :mod:`~grass.temporal.algebra.parser.facade`: the public parser classes
-- :mod:`~grass.temporal.algebra.parser.switch`: the choice between the rules
-  of the core and the classic rules
-- :mod:`~grass.temporal.algebra.parser.classic`,
-  :mod:`~grass.temporal.algebra.parser.classic_grammar`,
-  :mod:`~grass.temporal.algebra.parser.classic_maps`,
-  :mod:`~grass.temporal.algebra.parser.classic_numbers` and
-  :mod:`~grass.temporal.algebra.parser.classic_productions`: the classic
-  algebra as a profile of the core, with its grammar, its map kinds and the
-  numbers of *r.mapcalc* as it computes them
 
 The example evaluates an expression as a dry run. It needs a session, an
 initialised temporal database (``tgis.init()``) and the space time datasets
@@ -691,9 +682,9 @@ imports it inside the function that skips a test. Its modules:
 - :mod:`~grass.temporal.testing.reference`,
   :mod:`~grass.temporal.testing.differential`,
   :mod:`~grass.temporal.testing.corpus` and
-  :mod:`~grass.temporal.testing.corpus_orphans`: running the classic
-  algebra, comparing it with the core, and the recorded results of the
-  classic algebra that the comparisons read
+  :mod:`~grass.temporal.testing.corpus_orphans`: running the reference
+  implementation, comparing it with the core, and the recorded results of the
+  reference that the comparisons read
 - :mod:`~grass.temporal.testing.algebra_cases`: algebra cases with expected
   values derived by hand
 - :mod:`~grass.temporal.testing.expressions`,

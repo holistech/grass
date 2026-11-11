@@ -16,10 +16,8 @@ import datetime
 import pytest
 
 from grass.temporal.testing import io_cache
-from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.differential import (
-    compare,
     constant_values,
     outcome_of_runner,
 )
@@ -27,8 +25,7 @@ from grass.tools import Tools
 
 KIND = "raster"
 
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
+pytestmark = pytest.mark.slow
 
 MONTHS = [
     (datetime.datetime(2001, month, 1), datetime.datetime(2001, month + 1, 1))
@@ -153,43 +150,31 @@ def values(result):
     return [pytest.approx(value, rel=1e-5) for value in constant_values(result)]
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new", "old"), CHAINS)
 def test_a_chain_is_grouped_from_the_left(chains, runner, expression, new, old):
     assert new != old
     assert values(run(runner, expression, "fa")) == new
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new"), NEWLY_READ)
 def test_a_chain_after_a_dataset_is_read(chains, runner, expression, new):
     assert values(run(runner, expression, "fa")) == new
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new"), UNCHANGED)
 def test_chains_with_the_same_value_both_ways(chains, runner, expression, new):
     assert values(run(runner, expression, "fa")) == new
 
 
 @pytest.mark.parametrize("expression", REFUSED)
-@pytest.mark.parametrize("runner", ["reference", "classic"])
-def test_forms_without_a_production_stay_refused(chains, runner, expression):
-    assert run(runner, expression, "fa")["error"] == "SyntaxError"
+def test_forms_without_a_production_stay_refused(chains, expression):
+    assert run("reference", expression, "fa")["error"] == "SyntaxError"
 
 
-@pytest.mark.parametrize(
-    "expression",
-    [row[0] for row in CHAINS + NEWLY_READ + UNCHANGED],
-)
-def test_the_profile_computes_what_the_reference_computes(chains, expression):
-    """Also the time stamps and names, which the tests above leave out"""
-    reference = reference_outcome(KIND, expression, register_null=True)
-    profile = run("classic", expression, "fb")
-    assert compare(KIND, expression, reference, profile) is None
-
-
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 def test_the_granularity_mode_groups_from_the_left_too(chains, runner):
     """A has one granularity, one month, so -g leaves the maps as they are"""
     result = run(runner, "map(L) - 1 - A", "fa", granularity=True)

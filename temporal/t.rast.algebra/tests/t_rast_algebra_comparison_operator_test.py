@@ -16,15 +16,13 @@ import datetime
 import pytest
 
 from grass.temporal.testing import io_cache
-from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.temporal.testing.differential import compare, outcome_of_runner
+from grass.temporal.testing.differential import outcome_of_runner
 from grass.tools import Tools
 
 KIND = "raster"
 
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
+pytestmark = pytest.mark.slow
 
 MONTHS = [
     (datetime.datetime(2001, month, 1), datetime.datetime(2001, month + 1, 1))
@@ -156,7 +154,7 @@ CORE_PAIRS = {
 DIFFERENT_TIMES = ("if(G > F, G, 0)", "if(F > G, F, 0)", "if(A > 1 && G >= F, A)")
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "starts", "values"), BRACES + BARE)
 def test_a_comparison_by_hand(comparisons, runner, expression, starts, values):
     result = run(runner, expression, "fa")
@@ -172,35 +170,13 @@ def test_a_comparison_by_hand(comparisons, runner, expression, starts, values):
     assert starts_and_values(result) == (starts, values)
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic"])
-def test_a_condition_without_an_equal_map_is_empty(comparisons, runner):
+def test_a_condition_without_an_equal_map_is_empty(comparisons):
     """The intersection of e1 and e2 is empty, the condition keeps 5 to 6 January
 
     No map of A has that time, so no map is left.
     """
-    result = run(runner, "if(A {>=,contains,&,i} E, A, 0)", "fa")
+    result = run("reference", "if(A {>=,contains,&,i} E, A, 0)", "fa")
     assert result["maps"] == []
-
-
-@pytest.mark.parametrize(
-    "expression",
-    [row[0] for row in BRACES + BARE]
-    + [
-        "if(A {>=,contains,&,d} E, A, 0)",
-        "if(A {<,contains,|,u} E, E, 0)",
-        "if(E {<=,during} A, E, 0)",
-        "if(E {<=,during,r} A, A, 0)",
-        "if(A[1] >= A, A, 0)",
-        "if(A >= A[-1] + 1, A, 0)",
-        "if(A {<,contains,|} E {&&,equal} A > 1, A)",
-    ],
-)
-def test_the_profile_computes_what_the_reference_computes(comparisons, expression):
-    """Also the time stamps and names, which the tests above leave out"""
-    reference = reference_outcome(KIND, expression, register_null=True)
-    profile = run("classic", expression, "fb")
-    assert compare(KIND, expression, reference, profile) is None
-    assert "error" not in reference
 
 
 def test_a_condition_without_an_equal_map_leaves_null_maps_in_the_new_algebra(
@@ -212,7 +188,7 @@ def test_a_condition_without_an_equal_map_leaves_null_maps_in_the_new_algebra(
     assert [row[3] for row in result["maps"]] == [None, None, None, None]
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("aggregate", "value"), [("|", 1.5), ("&", 0)])
 def test_maps_of_equal_time_are_all_related(comparisons, runner, aggregate, value):
     """d1 = 1 and d2 = 2 both have the time of a1 = 1.5, and both are compared
@@ -226,7 +202,7 @@ def test_maps_of_equal_time_are_all_related(comparisons, runner, aggregate, valu
     assert january == [pytest.approx(value)]
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 def test_a_spatial_relation_in_the_operator(comparisons, runner):
     """With -s the relations of the operator are spatial too: equal maps lie
     on one region, so the result is that of {>=,equal,|}"""
@@ -234,7 +210,7 @@ def test_a_spatial_relation_in_the_operator(comparisons, runner):
     assert starts_and_values(result) == (ALL, [5, 6, 7, 8])
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 def test_the_granularity_mode_reads_the_bare_form_only(comparisons, runner):
     """-g refuses every operator in braces; A >= F has one granularity"""
     bare = run(runner, "if(A >= F, A, F)", "fa", granularity=True)
@@ -250,26 +226,23 @@ REFUSED = [
 ]
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize("expression", REFUSED)
 def test_forms_that_are_no_comparisons_stay_refused(comparisons, runner, expression):
     assert run(runner, expression, "fa")["error"] == "SyntaxError"
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic"])
 @pytest.mark.parametrize(
     "expression",
     ["A >= F", "if(A {>=} F, A, F)", "if(A # F > A, A, F)"],
 )
-def test_the_classic_grammar_reads_comparisons_inside_if_only(
-    comparisons, runner, expression
-):
+def test_the_classic_grammar_reads_comparisons_inside_if_only(comparisons, expression):
     """The core reads a comparison anywhere, as A + (A >= F), and the
     operator in braces without a comma, as {+} for the plus"""
-    assert run(runner, expression, "fa")["error"] == "SyntaxError"
+    assert run("reference", expression, "fa")["error"] == "SyntaxError"
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 def test_a_temporal_condition_keeps_its_meaning(comparisons, runner):
     """A # B > 1 compares a count with a number, not two datasets"""
     result = run(runner, "if(A {#,contains} E > 1, A, 0)", "fa")

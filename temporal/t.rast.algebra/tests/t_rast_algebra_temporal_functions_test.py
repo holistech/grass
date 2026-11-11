@@ -6,7 +6,6 @@ The datasets are described in the time_series fixture in conftest.py.
 import pytest
 
 from grass.exceptions import FatalError
-from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 from grass.temporal.testing.reference import run_reference
 from grass.tools import ToolError, Tools
 
@@ -98,19 +97,16 @@ def test_unavailable_time_function_is_reported(time_series, expression, map_id):
     assert map_id in error.value.stderr
 
 
-def duration_arithmetic(algebra, monkeypatch, expression, implementation):
+def duration_arithmetic(algebra, expression, implementation):
     """Return (start day, end day, value) of "R = <expression>" computed by the
-    core or by the reference implementation (grass.temporal.classic), whatever
-    GRASS_TEMPORAL_ALGEBRA says"""
+    core or by the reference implementation (grass.temporal.classic)"""
     algebra.remove("R")
     if implementation == "core":
-        monkeypatch.delenv(ALGEBRA_VARIABLE, raising=False)
         return algebra.triples(expression)
     run_reference("raster", f"R = {expression}", basename="r", overwrite=True, run=True)
     return [(row.start.day, row.end.day, row.min) for row in algebra.maps("R")]
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("implementation", ["core", "reference"])
 @pytest.mark.parametrize(
     ("expression", "expected"),
@@ -125,23 +121,18 @@ def duration_arithmetic(algebra, monkeypatch, expression, implementation):
     ],
 )
 def test_duration_of_an_expression_in_arithmetic(
-    algebra, monkeypatch, implementation, expression, expected
+    algebra, implementation, expression, expected
 ):
     """td() of a computed expression is the duration of its maps on the right
     of an operator, as td() of a dataset is"""
-    assert (
-        duration_arithmetic(algebra, monkeypatch, expression, implementation)
-        == expected
-    )
+    assert duration_arithmetic(algebra, expression, implementation) == expected
 
 
-def outcome(algebra, monkeypatch, expression, implementation):
+def outcome(algebra, expression, implementation):
     """Return (result dataset exists, (start day, end day, value) of its
-    maps) for "R = <expression>" computed by the core or by the reference,
-    whatever GRASS_TEMPORAL_ALGEBRA says"""
+    maps) for "R = <expression>" computed by the core or by the reference"""
     algebra.remove("R")
     if implementation == "core":
-        monkeypatch.delenv(ALGEBRA_VARIABLE, raising=False)
         algebra.parse(expression)
     else:
         run_reference(
@@ -152,7 +143,6 @@ def outcome(algebra, monkeypatch, expression, implementation):
     return True, [(row.start.day, row.end.day, row.min) for row in algebra.maps("R")]
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("implementation", ["core", "reference"])
 @pytest.mark.parametrize(
     "expression",
@@ -168,25 +158,22 @@ def outcome(algebra, monkeypatch, expression, implementation):
     ],
 )
 def test_tsnap_and_tshift_of_no_maps_give_an_empty_result(
-    algebra, monkeypatch, implementation, expression
+    algebra, implementation, expression
 ):
     """Without maps to snap or shift the result is an empty dataset, like any
     other empty result, and the enclosing expression goes on with no maps"""
-    assert outcome(algebra, monkeypatch, expression, implementation) == (True, [])
+    assert outcome(algebra, expression, implementation) == (True, [])
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("implementation", ["core", "reference"])
-def test_merge_with_tsnap_of_no_maps_keeps_the_other_maps(
-    algebra, monkeypatch, implementation
-):
+def test_merge_with_tsnap_of_no_maps_keeps_the_other_maps(algebra, implementation):
     """An empty list from tsnap() adds nothing to merge()"""
-    assert outcome(
-        algebra, monkeypatch, "merge(A, tsnap(A {:,equal} B))", implementation
-    ) == (True, [(1, 2, 1), (2, 3, 2), (3, 4, 3), (4, 5, 4)])
+    assert outcome(algebra, "merge(A, tsnap(A {:,equal} B))", implementation) == (
+        True,
+        [(1, 2, 1), (2, 3, 2), (3, 4, 3), (4, 5, 4)],
+    )
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     "expression",
     [
@@ -199,9 +186,7 @@ def test_merge_with_tsnap_of_no_maps_keeps_the_other_maps(
         'tshift(RT, "1 day")',
     ],
 )
-def test_tshift_with_a_refused_increment_is_a_syntax_error(
-    algebra, monkeypatch, expression
-):
+def test_tshift_with_a_refused_increment_is_a_syntax_error(algebra, expression):
     """An increment that the library refuses is reported as the error of
     a number without unit on absolute time, not as an absent result.
 
@@ -216,7 +201,6 @@ def test_tshift_with_a_refused_increment_is_a_syntax_error(
     assert not algebra.exists()
 
 
-@pytest.mark.fixed_algebra
 def test_tshift_with_a_refused_increment_inside_an_expression(algebra):
     """The error is reported to the caller and not as the type of the input
     of the enclosing operator"""
@@ -231,7 +215,6 @@ def test_tshift_with_a_refused_increment_inside_an_expression(algebra):
         )
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     "expression",
     [
@@ -259,7 +242,6 @@ def test_time_constant_with_offset_needs_absolute_time(algebra, expression):
     assert not algebra.exists()
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("condition", ["end_month(I) == 1", "start_month(RT) == 1"])
 def test_time_function_in_a_condition_needs_absolute_time(algebra, condition):
     """The condition form, which the offset form is measured against"""

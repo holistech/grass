@@ -1,9 +1,8 @@
 """The relation name equals, which the published algebra paper writes
 
 As t_rast_algebra_equals_alias_test.py, for the tool t.select on each dataset
-type: the core, the classic profile (-c) and the reference read equals as
-another name of equal. conftest.py describes the datasets; a2 and
-b1 have the same time.
+type: the core and the reference read equals as another name of equal.
+conftest.py describes the datasets; a2 and b1 have the same time.
 """
 
 import itertools
@@ -40,8 +39,6 @@ def select(session, expression, kind):
 @pytest.mark.parametrize("kind", KINDS)
 @pytest.mark.parametrize(("equals", "equal"), SPELLINGS)
 def test_equals_is_another_name_of_equal(series, kind, equals, equal):
-    # The classic profile runs with -c, the core without it, see the fixture
-    # algebra in conftest.py.
     canonical = select(series.session, equal, kind)
     assert select(series.session, equals, kind) == canonical
     # A refusal on both sides would make the comparison above vacuous.

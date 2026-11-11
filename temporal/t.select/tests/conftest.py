@@ -44,12 +44,10 @@ a4         b6         precedes
 The strds fixture has two more datasets, see the series fixture.
 """
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 from grass.temporal.testing.data import (
     MapSpec,
     create_stds,
@@ -68,15 +66,6 @@ INTERVALS = {
 
 # Map type that each dataset type holds
 KINDS = ("strds", "stvds", "str3ds")
-
-# Tests that skip themselves on the classic algebra. They are the only ones in
-# this directory that "-m fixed_algebra" has to leave out, see
-# pytest_collection_modifyitems.
-SKIP_ON_CLASSIC = {
-    "test_dataset_type_function_hints_at_the_classic_flag",
-    "test_other_unknown_function_has_no_classic_hint",
-    "test_dataset_type_function_works_with_the_classic_flag",
-}
 
 
 def specs(intervals, prefix):
@@ -110,8 +99,8 @@ def series(temporal_module_session):
     - the mapset "other" with the dataset X: x1 with the time of a2 and x2
       with the time of a4; it is in the mapset search path
 
-    The session mirrors its environment into os.environ for the module; the
-    differential test runs the parsers in this process.
+    The session mirrors its environment into os.environ for the module; some
+    tests run the algebra in this process.
     """
     session = temporal_module_session
     tools = Tools(session=session, overwrite=True)
@@ -144,36 +133,3 @@ def series(temporal_module_session):
     tools.g_mapset(mapset="PERMANENT")
     tools.g_mapsets(mapset="other", operation="add")
     return SimpleNamespace(session=session)
-
-
-@pytest.fixture(autouse=True)
-def algebra(series, algebra_setting):
-    """Run every test once on the core and once on the classic algebra
-
-    t.select reads the environment variable from the session the tools use.
-    """
-    series.session.env[ALGEBRA_VARIABLE] = algebra_setting
-    yield algebra_setting
-    series.session.env.pop(ALGEBRA_VARIABLE, None)
-
-
-def pytest_collection_modifyitems(items):
-    """Mark the tests of this directory that choose their algebra themselves
-
-    Every test here does, by the fixture above or in its own body, except the
-    classic variants that skip themselves: "-m fixed_algebra" collects
-    the tests that run. A hook is used because a module-level mark would
-    include the skipped ones. Called with the items of the whole session, so
-    only the items below this directory are touched.
-    """
-    here = Path(__file__).parent
-    for item in items:
-        if item.path.parent != here:
-            continue
-        params = getattr(item, "callspec", None)
-        classic = (
-            params is not None and params.params.get("algebra_setting") == "classic"
-        )
-        if classic and item.originalname in SKIP_ON_CLASSIC:
-            continue
-        item.add_marker(pytest.mark.fixed_algebra)

@@ -10,10 +10,10 @@ last end), written out per map: every map is constant, so a case lists
 (start, end, value, value). The per-map values follow from the values of the
 maps, which are given beside the cases.
 
-Every case runs in the reference implementation (grass.temporal.classic), in
-the classic profile and in the core. CORE holds the cases where the core
-differs, with the item of the section "Core and classic algebra" in the
-manual of t.rast.algebra that documents the difference.
+Every case runs in the reference implementation (grass.temporal.classic) and
+in the core. CORE holds the cases where the core differs, with the item of the
+section "Differences from GRASS 8.5" in the manual of t.rast.algebra that
+documents the difference.
 """
 
 import datetime
@@ -27,9 +27,6 @@ from grass.temporal.testing.differential import RUNNERS, outcome
 from grass.tools import Tools
 
 KIND = "raster"
-
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = pytest.mark.fixed_algebra
 
 
 def span(start, end, value):
@@ -170,7 +167,7 @@ ARITHMETIC = [
     ),
 ]
 
-# Item 4 "Right reference" of the section "Core and classic algebra" in
+# Item 4 "Right reference" of the section "Differences from GRASS 8.5" in
 # t.rast.algebra.md: one map per related pair with the time stamp of the right
 # map and the value of this pair.
 CORE = {
@@ -538,25 +535,25 @@ def check(runner, request, expression, options, expected, shapes):
         check_shape(f"Rlc{runner[:2]}", shapes[expression])
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "options", "expected"), ARITHMETIC)
 def test_arithmetic_cases(algebra, request, runner, expression, options, expected):
     check(runner, request, expression, options, expected, SHAPE)
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "options", "expected"), OPERATORS)
 def test_operator_cases(algebra, request, runner, expression, options, expected):
     check(runner, request, expression, options, expected, SHAPE)
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "options", "expected"), GRANULARITY)
 def test_granularity_cases(monthly, request, runner, expression, options, expected):
     check(runner, request, expression, options, expected, GRANULARITY_SHAPE)
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "options", "error"), FAILS)
 def test_failing_cases(monthly, runner, expression, options, error):
     assert run(runner, expression, options, f"lf{runner[:2]}")["error"] == error
@@ -584,48 +581,35 @@ PRINT_RUNS = [
 @pytest.mark.real_io
 @pytest.mark.parametrize(("expression", "flags"), PRINT_RUNS)
 def test_the_print_flag_runs_the_old_cases(monthly, expression, flags):
-    env = {**monthly.session.env, "GRASS_TEMPORAL_ALGEBRA": "core"}
-    tool = Tools(env=env, consistent_return_value=True)
+    tool = Tools(session=monthly.session, consistent_return_value=True)
     printed = tool.t_rast_algebra(
         expression=f"R = {expression}", basename="r", flags=flags
     ).stdout
     assert printed.strip()
 
 
-# The printed r.mapcalc calls of test_simple_arithmetic_time_function_expressions
-# (core) and _classic: the time function is evaluated for every map and
-# replaced by its value (the day of the year of the start: 1 to 4), so the
-# condition of a map reads its own value. "..." stands for text that varies.
-PRINTED = [
-    pytest.param(
-        "d",
-        '...r_2001_01_01"=if(((...a1@...>=3)!=0),1,0)'
-        '...r_2001_01_02"=if(((...a2@...>=3)!=0),2,0)'
-        '...r_2001_01_03"=if(((...a3@...>=3)!=0),3,0)'
-        '...r_2001_01_04"=if(((...a4@...>=3)!=0),4,0)...',
-        id="core",
-    ),
-    pytest.param(
-        "dc",
-        "...r_2001_01_01=if(a1@...>=3,1,0)...r_2001_01_02=if(a2@...>=3,2,0)"
-        "...r_2001_01_03=if(a3@...>=3,3,0)...r_2001_01_04=if(a4@...>=3,4,0)...",
-        id="classic",
-    ),
-]
+# The printed r.mapcalc calls of test_simple_arithmetic_time_function_expressions:
+# the time function is evaluated for every map and replaced by its value (the
+# day of the year of the start: 1 to 4), so the condition of a map reads its
+# own value. "..." stands for text that varies.
+PRINTED = (
+    '...r_2001_01_01"=if(((...a1@...>=3)!=0),1,0)'
+    '...r_2001_01_02"=if(((...a2@...>=3)!=0),2,0)'
+    '...r_2001_01_03"=if(((...a3@...>=3)!=0),3,0)'
+    '...r_2001_01_04"=if(((...a4@...>=3)!=0),4,0)...'
+)
 
 
 @pytest.mark.real_io
-@pytest.mark.parametrize(("flags", "pattern"), PRINTED)
-def test_the_printed_calls_of_a_time_function(algebra, flags, pattern):
-    env = {**algebra.session.env, "GRASS_TEMPORAL_ALGEBRA": "core"}
-    tool = Tools(env=env, consistent_return_value=True)
+def test_the_printed_calls_of_a_time_function(algebra):
+    tool = Tools(session=algebra.session, consistent_return_value=True)
     printed = tool.t_rast_algebra(
         expression="R = if(A >= 3, start_doy(A, 0), 0)",
         basename="r",
-        flags=flags,
+        flags="d",
         suffix="gran",
     ).stdout
     # pprint splits a long expression string in two quoted parts after a name
     text = "".join(printed.split()).replace("''", "")
-    regex = ".*".join(re.escape(part) for part in pattern.split("..."))
+    regex = ".*".join(re.escape(part) for part in PRINTED.split("..."))
     assert re.fullmatch(regex, text, re.DOTALL)

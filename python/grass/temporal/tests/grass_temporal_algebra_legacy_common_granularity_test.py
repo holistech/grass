@@ -18,8 +18,6 @@ from grass.temporal.classic.temporal_algebra import TemporalAlgebraParser
 from grass.temporal.testing import algebra_cases
 from grass.tools import Tools
 
-pytestmark = pytest.mark.fixed_algebra
-
 
 @pytest.fixture(scope="module")
 def data(temporal_module_session):

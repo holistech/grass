@@ -1264,19 +1264,6 @@
    "names": {},
    "origins": "repo"
   },
-  "grass.temporal.algebra.parser.classic": {
-   "names": {
-    "CLASSIC": "repo"
-   },
-   "origins": "repo"
-  },
-  "grass.temporal.algebra.parser.switch": {
-   "names": {
-    "ALGEBRA_VARIABLE": "repo",
-    "classic_selected": "repo"
-   },
-   "origins": "repo"
-  },
   "grass.temporal.algebra.profile": {
    "names": {
     "CORE": "repo"
@@ -1382,7 +1369,6 @@
    "names": {
     "RUNNERS": "repo",
     "accepted_error_pair": "repo",
-    "check_agreement": "repo",
     "check_difference_seen": "repo",
     "compare": "repo",
     "compare_runs": "repo",
@@ -1393,10 +1379,7 @@
    "origins": "repo"
   },
   "grass.temporal.testing.expressions": {
-   "names": {
-    "check_seed": "repo",
-    "seed_range": "repo"
-   },
+   "names": {},
    "origins": "repo"
   },
   "grass.temporal.testing.expressions_generator": {

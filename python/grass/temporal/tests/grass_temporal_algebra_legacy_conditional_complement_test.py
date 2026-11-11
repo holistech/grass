@@ -2,12 +2,11 @@
 
 The complement of an else part.
 
-Every case runs in the reference implementation (grass.temporal.classic), in
-the classic profile and in the core. The expected maps are those the old
-assertions describe (number of maps, extent, minimum, maximum, topology,
+Every case runs in the reference implementation (grass.temporal.classic) and
+in the core. The expected maps are those the old assertions describe (number of maps, extent, minimum, maximum, topology,
 granularity); the comment of a case repeats them. CORE holds the cases where
-the core calculates differently according to the manual ("Core and classic
-algebra"); SHAPE what the old test asserted besides the maps. The datasets
+the core calculates differently according to the manual ("Differences
+from GRASS 8.5"); SHAPE what the old test asserted besides the maps. The datasets
 are those of algebra_cases, see its builder for the data.
 """
 
@@ -18,10 +17,7 @@ from grass.tools import Tools
 
 KIND = "raster"
 
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = pytest.mark.fixed_algebra
-
-RUNNERS = ["reference", "classic", "core"]
+RUNNERS = ["reference", "core"]
 
 CASES = [
     # Old assertions: n 4, minmin 1, maxmax 17, start 2001-01-01, end 2001-01-07, topo True, gran 1 day
@@ -53,7 +49,7 @@ CASES = [
 ]
 
 CORE = {
-    # Manual, Core and classic algebra, item 4: a right reference gives one map
+    # Manual, Differences from GRASS 8.5, item 4: a right reference gives one map
     # per related pair with the value of the pair; the classic algebra combines
     # the left map with all of its related maps in each result
     "temporal conditional complement right side timestamps": [

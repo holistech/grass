@@ -16,10 +16,8 @@ import datetime
 import pytest
 
 from grass.temporal.testing import io_cache
-from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.differential import (
-    compare,
     constant_values,
     outcome_of_runner,
 )
@@ -27,8 +25,7 @@ from grass.tools import Tools
 
 KIND = "raster"
 
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
+pytestmark = pytest.mark.slow
 
 MONTHS = [
     (datetime.datetime(2001, month, 1), datetime.datetime(2001, month + 1, 1))
@@ -185,7 +182,7 @@ def values(result):
     return [pytest.approx(value, rel=1e-5) for value in constant_values(result)]
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new", "old"), CHANGED)
 def test_td_binds_as_operand_of_the_stronger_operator(
     durations, runner, expression, new, old
@@ -194,13 +191,13 @@ def test_td_binds_as_operand_of_the_stronger_operator(
     assert values(run(runner, expression, "fa")) == new
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new"), NEWLY_READ)
 def test_td_as_left_operand_is_read(durations, runner, expression, new):
     assert values(run(runner, expression, "fa")) == new
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new"), UNCHANGED)
 def test_forms_with_td_that_were_right_keep_their_value(
     durations, runner, expression, new
@@ -208,25 +205,13 @@ def test_forms_with_td_that_were_right_keep_their_value(
     assert values(run(runner, expression, "fa")) == new
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic"])
 @pytest.mark.parametrize("expression", REFUSED)
-def test_forms_without_a_production_stay_refused(durations, runner, expression):
-    assert run(runner, expression, "fa")["error"] == "SyntaxError"
-
-
-@pytest.mark.parametrize(
-    "expression",
-    [row[0] for row in CHANGED + NEWLY_READ + UNCHANGED],
-)
-def test_the_profile_computes_what_the_reference_computes(durations, expression):
-    """Also the time stamps and names, which the tests above leave out"""
-    reference = reference_outcome(KIND, expression, register_null=True)
-    profile = run("classic", expression, "fb")
-    assert compare(KIND, expression, reference, profile) is None
+def test_forms_without_a_production_stay_refused(durations, expression):
+    assert run("reference", expression, "fa")["error"] == "SyntaxError"
 
 
 # The argument of td() does not matter. The dataset A has the maps a1 to a4.
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 def test_td_of_a_neighbour_map(durations, runner):
     """A[1] has no successor for April; the duration is that of the result map
 
@@ -238,7 +223,7 @@ def test_td_of_a_neighbour_map(durations, runner):
     assert values(result) == [22.166667, 13.7, 12.357143]
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 def test_td_of_a_counted_map(durations, runner):
     """A {#,contains} E counts E in the January map only; td() is its duration
 
@@ -248,14 +233,14 @@ def test_td_of_a_counted_map(durations, runner):
     assert values(result) == [22.166667]
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 def test_td_of_a_map_with_a_time_stamp(durations, runner):
     """tmap(a1) is the January map: 1.5 + 31 / 1.5 on January only"""
     result = run(runner, "A + td(tmap(a1)) / A", "fa")
     assert values(result) == [22.166667]
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 def test_the_granularity_mode_groups_td_too(durations, runner):
     """A has one granularity, one month, so -g leaves the maps as they are"""
     result = run(runner, "A + td(A) / A", "fa", granularity=True)

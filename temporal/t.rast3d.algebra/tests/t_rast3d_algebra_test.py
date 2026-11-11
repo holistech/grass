@@ -13,7 +13,6 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.exceptions import FatalError
-from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 from grass.temporal.testing.reference import run_reference
 from grass.tools import ToolError, Tools
 
@@ -28,12 +27,10 @@ def day(n, time="00:00:00"):
     return f"2001-01-{n:02d} {time}"
 
 
-def run_algebra(session, expression, flags="", nprocs=1, classic=None):
+def run_algebra(session, expression, flags="", nprocs=1):
     """Run the algebra in this process and return the name of the result dataset.
 
-    This mirrors what the tool does with its flags. classic=None follows
-    GRASS_TEMPORAL_ALGEBRA where both algebras agree; True and False choose
-    the algebra where they differ.
+    This mirrors what the tool does with its flags.
     """
     name = f"res{next(_counter)}"
     full = f"{name} = {expression}"
@@ -43,7 +40,6 @@ def run_algebra(session, expression, flags="", nprocs=1, classic=None):
         spatial="s" in flags,
         nprocs=nprocs,
         register_null="n" in flags,
-        classic=classic,
     )
     if "g" in flags:
         assert parser.setup_common_granularity(expression=full, stdstype="str3ds")
@@ -84,9 +80,9 @@ def result(session, expression, flags="", **options):
     return list_maps(session, name)
 
 
-def values(session, expression, flags="", classic=None):
+def values(session, expression, flags=""):
     """Value of every result map; asserts that min and max are equal"""
-    rows = result(session, expression, flags, classic=classic)
+    rows = result(session, expression, flags)
     assert all(row[2] == row[3] for row in rows)
     return [row[2] for row in rows]
 
@@ -399,7 +395,6 @@ def test_cell_conditions(series_3d, expression, expected):
     assert values(series_3d.session, expression) == expected
 
 
-@pytest.mark.parametrize("classic", [False, True], ids=["core", "classic"])
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [
@@ -409,12 +404,11 @@ def test_cell_conditions(series_3d, expression, expected):
         ("if(A > 1, A) + B", [10, 22, 33, 44]),
     ],
 )
-@pytest.mark.fixed_algebra
-def test_cell_conditions_without_else(series_3d, expression, classic, expected):
+def test_cell_conditions_without_else(series_3d, expression, expected):
     """if() without else gives 0 where the condition is false, as the
-    two-argument if() of r3.mapcalc does, in both algebras; a map that is 0
-    everywhere is a map like any other"""
-    assert values(series_3d.session, expression, classic=classic) == expected
+    two-argument if() of r3.mapcalc does; a map that is 0 everywhere is a map
+    like any other"""
+    assert values(series_3d.session, expression) == expected
 
 
 @pytest.mark.parametrize(
@@ -636,52 +630,42 @@ def test_nprocs_option(series_3d):
     assert [row[2] for row in rows] == [11, 22, 33, 44]
 
 
-@pytest.mark.fixed_algebra
-def test_classic_flag_selects_the_classic_algebra(series_3d):
-    """A selection with the right reference gives one map per related pair in
-    the core (w1 = 100 contains a1 and a2, w2 = 200 contains a3 and a4: 100,
-    100, 200, 200) and the last pair of each map of W in the classic
-    algebra (100, 200)"""
-    # The flag must win over the variable, which therefore selects the core.
-    env = {**series_3d.session.env, "GRASS_TEMPORAL_ALGEBRA": "core"}
-    tools = Tools(env=env, overwrite=True)
-    tools.t_rast3d_algebra(
-        expression="flag_core = W {:,contains,r} A", basename="flag_core"
-    )
-    tools.t_rast3d_algebra(
-        expression="flag_classic = W {:,contains,r} A",
-        basename="flag_classic",
-        flags="c",
-    )
-    assert [row[2] for row in list_maps(series_3d.session, "flag_core")] == [
+def test_a_selection_with_r_gives_one_map_per_related_pair(series_3d):
+    """w1 = 100 contains a1 and a2, w2 = 200 contains a3 and a4, so the
+    selection with the right reference gives 100, 100, 200, 200"""
+    tools = Tools(session=series_3d.session, overwrite=True)
+    tools.t_rast3d_algebra(expression="pairs = W {:,contains,r} A", basename="pairs")
+    assert [row[2] for row in list_maps(series_3d.session, "pairs")] == [
         100,
         100,
         200,
         200,
     ]
-    assert [row[2] for row in list_maps(series_3d.session, "flag_classic")] == [
-        100,
-        200,
-    ]
 
 
-@pytest.mark.fixed_algebra
-def test_classic_flag_runs_the_classic_profile(series_3d):
-    """The tool with -c computes on the classic profile of the core, not on
-    the reference implementation (grass.temporal.classic): an increment the
-    library refuses is reported with the message of the library, where the
-    reference names tshift() and the unit"""
+def test_a_refused_increment_is_reported_with_the_message_of_the_library(
+    series_3d,
+):
+    """The reference implementation (grass.temporal.classic) names tshift() and
+    the unit instead"""
     tools = Tools(session=series_3d.session, overwrite=True)
     with pytest.raises(ToolError) as error:
         tools.t_rast3d_algebra(
-            expression='profiled = tshift(A, "1 DAY")',
-            basename="profiled",
-            flags="c",
+            expression='refused = tshift(A, "1 DAY")', basename="refused"
         )
     assert "Cannot read '1 DAY' as a time step, use e.g. \"1 day\"" in (
         error.value.stderr
     )
     assert "Function tshift()" not in error.value.stderr
+
+
+def test_classic_flag_is_unknown(series_3d):
+    """-c is no flag of the tool: the parser refuses it before anything is made"""
+    tools = Tools(session=series_3d.session, consistent_return_value=True)
+    with pytest.raises(ToolError) as error:
+        tools.t_rast3d_algebra(expression="no_c = A * 2", basename="no_c", flags="c")
+    assert "<c>" in error.value.stderr
+    assert not tools.t_list(type="str3ds", where="name = 'no_c'").stdout.strip()
 
 
 # Names, overwrite and empty results
@@ -818,19 +802,15 @@ def test_raster_dataset_is_refused(series_3d):
         tools.t_rast3d_algebra(expression="res = flat + A", basename="bad")
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("implementation", ["core", "reference"])
 @pytest.mark.parametrize(
     "expression",
     ["B - td(A * 2)", "B - td(A + B)"],
 )
-def test_duration_of_an_expression_in_arithmetic(
-    series_3d, monkeypatch, implementation, expression
-):
+def test_duration_of_an_expression_in_arithmetic(series_3d, implementation, expression):
     """td() of a computed expression is the duration of its maps (one day) on
     the right of an operator, as td() of a dataset is"""
     if implementation == "core":
-        monkeypatch.delenv(ALGEBRA_VARIABLE, raising=False)
         name = run_algebra(series_3d.session, expression)
     else:
         name = f"res{next(_counter)}"
@@ -845,11 +825,10 @@ def test_duration_of_an_expression_in_arithmetic(
     assert [row[2] for row in rows] == [9, 19, 29, 39]
 
 
-def run_on(series_3d, monkeypatch, expression, implementation):
+def run_on(series_3d, expression, implementation):
     """Return the maps of "res = <expression>" computed by the core or by
-    the reference, whatever GRASS_TEMPORAL_ALGEBRA says"""
+    the reference"""
     if implementation == "core":
-        monkeypatch.delenv(ALGEBRA_VARIABLE, raising=False)
         name = run_algebra(series_3d.session, expression)
     else:
         name = f"res{next(_counter)}"
@@ -863,7 +842,6 @@ def run_on(series_3d, monkeypatch, expression, implementation):
     return list_maps(series_3d.session, name)
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("implementation", ["core", "reference"])
 @pytest.mark.parametrize(
     "expression",
@@ -875,14 +853,13 @@ def run_on(series_3d, monkeypatch, expression, implementation):
     ],
 )
 def test_tsnap_and_tshift_of_no_maps_give_an_empty_result(
-    series_3d, monkeypatch, implementation, expression
+    series_3d, implementation, expression
 ):
     """Without maps to snap or shift the result is an empty dataset, like any
     other empty result"""
-    assert run_on(series_3d, monkeypatch, expression, implementation) == []
+    assert run_on(series_3d, expression, implementation) == []
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("expression", ['tshift(A, "1 DAY")', 'tshift(A, "1 d")'])
 def test_tshift_with_a_refused_increment_is_a_syntax_error(series_3d, expression):
     """An increment that the library refuses is an error, not an absent result.

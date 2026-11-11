@@ -341,7 +341,7 @@ class Page:
 PAGES = (
     Page("overview", PAGE, guide=False, snippets=True),
     Page("tools", PAGE.with_name("temporal_framework_tools.rst"), includes=4),
-    Page("algebra", PAGE.with_name("temporal_framework_algebra.rst"), includes=7),
+    Page("algebra", PAGE.with_name("temporal_framework_algebra.rst"), includes=6),
 )
 
 NAMED_BLOCK = re.compile(

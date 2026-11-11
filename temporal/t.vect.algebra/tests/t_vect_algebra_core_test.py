@@ -205,35 +205,30 @@ def _vparse(expression, name, **keywords):
     return parser.parse(f"{name} = {expression}", name, True)
 
 
-@pytest.mark.fixed_algebra
-def test_vector_parser_runs_the_core_with_classic_false(vector_series):
-    _vparse("aa & ab", "fac_and", classic=False)
+def test_vector_parser_runs_the_core(vector_series):
+    _vparse("aa & ab", "fac_and")
     assert [areas for _, areas in _maps("fac_and")] == [1, 1]
 
 
-@pytest.mark.fixed_algebra
 def test_vector_parser_registers_selected_maps(vector_series):
-    chain = _vparse("aa : ab", "fac_sel", classic=False)
+    chain = _vparse("aa : ab", "fac_sel")
     assert [name for name, _, _ in chain["register"]] == [
         f"aa{i}@PERMANENT" for i in range(1, 4)
     ]
 
 
-@pytest.mark.fixed_algebra
 def test_vector_parser_buffers(vector_series):
-    _vparse("buff_p(pa, 1)", "fac_buf", classic=False)
+    _vparse("buff_p(pa, 1)", "fac_buf")
     assert [areas for _, areas in _maps("fac_buf")] == [1, 2, 3]
 
 
-@pytest.mark.fixed_algebra
 def test_an_empty_vector_result_creates_an_empty_dataset(vector_series):
     # The daily maps of aa never have the same time as the two-day maps of
     # wide, and the default relation is equal.
-    _vparse("aa : wide", "fac_empty", classic=False)
+    _vparse("aa : wide", "fac_empty")
     assert _maps("fac_empty") == []
 
 
-@pytest.mark.fixed_algebra
 def test_a_raster_dataset_is_not_a_vector_dataset(vector_series):
     tools = Tools(session=vector_series.session, overwrite=True)
     tools.r_mapcalc(expression="rmap2 = 1")
@@ -248,7 +243,7 @@ def test_a_raster_dataset_is_not_a_vector_dataset(vector_series):
     with pytest.raises(
         FatalError, match=r"^Space time vector dataset <rast2@PERMANENT> not found$"
     ):
-        _vparse("rast2 : aa", "fac_rast", classic=False)
+        _vparse("rast2 : aa", "fac_rast")
 
 
 def test_progress_counts_the_computed_vector_maps(vector_series, monkeypatch):

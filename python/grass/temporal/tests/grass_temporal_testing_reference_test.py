@@ -1,8 +1,8 @@
 """Tests for grass.temporal.testing.reference
 
 The helper must run the reference implementation (grass.temporal.classic) of
-the algebra whatever GRASS_TEMPORAL_ALGEBRA says, so the tests set the variable
-to each value and compare with the algebra core, which they call directly.
+the algebra, not the algebra core; the tests compare it with the core, which
+they call directly.
 
 SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,9 +13,7 @@ import os
 import pytest
 
 import grass.temporal as tgis
-from grass.temporal import TemporalRasterAlgebraParser
 from grass.temporal.algebra.parser import evaluate
-from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.readback import list_maps
 from grass.temporal.testing.reference import (
@@ -28,8 +26,8 @@ from grass.tools import Tools
 # B (10 on days 0 to 2, 20 on days 2 to 4) contains a1 and a2, and b2 contains
 # a3 and a4. A selection with the right reference gives one map per related
 # pair in the core: 10, 10, 20, 20. The classic algebra keeps only the last
-# pair of each map of B: 10, 20. The expression is one of the listed
-# differences in t_rast_algebra_differential_test.py.
+# pair of each map of B: 10, 20 (t.rast.algebra manual, "Differences from GRASS
+# 8.5", item 4).
 DIFFERENT_EXPRESSION = "R = B {:,contains,r} A"
 CLASSIC_MAXIMA = [10.0, 20.0]
 CORE_MAXIMA = [10.0, 10.0, 20.0, 20.0]
@@ -65,23 +63,12 @@ def tools(temporal_module_session):
     return tools
 
 
-# The tests that take this fixture change os.environ and run grass.temporal in
-# this process, so they carry needs_solo_run (doc/development/testing.md).
-@pytest.fixture(params=[None, "core", "classic"], ids=["unset", "core", "classic"])
-def algebra_variable(request, monkeypatch):
-    if request.param is None:
-        monkeypatch.delenv(ALGEBRA_VARIABLE, raising=False)
-    else:
-        monkeypatch.setenv(ALGEBRA_VARIABLE, request.param)
-    return request.param
-
-
 def maxima(tools, name):
     return [row.max for row in list_maps(tools, "strds", name)]
 
 
 @pytest.mark.needs_solo_run
-def test_reference_is_classic_and_core_is_not(tools, algebra_variable):
+def test_reference_is_classic_and_core_is_not(tools):
     environment = dict(os.environ)
     run_reference(
         "raster",
@@ -104,17 +91,6 @@ def test_reference_is_classic_and_core_is_not(tools, algebra_variable):
 
 
 @pytest.mark.needs_solo_run
-def test_classic_parser_class_computes_on_the_profile(tools, algebra_variable):
-    """The public parser class with classic=True gives the classic maxima
-    although it no longer runs the reference: the expression is a listed
-    difference of the core"""
-    parser = TemporalRasterAlgebraParser(run=True, debug=False, classic=True)
-    parser.parse(DIFFERENT_EXPRESSION, "prof", True)
-    assert maxima(tools, "R") == CLASSIC_MAXIMA
-    assert "parse" not in vars(parser)
-
-
-@pytest.mark.needs_solo_run
 @pytest.mark.parametrize(
     ("kind", "class_name", "expression"),
     [
@@ -124,14 +100,13 @@ def test_classic_parser_class_computes_on_the_profile(tools, algebra_variable):
     ],
 )
 def test_reference_parser_is_the_engine_and_not_the_public_class(
-    tools, monkeypatch, algebra_variable, kind, class_name, expression
+    tools, monkeypatch, kind, class_name, expression
 ):
-    """The public class chooses between the core and the classic profile in
-    parse(). The parser of reference_parser() is an object of the reference,
-    whose classes do not inherit from the public class, so what the public
-    class does is not on its way. (t.select has no such class: its parser is
-    the one of the reference itself, and test_every_kind_parses runs it under
-    each setting of the variable.)"""
+    """The public class computes on the core in parse(). The parser of
+    reference_parser() is an object of the reference, whose classes do not
+    inherit from the public class, so what the public class does is not on its
+    way. (t.select has no such class: its parser is the one of the reference
+    itself, see test_every_kind_parses.)"""
     public_class = getattr(tgis, class_name)
 
     def rerouted(*args, **kwargs):
@@ -149,7 +124,7 @@ def test_reference_parser_is_the_engine_and_not_the_public_class(
 
 
 @pytest.mark.needs_solo_run
-def test_parse_only_accepts_and_rejects(tools, algebra_variable):
+def test_parse_only_accepts_and_rejects(tools):
     chain = run_reference(
         "raster", "R = A + 1", basename="x", run=False, debug=False, overwrite=True
     )
@@ -168,7 +143,7 @@ def test_parse_only_accepts_and_rejects(tools, algebra_variable):
         ("select", "R = A : A", {"stdstype": "strds"}),
     ],
 )
-def test_every_kind_parses(tools, algebra_variable, kind, expression, options):
+def test_every_kind_parses(tools, kind, expression, options):
     chain = run_reference(
         kind,
         expression,
@@ -182,7 +157,7 @@ def test_every_kind_parses(tools, algebra_variable, kind, expression, options):
 
 
 @pytest.mark.needs_solo_run
-def test_select_returns_the_chain_of_the_registered_maps(tools, algebra_variable):
+def test_select_returns_the_chain_of_the_registered_maps(tools):
     chain = run_reference(
         "select", "S = A : A", basename="S", overwrite=True, stdstype="strds"
     )

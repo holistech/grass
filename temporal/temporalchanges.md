@@ -45,89 +45,89 @@ script. `GRASS_TEMPORAL_ALGEBRA=core`, an empty or an unset variable selects
 the new algebra, the flag takes precedence over the variable, and a value of
 blanks only is refused. In Python, the parser classes take `classic=True`.
 To repeat the results of a publication, set **-c** or the variable. The
-section [Core and classic algebra](t.rast.algebra.md#core-and-classic-algebra)
+section [Core and classic algebra](t.rast.algebra.md#differences-from-grass-85)
 of *t.rast.algebra* describes both algebras.
 
 The new algebra differs from the releases before GRASS 8.6 in the points
 below; **-c** keeps the behavior of those releases in each of them. The
-example [Compare the new and the classic
-algebra](#compare-the-new-and-the-classic-algebra) shows the first point on
-precedence.
+example [Read a condition as the releases before GRASS
+8.6](#read-a-condition-as-the-releases-before-grass-86) shows the first point
+on precedence.
 
 - **One result per conclusion map.** An `if()` whose conclusion map had
     several related condition maps gave one result for each pair, so a
     conclusion map could occur several times. Now there is one result per
     conclusion map: the conditions are joined with and, and a relation
     written as `{during,|}` joins them with or. Use **-c** for the old
-    results ([t.rast.algebra](t.rast.algebra.md#core-and-classic-algebra)).
+    results ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Equal time stamps for then and else.** With a condition on map values,
     only the maps whose time stamp occurred in both the then and the else
     part were computed, and the others were left out without notice; the
     result could be empty. Now the then and the else part need equal time
     stamps, or the tool stops with an error. Write both parts with equal
     times, or use **-c**
-    ([t.rast.algebra](t.rast.algebra.md#core-and-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Precedence of `&&` and `||`.** Conditions on temporal variables were
     read from left to right, and parentheses around conditions were not
     accepted. Now `&&` binds stronger than `||`, and conditions can be
     grouped with parentheses. Use **-c** for the old results
-    ([t.rast.algebra](t.rast.algebra.md#core-and-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Selection with the time of the right map.** `A {:,R,r} B` kept only
     the last pair of a selection, an operator with `r` joined the left map
     with all related right maps in each result, and `!:` took every temporal
     operator. Now there is one map for each related pair, with the time of
     the right map and the value of the pair, and `!:` takes only the
     temporal operator `l`. Use **-c** for the old results
-    ([t.rast.algebra](t.rast.algebra.md#core-and-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **td() of a time instance.** `td()` of a time instance stopped the tool
     with an error. Now it is null, and a condition on it is neither true nor
-    false ([t.rast.algebra](t.rast.algebra.md#core-and-classic-algebra)).
+    false ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **More forms of expressions.** Comparisons, temporal functions and minus
     signs were syntax errors outside a few places, and a dataset could not
     have the name of a function, so that `C = A`, `C = -A + 10`,
     `C = A > 2`, `C = isnull(A)` and `C = td + 1` were syntax errors. Now
     these forms are read
-    ([t.rast.algebra](t.rast.algebra.md#core-and-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Intersection with several related maps.** The temporal operator `i`
     with several related maps intersected them up to the first map without
     common time, so the result depended on their order. Now a map whose
     related maps have no common intersection is left out. Use **-c** for
     the old results
-    ([t.rast.algebra](t.rast.algebra.md#core-and-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Negative buffers.** `buff_t()` with a negative buffer reported an error
     when the end came before the start but kept the old time, and an end
     equal to the start gave a time instance. Now the tool stops with an
     error if a map would keep no time, and for time instances
-    ([t.rast.algebra](t.rast.algebra.md#core-and-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **merge() of equal maps.** `merge()` kept a map read with the
     neighbourhood modifier or a temporal function with an offset next to an
     equal map, so `merge(A[0], A[0])` gave eight maps instead of four. Now
     two maps with equal content and time are one map. Use **-c** for the old
-    results ([t.rast.algebra](t.rast.algebra.md#core-and-classic-algebra)).
+    results ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **tsnap() of maps that start together.** The times that `tsnap()` gave
     two maps with the same start depended on the order of the arguments of
     `merge()`. Now they do not: of a map from 2 to 3 January and a map from
     2 to 4 January, both end on 3 January in either order. Use **-c** for
     the old results
-    ([t.rast.algebra](t.rast.algebra.md#core-and-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Integers beyond 32 bits.** An integer constant beyond 32 bits was read
     by *r.mapcalc* with its lower 32 bits only (3000000000 became
     -1294967296, 2147483648 became null), and the values of temporal
     functions were computed with 32 bits. Now the new algebra keeps the
     constant and writes it as a floating point value, and the values of
     temporal functions keep all digits. Use **-c** for the old results
-    ([t.rast.algebra](t.rast.algebra.md#core-and-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **A number next to an operator in brackets.** A number next to an
     operator in curly brackets or the hash operator was read together with
     the expression behind it: `A {*,equal} 2 - B` meant
     `A {*,equal} (2 - B)`. Now such an operator needs a dataset on both
     sides, and the form without parentheses is a syntax error. Add the
     parentheses, or use **-c**
-    ([t.rast.algebra](t.rast.algebra.md#core-and-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Null maps with -n.** With **-n**, no null map was registered for a map
     on the left of `{&&,...}` without a related map. Now **-n** registers a
     null map for each such map
-    ([t.rast.algebra](t.rast.algebra.md#core-and-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Errors in Python and dry runs.** In Python, an expression that cannot
     be computed raised `FatalError`, and a dry run checked existing results
     only at the maps. Now the new algebra raises `ValueError` or
@@ -168,7 +168,7 @@ of those releases, which stays in the source code as `grass.temporal.classic`,
 was corrected in the same way, except in the last two entries, on `merge()` of
 absolute and relative time and on the selection of a relative time instance,
 and under **-s** for maps whose boxes touch at a corner (see
-[t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implementation)):
+[t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)):
 only the classic algebra computes the first two, and `grass.temporal.classic`
 still ends with a `TypeError` and still relates maps whose boxes touch at a
 corner. Results of an earlier release that used one of these forms
@@ -183,7 +183,7 @@ algebra, prints its debug output as module calls, reads the syntax of the
 whole expression before it computes, raises `FatalError` instead of
 `SystemExit` in Python for an existing result, and ends the expressions that
 it refuses with a message instead of a Python traceback. No result changes by
-this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implementation)).
+this ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 
 - **Unknown relations.** Unknown relations, such as `{:,bogus}` or
     `{+,nonsense}`, and operators of the wrong type gave no result without
@@ -278,66 +278,66 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     operator gave the value of the expression instead of the duration of its
     maps: `N - td(A * 2)` was `N - A * 2`. Now it is `N - 1` for daily maps.
     Results with this form need a new run
-    ([t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **tsnap() and tshift() of no maps.** `tshift()` of an expression without
     maps ended with an `IndexError`, and `tsnap()` of such an expression
     created no dataset. Now the result is empty like any other empty result:
     an empty dataset, and an enclosing expression goes on without maps
-    ([t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **Increments of tshift() and buff_t().** `tshift()` with a number on
     absolute time ended without result and with exit code 0, and `buff_t()`
     on relative time ended with a `TypeError`, also with a number such as
     1.5. Now an increment that does not fit the temporal type is an error,
     and no dataset is created; `buff_t(RT, 1.5)` computes on relative time
     with the whole number 1. Correct the increment
-    ([t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **merge() with a single map.** `merge()` of a dataset with a single map
     from `tmap()` ended with the error "Space time datasets to merge must
     have the same temporal type", also when both had the same temporal
     type. Now the map is taken
-    ([t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **Intersection with a time instance.** An operator with `i` and a time
     instance, such as `A {+,contains,i} I`, kept the time of the left map,
     and such a selection on relative time ended with a `TypeError`. Now the
     time of the result is the time instance, for selections and operators,
     in absolute and in relative time. Results with this form need a new run
-    ([t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **Infinite values.** A map with infinite values, as made by
     `exp(A * 1000)`, could not be registered, because writing its range
     failed, and the temporal database could stay locked. Now its minimum and
     maximum are stored as NULL, and a failed transaction is rolled back. This
     concerned the library and with it both algebras
-    ([t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **td() of a counted map.** `td()` of a map counted by the hash operator
     gave the count instead of the duration, as an operand and in a
     comparison. Now it gives the duration. Results with this form need a
     new run
-    ([t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **Chains that start with a number.** A chain that starts with a number or
     `map()`, such as `map(L) - 1 - A`, was grouped from the right, as
     `map(L) - (1 - A)`, and `A + (map(L) - 1 - 1)` was a syntax error. Now
     chains are grouped from the left, and chains after a dataset are read; a
     chain of numbers and `map()` only stays a syntax error. Results with such
     chains need a new run
-    ([t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **Precedence of td().** `A + td(A) / A` was computed as
     `(A + td(A)) / A`, because `td()` could only stand on the right of an
     operator, and `td(A) * 2` was a syntax error. Now `*`, `/` and `%`, also
     with a temporal operator, bind stronger than `+` and `-`, and `td()` at
     the start of a product is read. Results with this form need a new run
-    ([t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **A spatial relation without a temporal one.** An operator with spatial
     relation names only, such as `A {+,equivalent,l} N`, related no map and
     gave an empty result without notice, and in *t.select* `{:,equivalent}`
     selected nothing. Now this is an error that says that `equivalent` is a
     spatial relation and needs a temporal one. Write a temporal relation
     next to it, as in `equal|equivalent`
-    ([t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **tsnap() of a map that starts with the next map.** `tsnap()` gave a map
     that starts at the same time as the next map the end of that map, so
     the two maps exchanged their ends; *t.snap* did the same. Now such a map
     keeps its own end; in the classic algebra the map listed first keeps its
-    end ([t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra),
+    end ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85),
     [t.snap](t.snap.md#notes)).
 - **Steps of months and years.** `tshift()` and `buff_t()` by months or
     years ended with the error "day is out of range for month" when the
@@ -346,14 +346,14 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     step were added one after the other. Now such a step ends on the last
     day of the target month, and years and months are one step of
     12 times the years plus the months
-    ([t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **equals and dataset functions in capitals.** The name `equals`, which
     the publication of the algebra uses, gave no result without notice, and
     *t.select* refused `STRDS(A)`, `STR3DS(A)` and `STVDS(A)` as syntax
     errors. Now `equals` is another name of `equal`, and *t.select* reads
     the dataset functions in capitals in front of a parenthesis
-    ([t.rast.algebra](t.rast.algebra.md#corrections-to-the-classic-algebra),
-    [t.select](t.select.md#corrections-to-the-classic-algebra)).
+    ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85),
+    [t.select](t.select.md#results-corrected-since-grass-85)).
 - **Comparison of two datasets.** A comparison of two datasets in curly
     brackets, such as `{<,equal,|,r}`, and a comparison of two datasets in
     `if()`, such as `if(A >= B, A, 0)`, were syntax errors. Now both are
@@ -375,12 +375,12 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     *t.select* with an expression of mixed types planned the type given
     with **type**, while the real run created another one, a str3ds. Now
     the dry run plans the type that the run creates
-    ([t.select](t.select.md#corrections-to-the-classic-algebra)).
+    ([t.select](t.select.md#results-corrected-since-grass-85)).
 - **Empty buffers in overlays.** In *t.vect.algebra*, an intermediate map
     that `buff_p()` leaves empty went to *v.overlay*, which failed. Now it
     counts as a map without areas: *v.overlay* does not run, a warning is
     printed, and the result is left out
-    ([t.vect.algebra](t.vect.algebra.md#corrections-to-the-classic-algebra)).
+    ([t.vect.algebra](t.vect.algebra.md#results-corrected-since-grass-85)).
 - **Datasets of a mapset outside the search path.** A dataset
     `name@mapset` of a mapset outside the search path was refused. Now it is
     read if the mapset has a temporal database, so the classic algebra
@@ -399,12 +399,12 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     two temporal types are not related to each other:
     `C = merge(tmap(sinst), RT) : RT` selects the maps of `RT` as `RT : RT`
     does
-    ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implementation)).
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Selection of a relative time instance.** A selection on relative time
     with a time instance on the right and the temporal operator `r`, such as
     `RT {:,contains,r} tmap(rinst)`, ended with a `TypeError`. Now it gives
     the selected map with the time of the instance, as the new algebra does
-    ([t.rast.algebra](t.rast.algebra.md#catalog-where-the-classic-algebra-differs)).
+    ([t.rast.algebra](t.rast.algebra.md#catalog-differences-from-grass-85)).
 
 ## Granularity, gaps and lists
 
@@ -1765,25 +1765,24 @@ gave a series of month ends the granularity 1 day.
     granularity='1 month'
     ```
 
-### Compare the new and the classic algebra
+### Read a condition as the releases before GRASS 8.6
 
 *[t.rast.algebra](t.rast.algebra.md)* selects maps of `inflow` by a
-condition on the month and the day of their start. The new algebra reads
-`&&` before `||`: it selects the period that starts in April and, of the
-periods that start in January or February, the one that starts on day 31,
-which is the period of January. The flag **-c** selects the classic
-algebra, which reads conditions on temporal variables from left to right,
-as the releases before GRASS 8.6 did:
-`(start_month(inflow) == 4 || start_month(inflow) <= 2) &&
-start_day(inflow) == 31`. It selects the period of January only.
+condition on the month and the day of their start. The algebra reads `&&`
+before `||`: it selects the period that starts in April and, of the periods
+that start in January or February, the one that starts on day 31, which is
+the period of January. The releases before GRASS 8.6 read conditions on
+temporal variables from left to right. The second call writes that reading
+with parentheses, `(start_month(inflow) == 4 || start_month(inflow) <= 2) &&
+start_day(inflow) == 31`, and selects the period of January only.
 
 === "Command line"
 
     ```sh
     t.rast.algebra basename=selected expression="selected = if(start_month(inflow) == 4 || start_month(inflow) <= 2 && start_day(inflow) == 31, inflow)"
     t.rast.list input=selected columns=name,start_time,min
-    t.rast.algebra -c basename=classic expression="selected_classic = if(start_month(inflow) == 4 || start_month(inflow) <= 2 && start_day(inflow) == 31, inflow)"
-    t.rast.list input=selected_classic columns=name,start_time,min
+    t.rast.algebra basename=grouped expression="grouped = if((start_month(inflow) == 4 || start_month(inflow) <= 2) && start_day(inflow) == 31, inflow)"
+    t.rast.list input=grouped columns=name,start_time,min
     ```
 
     ```text
@@ -1791,7 +1790,7 @@ start_day(inflow) == 31`. It selects the period of January only.
     selected_0|2020-01-31 00:00:00|1.0
     selected_1|2020-04-30 00:00:00|4.0
     name|start_time|min
-    classic_0|2020-01-31 00:00:00|1.0
+    grouped_0|2020-01-31 00:00:00|1.0
     ```
 
 === "Python (grass.tools)"
@@ -1804,12 +1803,11 @@ start_day(inflow) == 31`. It selects the period of January only.
         expression=f"selected = if({condition}, inflow)", basename="selected"
     )
     print(tools.t_rast_list(input="selected", columns="name,start_time,min").text)
-    tools.t_rast_algebra(
-        expression=f"selected_classic = if({condition}, inflow)",
-        basename="classic",
-        flags="c",
+    grouped = (
+        "(start_month(inflow) == 4 || start_month(inflow) <= 2) && start_day(inflow) == 31"
     )
-    print(tools.t_rast_list(input="selected_classic", columns="name,start_time,min").text)
+    tools.t_rast_algebra(expression=f"grouped = if({grouped}, inflow)", basename="grouped")
+    print(tools.t_rast_list(input="grouped", columns="name,start_time,min").text)
     ```
 
     ```text
@@ -1817,7 +1815,7 @@ start_day(inflow) == 31`. It selects the period of January only.
     selected_0|2020-01-31 00:00:00|1.0
     selected_1|2020-04-30 00:00:00|4.0
     name|start_time|min
-    classic_0|2020-01-31 00:00:00|1.0
+    grouped_0|2020-01-31 00:00:00|1.0
     ```
 
 <!-- markdownlint-enable MD046 -->

@@ -11,8 +11,6 @@ Functions:
 - ``generate(kind, seed)`` returns an expression and the parser options of one
   run. ``boundary_forms(kind)`` lists fixed forms on the border between the
   grammar of the classic algebra and that of the core.
-- ``check_seed(kind, seed)`` runs the expression of a seed through
-  ``differential.check_agreement``.
 
 The datasets need a ``temporal_session``, because the algebras run in this
 process. This module imports no pytest.
@@ -43,13 +41,6 @@ differences in such a file by what differs. ``run_batch`` does the same from
 Python. A batch runs in a temporary project and gives each expression
 ``timeout`` seconds (SIGALRM, main thread only).
 
-The test modules that use this fuzzer run the seeds 0 to 199 per map type
-through ``check_seed``, ``check_agreement`` and ``check_difference_seen``,
-which take the outcome of the reference implementation
-(``grass.temporal.classic``) from the corpus of
-``grass.temporal.testing.corpus``. ``GRASS_TEMPORAL_FUZZ_COUNT`` sets another
-count and ``GRASS_TEMPORAL_FUZZ_SEED`` the first seed for acceptance runs.
-
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -62,7 +53,6 @@ from __future__ import annotations
 import argparse
 import collections
 import json
-import os
 import signal
 import sys
 import tempfile
@@ -72,7 +62,6 @@ from .differential import (
     RUNNERS,
     Timeout,
     accepted_error_pair,
-    check_agreement,
     cluster,
     compare_runs,
     comparison_key,
@@ -81,30 +70,6 @@ from .differential import (
 )
 from .expressions_generator import generate
 from .reference import KINDS
-
-
-def check_seed(kind, seed, **generate_options):
-    """``check_agreement`` for the expression and options of a seed
-
-    :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``
-    :param seed: Non-negative whole number; the failure message names it, so
-        the run can be repeated
-    :param generate_options: Arguments of ``generate`` such as
-        ``granularity_share``
-    """
-    expression, options = generate(kind, seed, **generate_options)
-    try:
-        check_agreement(kind, expression, **options)
-    except AssertionError as error:
-        msg = f"seed {seed}: {error}"
-        raise AssertionError(msg) from None
-
-
-def seed_range():
-    """The seeds of a test run: 200 from 0, or what the environment sets"""
-    first = int(os.environ.get("GRASS_TEMPORAL_FUZZ_SEED", "0"))
-    count = int(os.environ.get("GRASS_TEMPORAL_FUZZ_COUNT", "200"))
-    return range(first, first + count)
 
 
 def _alarm(signum, frame):

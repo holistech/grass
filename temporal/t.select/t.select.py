@@ -42,11 +42,6 @@
 # % description: Perform a dry run, compute all dependencies and module calls but don't run them
 # %end
 
-# %flag
-# % key: c
-# % description: Use the classic algebra instead of the algebra core
-# %end
-
 
 import sys
 
@@ -61,9 +56,6 @@ def main():
     import grass.temporal as tgis
     from grass.temporal.algebra.maptypes import KINDS_OF_STDS
     from grass.temporal.algebra.parser import evaluate
-    from grass.temporal.algebra.parser.classic import CLASSIC
-    from grass.temporal.algebra.parser.switch import classic_selected
-    from grass.temporal.algebra.profile import CORE
 
     expression = options["expression"]
     spatial = flags["s"]
@@ -85,7 +77,6 @@ def main():
             debug=False,
             spatial=spatial,
             selection=True,
-            profile=CLASSIC if classic_selected(flags["c"] or None) else CORE,
         )
     except (SyntaxError, FatalError, ValueError, TypeError) as error:
         gs.fatal(str(error))

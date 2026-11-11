@@ -19,8 +19,6 @@ import pytest
 from grass.temporal.testing.data import MapSpec, day, make_map, register_stds
 from grass.tools import Tools
 
-ALGEBRA = "GRASS_TEMPORAL_ALGEBRA"
-
 
 @pytest.fixture(scope="module")
 def spatial_series(xy_module_session):
@@ -55,14 +53,9 @@ def spatial_series(xy_module_session):
     return xy_module_session
 
 
-def result_values(session, expression, flags="", algebra=None):
-    """Run the tool and return the cell values of the result maps in time order
-
-    algebra sets GRASS_TEMPORAL_ALGEBRA for the tool; the flag c selects the
-    classic algebra whatever the variable says.
-    """
-    env = session.env if algebra is None else {**session.env, ALGEBRA: algebra}
-    tools = Tools(env=env, overwrite=True)
+def result_values(session, expression, flags=""):
+    """Run the tool and return the cell values of the result maps in time order"""
+    tools = Tools(session=session, overwrite=True)
     tools.t_rast_algebra(expression=f"R = {expression}", basename="r", flags=flags)
     listing = tools.t_rast_list(input="R", columns="min,max", format="json")
     assert all(row["min"] == row["max"] for row in listing["data"])
@@ -76,14 +69,11 @@ def result_values(session, expression, flags="", algebra=None):
         # such a map is not registered, so only the overlapping pair remains.
         ("P {+,equal} Q", "", [11]),
         ("P {+,equal} Q", "s", [11]),
-        # A spatial relation name builds the spatial topology without -s, in
-        # the classic algebra and in the core.
+        # A spatial relation name builds the spatial topology without -s.
         ("P {+,equal|overlap} Q", "", [11]),
-        ("P {+,equal|overlap} Q", "c", [11]),
         ("P {+,equal|overlap} Q", "s", [11]),
         # p1 and q1 overlap, they do not cover each other
         ("P {+,equal|cover} Q", "", []),
-        ("P {+,equal|cover} Q", "c", []),
         ("P {+,equal|cover} Q", "s", []),
         # the hash operator counts the temporally related maps; the result of
         # the condition is P itself, so the disjoint pair shows up as p2
@@ -92,7 +82,6 @@ def result_values(session, expression, flags="", algebra=None):
         # A spatial name counts the spatially related maps also without -s:
         # p2 has none, as q2 is far away.
         ("if(P {#,equal|overlap} Q == 1, P)", "", [1]),
-        ("if(P {#,equal|overlap} Q == 1, P)", "c", [1]),
     ],
 )
 def test_spatial_topology(spatial_series, expression, flags, expected):

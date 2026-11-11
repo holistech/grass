@@ -2,12 +2,11 @@
 
 Temporalalgebraparser, the select algebra of t.select.
 
-Every case runs in the reference implementation (grass.temporal.classic), in
-the classic profile and in the core. The expected maps are those the old
-assertions describe (number of maps, extent, minimum, maximum, topology,
+Every case runs in the reference implementation (grass.temporal.classic) and
+in the core. The expected maps are those the old assertions describe (number of maps, extent, minimum, maximum, topology,
 granularity); the comment of a case repeats them. CORE holds the cases where
-the core calculates differently according to the manual ("Core and classic
-algebra"); SHAPE what the old test asserted besides the maps. The datasets
+the core calculates differently according to the manual ("Differences
+from GRASS 8.5"); SHAPE what the old test asserted besides the maps. The datasets
 are those of algebra_cases, see its builder for the data.
 """
 
@@ -23,10 +22,7 @@ from grass.tools import Tools
 
 KIND = "select"
 
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = pytest.mark.fixed_algebra
-
-RUNNERS = ["reference", "classic", "core"]
+RUNNERS = ["reference", "core"]
 
 CASES = [
     # Old assertions: n 4, minmin 1, maxmax 4, start 2001-01-01, end 2001-01-05, topo True, gran 1 day
@@ -251,11 +247,9 @@ TIME_FUNCTION_REFUSED = (
     "A time function such as start_doy() cannot be the result of a selection"
 )
 
-# What the core and the classic profile make of a planned run where the
-# reference plans maps: a time function as the conclusion of if() gives no
-# map, so the core refuses it, and the classic profile refuses it because the
-# value for the first map of A would be selected, as t.select.md says (decided
-# 20.10.2026 for the core, 23.10.2026 for the profile).
+# What the core makes of a planned run where the reference plans maps: a time
+# function as the conclusion of if() gives no map, so the core refuses it, as
+# t.select.md says (decided 20.10.2026).
 DRY_REFUSED = {"time constant (dry run)": ("ValueError", TIME_FUNCTION_REFUSED)}
 
 
@@ -297,9 +291,7 @@ def test_cases(data, request, runner, expression, options, expected):
 @pytest.mark.parametrize("runner", RUNNERS)
 @pytest.mark.parametrize(("expression", "options", "expected"), DRY)
 def test_dry_runs(data, request, runner, expression, options, expected):
-    refused = (
-        DRY_REFUSED.get(case_id(request)) if runner in ("core", "classic") else None
-    )
+    refused = DRY_REFUSED.get(case_id(request)) if runner == "core" else None
     if refused is not None:
         with pytest.raises(ValueError, match=re.escape(refused[1])):
             algebra_cases.check_dry(KIND, runner, expression, options, expected)
@@ -307,19 +299,15 @@ def test_dry_runs(data, request, runner, expression, options, expected):
         algebra_cases.check_dry(KIND, runner, expression, options, expected)
 
 
-@pytest.mark.parametrize(
-    ("runner", "basename"), [("core", "tfco"), ("classic", "tfcl")]
-)
-def test_the_core_and_the_profile_refuse_a_time_function_as_the_selected_maps(
-    data, runner, basename
-):
+def test_the_core_refuses_a_time_function_as_the_selected_maps(data):
     # The run of the planned expression of DRY_REFUSED stops before it creates
     # the result dataset or a map. A basename of its own, so that the maps of
     # the other cases do not hide a map of this run.
+    basename = "tfco"
     result = differential.outcome(
         KIND,
         "if(start_doy(A)<3,start_doy(A, 1), A)",
-        differential.RUNNERS[runner],
+        differential.RUNNERS["core"],
         basename=basename,
         stdstype="strds",
     )

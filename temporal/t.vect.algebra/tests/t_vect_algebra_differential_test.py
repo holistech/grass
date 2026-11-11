@@ -1,19 +1,15 @@
 """Comparison of the algebra core with the classic algebra for vector maps
 
-Both algebras compute each expression; the registered maps (identifier,
-start, end and the numbers of points, lines, areas and centroids) must
+The outcome of the classic algebra is that of the reference implementation
+(grass.temporal.classic), which runs in each test. The registered maps
+(identifier, start, end and the numbers of points, lines and areas) must
 agree, except for the differences that the manual lists between the core and
-the classic algebra.
+the releases before GRASS 8.6.
 """
-
-import itertools
 
 import pytest
 
-import grass.temporal as tgis
-from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 from grass.temporal.testing import differential
-from grass.temporal.testing.corpus import reference_outcome
 
 SAME = [
     "aa & ab",
@@ -48,19 +44,19 @@ SAME = [
 
 # Each changed rule with a short form of its item in the list of differences
 # in the manual, and what the core gives: "maps" for registered maps, which
-# may be none, or the name of the error. A crash of the core then does not
-# pass for a difference.
+# may be none, or the class of the error as differential.outcome() names it.
+# A crash of the core then does not pass for a difference.
 DIFFERENT = {
     # Where a negative buffer leaves a map no time, the core stops with an
     # error. The classic algebra stores an instant when the end equals the
     # start, and keeps the old time stamp with an error message when the end
     # would precede it (measured 2026-10-14 with t.vect.algebra -c, -1 and -6 days).
     'buff_t(wide, "-1 day")': (
-        "ValueError",
+        "Other:ValueError",
         "a negative buffer must leave every map some time (end == start)",
     ),
     'buff_t(aa, "-1 day")': (
-        "ValueError",
+        "Other:ValueError",
         "a negative buffer must leave every map some time (end < start)",
     ),
     "aa {:,contains} wide": ("maps", "an empty result creates an empty dataset"),
@@ -99,91 +95,27 @@ DIFFERENT = {
 }
 
 
-counter = itertools.count()
-
-
-def rows(name):
-    """Identifier, time and feature counts of each map of a space time dataset
-
-    New maps carry the name of the result dataset, which differs between the
-    runs, so that only the part after it is compared. Maps that the algebra
-    registers unchanged keep their identifier.
-    """
-    dataset = tgis.open_old_stds(name, "stvds")
-    result = []
-    for vector in dataset.get_registered_maps_as_objects(order="start_time") or []:
-        vector.select()
-        start, end = vector.get_absolute_time()
-        meta = vector.metadata
-        map_id = vector.get_id().replace(name, "diff", 1)
-        result.append(
-            (
-                map_id,
-                start,
-                end,
-                meta.get_number_of_points(),
-                meta.get_number_of_lines(),
-                meta.get_number_of_areas(),
-                meta.get_number_of_centroids(),
-            )
-        )
-    return result
-
-
-def outcome(monkeypatch, expression, algebra):
-    """The registered maps, None for no dataset, or the name of the error
-
-    algebra is "core" or "classic" (the profile).
-    """
-    monkeypatch.setenv(ALGEBRA_VARIABLE, algebra)
-    # Every run has its own result name: a result of an earlier expression
-    # would otherwise stand in for the missing result of this one. Removing
-    # it is no option, because the algebra registers unchanged maps of the
-    # fixture in its result and removing the maps would delete them.
-    name = f"diff_{algebra}_{next(counter)}"
-    parser = tgis.TemporalVectorAlgebraParser(run=True, debug=False)
-    try:
-        parser.parse(f"{name} = {expression}", name, True)
-    except (SyntaxError, ValueError, TypeError, tgis.FatalError) as error:
-        return type(error).__name__
-    if not tgis.dataset_factory(
-        "stvds", f"{name}@{tgis.get_current_mapset()}"
-    ).is_in_db():
-        return None
-    return rows(name)
+def outcomes(expression):
+    """The outcomes of the reference and of the core"""
+    reference = differential.outcome(
+        "vector", expression, differential.RUNNERS["reference"], basename="fa"
+    )
+    core = differential.outcome(
+        "vector", expression, differential.RUNNERS["core"], basename="fb"
+    )
+    return reference, core
 
 
 @pytest.mark.parametrize("expression", SAME)
-@pytest.mark.fixed_algebra
-def test_same_result(vector_series, monkeypatch, expression):
-    assert outcome(monkeypatch, expression, "core") == outcome(
-        monkeypatch, expression, "classic"
-    )
+def test_same_result(vector_series, expression):
+    reference, core = outcomes(expression)
+    assert differential.compare("vector", expression, reference, core) is None
 
 
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
-@pytest.mark.fixed_algebra
-def test_listed_differences_still_differ(vector_series, monkeypatch, expression):
+def test_listed_differences_still_differ(vector_series, expression):
     """A listed difference that no longer differs must leave the list"""
-    core = outcome(monkeypatch, expression, "core")
-    assert core != outcome(monkeypatch, expression, "classic")
-    kind = "maps" if isinstance(core, list) else core
+    reference, core = outcomes(expression)
+    assert differential.compare("vector", expression, reference, core) is not None
+    kind = core.get("error", "maps")
     assert kind == DIFFERENT[expression][0]
-
-
-@pytest.mark.parametrize("expression", [*SAME, *sorted(DIFFERENT)])
-@pytest.mark.fixed_algebra
-def test_profile_equals_reference(vector_series, expression):
-    """-c computes what the reference implementation
-    (grass.temporal.classic) of the classic algebra computed, also where the
-    core differs"""
-    # The result of the reference comes from the recorded corpus, which stores
-    # the form of differential.outcome(), so the profile is read in that form
-    # as well. That form holds the numbers of points, lines and areas but not
-    # of centroids, which outcome() above also reads for the comparison of the
-    # core with the profile.
-    reference = reference_outcome("vector", expression)
-    profile = differential.outcome(
-        "vector", expression, differential.RUNNERS["classic"], basename="fb"
-    )
-    assert differential.compare("vector", expression, reference, profile) is None

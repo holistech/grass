@@ -65,7 +65,6 @@ from pathlib import Path
 
 import grass.script as gs
 from grass.grassdb.create import create_mapset
-from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 
 from . import nc_dataset, postgresql
 from .corpus import MODE_VARIABLE
@@ -603,16 +602,10 @@ class BlockResult:
 def example_environment(env: dict) -> dict:
     """Return a copy of env for the blocks of a manual
 
-    Without GRASS_TEMPORAL_ALGEBRA and GRASS_TEMPORAL_REFERENCE: the tests of
-    the repository also run with them set, and an example has to show what a
-    reader gets without them. An example of the classic algebra says so with
-    -c or classic=True.
+    Without GRASS_TEMPORAL_REFERENCE: the tests of the repository also run
+    with it set, and an example has to show what a reader gets without it.
     """
-    return {
-        key: value
-        for key, value in env.items()
-        if key not in {ALGEBRA_VARIABLE, MODE_VARIABLE}
-    }
+    return {key: value for key, value in env.items() if key != MODE_VARIABLE}
 
 
 def _gdal_reason(driver: str) -> str | None:

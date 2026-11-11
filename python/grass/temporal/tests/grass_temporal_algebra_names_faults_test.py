@@ -1,13 +1,11 @@
 """Test how the algebra core finds datasets and names its result maps
 
 source() looks for a dataset name without a mapset in the current mapset and
-then in the search path, unless search_path=False, which the classic profile
-passes. In each mapset it tries a name with a dot whole before it reads the
+then in the search path, unless search_path=False. In each mapset it tries a name with a dot whole before it reads the
 text after the dot as a semantic label, as open_old_stds() does, so that a
 dataset of an older release with a dot in its name is found. plan() pads
 numbered names to the given digits, and materialize() numbers only the maps it
-registers unless number_registered=False, which the classic profile passes: a
-map without valid cells, which is not registered, leaves no gap in the numbers.
+registers unless number_registered=False: a map without valid cells, which is not registered, leaves no gap in the numbers.
 """
 
 import datetime
@@ -20,7 +18,6 @@ import grass.temporal as tgis
 from grass.exceptions import FatalError
 from grass.temporal import algebra as ta
 from grass.temporal.algebra.materialize import plan
-from grass.temporal.algebra.parser.classic import CLASSIC
 from grass.temporal.algebra.profile import CORE
 from grass.temporal.testing.data import create_daily_stds
 from grass.temporal.testing.session import add_mapset, mapset_session
@@ -54,16 +51,11 @@ def names(dataset):
     ]
 
 
-def test_profiles_differ_in_the_rules_for_names(core_session):
+def test_the_rules_of_the_core_for_names(core_session):
     assert (CORE.search_path, CORE.suffix_digits, CORE.number_registered) == (
         True,
         True,
         True,
-    )
-    assert (CLASSIC.search_path, CLASSIC.suffix_digits, CLASSIC.number_registered) == (
-        False,
-        False,
-        False,
     )
 
 

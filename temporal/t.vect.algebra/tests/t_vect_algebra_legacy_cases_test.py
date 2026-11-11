@@ -8,8 +8,8 @@ maps of a dataset are copies of each other). The format is that of
 t_rast_algebra_legacy_cases_test.py, with the numbers of points, lines and
 areas of a map in place of its minimum and maximum: (start, end, points, lines,
 areas). Every case runs in the reference implementation
-(grass.temporal.classic), in the classic profile and in the core; the three
-agree on all of them, so there is no CORE table.
+(grass.temporal.classic) and in the core; both agree on all of them, so there
+is no CORE table.
 
 The old test asserted the numbers of areas of a dataset, not of a map. Where a
 case yields maps built from identical inputs the sum divides equally; the
@@ -27,9 +27,6 @@ from grass.temporal.testing.differential import RUNNERS, outcome
 from grass.tools import Tools
 
 KIND = "vector"
-
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = pytest.mark.fixed_algebra
 
 
 def day(first, last, points=0, areas=0):
@@ -163,7 +160,7 @@ def legacy(vector_series):
     return vector_series
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "options", "expected"), CASES)
 def test_cases(legacy, runner, expression, options, expected):
     result = outcome(

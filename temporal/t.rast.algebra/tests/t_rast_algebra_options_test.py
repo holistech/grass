@@ -24,18 +24,6 @@ def tool(algebra):
     return Tools(session=algebra.session, consistent_return_value=True)
 
 
-@pytest.fixture
-def core_tool(algebra):
-    """As tool, with the core as the algebra of the tool
-
-    Without -c the tool follows GRASS_TEMPORAL_ALGEBRA. Tests whose result
-    differs between the algebras set it to core and take -c for the classic
-    algebra, which the flag selects whatever the variable says.
-    """
-    env = {**algebra.session.env, "GRASS_TEMPORAL_ALGEBRA": "core"}
-    return Tools(env=env, consistent_return_value=True)
-
-
 def list_maps(tool, dataset, columns="name,start_time,end_time,min,max"):
     """Return the rows of t.rast.list as dictionaries"""
     return tool.t_rast_list(input=dataset, columns=columns, format="json").json["data"]
@@ -101,146 +89,75 @@ def test_result_dataset_is_registered_under_basename(algebra, tool):
     assert (stats["min"], stats["max"], stats["n"]) == (4, 4, 9)
 
 
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize(
-    ("flags", "message"), [("", "Use the overwrite"), ("c", "Use --o flag")]
-)
-def test_overwrite_is_required(algebra, core_tool, flags, message):
+def test_overwrite_is_required(algebra, tool):
     """A second run fails without --overwrite and leaves the result unchanged"""
-    name, basename = f"OPT_OW{flags}", f"opt_ow{flags}"
-    core_tool.t_rast_algebra(
-        expression=f"{name} = A * 2", basename=basename, flags=flags
-    )
-    with pytest.raises(ToolError, match=message):
-        core_tool.t_rast_algebra(
-            expression=f"{name} = A * 3", basename=basename, flags=flags
-        )
-    assert values(core_tool, name) == [2, 4, 6, 8]
-    core_tool.t_rast_algebra(
-        expression=f"{name} = A * 3", basename=basename, flags=flags, overwrite=True
-    )
-    assert values(core_tool, name) == [3, 6, 9, 12]
+    name, basename = "OPT_OW", "opt_ow"
+    tool.t_rast_algebra(expression=f"{name} = A * 2", basename=basename)
+    with pytest.raises(ToolError, match="Use the overwrite"):
+        tool.t_rast_algebra(expression=f"{name} = A * 3", basename=basename)
+    assert values(tool, name) == [2, 4, 6, 8]
+    tool.t_rast_algebra(expression=f"{name} = A * 3", basename=basename, overwrite=True)
+    assert values(tool, name) == [3, 6, 9, 12]
 
 
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize(
-    ("flags", "message"),
-    [("", r"exists\. Use the overwrite"), ("c", "already in the database")],
-)
-def test_existing_dataset_with_new_basename_is_not_overwritten(
-    algebra, core_tool, flags, message
-):
+def test_existing_dataset_with_new_basename_is_not_overwritten(algebra, tool):
     """The result dataset exists: refuse even if the map names are new"""
-    name, basename = f"OPT_OW2{flags}", f"opt_ow2{flags}"
-    core_tool.t_rast_algebra(
-        expression=f"{name} = A * 2", basename=basename, flags=flags
-    )
-    with pytest.raises(ToolError, match=message):
-        core_tool.t_rast_algebra(
-            expression=f"{name} = A * 3", basename=f"{basename}_other", flags=flags
-        )
-    assert values(core_tool, name) == [2, 4, 6, 8]
+    name, basename = "OPT_OW2", "opt_ow2"
+    tool.t_rast_algebra(expression=f"{name} = A * 2", basename=basename)
+    with pytest.raises(ToolError, match=r"exists\. Use the overwrite"):
+        tool.t_rast_algebra(expression=f"{name} = A * 3", basename=f"{basename}_other")
+    assert values(tool, name) == [2, 4, 6, 8]
 
 
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize(
-    ("flags", "first", "last"),
-    [
-        # The core quotes the names and parenthesizes every operation.
-        ("d", '"opt_dry_0"=("a1@PERMANENT" * 2)', '"opt_dry_3"=("a4@PERMANENT" * 2)'),
-        ("dc", "opt_dry_0=(a1@PERMANENT * 2)", "opt_dry_3=(a4@PERMANENT * 2)"),
-    ],
-)
-def test_dry_run_creates_nothing(algebra, core_tool, flags, first, last):
+def test_dry_run_creates_nothing(algebra, tool):
     """-d prints the planned r.mapcalc calls and creates neither maps nor dataset"""
-    result = core_tool.t_rast_algebra(
-        expression="OPT_DRY = A * 2", basename="opt_dry", flags=flags
+    result = tool.t_rast_algebra(
+        expression="OPT_DRY = A * 2", basename="opt_dry", flags="d"
     )
     assert "r.mapcalc" in result.stdout
-    assert first in result.stdout
-    assert last in result.stdout
+    # The algebra quotes the names and parenthesizes every operation.
+    assert '"opt_dry_0"=("a1@PERMANENT" * 2)' in result.stdout
+    assert '"opt_dry_3"=("a4@PERMANENT" * 2)' in result.stdout
     assert "OPT_DRY" in result.stdout
     with pytest.raises(ToolError):
-        core_tool.t_info(input="OPT_DRY")
-    assert not core_tool.g_list(type="raster", pattern="opt_dry_*").stdout.strip()
+        tool.t_info(input="OPT_DRY")
+    assert not tool.g_list(type="raster", pattern="opt_dry_*").stdout.strip()
 
 
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize(
-    ("flags", "message"), [("", "Use the overwrite"), ("c", "Use --o flag")]
-)
-def test_dry_run_requires_overwrite_as_the_real_run(algebra, core_tool, flags, message):
+def test_dry_run_requires_overwrite_as_the_real_run(algebra, tool):
     """-d fails without --overwrite where the run would fail"""
-    name, basename = f"OPT_DRY_OW{flags}", f"opt_dry_ow{flags}"
-    core_tool.t_rast_algebra(
-        expression=f"{name} = A * 2", basename=basename, flags=flags
-    )
-    with pytest.raises(ToolError, match=message):
-        core_tool.t_rast_algebra(
-            expression=f"{name} = A * 3", basename=basename, flags=f"d{flags}"
-        )
-    result = core_tool.t_rast_algebra(
-        expression=f"{name} = A * 3",
-        basename=basename,
-        flags=f"d{flags}",
-        overwrite=True,
+    name, basename = "OPT_DRY_OW", "opt_dry_ow"
+    tool.t_rast_algebra(expression=f"{name} = A * 2", basename=basename)
+    with pytest.raises(ToolError, match="Use the overwrite"):
+        tool.t_rast_algebra(expression=f"{name} = A * 3", basename=basename, flags="d")
+    result = tool.t_rast_algebra(
+        expression=f"{name} = A * 3", basename=basename, flags="d", overwrite=True
     )
     assert "r.mapcalc" in result.stdout
 
 
-@pytest.mark.fixed_algebra
-def test_classic_flag_selects_the_classic_algebra(algebra, core_tool):
-    """A selection with r gives one map per related pair in the core and one
-    map per left map in the classic algebra"""
-    core_tool.t_rast_algebra(
-        expression="OPT_CORE = B {:,contains,r} A", basename="opt_core"
-    )
-    core_tool.t_rast_algebra(
-        expression="OPT_CLASSIC = B {:,contains,r} A",
-        basename="opt_classic",
-        flags="c",
-    )
-    assert len(list_maps(core_tool, "OPT_CORE")) == 4
-    assert len(list_maps(core_tool, "OPT_CLASSIC")) == 2
-
-
-@pytest.mark.fixed_algebra
-def test_an_empty_variable_runs_the_core(algebra):
-    """A script that writes GRASS_TEMPORAL_ALGEBRA= t.rast.algebra ... gets
-    the core: one map per related pair, see the test above"""
-    env = {**algebra.session.env, "GRASS_TEMPORAL_ALGEBRA": ""}
-    empty_tool = Tools(env=env, consistent_return_value=True)
-    empty_tool.t_rast_algebra(
-        expression="OPT_EMPTY = B {:,contains,r} A", basename="opt_empty"
-    )
-    assert len(list_maps(empty_tool, "OPT_EMPTY")) == 4
-
-
-@pytest.mark.fixed_algebra
-def test_blanks_in_the_variable_stop_the_tool(algebra):
-    env = {**algebra.session.env, "GRASS_TEMPORAL_ALGEBRA": " "}
-    with pytest.raises(ToolError, match="core or classic"):
-        Tools(env=env).t_rast_algebra(
-            expression="OPT_BLANK = A * 2", basename="opt_blank"
-        )
-
-
-@pytest.mark.fixed_algebra
-def test_classic_flag_runs_the_classic_profile(algebra, core_tool):
-    """The tool with -c computes on the classic profile of the core, not on
-    the reference implementation (grass.temporal.classic): an increment the
-    library refuses is reported with the message of the library, where the
-    reference names tshift() and the unit"""
+def test_classic_flag_is_unknown(algebra, tool):
+    """-c is no flag of the tool: the parser refuses it before anything is made"""
     with pytest.raises(ToolError) as error:
-        core_tool.t_rast_algebra(
-            expression='OPT_PROFILE = tshift(A, "1 DAY")',
-            basename="opt_profile",
-            flags="c",
+        tool.t_rast_algebra(
+            expression="OPT_NO_C = A * 2", basename="opt_no_c", flags="c"
         )
-    assert "Cannot read '1 DAY' as a time step, use e.g. \"1 day\"" in (
-        error.value.stderr
+    assert "<c>" in error.value.stderr
+    assert not tool.t_list(type="strds", where="name = 'OPT_NO_C'").stdout.strip()
+
+
+def test_algebra_variable_has_no_effect(algebra, tool):
+    """GRASS_TEMPORAL_ALGEBRA=classic computes what the tool computes without it
+
+    A selection with r gives one map per related pair: b1 contains a1 and a2,
+    b2 contains a3 and a4, so four maps. The releases before GRASS 8.6 gave
+    one map per left map, two.
+    """
+    env = {**algebra.session.env, "GRASS_TEMPORAL_ALGEBRA": "classic"}
+    Tools(env=env).t_rast_algebra(
+        expression="OPT_VARIABLE = B {:,contains,r} A", basename="opt_variable"
     )
-    assert "Function tshift()" not in error.value.stderr
+    assert len(list_maps(tool, "OPT_VARIABLE")) == 4
 
 
 @pytest.mark.parametrize("nprocs", [1, 2, 4])
@@ -286,27 +203,6 @@ def test_granularity_algebra_samples_datasets(algebra, tool):
     assert maps[3]["end_time"] == "2001-01-05 00:00:00"
 
 
-@pytest.mark.fixed_algebra
-def test_granularity_algebra_on_the_core(algebra, core_tool):
-    core_tool.t_rast_algebra(
-        expression="OPT_GRAN_CORE = A + B", basename="opt_gran_core", flags="g"
-    )
-    assert values(core_tool, "OPT_GRAN_CORE") == [6, 7, 9, 10]
-
-
-@pytest.mark.fixed_algebra
-def test_granularity_algebra_with_the_classic_flag(algebra, core_tool):
-    """-c selects the classic algebra in the granularity mode as well,
-    whatever the variable says"""
-    core_tool.t_rast_algebra(
-        expression="OPT_GRAN_CLASSIC = A + B",
-        basename="opt_gran_classic",
-        flags="gc",
-    )
-    assert values(core_tool, "OPT_GRAN_CLASSIC") == [6, 7, 9, 10]
-
-
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [
@@ -317,35 +213,34 @@ def test_granularity_algebra_with_the_classic_flag(algebra, core_tool):
         ("if(N != 12, B, A)", [5, 2, 6, 6]),
     ],
 )
-def test_granularity_flag_computes_not_equal(algebra, core_tool, expression, expected):
+def test_granularity_flag_computes_not_equal(algebra, tool, expression, expected):
     """-g finds the datasets of an expression with !=
 
     N and A have daily maps on days 1 to 4, B maps of two days from day 1, so
     the common granularity is one day and every dataset has a map on each of
     the four days.
     """
-    core_tool.t_rast_algebra(
+    tool.t_rast_algebra(
         expression=f"OPT_GRAN_NE = {expression}",
         basename="opt_gran_ne",
         flags="g",
         overwrite=True,
     )
-    maps = list_maps(core_tool, "OPT_GRAN_NE")
+    maps = list_maps(tool, "OPT_GRAN_NE")
     assert [row["min"] for row in maps] == expected
     assert [row["start_time"] for row in maps] == [
         f"2001-01-0{number} 00:00:00" for number in range(1, 5)
     ]
 
 
-@pytest.mark.fixed_algebra
-def test_granularity_flag_without_dataset(algebra, core_tool):
+def test_granularity_flag_without_dataset(algebra, tool):
     """An expression of single maps has nothing to sample: -g computes it as
     without the flag, with a warning
 
     singletmap (99) is time stamped 3 to 4 January, so the result is one map
     of these days with the value 2 * 99 = 198.
     """
-    result = core_tool.t_rast_algebra(
+    result = tool.t_rast_algebra(
         expression="OPT_GRAN_NONE = tmap(singletmap) * 2",
         basename="opt_gran_none",
         flags="g",
@@ -356,7 +251,7 @@ def test_granularity_flag_without_dataset(algebra, core_tool):
         "granularity sampling"
     ) in message(result)
     assert "Traceback" not in result.stderr
-    assert list_maps(core_tool, "OPT_GRAN_NONE") == [
+    assert list_maps(tool, "OPT_GRAN_NONE") == [
         {
             "name": "opt_gran_none_0",
             "start_time": "2001-01-03 00:00:00",
@@ -594,52 +489,33 @@ def test_overwrite_result_maps_of_other_temporal_type(
     assert min(starts) == start
 
 
-def run_with_debug(algebra, expression, run, classic):
+def run_with_debug(algebra, expression, run):
     """Parse "R = <expression>" with debug=True and the given run"""
     algebra.remove("R")
-    parser = tgis.TemporalRasterAlgebraParser(
-        run=run, debug=True, dry_run=True, classic=classic
-    )
+    parser = tgis.TemporalRasterAlgebraParser(run=run, debug=True, dry_run=True)
     parser.parse(f"R = {expression}", "r", True)
 
 
-@pytest.mark.fixed_algebra
 def test_debug_output_of_a_run(algebra, capsys):
     """debug=True prints each planned module call as a command line"""
-    run_with_debug(algebra, "(A + A) * 2", run=True, classic=False)
+    run_with_debug(algebra, "(A + A) * 2", run=True)
     output = capsys.readouterr().out
     assert (
         'r.mapcalc expression="r_0"=(("a1@PERMANENT" + "a1@PERMANENT") * 2)' in output
     )
 
 
-@pytest.mark.fixed_algebra
 def test_debug_output_without_run(algebra, capsys):
     """With run=False only the syntax is checked, so nothing is planned and
     debug=True prints nothing"""
-    run_with_debug(algebra, "(A + A) * 2", run=False, classic=False)
+    run_with_debug(algebra, "(A + A) * 2", run=False)
     assert not capsys.readouterr().out
 
 
-@pytest.mark.fixed_algebra
-def test_debug_output_of_the_classic_profile(algebra, capsys):
-    """-c prints each planned module call as a command line, with the
-    r.mapcalc text of the classic algebra, and with run=False nothing"""
-    run_with_debug(algebra, "(A + A) * 2", run=True, classic=True)
-    assert (
-        "r.mapcalc expression=r_0=((a1@PERMANENT + a1@PERMANENT) * 2)"
-        in capsys.readouterr().out
-    )
-    run_with_debug(algebra, "(A + A) * 2", run=False, classic=True)
-    assert not capsys.readouterr().out
-
-
-@pytest.mark.fixed_algebra
 def test_debug_output_of_the_reference(algebra, capsys):
     """The reference prints the mapcalc commands and the resulting
     statement, and without run the statement with the placeholder name. Only
-    the reference keeps this output; the classic profile prints the module
-    calls like the core."""
+    the reference keeps this output."""
 
     def parse(run):
         algebra.remove("R")
@@ -654,18 +530,15 @@ def test_debug_output_of_the_reference(algebra, capsys):
     assert "R = A**" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("flags", ["", "c"], ids=["core", "classic"])
-def test_the_algebra_refuses_a_dot_output(algebra, core_tool, flags):
+def test_the_algebra_refuses_a_dot_output(algebra, tool):
     """A dot in the name of the result is refused and no dataset is made
 
-    Neither algebra reaches the name check of new datasets: both parsers stop
-    at the dot first. The refusal is what a dot gave before the name check
+    The algebra does not reach the name check of new datasets: the parser
+    stops at the dot first. The refusal is what a dot gave before the name check
     was added, so this test keeps it from turning into a silent label.
     """
     with pytest.raises(ToolError):
-        core_tool.t_rast_algebra(
-            expression="OPT_DOT.X = A * 2", basename="opt_dot", flags=flags
-        )
+        tool.t_rast_algebra(expression="OPT_DOT.X = A * 2", basename="opt_dot")
 
-    names = core_tool.t_list(type="strds", columns="name").stdout.split()
+    names = tool.t_list(type="strds", columns="name").stdout.split()
     assert not [name for name in names if name.startswith("OPT_DOT")]

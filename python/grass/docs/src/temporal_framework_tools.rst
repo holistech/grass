@@ -451,5 +451,4 @@ What a tool needs in addition:
     :pyobject: mixed
 
 The manual and the messages are tests as well, as the sections above describe. A tool
-is ready when ``python3 -m pytest temporal/tests temporal/<name>/tests`` passes with
-and without ``GRASS_TEMPORAL_ALGEBRA=classic``.
+is ready when ``python3 -m pytest temporal/tests temporal/<name>/tests`` passes.

@@ -36,8 +36,6 @@ def end_of_time(temporal_module_session):
     return temporal_module_session
 
 
-# The tool runs on the algebra that GRASS_TEMPORAL_ALGEBRA names: the core
-# without the variable, the classic profile with "classic".
 @pytest.mark.parametrize("expression", EXPRESSIONS)
 def test_a_step_of_days_beyond_9999_ends_with_a_message(end_of_time, expression):
     tools = Tools(session=end_of_time, overwrite=True)
@@ -49,7 +47,6 @@ def test_a_step_of_days_beyond_9999_ends_with_a_message(end_of_time, expression)
     assert tools.t_list(type="strds").stdout.count("R@") == 0
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("expression", EXPRESSIONS)
 def test_the_earlier_implementation_raises_a_value_error(end_of_time, expression):
     # The reference passes the library error on: ValueError, which outcome() of

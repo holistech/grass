@@ -2,15 +2,12 @@
 
 Dataset E holds the instants e1..e4 (values 1..4) at day 1 of January 2001,
 sinst (100) is a single map at the same instant. The datasets are described
-in the algebra fixture in conftest.py. The argument classic of a test runs
-the core (False) or the classic algebra (True) where their results differ.
+in the algebra fixture in conftest.py.
 """
 
 import pytest
 
 import grass.temporal as tgis
-from grass.exceptions import FatalError
-from grass.exceptions import FatalError as TemporalAlgebraFatalError
 from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.differential import RUNNERS, outcome
 from grass.tools import Tools
@@ -38,16 +35,10 @@ def test_single_map_with_complex_operator(algebra):
     assert algebra.values("tmap(sinst) {+,equal,l} E") == [110]
 
 
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize(
-    ("classic", "values"),
-    [(False, [101, 102, 103, 104]), (True, [110, 110, 110, 110])],
-)
-def test_single_map_with_right_reference(algebra, classic, values):
+def test_single_map_with_right_reference(algebra):
     """A right reference gives one map per related pair, with the value of
-    that pair; the classic algebra gives each of the four maps the sum of
-    all"""
-    assert algebra.values("tmap(sinst) {+,equal,r} E", classic=classic) == values
+    that pair"""
+    assert algebra.values("tmap(sinst) {+,equal,r} E") == [101, 102, 103, 104]
 
 
 def test_arithmetic_with_number_and_select(algebra):
@@ -84,34 +75,23 @@ def test_single_condition_map_is_broadcast(algebra):
     assert algebra.values("if(tmap(sinst) > 50, E, null())") == [1, 2, 3, 4]
 
 
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize(
-    ("classic", "errors", "message"),
-    [
-        (False, ValueError, "cannot be paired"),
-        (True, (FatalError, TemporalAlgebraFatalError), "maps of equal time stamps"),
-    ],
-)
-def test_condition_on_unequal_numbers_of_equal_maps_fails(
-    algebra, classic, errors, message
-):
+def test_condition_on_unequal_numbers_of_equal_maps_fails(algebra):
     """Four condition maps and two conclusion maps of the same time cannot
     be paired"""
     tgis.open_new_stds("E2", "strds", "absolute", "E2", "E2", "mean", overwrite=True)
     tgis.register_maps_in_space_time_dataset(
         "raster", "E2", "e1,e2", start="2001-01-01"
     )
-    with pytest.raises(errors, match=message):
-        algebra.parse("if(E > 2, E2, null())", classic=classic)
+    with pytest.raises(ValueError, match="cannot be paired"):
+        algebra.parse("if(E > 2, E2, null())")
 
 
-@pytest.mark.fixed_algebra
 def test_conditions_related_by_two_names_pair_with_maps_of_equal_time(algebra):
     """Two condition maps of one time are paired one to one with two
     conclusion maps of another time, also where each condition map relates
     to each conclusion map by two of the written names: ec1 and ec2 [1,2]
     are during and start ea1 and ea2 [1,3]. A related map counts once, so
-    the classic algebra, the classic profile and the core agree. td() is
+    the reference implementation and the core agree. td() is
     one day, so ea1 and ea2 are kept; ea3 [3,4] has no related condition,
     which a relation beyond equal reads as false, so it gets the else 0."""
     tools = Tools(session=algebra.session)
@@ -141,7 +121,7 @@ def test_conditions_related_by_two_names_pair_with_maps_of_equal_time(algebra):
         ["N_1", "2001-01-01T00:00:00", "2001-01-03T00:00:00", 20.0, 20.0],
         ["N_2", "2001-01-03T00:00:00", "2001-01-04T00:00:00", 0.0, 0.0],
     ]
-    for runner, basename in (("reference", "fa"), ("classic", "fc"), ("core", "fk")):
+    for runner, basename in (("reference", "fa"), ("core", "fk")):
         result = outcome(
             "raster",
             "if({during|starts}, td(EC) > 0, EA, 0)",

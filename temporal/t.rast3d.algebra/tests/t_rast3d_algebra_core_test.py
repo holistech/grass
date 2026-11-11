@@ -85,38 +85,34 @@ def _parse(expression, name, **keywords):
     return parser.parse(f"{name} = {expression}", name, True)
 
 
-@pytest.mark.fixed_algebra
-def test_parser_runs_the_core_with_classic_false(series_3d):
-    _parse("A + B", "fac_sum", classic=False)
+def test_parser_runs_the_core(series_3d):
+    _parse("A + B", "fac_sum")
     assert [row[1] for row in _values("fac_sum")] == [11, 22, 33, 44]
 
 
-@pytest.mark.fixed_algebra
 def test_parser_samples_with_the_common_granularity(series_3d):
     """W has maps of two days; sampled by the day of A, w1 counts for days 1
     and 2, w2 for days 3 and 4"""
-    parser = tgis.TemporalRaster3DAlgebraParser(run=True, debug=False, classic=False)
+    parser = tgis.TemporalRaster3DAlgebraParser(run=True, debug=False)
     assert parser.setup_common_granularity(
         expression="fac_gran = A + W", stdstype="str3ds"
     )
     chain = parser.parse("fac_gran = A + W", "fac_gran", True)
-    # Only the core quotes the names of the maps in the expression.
+    # The algebra quotes the names of the maps in the expression.
     assert dict(chain["processes"][0]["inputs"])["expression"] == (
         '"fac_gran_0"=("a1@PERMANENT" + "w1@PERMANENT")'
     )
     assert [row[1] for row in _values("fac_gran")] == [101, 102, 203, 204]
 
 
-@pytest.mark.fixed_algebra
 def test_parser_reads_3d_cell_offsets(series_3d):
-    _parse("D[0,0,1]", "fac_offset", classic=False)
+    _parse("D[0,0,1]", "fac_offset")
     # d holds the depth of each cell; one layer deeper the top layer reads
     # outside the region, which is null. Checked 2026-10-13 with r3.mapcalc
     # "o = d[0,0,1]" on the 3x3x3 region: min=2, max=3.
     assert [row[1:] for row in _values("fac_offset")][0] == (2, 3)
 
 
-@pytest.mark.fixed_algebra
 def test_a_raster_dataset_is_not_a_3d_dataset(series_3d):
     tools = Tools(session=series_3d.session, overwrite=True)
     tools.r_mapcalc(expression="flat = 1")
@@ -127,29 +123,19 @@ def test_a_raster_dataset_is_not_a_3d_dataset(series_3d):
     with pytest.raises(
         FatalError, match=r"^Space time 3D raster dataset <flat@PERMANENT> not found$"
     ):
-        _parse("flat + A", "fac_flat", classic=False)
+        _parse("flat + A", "fac_flat")
 
 
-@pytest.mark.fixed_algebra
-def test_without_keyword_and_variable_the_parser_runs_the_core(series_3d, monkeypatch):
-    monkeypatch.delenv("GRASS_TEMPORAL_ALGEBRA", raising=False)
-    # A selection with the right reference gives one map per related pair in
-    # the core: w1 (100) contains a1 and a2, w2 (200) contains a3 and a4.
+def test_the_parser_gives_one_map_per_related_pair(series_3d):
+    # A selection with the right reference gives one map per related pair:
+    # w1 (100) contains a1 and a2, w2 (200) contains a3 and a4.
     _parse("W {:,contains,r} A", "fac_default")
     assert [row[1:] for row in _values("fac_default")] == CORE_PAIRS
 
 
-@pytest.mark.fixed_algebra
-def test_an_empty_variable_runs_the_core(series_3d, monkeypatch):
-    monkeypatch.setenv("GRASS_TEMPORAL_ALGEBRA", "")
-    # The core gives one map per related pair, see above.
-    _parse("W {:,contains,r} A", "fac_empty")
-    assert [row[1:] for row in _values("fac_empty")] == CORE_PAIRS
-
-
-@pytest.mark.fixed_algebra
-def test_the_variable_selects_the_classic_algebra(series_3d, monkeypatch):
+def test_the_algebra_variable_of_earlier_releases_has_no_effect(series_3d, monkeypatch):
+    # GRASS_TEMPORAL_ALGEBRA=classic chose the classic algebra, which kept only
+    # the last pair of each map of W.
     monkeypatch.setenv("GRASS_TEMPORAL_ALGEBRA", "classic")
-    # The classic algebra keeps only the last pair of each map of W.
     _parse("W {:,contains,r} A", "fac_variable")
-    assert [row[1:] for row in _values("fac_variable")] == [(100, 100), (200, 200)]
+    assert [row[1:] for row in _values("fac_variable")] == CORE_PAIRS

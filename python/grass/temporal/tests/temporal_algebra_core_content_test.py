@@ -39,6 +39,9 @@ DAY2 = datetime.datetime(2001, 1, 2)
         ("/", (7.0, 2), 3.5),
         ("/", (1, 0), None),
         ("%", (-7, 2), -1),
+        # r.mapcalc gives null for a modulo by zero (measured 2026-11-11 with
+        # r.mapcalc "m = 7 % 0" in a one-cell region: r.univar null_cells=1).
+        ("%", (7, 0), None),
         (">", (2, 1), 1),
         ("==", (2, 1), 0),
         ("&&", (1, 0), 0),

@@ -66,10 +66,7 @@ months and gave the series from January 31 the granularity `1 day`. A dataset
 keeps the granularity it stored until it is updated from its maps, for example
 by *[t.support](t.support.md)* with **-u**.
 Tools that work on the granularity (for example *t.rast.to.rast3* or the
-**-g** flag of the algebra tools) use the stored granularity; the classic
-algebra (**-c**) computes the granularity by the rules of the releases before
-GRASS 8.6, with the counting in calendar steps of the section [Classic
-algebra](temporalchanges.md#classic-algebra) of the changes page.
+**-g** flag of the algebra tools) use the stored granularity.
 
 Tools that cut a dataset into time steps, *t.rast.aggregate* with its option
 **granularity** and the method `gran` of *[t.rast.list](t.rast.list.md)* with
@@ -141,14 +138,10 @@ relations and registers the results in a new dataset. The tools are
 *[t.vect.algebra](t.vect.algebra.md)* and *[t.select](t.select.md)*, which
 selects maps without computing.
 
-Since GRASS 8.6, the algebra computes with a new implementation. The previous
-algebra stays available as the *classic algebra* because published results
-rely on it: the flag **-c** of the algebra tools selects it for one call, and
-the environment variable `GRASS_TEMPORAL_ALGEBRA=classic` for a whole session
-or script. The manual of *t.rast.algebra* lists where the two differ. The page
-[changes in GRASS 8.6](temporalchanges.md) lists all changes of the temporal
-framework since GRASS 8.5, among them the corrections of the classic algebra
-([Classic algebra](temporalchanges.md#classic-algebra)).
+Since GRASS 8.6, the algebra computes with a new implementation. The manual of
+*t.rast.algebra* lists where its results differ from those of GRASS 8.5. The
+page [changes in GRASS 8.6](temporalchanges.md) lists all changes of the
+temporal framework since GRASS 8.5.
 
 ## Temporal data management in general
 
@@ -804,18 +797,13 @@ same months. The expression marks the cells that are warm and wet in a month:
 warmer than 15 degrees and with more than 100 mm of precipitation. The result
 dataset `warm_wet` keeps the times of the input maps; each map holds 1 where
 both conditions are true and 0 elsewhere, so its largest value is 1 from April
-to October, the months with such a cell. The flag **-c** selects the classic
-algebra: the second call computes the same expression with it into
-`warm_wet_classic`, and the list shows the same values and times. The names of
-the maps differ only in the basename.
+to October, the months with such a cell.
 
 === "Command line"
 
     ```sh
     t.rast.algebra expression="warm_wet = if(temperature_monthly > 15.0 && precipitation_monthly > 100, 1, 0)" basename=warm_wet
     t.rast.list input=warm_wet columns=name,start_time,min,max
-    t.rast.algebra -c expression="warm_wet_classic = if(temperature_monthly > 15.0 && precipitation_monthly > 100, 1, 0)" basename=classic
-    t.rast.list input=warm_wet_classic columns=name,start_time,min,max
     ```
 
     ```text
@@ -832,19 +820,6 @@ the maps differ only in the basename.
     warm_wet_09|2020-10-01 00:00:00|0.0|1.0
     warm_wet_10|2020-11-01 00:00:00|0.0|0.0
     warm_wet_11|2020-12-01 00:00:00|0.0|0.0
-    name|start_time|min|max
-    classic_00|2020-01-01 00:00:00|0.0|0.0
-    classic_01|2020-02-01 00:00:00|0.0|0.0
-    classic_02|2020-03-01 00:00:00|0.0|0.0
-    classic_03|2020-04-01 00:00:00|0.0|1.0
-    classic_04|2020-05-01 00:00:00|0.0|1.0
-    classic_05|2020-06-01 00:00:00|0.0|1.0
-    classic_06|2020-07-01 00:00:00|0.0|1.0
-    classic_07|2020-08-01 00:00:00|0.0|1.0
-    classic_08|2020-09-01 00:00:00|0.0|1.0
-    classic_09|2020-10-01 00:00:00|0.0|1.0
-    classic_10|2020-11-01 00:00:00|0.0|0.0
-    classic_11|2020-12-01 00:00:00|0.0|0.0
     ```
 
 === "Python (grass.tools)"
@@ -855,14 +830,6 @@ the maps differ only in the basename.
         expression=f"warm_wet = if({condition}, 1, 0)", basename="warm_wet"
     )
     print(tools.t_rast_list(input="warm_wet", columns="name,start_time,min,max").text)
-    tools.t_rast_algebra(
-        expression=f"warm_wet_classic = if({condition}, 1, 0)",
-        basename="classic",
-        flags="c",
-    )
-    print(
-        tools.t_rast_list(input="warm_wet_classic", columns="name,start_time,min,max").text
-    )
     ```
 
     ```text
@@ -879,19 +846,6 @@ the maps differ only in the basename.
     warm_wet_09|2020-10-01 00:00:00|0.0|1.0
     warm_wet_10|2020-11-01 00:00:00|0.0|0.0
     warm_wet_11|2020-12-01 00:00:00|0.0|0.0
-    name|start_time|min|max
-    classic_00|2020-01-01 00:00:00|0.0|0.0
-    classic_01|2020-02-01 00:00:00|0.0|0.0
-    classic_02|2020-03-01 00:00:00|0.0|0.0
-    classic_03|2020-04-01 00:00:00|0.0|1.0
-    classic_04|2020-05-01 00:00:00|0.0|1.0
-    classic_05|2020-06-01 00:00:00|0.0|1.0
-    classic_06|2020-07-01 00:00:00|0.0|1.0
-    classic_07|2020-08-01 00:00:00|0.0|1.0
-    classic_08|2020-09-01 00:00:00|0.0|1.0
-    classic_09|2020-10-01 00:00:00|0.0|1.0
-    classic_10|2020-11-01 00:00:00|0.0|0.0
-    classic_11|2020-12-01 00:00:00|0.0|0.0
     ```
 
 ### Datasets of another mapset

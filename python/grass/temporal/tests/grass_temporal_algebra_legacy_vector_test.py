@@ -1,11 +1,10 @@
 """The cases of the earlier gunittest file unittests_temporal_vector_algebra.py
 
-Every case runs in the reference implementation (grass.temporal.classic), in
-the classic profile and in the core. The expected maps are those the old
-assertions describe (number of maps, extent, minimum, maximum, topology,
+Every case runs in the reference implementation (grass.temporal.classic) and
+in the core. The expected maps are those the old assertions describe (number of maps, extent, minimum, maximum, topology,
 granularity); the comment of a case repeats them. CORE holds the cases where
-the core calculates differently according to the manual ("Core and classic
-algebra"); SHAPE what the old test asserted besides the maps. The datasets
+the core calculates differently according to the manual ("Differences
+from GRASS 8.5"); SHAPE what the old test asserted besides the maps. The datasets
 are those of algebra_cases, see its builder for the data.
 """
 
@@ -16,10 +15,7 @@ from grass.tools import Tools
 
 KIND = "vector"
 
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = pytest.mark.fixed_algebra
-
-RUNNERS = ["reference", "classic", "core"]
+RUNNERS = ["reference", "core"]
 
 CASES = [
     # Old assertions: n 4, points 80, areas 0, start 2001-01-01, end 2001-01-05, topo True, gran 1 day

@@ -32,7 +32,7 @@ SELECTED = [
 def select(expression, basename):
     """Select R = expression into a str3ds on the algebra core
 
-    Calls the core as t.select does without -c, with -n. Returns the maps of
+    Calls the core as t.select does, with -n. Returns the maps of
     R as (name, start, end, value); every map of the data is constant, so its
     minimum is its value.
     """
@@ -95,17 +95,9 @@ def test_a_dataset_named_like_a_capital_function_stays_a_name(series):
         select("A {:,during,l} stvds", "fb")
 
 
-def test_the_tool_selects_with_the_classic_flag(series):
-    """-c takes precedence over the variable of the fixture algebra"""
-    tools = Tools(session=series.session, overwrite=True)
-    tools.t_select(expression=f"published = {LOWER_CASE}", type="str3ds", flags="c")
-    listing = tools.t_rast3d_list(input="published", columns="name", format="json")
-    assert listing["data"]
-
-
-def test_the_tool_selects_with_the_functions_in_both_algebras(series, algebra):
-    """Observed 2026-10-17: the core read no dataset type function before;
-    both algebras select the maps a1 and a2 now"""
+def test_the_tool_selects_with_the_functions(series):
+    """Observed 2026-10-17: the core read no dataset type function before; it
+    selects the maps a1 and a2 now"""
     tools = Tools(session=series.session, overwrite=True)
     tools.t_select(expression=f"published = {LOWER_CASE}", type="str3ds")
     listing = tools.t_rast3d_list(input="published", columns="name", format="json")

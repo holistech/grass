@@ -21,19 +21,18 @@ io_cache
     Cache the list of temporal mapsets and the interface descriptions of the
     tools, two slow calls that give the same answer within a test.
 
-The algebras (the core grass.temporal.algebra, its classic profile and the
-reference implementation grass.temporal.classic):
+The algebras (the core grass.temporal.algebra and the reference
+implementation grass.temporal.classic):
 
 reference
-    Run the reference directly, whatever GRASS_TEMPORAL_ALGEBRA says.
+    Run the reference directly.
 corpus
     The outcomes of the reference for each case of the test suite (the gold
     corpus in the directory corpus), which the tests read in place of a run.
 corpus_orphans
     List the entries of the gold corpus that no test reads.
 differential
-    Run an expression on the reference, the classic profile or the core and
-    compare two outcomes.
+    Run an expression on the reference or the core and compare two outcomes.
 algebra_cases
     Datasets and checks of the algebra cases of the library tests that came
     from the former gunittest files, with expected values derived by hand.

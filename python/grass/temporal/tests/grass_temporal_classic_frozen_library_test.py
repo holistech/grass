@@ -1,9 +1,7 @@
 """The classic algebra keeps what shared functions of the library computed
 
-The classic algebra, the reference implementation grass.temporal.classic and
-the classic profile of the core (t.rast.algebra -c,
-GRASS_TEMPORAL_ALGEBRA=classic), computes what the releases computed that
-publications cite. Some functions of the temporal library that serve all
+The classic algebra, the reference implementation grass.temporal.classic,
+computes what the releases computed that publications cite. Some functions of the temporal library that serve all
 tools may change their results: the granularity of a month series that
 starts on the last day of a month, the gaps between maps, the relations of
 the sampling method "start" and the start of a week granule. The classic
@@ -11,17 +9,15 @@ algebra calls only the granularity of these; it keeps its own copy of that
 function (grass.temporal.classic.granularity).
 
 Each test runs the reference (from the corpus, or live with
-GRASS_TEMPORAL_REFERENCE=live) and the classic profile the way the tools run
-it, and states the result by hand. The data is chosen so that a change of the
+GRASS_TEMPORAL_REFERENCE=live) and states the result by hand. The data is chosen so that a change of the
 shared function would change the result, had the classic algebra no copy.
 The classic algebra reads no gap list, no sampling method and no week start of
 the library (measured 04.11.2026: a sys.monitoring probe recorded no call of
 count_gaps(), get_registered_maps_as_objects_with_gaps(), method_relations()
 or adjust_datetime_to_granularity() from grass.temporal.classic or
 grass.temporal.algebra while the tests of the library and of the four algebra
-tools ran with GRASS_TEMPORAL_REFERENCE=live and with
-GRASS_TEMPORAL_ALGEBRA=classic); those tests hold its result on such data all
-the same.
+tools ran with GRASS_TEMPORAL_REFERENCE=live and with the classic algebra
+selected); those tests hold its result on such data all the same.
 
 Every dataset has maps with constant values on a region of 3 x 3 cells, so
 the minimum and the maximum of a result map are its value.
@@ -36,8 +32,7 @@ The granularity mode (-g) computes the common granularity of the datasets with
 the function of the library that the algebra core calls too. The classic
 algebra keeps a copy of it as on 06.11.2026; the guard test holds the values of
 that day, recorded in data/classic_common_granularity.json, and a wiring test
-shows that the reference and the classic profile call the copy and the core
-the library.
+shows that the reference calls the copy and the core the library.
 """
 
 import datetime
@@ -53,11 +48,10 @@ from grass.temporal.classic import granularity as classic_granularity
 from grass.temporal.classic.granularity import dataset_granularity
 from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.temporal.testing.differential import compare, outcome_of_runner
+from grass.temporal.testing.differential import outcome_of_runner
 from grass.tools import Tools
 
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
+pytestmark = pytest.mark.slow
 
 KIND = "raster"
 DAY = datetime.timedelta(days=1)
@@ -155,21 +149,13 @@ def datasets(temporal_module_session):
     )
 
 
-def both(expression, **options):
-    """The outcomes of the reference and the classic profile, after comparing
+def classic(expression, **options):
+    """The outcome of the reference
 
-    The profile is the runner "classic" of grass.temporal.testing.differential,
-    which finds the common granularity of the granularity mode (-g) as
-    t.rast.algebra -c -g does.
-
-    :param options: options of the runs, such as granularity=True or
+    :param options: options of the run, such as granularity=True or
         time_suffix="gran"; register_null is set as in outcome_of_runner
     """
-    options = {"register_null": True, **options}
-    reference = reference_outcome(KIND, expression, **options)
-    profile = outcome_of_runner(KIND, expression, "classic", "fb", **options)
-    assert compare(KIND, expression, reference, profile) is None
-    return reference, profile
+    return reference_outcome(KIND, expression, **{"register_null": True, **options})
 
 
 def rows(start_end_values, names=None):
@@ -204,8 +190,8 @@ def test_classic_keeps_old_granularity(datasets):
         [(start, end, number) for number, (start, end) in enumerate(MONTHS, start=1)],
         names=["N_2026_01_31", "N_2026_02_28", "N_2026_03_31"],
     )
-    for result in both("MON * 1", time_suffix="gran"):
-        assert maps(result) == expected
+    result = classic("MON * 1", time_suffix="gran")
+    assert maps(result) == expected
 
 
 def test_classic_keeps_old_granularity_in_the_granularity_mode(datasets):
@@ -231,8 +217,8 @@ def test_classic_keeps_old_granularity_in_the_granularity_mode(datasets):
     assert values.count(1) == 28
     assert values.count(2) == 31
     assert values.count(3) == 30
-    for result in both("MON * 1", granularity=True, time_suffix="gran"):
-        assert maps(result) == expected
+    result = classic("MON * 1", granularity=True, time_suffix="gran")
+    assert maps(result) == expected
 
 
 def test_classic_keeps_old_granularity_in_tsnap(datasets):
@@ -249,8 +235,8 @@ def test_classic_keeps_old_granularity_in_tsnap(datasets):
             (day(3, 31), day(4, 1), 3),
         ]
     )
-    for result in both("tsnap(INST)"):
-        assert maps(result, with_names=False) == expected
+    result = classic("tsnap(INST)")
+    assert maps(result, with_names=False) == expected
 
 
 @pytest.mark.parametrize(
@@ -272,8 +258,8 @@ def test_classic_keeps_old_granularity_in_tsnap(datasets):
 )
 def test_classic_keeps_old_gaps(datasets, expression, expected):
     """A dataset whose maps leave a gap that a longer map covers"""
-    for result in both(expression):
-        assert maps(result, with_names=False) == rows(expected)
+    result = classic(expression)
+    assert maps(result, with_names=False) == rows(expected)
 
 
 def test_classic_keeps_old_gaps_in_the_granularity(datasets):
@@ -289,33 +275,30 @@ def test_classic_keeps_old_gaps_in_the_granularity(datasets):
         ],
         names=["N_2026_01_01_00", "N_2026_01_02_00", "N_2026_01_04_12"],
     )
-    for result in both("HOURS * 1", time_suffix="gran"):
-        assert maps(result) == expected
+    result = classic("HOURS * 1", time_suffix="gran")
+    assert maps(result) == expected
 
 
 def test_classic_keeps_old_gaps_in_the_granularity_mode(datasets):
     """-g refuses maps that lie in or overlap each other"""
-    for result in both("COVER * 1", granularity=True):
-        assert result["error"] == "FatalError"
+    result = classic("COVER * 1", granularity=True)
+    assert result["error"] == "FatalError"
 
 
 def test_classic_keeps_old_start_relations(datasets):
     """starts relates a map that starts another and ends before it, not an
     equal one: equa2 + equb2 = 22 in the time of equa2"""
     expected = rows([(day(1, 10), day(1, 15), 22)])
-    for result in both("EQA {+,starts} EQB"):
-        assert maps(result, with_names=False) == expected
+    result = classic("EQA {+,starts} EQB")
+    assert maps(result, with_names=False) == expected
 
 
 def test_classic_keeps_old_start_relations_in_a_selection(datasets):
     """t.select keeps equa2, which starts equb2, and not equa1, which equals
     equb1"""
     expression = "EQA {:,starts} EQB"
-    reference = reference_outcome("select", expression)
-    profile = outcome_of_runner("select", expression, "classic", "fb")
-    assert compare("select", expression, reference, profile) is None
-    for result in (reference, profile):
-        assert maps(result) == rows([(day(1, 10), day(1, 15), 2)], names=["equa2"])
+    result = reference_outcome("select", expression)
+    assert maps(result) == rows([(day(1, 10), day(1, 15), 2)], names=["equa2"])
 
 
 def test_classic_keeps_old_week_granules(datasets):
@@ -328,8 +311,8 @@ def test_classic_keeps_old_week_granules(datasets):
         [(day(1, 3), day(1, 10), 1), (day(1, 10), day(1, 17), 2)],
         names=["N_2026_01_03", "N_2026_01_10"],
     )
-    for result in both("WEEK * 1", granularity=True, time_suffix="gran"):
-        assert maps(result) == expected
+    result = classic("WEEK * 1", granularity=True, time_suffix="gran")
+    assert maps(result) == expected
 
 
 class RowsOnly:
@@ -430,7 +413,7 @@ class LibraryCalledError(Exception):
 
 
 def test_reference_uses_the_classic_common_granule(datasets, monkeypatch):
-    """-g of the reference and of the classic profile does not reach the library
+    """-g of the reference does not reach the library
 
     Every name in a loaded module of grass.temporal that holds the library
     function is replaced by one that raises, however a module imported it.
@@ -452,9 +435,7 @@ def test_reference_uses_the_classic_common_granule(datasets, monkeypatch):
     # The reference runs here, not from the corpus, which would not reach it.
     expression = "EQA + EQB"
     reference = outcome_of_runner(KIND, expression, "reference", "fa", granularity=True)
-    profile = outcome_of_runner(KIND, expression, "classic", "fb", granularity=True)
     core = outcome_of_runner(KIND, expression, "core", "fc", granularity=True)
 
-    assert compare(KIND, expression, reference, profile) is None
     assert maps(reference)
     assert core["error"] == "Other:LibraryCalledError"

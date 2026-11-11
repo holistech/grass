@@ -17,20 +17,19 @@ def relative_maps(algebra, expression, **kwargs):
 
 
 @pytest.mark.parametrize(
-    ("expression", "classic", "expected"),
+    ("expression", "expected"),
     [
-        ("RT * 2", None, [(0, 1, 2), (1, 2, 4), (2, 3, 6)]),
-        ("RT + RT", None, [(0, 1, 2), (1, 2, 4), (2, 3, 6)]),
-        ("RT : RT", None, [(0, 1, 1), (1, 2, 2), (2, 3, 3)]),
-        ("RT[1]", None, [(0, 1, 2), (1, 2, 3)]),
+        ("RT * 2", [(0, 1, 2), (1, 2, 4), (2, 3, 6)]),
+        ("RT + RT", [(0, 1, 2), (1, 2, 4), (2, 3, 6)]),
+        ("RT : RT", [(0, 1, 1), (1, 2, 2), (2, 3, 3)]),
+        ("RT[1]", [(0, 1, 2), (1, 2, 3)]),
         # without else x1 is 0
-        ("if(RT > 1, RT)", None, [(0, 1, 0), (1, 2, 2), (2, 3, 3)]),
+        ("if(RT > 1, RT)", [(0, 1, 0), (1, 2, 2), (2, 3, 3)]),
     ],
 )
-def test_relative_time_is_kept(algebra, expression, classic, expected):
-    """The maps keep their relative time stamps; classic None follows
-    GRASS_TEMPORAL_ALGEBRA where both algebras agree"""
-    assert relative_maps(algebra, expression, classic=classic) == expected
+def test_relative_time_is_kept(algebra, expression, expected):
+    """The maps keep their relative time stamps"""
+    assert relative_maps(algebra, expression) == expected
 
 
 def test_relative_buffer_and_shift(algebra):
@@ -47,7 +46,6 @@ def test_relative_buffer_and_shift(algebra):
     ]
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     "expression",
     [
@@ -75,7 +73,6 @@ def test_buffer_of_the_wrong_kind_is_a_syntax_error(algebra, expression):
     assert not algebra.exists()
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("increment", "expected"),
     [

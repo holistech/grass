@@ -14,12 +14,6 @@ here use equal, double quotes and start_date, which the figures need.
 
 import pytest
 
-from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
-
-# Every test runs on the algebra core, whatever GRASS_TEMPORAL_ALGEBRA says,
-# see the marker in pyproject.toml.
-pytestmark = pytest.mark.fixed_algebra
-
 A1 = "(A1A {+,contains,l} A1B) {/,equal,l} (A1A {#,contains,l} A1B)"
 
 
@@ -136,10 +130,9 @@ EXAMPLES = {
 }  # fmt: skip
 
 
-def outcome(paper, monkeypatch, name):
+def outcome(paper, name):
     """The maps of an example on the core as (start, end, value), or the error name"""
     expression, spatial, _maps = EXAMPLES[name]
-    monkeypatch.setenv(ALGEBRA_VARIABLE, "core")
     # Each example starts in the base region of the fixture (PAPER_REGION).
     paper.tools.g_region(n=3, s=0, e=3, w=0, res=1)
     try:
@@ -159,5 +152,5 @@ def outcome(paper, monkeypatch, name):
 
 
 @pytest.mark.parametrize("name", list(EXAMPLES))
-def test_core_computes_the_published_maps(paper, monkeypatch, name):
-    assert outcome(paper, monkeypatch, name) == EXAMPLES[name][2]
+def test_core_computes_the_published_maps(paper, name):
+    assert outcome(paper, name) == EXAMPLES[name][2]

@@ -7,7 +7,7 @@ unless -n is given. Under -s r.mapcalc computes in the union of the regions of
 its inputs instead, and the copy keeps its data (measured 24.10.2026 with a
 selection under -s on the reference implementation grass.temporal.classic, the
 classic profile and the core). Decision of 24.10.2026: the results stay as they
-are, the core and the classic profile warn and name each such copy.
+are, and the algebra warns and names each such copy.
 
 The maps are single cells of 10 by 10 units. Boxes (x range, y range) and
 times (2001-01-DD):
@@ -26,8 +26,8 @@ z1     null   0..10, 0..10        01.-02.01.
 
 A holds a1 to a3, B holds b1, Z holds z1 and P holds a2. Every map of A, Z
 and P precedes b1, so "X {:,precedes,r} B" copies each of them with the time
-of b1, 02.-03.01., and "X {:,precedes} B" with its own time; one copy per map
-in the core and in the classic profile alike, as B has one map.
+of b1, 02.-03.01., and "X {:,precedes} B" with its own time; one copy per map,
+as B has one map.
 
 Q holds a1 and a4, W holds w1. The box of w1 contains those of a1 and a4,
 so both are related to w1 in space as well, and "Q {:,precedes,r} W" under
@@ -42,9 +42,6 @@ import pytest
 from grass.temporal.testing.data import MapSpec, day, make_map, register_stds
 from grass.temporal.testing.readback import list_maps, message
 from grass.tools import Tools
-
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = pytest.mark.fixed_algebra
 
 # name: (value, west, east, south, north, first day, last day)
 MAPS = {
@@ -64,7 +61,6 @@ DATASETS = {
     "Q": ["a1", "a4"],
     "W": ["w1"],
 }
-FLAGS = {"core": "", "classic": "c"}
 WARNING = re.compile(
     r"Map <(\S+)> is empty in the current region and is not registered; it "
     r"copies <(\S+)>, which has data outside the region\. Set the region with "
@@ -91,13 +87,13 @@ def maps(xy_module_session):
     return SimpleNamespace(tools=tools, mapset=tools.g_gisenv(get="MAPSET").text)
 
 
-def run(tools, name, expression, runner, *, flags=""):
+def run(tools, name, expression, *, flags=""):
     """Run t.rast.algebra; return its messages and the (value, start, end) of
     the registered maps, sorted, with -1 for a map without data"""
     result = tools.t_rast_algebra(
         expression=f"{name} = {expression}",
         basename=name.lower(),
-        flags=FLAGS[runner] + flags,
+        flags=flags,
     )
     rows = list_maps(tools, "strds", name)
     registered = sorted(
@@ -107,7 +103,6 @@ def run(tools, name, expression, runner, *, flags=""):
     return message(result), registered
 
 
-@pytest.mark.parametrize("runner", ["core", "classic"])
 @pytest.mark.parametrize(
     ("label", "expression", "start", "end"),
     [
@@ -117,9 +112,7 @@ def run(tools, name, expression, runner, *, flags=""):
         ("own", "A {:,precedes} B", "2001-01-01", "2001-01-02"),
     ],
 )
-def test_a_copy_outside_the_region_is_reported(
-    maps, runner, label, expression, start, end
-):
+def test_a_copy_outside_the_region_is_reported(maps, label, expression, start, end):
     # The region covers the box of a1 only. The copy of a1 holds 1; those of a2
     # and a3 lie outside the region, come out without data and are not
     # registered. That is what the reference, the classic profile and the core
@@ -127,8 +120,8 @@ def test_a_copy_outside_the_region_is_reported(
     # of the spatial touch tests and a region over their a1: only the copy of
     # a1).
     maps.tools.g_region(w=0, e=10, s=0, n=10, res=10)
-    name = f"OUT_{label}_{runner}"
-    text, registered = run(maps.tools, name, expression, runner)
+    name = f"OUT_{label}"
+    text, registered = run(maps.tools, name, expression)
     assert registered == [(1, start, end)]
     reported = {source: copy for copy, source in WARNING.findall(text)}
     assert set(reported) == {f"a2@{maps.mapset}", f"a3@{maps.mapset}"}
@@ -140,14 +133,11 @@ def test_a_copy_outside_the_region_is_reported(
         assert not maps.tools.g_list(type="raster", pattern=copy_name).stdout.split()
 
 
-@pytest.mark.parametrize("runner", ["core", "classic"])
-def test_a_copy_under_s_keeps_its_data(maps, runner):
+def test_a_copy_under_s_keeps_its_data(maps):
     # Under -s r.mapcalc computes in the union of the regions of its inputs,
     # so the copy of a4 keeps its value 4 although the region covers a1 only.
     maps.tools.g_region(w=0, e=10, s=0, n=10, res=10)
-    text, registered = run(
-        maps.tools, f"SPATIAL_{runner}", "Q {:,precedes,r} W", runner, flags="s"
-    )
+    text, registered = run(maps.tools, "SPATIAL", "Q {:,precedes,r} W", flags="s")
     assert registered == [
         (1, "2001-01-02", "2001-01-03"),
         (4, "2001-01-02", "2001-01-03"),
@@ -155,10 +145,9 @@ def test_a_copy_under_s_keeps_its_data(maps, runner):
     assert "is empty in the current region" not in text
 
 
-@pytest.mark.parametrize("runner", ["core", "classic"])
-def test_a_copy_inside_the_region_is_not_reported(maps, runner):
+def test_a_copy_inside_the_region_is_not_reported(maps):
     maps.tools.g_region(w=0, e=110, s=0, n=110, res=10)
-    text, registered = run(maps.tools, f"IN_{runner}", "A {:,precedes,r} B", runner)
+    text, registered = run(maps.tools, "IN", "A {:,precedes,r} B")
     assert registered == [
         (1, "2001-01-02", "2001-01-03"),
         (2, "2001-01-02", "2001-01-03"),
@@ -167,13 +156,10 @@ def test_a_copy_inside_the_region_is_not_reported(maps, runner):
     assert "is empty in the current region" not in text
 
 
-@pytest.mark.parametrize("runner", ["core", "classic"])
-def test_a_kept_empty_copy_is_not_reported(maps, runner):
+def test_a_kept_empty_copy_is_not_reported(maps):
     # With -n the copies of a2 and a3 are registered without data.
     maps.tools.g_region(w=0, e=10, s=0, n=10, res=10)
-    text, registered = run(
-        maps.tools, f"KEPT_{runner}", "A {:,precedes,r} B", runner, flags="n"
-    )
+    text, registered = run(maps.tools, "KEPT", "A {:,precedes,r} B", flags="n")
     assert registered == [
         (-1, "2001-01-02", "2001-01-03"),
         (-1, "2001-01-02", "2001-01-03"),
@@ -182,22 +168,20 @@ def test_a_kept_empty_copy_is_not_reported(maps, runner):
     assert "is empty in the current region" not in text
 
 
-@pytest.mark.parametrize("runner", ["core", "classic"])
-def test_a_copy_of_an_empty_map_is_not_reported(maps, runner):
+def test_a_copy_of_an_empty_map_is_not_reported(maps):
     # z1 lies in the region but has no data, so its copy has none either and
     # is dropped; the region is not the cause.
     maps.tools.g_region(w=0, e=110, s=0, n=110, res=10)
-    text, registered = run(maps.tools, f"NULL_{runner}", "Z {:,precedes,r} B", runner)
+    text, registered = run(maps.tools, "NULL", "Z {:,precedes,r} B")
     assert registered == []
     assert "Empty result space time dataset" in text
     assert "is empty in the current region" not in text
 
 
-@pytest.mark.parametrize("runner", ["core", "classic"])
-def test_a_map_partly_inside_the_region_is_not_reported(maps, runner):
+def test_a_map_partly_inside_the_region_is_not_reported(maps):
     # The region covers the western half of the box of a2 in cells of 5
     # units, which r.mapcalc fills with the value 2 of a2.
     maps.tools.g_region(w=100, e=105, s=0, n=10, res=5)
-    text, registered = run(maps.tools, f"PART_{runner}", "P {:,precedes,r} B", runner)
+    text, registered = run(maps.tools, "PART", "P {:,precedes,r} B")
     assert registered == [(2, "2001-01-02", "2001-01-03")]
     assert "is empty in the current region" not in text

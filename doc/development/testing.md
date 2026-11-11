@@ -264,48 +264,17 @@ Each test module gets its own session, also when several directories run in
 one pytest call. A `conftest.py` in a `tests` directory that defines a
 fixture with the same name takes precedence over the shared one.
 
-Tools which have both a classic and a core algebra run on the one chosen by
-the environment variable `GRASS_TEMPORAL_ALGEBRA`; unset or empty means the
-core, and a value other than `core` and `classic` is an error. The fixture
-`algebra_setting` is parametrized over `core` and `classic` and returns the
-name. It is not applied automatically; a directory which wants both
-algebras writes an autouse fixture which requests it and sets the variable
-in the session environment the tools use:
+### Comparing the algebra core with the reference implementation
 
-```python
-from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
+The reference implementation, `grass.temporal.classic`, is the implementation
+of the temporal algebra of the releases up to GRASS 8.5. The private helper
+`grass.temporal.testing.reference` reaches it. Its function
+`run_reference(kind, expression, basename=..., **options)` computes an
+expression like the parse method of the public parser classes, for the kinds
+`raster`, `raster3d`, `vector` and `select`. Do not use it outside tests.
 
-
-@pytest.fixture(autouse=True)
-def algebra(xy_module_session, algebra_setting):
-    xy_module_session.env[ALGEBRA_VARIABLE] = algebra_setting
-    yield algebra_setting
-    xy_module_session.env.pop(ALGEBRA_VARIABLE, None)
-```
-
-In a directory whose tools read `GRASS_TEMPORAL_ALGEBRA`, a test which selects
-the algebra itself, for example by running both and comparing them, carries
-`@pytest.mark.fixed_algebra`. The marker only labels the test; it does not
-select anything. The test picks its algebra itself and so runs once whatever
-`GRASS_TEMPORAL_ALGEBRA` says. A run that wants every test once, such as the
-classic run, selects with `-m "not fixed_algebra"`.
-
-### Comparing the classic profile with the reference implementation
-
-`-c` and `GRASS_TEMPORAL_ALGEBRA=classic` compute on the classic profile of
-the algebra core. The reference implementation, `grass.temporal.classic`, is
-the implementation of the classic algebra that is older than the profile. It
-stays in the repository for good, because publications refer to its results,
-and the profile has to reproduce them completely. The reference has no switch
-and no value of `GRASS_TEMPORAL_ALGEBRA`; the private helper
-`grass.temporal.testing.reference` reaches it, whatever the variable and the
-`classic` argument say. Its function `run_reference(kind, expression,
-basename=..., **options)` computes an expression like the parse method of
-the public parser classes, for the kinds `raster`, `raster3d`, `vector` and
-`select`. Do not use it outside tests.
-
-The tests that compare the outcome of the profile or the core with that of
-the reference do not run it. The module `grass.temporal.testing.corpus` holds
+The tests that compare the outcome of the core with that of the reference do
+not run it. The module `grass.temporal.testing.corpus` holds
 what the reference computed for each such case of the test suite, and
 `reference_outcome(kind, expression, **options)` returns the stored outcome.
 With `GRASS_TEMPORAL_REFERENCE=live` the reference runs instead, and a case
@@ -314,8 +283,8 @@ fails where it no longer computes what the corpus holds;
 docstring describes. The corpus key hangs on the node id of the test: a test
 that is renamed or moved finds no entry and fails, and its old entries stay in
 the corpus as orphans. Record the corpus again for a renamed test. To find
-orphans, run the tests in both settings of the algebra with
-`GRASS_TEMPORAL_CORPUS_TRACE_DIR` set to an empty directory; then
+orphans, run the tests with `GRASS_TEMPORAL_CORPUS_TRACE_DIR` set to an
+empty directory; then
 `python3 -m grass.temporal.testing.corpus_orphans <directory>` lists the
 entries that no test read. Tests of the reference itself, tests that check it
 against values derived by hand, and the comparisons of the planned chain and
@@ -326,22 +295,12 @@ tests that came from the former gunittest files
 from `grass.temporal.testing.algebra_cases`.
 
 The module `grass.temporal.testing.expressions` generates seeded random
-expressions of the classic grammar, runs them with two of the runners of
-`grass.temporal.testing.differential` (the reference, the classic profile
-and the core) and compares the error class or the registered maps, with
-their time stamps and values. The same seed gives the same expression, so a
-difference can be reproduced from its seed alone. The test modules
-`*_fuzz_test.py` of the four tools run the seeds 0 to 199 per kind in the
-normal run; they carry the marker `slow`, which `-m "not slow"` deselects, and
-`fixed_algebra`. Two variables widen a run for an acceptance; with either of
-them set, the tests compute on the reference instead of reading the corpus:
+expressions, runs them with the runners of `grass.temporal.testing.differential`
+(the reference and the core) and compares the error class or the registered
+maps, with their time stamps and values. The same seed gives the same
+expression, so a difference can be reproduced from its seed alone.
 
-```bash
-GRASS_TEMPORAL_FUZZ_COUNT=4000 GRASS_TEMPORAL_FUZZ_SEED=0 \
-    pytest temporal/t.rast.algebra/tests/t_rast_algebra_fuzz_test.py
-```
-
-Outside pytest, the module writes one JSON line per expression, so that a
+Run as a script, the module writes one JSON line per expression, so that a
 run before and after a change can be compared:
 
 ```bash
@@ -351,15 +310,7 @@ python3 -m grass.temporal.testing.expressions --kind raster \
 python3 -m grass.temporal.testing.expressions --diff before.jsonl after.jsonl
 ```
 
-An expression on which the reference and the classic profile differ is an
-error of the profile, unless it is a documented difference: message texts,
-debug output, the class of the error of an invalid expression (the profile
-reads the whole expression first and reports the syntax error), and a
-relation over a list of absolute and relative time (the reference stops with a
-`TypeError`). The section "Differences from the reference implementation" of
-the _t.rast.algebra_ manual describes them; two more, the time of a partner
-whose box only touches and the `CalledModuleError` of a failed module, are
-items 16 and 17 of its corrections. The module docstring lists the options.
+The module docstring lists the options.
 
 ### Recordings of the library
 

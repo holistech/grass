@@ -1,19 +1,15 @@
 """Comparison of the algebra core with the classic algebra for 3D rasters
 
-Both algebras compute each expression; the registered maps (start, end,
-minimum, maximum) must agree, except for the differences that the manual
-lists between the core and the classic algebra.
+The outcome of the classic algebra is that of the reference implementation
+(grass.temporal.classic), which runs in each test. The registered maps
+(start, end, minimum and maximum, rounded to 6 significant digits) must agree,
+except for the differences that the manual lists between the core and the
+releases before GRASS 8.6.
 """
-
-import itertools
 
 import pytest
 
-import grass.temporal as tgis
-from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 from grass.temporal.testing import differential
-from grass.temporal.testing.corpus import reference_outcome
-from grass.temporal.testing.reference import setup_granularity
 
 SAME = [
     "A + B",
@@ -45,8 +41,8 @@ SAME = [
 
 # Each changed rule with a short form of its item in the list of differences
 # in the manual, and what the core gives: "maps" for registered maps, which
-# may be none, or the name of the error. A crash of the core then does not
-# pass for a difference.
+# may be none, or the class of the error as differential.outcome() names it.
+# A crash of the core then does not pass for a difference.
 DIFFERENT = {
     # Where a negative buffer leaves a map no time, the core stops with an
     # error. The classic algebra stores an instant when the end equals the
@@ -55,11 +51,11 @@ DIFFERENT = {
     # 3D algebra takes the same classic code path, buff_t() calling
     # temporal_buffer() of the map dataset.
     'buff_t(W, "-1 day")': (
-        "ValueError",
+        "Other:ValueError",
         "a negative buffer must leave every map some time (end == start)",
     ),
     'buff_t(A, "-1 day")': (
-        "ValueError",
+        "Other:ValueError",
         "a negative buffer must leave every map some time (end < start)",
     ),
     "W {:,contains,r} A": (
@@ -72,13 +68,13 @@ DIFFERENT = {
     ),
     "if({during}, A > 1, W, 0)": ("maps", "one result per conclusion map"),
     "if(A > 2, A, W)": (
-        "ValueError",
+        "Other:ValueError",
         "then and else of a map condition need equal time stamps",
     ),
 }
 
 # The granularity mode (-g) samples each dataset with the common granularity
-# of the expression before both algebras compute it.
+# of the expression before the reference and the core compute it.
 GRANULARITY_SAME = [
     # W has maps of two days, so that each counts for two days of A.
     "A + W",
@@ -100,109 +96,65 @@ GRANULARITY_DIFFERENT = {
 }
 
 
-counter = itertools.count()
+def without_names(result):
+    """The outcome without the names of the maps
 
-
-def rows(name):
-    """Start, end, minimum and maximum of each map of a space time dataset"""
-    dataset = tgis.open_old_stds(name, "str3ds")
-    result = []
-    for map_ in dataset.get_registered_maps_as_objects(order="start_time") or []:
-        map_.select()
-        start, end = map_.get_absolute_time()
-        result.append((start, end, map_.metadata.get_min(), map_.metadata.get_max()))
+    The reference counts the maps in another order and with gaps, so the
+    names differ, as in ``merge(A, D)`` (N_0, N_4, N_6 in the reference,
+    N_0, N_1, N_5 in the core, seen 11.11.2026). The comparison of the core
+    with the classic profile, which this test made before, did not read the
+    names either.
+    """
+    if "maps" in result:
+        result = {**result, "maps": [[None, *row[1:]] for row in result["maps"]]}
     return result
 
 
-def outcome(monkeypatch, expression, algebra, granularity=False):
-    """The registered maps, or the name of the error
-
-    algebra is "core" or "classic" (the profile).
-    """
-    monkeypatch.setenv(ALGEBRA_VARIABLE, algebra)
-    # Every run has its own result name: a result of an earlier expression
-    # would otherwise stand in for the empty result of this one.
-    name = f"diff_{algebra}_{next(counter)}"
-    options = {"run": True, "debug": False, "register_null": True}
-    parser = tgis.TemporalRaster3DAlgebraParser(**options)
-    statement = f"{name} = {expression}"
-    if granularity:
-        setup_granularity(parser, "raster3d", statement)
-    try:
-        parser.parse(statement, name, True)
-    except (SyntaxError, ValueError, TypeError, tgis.FatalError) as error:
-        return type(error).__name__
-    return rows(name)
-
-
-# The result of the reference implementation (grass.temporal.classic) comes
-# from the recorded corpus, which stores the form of differential.outcome(), so
-# the profile is read in that form as well. That form rounds minimum and
-# maximum to 6 significant digits, so this comparison is coarser than the one
-# of the core with the profile, which outcome() above reads in full.
-def profile_difference(expression, **options):
-    """What compare() finds between the reference and -c"""
+def outcomes(expression, **options):
+    """The outcomes of the reference and of the core, without map names"""
     options = {"register_null": True, **options}
-    reference = reference_outcome("raster3d", expression, **options)
-    profile = differential.outcome(
-        "raster3d",
-        expression,
-        differential.RUNNERS["classic"],
-        basename="fb",
-        **options,
+    return tuple(
+        without_names(
+            differential.outcome(
+                "raster3d",
+                expression,
+                differential.RUNNERS[runner],
+                basename=basename,
+                **options,
+            )
+        )
+        for runner, basename in (("reference", "fa"), ("core", "fb"))
     )
-    return differential.compare("raster3d", expression, reference, profile)
+
+
+def kind(core):
+    """The class of the error of the core, or "maps" without an error"""
+    return core.get("error", "maps")
 
 
 @pytest.mark.parametrize("expression", SAME)
-@pytest.mark.fixed_algebra
-def test_same_result(series_3d, monkeypatch, expression):
-    assert outcome(monkeypatch, expression, "core") == outcome(
-        monkeypatch, expression, "classic"
-    )
+def test_same_result(series_3d, expression):
+    reference, core = outcomes(expression)
+    assert differential.compare("raster3d", expression, reference, core) is None
 
 
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
-@pytest.mark.fixed_algebra
-def test_listed_differences_still_differ(series_3d, monkeypatch, expression):
+def test_listed_differences_still_differ(series_3d, expression):
     """A listed difference that no longer differs must leave the list"""
-    core = outcome(monkeypatch, expression, "core")
-    assert core != outcome(monkeypatch, expression, "classic")
-    assert ("maps" if isinstance(core, list) else core) == DIFFERENT[expression][0]
+    reference, core = outcomes(expression)
+    assert differential.compare("raster3d", expression, reference, core) is not None
+    assert kind(core) == DIFFERENT[expression][0]
 
 
 @pytest.mark.parametrize("expression", GRANULARITY_SAME)
-@pytest.mark.fixed_algebra
-def test_granularity_same_result(series_3d, monkeypatch, expression):
-    assert outcome(monkeypatch, expression, "core", granularity=True) == outcome(
-        monkeypatch, expression, "classic", granularity=True
-    )
+def test_granularity_same_result(series_3d, expression):
+    reference, core = outcomes(expression, granularity=True)
+    assert differential.compare("raster3d", expression, reference, core) is None
 
 
 @pytest.mark.parametrize("expression", sorted(GRANULARITY_DIFFERENT))
-@pytest.mark.fixed_algebra
-def test_granularity_listed_differences_still_differ(
-    series_3d, monkeypatch, expression
-):
+def test_granularity_listed_differences_still_differ(series_3d, expression):
     """A listed difference that no longer differs must leave the list"""
-    core = outcome(monkeypatch, expression, "core", granularity=True)
-    assert core != outcome(monkeypatch, expression, "classic", granularity=True)
-    assert ("maps" if isinstance(core, list) else core) == GRANULARITY_DIFFERENT[
-        expression
-    ][0]
-
-
-@pytest.mark.parametrize("expression", [*SAME, *sorted(DIFFERENT)])
-@pytest.mark.fixed_algebra
-def test_profile_equals_reference(series_3d, expression):
-    """-c computes what the reference of the classic algebra computed, also
-    where the core differs"""
-    assert profile_difference(expression) is None
-
-
-@pytest.mark.parametrize(
-    "expression", [*GRANULARITY_SAME, *sorted(GRANULARITY_DIFFERENT)]
-)
-@pytest.mark.fixed_algebra
-def test_granularity_profile_equals_reference(series_3d, expression):
-    assert profile_difference(expression, granularity=True) is None
+    reference, core = outcomes(expression, granularity=True)
+    assert differential.compare("raster3d", expression, reference, core) is not None
+    assert kind(core) == GRANULARITY_DIFFERENT[expression][0]

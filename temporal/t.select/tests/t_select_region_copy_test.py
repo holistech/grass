@@ -20,7 +20,7 @@ b1     11     0..10, 0..10        02.-03.01.
 
 A holds a1 to a3, B holds b1. Every map of A precedes b1, so
 "A {:,precedes,r} B" copies each of them with the time of b1, 02.-03.01., one
-copy per map in the core and in the classic profile alike, as B has one map.
+one copy per map, as B has one map.
 Because conftest.py already makes the datasets A and B and the maps a1 to b9,
 the datasets here are called RA and RB and the maps ra1 to rb1.
 """
@@ -57,12 +57,12 @@ def copies(series):
     return series.session
 
 
-def test_a_copy_outside_the_region_keeps_its_data(copies, algebra):
+def test_a_copy_outside_the_region_keeps_its_data(copies):
     # The region covers the box of ra1 only; g.copy copies ra2 and ra3 all
     # the same, with their values.
     tools = Tools(session=copies, consistent_return_value=True, capture_stderr=True)
     tools.g_region(w=0, e=10, s=0, n=10, res=10)
-    name = f"OUT_{algebra}"
+    name = "OUT"
     result = tools.t_select(expression=f"{name} = RA {{:,precedes,r}} RB")
     registered = sorted(
         (row.min, row.start[:10], row.end[:10])

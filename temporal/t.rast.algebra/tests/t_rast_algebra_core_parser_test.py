@@ -1,26 +1,9 @@
-"""Tests for the parser of t.rast.algebra on the algebra core
-
-The environment variable GRASS_TEMPORAL_ALGEBRA selects "core" or
-"classic"; these tests set it explicitly, so they hold for either default.
-"""
+"""Tests for the parser of t.rast.algebra on the algebra core"""
 
 import pytest
 
 import grass.temporal as tgis
 from grass.exceptions import FatalError
-from grass.temporal.algebra.parser.switch import classic_selected
-
-VARIABLE = "GRASS_TEMPORAL_ALGEBRA"
-
-
-@pytest.fixture
-def core(monkeypatch):
-    monkeypatch.setenv(VARIABLE, "core")
-
-
-@pytest.fixture
-def classic(monkeypatch):
-    monkeypatch.setenv(VARIABLE, "classic")
 
 
 def expression_of(chain):
@@ -28,7 +11,7 @@ def expression_of(chain):
     return dict(process["inputs"])["expression"]
 
 
-def test_dry_run_gives_the_process_chain(algebra, core):
+def test_dry_run_gives_the_process_chain(algebra):
     chain = algebra.parse("A * 2", dry_run=True)
     assert set(chain) == {"processes", "register", "remove", "STDS"}
     assert expression_of(chain) == '"r_0"=("a1@PERMANENT" * 2)'
@@ -42,7 +25,7 @@ def test_dry_run_gives_the_process_chain(algebra, core):
     assert not algebra.exists()
 
 
-def test_dry_run_refuses_an_existing_result_as_the_run(algebra, core):
+def test_dry_run_refuses_an_existing_result_as_the_run(algebra):
     """Without overwrite a dry run stops where the run would stop: at the
     existing dataset, and at an existing map of a new dataset"""
     algebra.parse("A * 2", basename="r_dry")
@@ -56,67 +39,14 @@ def test_dry_run_refuses_an_existing_result_as_the_run(algebra, core):
 
 
 @pytest.mark.parametrize(("overwrite", "flags"), [(True, ["overwrite"]), (False, [])])
-def test_dry_run_flags_tell_overwrite(algebra, core, overwrite, flags):
+def test_dry_run_flags_tell_overwrite(algebra, overwrite, flags):
     algebra.remove("R")
     parser = tgis.TemporalRasterAlgebraParser(run=True, debug=False, dry_run=True)
     chain = parser.parse("R = A * 2", "r_flags", overwrite)
     assert [process["flags"] for process in chain["processes"]] == [flags] * 4
 
 
-@pytest.mark.fixed_algebra
-def test_core_is_the_default(algebra, monkeypatch):
-    monkeypatch.delenv(VARIABLE, raising=False)
-    chain = algebra.parse("A * 2", dry_run=True)
-    assert '"r_0"' in expression_of(chain)
-
-
-@pytest.mark.fixed_algebra
-def test_an_empty_variable_selects_the_core(algebra, monkeypatch):
-    """A script that writes GRASS_TEMPORAL_ALGEBRA= means no choice"""
-    monkeypatch.setenv(VARIABLE, "")
-    assert not classic_selected(None)
-    chain = algebra.parse("A * 2", dry_run=True)
-    assert '"r_0"' in expression_of(chain)
-
-
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize("value", [" ", "\t"])
-def test_a_value_that_only_looks_empty_is_refused(algebra, monkeypatch, value):
-    """Whitespace is more likely a mistake than an empty choice"""
-    monkeypatch.setenv(VARIABLE, value)
-    with pytest.raises(ValueError, match="core or classic"):
-        classic_selected(None)
-    with pytest.raises(ValueError, match="core or classic"):
-        algebra.parse("A * 2", dry_run=True)
-
-
-@pytest.mark.fixed_algebra
-def test_classic_selects_the_classic_profile(algebra, classic):
-    """The profile writes the r.mapcalc text of the classic algebra: the names
-    unquoted"""
-    chain = algebra.parse("A * 2", dry_run=True)
-    assert expression_of(chain) == "r_0=(a1@PERMANENT * 2)"
-
-
-@pytest.mark.fixed_algebra
-def test_keyword_takes_precedence_over_the_variable(algebra, monkeypatch):
-    monkeypatch.setenv(VARIABLE, "core")
-    chain = algebra.parse("A * 2", dry_run=True, classic=True)
-    assert expression_of(chain) == "r_0=(a1@PERMANENT * 2)"
-    monkeypatch.setenv(VARIABLE, "classic")
-    chain = algebra.parse("A * 2", dry_run=True, classic=False)
-    assert '"r_0"' in expression_of(chain)
-
-
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize("value", ["other", "bogus"])
-def test_unknown_parser_is_an_error(algebra, monkeypatch, value):
-    monkeypatch.setenv(VARIABLE, value)
-    with pytest.raises(ValueError, match="core or classic"):
-        algebra.parse("A * 2", dry_run=True)
-
-
-def test_run_computes_and_registers(algebra, core):
+def test_run_computes_and_registers(algebra):
     assert algebra.triples("B {:,contains,r} A") == [
         (1, 2, 5),
         (2, 3, 5),
@@ -125,7 +55,7 @@ def test_run_computes_and_registers(algebra, core):
     ]
 
 
-def test_without_run_only_the_syntax_is_checked(algebra, core):
+def test_without_run_only_the_syntax_is_checked(algebra):
     parser = tgis.TemporalRasterAlgebraParser(run=False, debug=False)
     assert parser.parse("R = no_such_dataset + 1", "r", True) == {
         "processes": [],
@@ -137,7 +67,7 @@ def test_without_run_only_the_syntax_is_checked(algebra, core):
         parser.parse("R = A +", "r", True)
 
 
-def test_granularity_mode_runs_the_core(algebra, core):
+def test_granularity_mode_runs_the_core(algebra):
     """B has maps of two days; sampled by the day of A, each counts for two
     days, so that A + B has a map for each of the four days"""
     chain = algebra.parse("A + B", dry_run=True, granularity=True)
@@ -148,26 +78,17 @@ def test_granularity_mode_runs_the_core(algebra, core):
     ]
 
 
-@pytest.mark.fixed_algebra
-def test_granularity_mode_runs_the_classic_algebra_when_chosen(algebra, classic):
-    chain = algebra.parse("A + B", dry_run=True, granularity=True)
-    # The classic algebra neither quotes map names nor numbers its results
-    # this way.
-    assert '"r_0"' not in expression_of(chain)
-    assert len(chain["register"]) == 4
-
-
-def test_debug_prints_the_module_calls(algebra, core, capsys):
+def test_debug_prints_the_module_calls(algebra, capsys):
     algebra.parse("A * 2", dry_run=True, debug=True)
     assert 'r.mapcalc expression="r_0"=("a1@PERMANENT" * 2)' in capsys.readouterr().out
 
 
-def test_empty_result_creates_an_empty_dataset(algebra, core):
+def test_empty_result_creates_an_empty_dataset(algebra):
     assert algebra.run("if(td(A) > 5, A)") == []
     assert algebra.exists()
 
 
-def test_pairing_error_reaches_the_caller(algebra, core):
+def test_pairing_error_reaches_the_caller(algebra):
     """Two maps of one time cannot be paired with the four maps of E"""
     tools = algebra.tools
     tools.r_mapcalc(expression="e2a = 1")
@@ -180,16 +101,11 @@ def test_pairing_error_reaches_the_caller(algebra, core):
         algebra.run("if(start_day(E2) == 1, E)")
 
 
-@pytest.mark.fixed_algebra
-def test_spatial_relations_agree_with_the_earlier_parser(
-    algebra, monkeypatch, large_region
-):
+def test_spatial_relations_build_the_topology_also_without_s(algebra, large_region):
     """The name of a spatial relation builds the spatial topology with and
-    without -s, in the classic profile and in the core"""
+    without -s. spa<i> and spb<i> are spatially equal, so each pair adds up
+    to 2 * i."""
     expression = "SA {+,equal|equivalent} SB"
-    monkeypatch.setenv(VARIABLE, "classic")
     expected = algebra.run(expression, spatial=True)
-    assert algebra.run(expression) == expected
-    monkeypatch.setenv(VARIABLE, "core")
-    assert algebra.run(expression, spatial=True) == expected
+    assert [row.min for row in expected] == [2, 4, 6, 8]
     assert algebra.run(expression) == expected

@@ -358,7 +358,7 @@ def check_case(
     """Run an expression with a runner and compare the result with the case
 
     :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``
-    :param runner: ``"reference"``, ``"classic"`` or ``"core"``
+    :param runner: ``"reference"`` or ``"core"``
     :param expression: The right hand side, run as ``R = <expression>``
     :param expected: See the module docstring; dates are ``"2001-01-02"`` or,
         off midnight, ``"2001-01-02T12:00:00"``; an instant has the end None

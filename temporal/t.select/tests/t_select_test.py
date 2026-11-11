@@ -499,14 +499,10 @@ def test_select_from_dataset_in_other_mapset(series):
     assert run_select(series.session, "A : X@other") == [("a2", 10, 20), ("a4", 30, 40)]
 
 
-def test_select_from_dataset_in_other_mapset_needs_mapset_name(series, algebra):
-    """A dataset name without mapset refers to the current mapset only in the
-    classic algebra; the core also looks in the search path, which holds the
-    mapset "other" of X."""
-    if algebra == "classic":
-        select_fails(series.session, "A : X", match="not found")
-    else:
-        assert run_select(series.session, "A : X") == [("a2", 10, 20), ("a4", 30, 40)]
+def test_select_from_dataset_in_other_mapset_without_mapset_name(series):
+    """A dataset name without mapset is looked up in the search path too,
+    which holds the mapset "other" of X."""
+    assert run_select(series.session, "A : X") == [("a2", 10, 20), ("a4", 30, 40)]
 
 
 def test_select_from_other_mapset_on_the_left(series):
@@ -614,9 +610,9 @@ def test_existing_result_is_replaced_with_overwrite(series):
 
 
 def test_existing_result_without_overwrite_prints_one_error(series):
-    """The refusal is printed once on both algebras. With the messenger in
-    raise mode the classic algebra printed it twice, the library message and
-    again the tool's own (measured 2026-10-14)."""
+    """The refusal is printed once. With the messenger in raise mode the
+    reference implementation printed it twice, the library message and again
+    the tool's own (measured 2026-10-14)."""
     Tools(session=series.session, overwrite=True).t_select(expression="once = A : B")
     refusing = Tools(
         session=series.session,
@@ -711,41 +707,16 @@ def test_blank_before_temporal_operator(series):
     assert [(start, end) for _, start, end in rows] == [(5, 45)] * 3
 
 
-def test_classic_flag_overrides_the_variable(series):
-    """-c runs the classic algebra even when the variable asks for the core"""
-    tools = Tools(session=series.session, overwrite=True)
-    env = dict(series.session.env, GRASS_TEMPORAL_ALGEBRA="core")
-    # A fresh name per run: the copies of the first run stay in the mapset.
-    result = f"flagged{next(result_counter)}"
-    tools.t_select(expression=f"{result} = A {{:,during,r}} D", flags="c", env=env)
-    names = [
-        row["name"]
-        for row in tools.t_rast_list(input=result, columns="name", format="json")[
-            "data"
-        ]
-    ]
-    assert sorted(names) == [f"{result}_1", f"{result}_2", f"{result}_3"]
-    # The result above is the same on both algebras. The neighbourhood
-    # modifier A[1] is only read by the core, so its rejection shows that the
-    # flag, not the variable, chose the algebra.
-    tools.t_select(expression=f"{result}_n = A[1]", env=env)
-    with pytest.raises(ToolError):
-        tools.t_select(expression=f"{result}_c = A[1]", flags="c", env=env)
-
-
 def test_core_refuses_a_time_function_as_the_selected_maps(series):
     """A time function as a conclusion of if() gives numbers, not maps: the
     core stops with a message before it creates anything, as the list of
-    differences in t.select.md says. The classic profile refuses it as well,
-    see below; the reference implementation (grass.temporal.classic) does
-    not, see t_select_differential_test.py."""
+    differences in t.select.md says. The reference implementation
+    (grass.temporal.classic) does not, see t_select_differential_test.py."""
     tools = Tools(session=series.session, overwrite=True)
-    env = dict(series.session.env, GRASS_TEMPORAL_ALGEBRA="core")
     rasters = tools.g_list(type="raster", mapset="PERMANENT").text.split()
     with pytest.raises(ToolError) as error:
         tools.t_select(
-            expression="timefunction = if(start_doy(A) < 3, start_doy(A, 1), A)",
-            env=env,
+            expression="timefunction = if(start_doy(A) < 3, start_doy(A, 1), A)"
         )
     assert "Traceback" not in error.value.stderr
     # The message is wrapped over several lines.
@@ -757,67 +728,27 @@ def test_core_refuses_a_time_function_as_the_selected_maps(series):
     assert tools.g_list(type="raster", mapset="PERMANENT").text.split() == rasters
 
 
-def test_the_classic_profile_refuses_a_time_function_as_the_selected_maps(series):
-    """-c stops with the message of the core before it creates anything
-    where a value of the time function would be selected: a1 (day 1) meets
-    the condition and takes the value of a2, a map that the reference never
-    computed"""
-    tools = Tools(session=series.session, overwrite=True)
-    rasters = tools.g_list(type="raster", mapset="PERMANENT").text.split()
+def test_classic_flag_is_unknown(series):
+    """-c is no flag of the tool: the parser refuses it before anything is made"""
+    tools = Tools(session=series.session, consistent_return_value=True)
     with pytest.raises(ToolError) as error:
-        tools.t_select(
-            expression="timefunction = if(start_doy(A) < 3, start_doy(A, 1), A)",
-            flags="c",
-        )
-    assert "Traceback" not in error.value.stderr
-    assert (
-        "A time function such as start_doy() cannot be the result of a selection"
-        in " ".join(error.value.stderr.split())
-    )
-    assert "timefunction@PERMANENT" not in tools.t_list(type="strds").text.split()
-    assert tools.g_list(type="raster", mapset="PERMANENT").text.split() == rasters
-
-
-def test_the_classic_profile_selects_where_no_value_of_a_time_function_is_chosen(
-    series,
-):
-    """-c refuses a time function only where its value would be selected, as
-    the reference failed only there; the core refuses the form, see the list
-    of differences in t.select.md. Only a1 (day 1) meets the condition, and
-    a1 has no predecessor, so no value of start_doy(A, -1) is chosen and
-    else gives a2, a3 and a4."""
-    assert run_select(
-        series.session, "if(start_doy(A) < 3, start_doy(A, -1), A)", flags="c"
-    ) == [("a2", 10, 20), ("a3", 20, 30), ("a4", 30, 40)]
-
-
-def test_classic_flag_runs_the_classic_profile(series):
-    """-c selects on the classic profile of the core, not on the reference:
-    an increment the library refuses is reported with the message of the
-    library, where the reference names tshift() and the unit"""
-    tools = Tools(session=series.session, overwrite=True)
-    with pytest.raises(ToolError) as error:
-        tools.t_select(expression='profiled = A : tshift(B, "1 DAY")', flags="c")
-    assert "Cannot read '1 DAY' as a time step, use e.g. \"1 day\"" in (
-        error.value.stderr
-    )
-    assert "Function tshift()" not in error.value.stderr
+        tools.t_select(expression="no_c = A : B", type="strds", flags="c")
+    assert "<c>" in error.value.stderr
+    assert not tools.t_list(type="strds", where="name = 'no_c'").stdout.strip()
 
 
 @pytest.mark.parametrize("function", ["strds", "STRDS"])
 def test_dataset_type_function_selects_like_the_dataset(series, function):
-    """Both algebras read the functions that name the type of a dataset, in
+    """The algebra reads the functions that name the type of a dataset, in
     lower case and in the capitals of the published paper"""
     assert run_select(series.session, f"{function}(A) : B") == run_select(
         series.session, "A : B"
     )
 
 
-def test_other_unknown_function_has_no_classic_hint(series, algebra):
-    """Only the core reports the name of an unknown function; the hint at -c
-    is gone, as both algebras read the dataset type functions"""
-    if algebra != "core":
-        pytest.skip("the classic algebra reports another error")
+def test_other_unknown_function_has_no_classic_hint(series):
+    """An unknown function is reported by its name, without the hint at the
+    flag -c that the algebra gave before it read the dataset type functions"""
     tools = Tools(session=series.session, overwrite=True)
     with pytest.raises(ToolError) as error:
         tools.t_select(expression="hinted = nosuch(A) : B")

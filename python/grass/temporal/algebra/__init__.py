@@ -49,18 +49,13 @@ The docstrings and comments of this package use one term for each thing:
 the core
     grass.temporal.algebra, this package.
 the classic algebra
-    The language of the temporal algebra as the manuals and the publications
-    define it: what an expression may say and what it means. The flag -c of
-    t.rast.algebra, t.rast3d.algebra, t.vect.algebra and t.select, or
-    GRASS_TEMPORAL_ALGEBRA=classic, selects it.
-the classic profile
-    CLASSIC (parser/classic.py), the classic algebra computed on the core.
+    The language of the temporal algebra as the releases before GRASS 8.6
+    and the publications define it: what an expression may say and what it
+    means.
 the reference implementation (grass.temporal.classic)
-    The implementation of the classic algebra that is older than the core,
-    kept because published results rely on it; it changes only together with
-    documented corrections of the classic algebra. After its first mention in
-    a module it is called "the reference". Tests compare the classic profile
-    with it.
+    The implementation of the classic algebra that is older than the core.
+    After its first mention in a module it is called "the reference". Tests
+    compare the core with it.
 the public parser classes
     TemporalRasterAlgebraParser, TemporalRaster3DAlgebraParser and
     TemporalVectorAlgebraParser (parser/facade.py), which the tools and
@@ -96,27 +91,21 @@ From the bottom up:
    registration as a ProcessChain, and materialize() runs them and
    registers the maps.
 6. Variants: profile.py has Profile and CORE, the rules of the core;
-   variants.py has the helpers of the operations that the classic profile
-   uses as well.
+   variants.py has helpers of the operations.
 7. Syntax, in parser/: lexer.py, grammar.py, ast.py and operators.py read
    the syntax of the core with PLY; translate.py turns the syntax tree into
    operations (Translator); granularity.py finds the datasets of the
-   granularity mode (-g) and their common granularity and samples them. The
-   classic profile has its own grammar (classic_grammar.py with the
-   productions in classic_productions.py) and translator (classic.py with
-   classic_maps.py and classic_numbers.py); shared.py has what both
-   translators check alike. switch.py chooses the algebra, __init__.py has
-   evaluate(), and facade.py the public parser classes.
+   granularity mode (-g) and their common granularity and samples them;
+   shared.py has checks of the translator. __init__.py has evaluate(), and
+   facade.py the public parser classes.
 
 A run of t.rast.algebra
 -----------------------
 
 The tool creates a TemporalRasterAlgebraParser. With -g,
 setup_common_granularity() finds the datasets in the syntax tree and their
-common granularity (the classic algebra asks the reference). parse() calls
-parser.evaluate() with the profile CORE, or CLASSIC if the classic algebra
-is selected. The grammar of the profile reads the expression into an
-ast.Statement; the translator reads each dataset with source(), with -g
+common granularity. parse() calls parser.evaluate() with the profile CORE.
+The grammar of the profile reads the expression into an ast.Statement; the translator reads each dataset with source(), with -g
 sampled by sample_by_granularity(), and builds the result series with the
 operations. plan() gives the process chain that a dry run
 prints, and materialize() computes and registers the maps.
@@ -128,8 +117,7 @@ What code outside the package uses, by caller:
 
 - t.rast.algebra, t.rast3d.algebra, t.vect.algebra and addons: the public
   parser classes;
-- t.select: parser.evaluate() with the profile CORE or CLASSIC,
-  switch.classic_selected() and maptypes.KINDS_OF_STDS;
+- t.select: parser.evaluate() and maptypes.KINDS_OF_STDS;
 - grass.temporal.aggregation_core (t.rast.aggregate, t.rast.aggregate.ds):
   gather(), relation(), series_method(), materialize(),
   materialize.reject_input_names() and adapters.as_map(), with Series, Slot,

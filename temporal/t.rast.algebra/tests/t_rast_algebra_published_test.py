@@ -28,9 +28,7 @@ from grass.tools import Tools
 
 KIND = "raster"
 
-# The tests call the algebra core directly, whatever GRASS_TEMPORAL_ALGEBRA
-# says, see the marker in pyproject.toml.
-pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
+pytestmark = pytest.mark.slow
 
 
 def months(*values, first=1):

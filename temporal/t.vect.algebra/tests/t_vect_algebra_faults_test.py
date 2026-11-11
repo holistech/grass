@@ -1,8 +1,7 @@
 """Test the search path and the numbers of the result maps of t.vect.algebra
 
-The core algebra looks for a dataset name without a mapset in the current
-mapset and then in the search path, the classic algebra (-c) in the current
-mapset only. The core numbers only the maps it registers, so a computed map
+The algebra looks for a dataset name without a mapset in the current mapset
+and then in the search path. It numbers only the maps it registers, so a computed map
 without primitives, which is not registered, leaves no gap. A map that the
 result takes over unchanged keeps its name and is never renamed, and a
 computed map is only renamed to a name that the run planned for a computed
@@ -22,10 +21,6 @@ from grass.temporal.testing.readback import list_maps, message
 from grass.temporal.testing.session import mapset_session, project_session
 from grass.tools import ToolError, Tools
 
-# Every test chooses its algebra itself: the core by the variable, the classic
-# algebra by -c.
-pytestmark = pytest.mark.fixed_algebra
-
 
 @pytest.fixture(scope="module")
 def work(tmp_path_factory):
@@ -33,16 +28,14 @@ def work(tmp_path_factory):
 
     The dataset A in "other" has the daily maps a_1 and a_2, a point at (1, 1)
     and one at (2, 2). The dataset B in "work" has maps of the same days, a
-    point at (10, 10) and one at (2, 2). The tools run the core algebra unless
-    a test passes -c.
+    point at (10, 10) and one at (2, 2).
     """
     project = tmp_path_factory.mktemp("search_path") / "project"
     with (
         project_session(project, mapset="work") as work_session,
         mapset_session(work_session, "other") as other,
     ):
-        env = {**work_session.env, "GRASS_TEMPORAL_ALGEBRA": "core"}
-        tools = Tools(env=env, consistent_return_value=True, quiet=True)
+        tools = Tools(session=work_session, consistent_return_value=True, quiet=True)
         other_tools = Tools(session=other, consistent_return_value=True, quiet=True)
         create_daily_stds(other_tools, "stvds", ["A"], 2, map_prefix="a")
         create_stds(
@@ -62,25 +55,9 @@ def test_core_finds_dataset_in_search_path(work):
     assert [row.name for row in rows] == ["a_1", "a_2"]
 
 
-def test_classic_keeps_current_mapset_only(work):
-    with pytest.raises(ToolError) as error:
-        work.t_vect_algebra(
-            expression="NOT_FOUND = A {:,equal} B", basename="not_found", flags="c"
-        )
-
-    assert error.value.returncode == 1
-    assert "Space time vector dataset <A@work> not found" in message(error.value)
-    assert not work.t_list(type="stvds", where="name = 'NOT_FOUND'").stdout
-    assert not work.g_list(type="vector", pattern="not_found*").stdout
-
-
-@pytest.mark.parametrize(
-    ("flags", "names"),
-    [("", ["num_0"]), ("c", ["numc_0"])],
-    ids=["core", "classic"],
-)
-def test_core_numbers_only_registered_maps(work, flags, names):
-    basename = f"num{flags}"
+def test_core_numbers_only_registered_maps(work):
+    basename = "num"
+    names = ["num_0"]
     # The buffers of the first pair do not meet, so their intersection has no
     # primitives and is not registered.
     work.t_vect_algebra(
@@ -88,7 +65,6 @@ def test_core_numbers_only_registered_maps(work, flags, names):
             f"{basename.upper()} = buff_p(A@other, 1) {{&,equal}} buff_p(B, 1)"
         ),
         basename=basename,
-        flags=flags,
     )
 
     rows = list_maps(work, "stvds", basename.upper())
@@ -109,8 +85,7 @@ def mixed(tmp_path_factory):
     """
     project = tmp_path_factory.mktemp("mixed") / "project"
     with project_session(project, mapset="work") as session:
-        env = {**session.env, "GRASS_TEMPORAL_ALGEBRA": "core"}
-        tools = Tools(env=env, consistent_return_value=True, quiet=True)
+        tools = Tools(session=session, consistent_return_value=True, quiet=True)
         create_stds(
             tools,
             "stvds",

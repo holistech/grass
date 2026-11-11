@@ -9,13 +9,11 @@ the result.
 import pytest
 
 from grass.temporal.testing import io_cache
-from grass.temporal.testing.corpus import reference_outcome
-from grass.temporal.testing.differential import RUNNERS, compare, outcome, prepare
+from grass.temporal.testing.differential import RUNNERS, outcome, prepare
 
 KIND = "raster3d"
 
-# Every test chooses its algebra itself, see the marker in pyproject.toml.
-pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
+pytestmark = pytest.mark.slow
 
 EXPRESSIONS = [
     # 1 >= 10, 2 >= 20, 3 >= 30, 4 >= 40 are false: B
@@ -41,17 +39,9 @@ def cached_io(datasets):
     """Replace the fixture of conftest.py: the caches run through datasets"""
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "values"), EXPRESSIONS)
 def test_a_comparison_by_hand(datasets, runner, expression, values):
     result = outcome(KIND, expression, RUNNERS[runner], basename="fa")
     assert "error" not in result, result
     assert [row[3] for row in result["maps"]] == values
-
-
-@pytest.mark.parametrize(("expression", "values"), EXPRESSIONS)
-def test_the_profile_computes_what_the_reference_computes(datasets, expression, values):
-    reference = reference_outcome(KIND, expression)
-    profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
-    assert compare(KIND, expression, reference, profile) is None
-    assert reference["maps"]

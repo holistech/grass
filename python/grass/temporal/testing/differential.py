@@ -1,4 +1,4 @@
-"""Run expressions on the reference implementation, the classic profile or the core
+"""Run expressions on the reference implementation or the core
 
 The functions run an expression with a runner and return the error class or
 the result dataset with its maps, and compare two such outcomes. The fixed
@@ -12,18 +12,16 @@ Functions:
   A runner is any callable with the signature of
   ``grass.temporal.testing.reference.run_reference``. ``RUNNERS`` names the
   ones at hand: ``reference`` (the reference implementation,
-  ``grass.temporal.classic``), ``core``
+  ``grass.temporal.classic``) and ``core``
   (``grass.temporal.algebra.parser.evaluate``, which the public parser
-  classes call when the classic algebra is not chosen) and ``classic`` (the
-  same function with the classic profile).
+  classes call).
 - ``outcome_of_runner(kind, expression, runner, basename)`` is ``outcome``
   with a runner chosen by its name in ``RUNNERS`` and with ``-n``;
   ``constant_values(result)`` reads the values of the maps of an outcome.
 - ``compare(kind, expression, first, second)`` returns None for equal outcomes
   and a short description of the difference otherwise. ``compare_runs`` is
-  ``compare`` for the reference against the classic profile; it accepts the
-  pairs of error classes of ``accepted_error_pair``, which the batch counts
-  by pair.
+  ``compare`` that accepts the pairs of error classes of
+  ``accepted_error_pair``, which the batch counts by pair.
 - ``prepare(kind, session, directory)`` creates the datasets of a kind, see
   ``expressions_data``.
 
@@ -71,20 +69,18 @@ def _granularity_parser_class(kind):
     }[kind]
 
 
-def _granularity_parser(kind, expression, options, *, classic):
+def _granularity_parser(kind, expression, options):
     """Take the option ``granularity`` from options; if true, return the parser
 
     The parser is the public class of the kind after ``setup_granularity``:
-    the granularity mode lives in its ``parse()``. ``classic`` is handed to
-    it: the classic algebra computes the granularity of each dataset with its
-    own copy of the function of the library, the core reads the stored one.
-    Returns None for a run without the mode.
+    the granularity mode lives in its ``parse()``. Returns None for a run
+    without the mode.
     """
     if not options.pop("granularity", False):
         return None
     from .reference import setup_granularity
 
-    parser = _granularity_parser_class(kind)(classic=classic, **options)
+    parser = _granularity_parser_class(kind)(**options)
     setup_granularity(parser, kind, expression)
     return parser
 
@@ -105,16 +101,14 @@ def _selection(kind, options):
 def core_runner(kind, expression, *, basename, overwrite=False, **options):
     """Compute an expression with ``grass.temporal.algebra.parser.evaluate``
 
-    ``evaluate`` is what the public parser classes call when the classic
-    algebra is not chosen; calling it directly leaves
-    ``GRASS_TEMPORAL_ALGEBRA`` and those classes out of the picture. Takes the
-    signature of ``run_reference``; the option ``stdstype`` of kind
-    ``"select"`` is read like there. With ``granularity=True`` the public
-    parser class of the kind runs instead, with ``classic=False``, after
-    ``setup_granularity``: the evaluation of the granularity mode lives in its
-    ``parse()``.
+    ``evaluate`` is what the public parser classes call; calling it directly
+    leaves those classes out of the picture. Takes the signature of
+    ``run_reference``; the option ``stdstype`` of kind ``"select"`` is read
+    like there. With ``granularity=True`` the public parser class of the kind
+    runs instead, after ``setup_granularity``: the evaluation of the
+    granularity mode lives in its ``parse()``.
     """
-    parser = _granularity_parser(kind, expression, options, classic=False)
+    parser = _granularity_parser(kind, expression, options)
     if parser is not None:
         return parser.parse(expression, basename=basename, overwrite=overwrite)
     from grass.temporal.algebra.parser import evaluate
@@ -126,34 +120,6 @@ def core_runner(kind, expression, *, basename, overwrite=False, **options):
         basename=basename,
         overwrite=overwrite,
         selection=selection,
-        **options,
-    )
-
-
-def classic_runner(kind, expression, *, basename, overwrite=False, **options):
-    """Compute an expression with the classic profile of the algebra core
-
-    The profile ``CLASSIC`` is what ``evaluate`` runs for the classic
-    algebra. Takes the signature of ``run_reference``; ``stdstype`` of kind
-    ``"select"`` is read like there. For ``granularity=True`` the datasets are
-    sampled by ``setup_granularity`` on a parser of the kind with
-    ``classic=True``, as ``t.rast.algebra -c -g`` does, whose granularity then
-    goes to ``evaluate``.
-    """
-    from grass.temporal.algebra.parser import evaluate
-    from grass.temporal.algebra.parser.classic import CLASSIC
-
-    parser = _granularity_parser(kind, expression, options, classic=True)
-    granularity = None if parser is None else parser.granularity
-    kind, selection = _selection(kind, options)
-    return evaluate(
-        expression,
-        kind=kind,
-        basename=basename,
-        overwrite=overwrite,
-        selection=selection,
-        granularity=granularity,
-        profile=CLASSIC,
         **options,
     )
 
@@ -170,7 +136,6 @@ def reference_runner(kind, expression, *, basename, overwrite=False, **options):
 RUNNERS = {
     "reference": reference_runner,
     "core": core_runner,
-    "classic": classic_runner,
 }
 
 
@@ -529,22 +494,6 @@ def compare_runs(kind, expression, first, second, **options):
     if accepted_error_pair(kind, expression, first, second, **options):
         return None
     return compare(kind, expression, first, second)
-
-
-def check_agreement(kind, expression, **options):
-    """Compare the reference with the classic profile of the core
-
-    The outcome of the reference is ``corpus.reference_outcome``: in a pytest
-    test it comes from the corpus, without running the reference;
-    ``GRASS_TEMPORAL_REFERENCE=live`` computes it on the reference.
-
-    :raises AssertionError: with the text of ``compare`` when they differ
-    """
-    first = corpus.reference_outcome(kind, expression, **options)
-    second = outcome(kind, expression, RUNNERS["classic"], basename="fb", **options)
-    difference = compare_runs(kind, expression, first, second, **options)
-    if difference is not None:
-        raise AssertionError(difference)
 
 
 def check_difference_seen(kind, expression, **options):
