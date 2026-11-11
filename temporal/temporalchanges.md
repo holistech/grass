@@ -871,7 +871,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     also takes `related`, which stands for the nine relations in which a map
     and a granule share time; together with other names it gives their union,
     and the default stays `contains`
-    ([t.rast.aggregate](t.rast.aggregate.md#notes)).
+    ([t.rast.aggregate](t.rast.aggregate.md#granules)).
 - **Weights by the overlap in time.** *t.rast.aggregate* counted each
     related map in full, however little of it lay in the granule. Now the
     flag **-w** weights each map by the time it shares with the granule: for
@@ -1194,7 +1194,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     no common granule warns without dataset, values not sampled are NULL,
     and repeated columns are refused before writing
     ([t.vect.observe.strds](t.vect.observe.strds.md#notes)).
-- **Areas** *(upstream)*. The values were read at the points of the input
+- **Areas.** The values were read at the points of the input
     only, so a map of areas got empty columns. Now **type** is `point` (the
     default), `centroid` or both, as in *v.what.rast*, and `type=centroid`
     reads the cell below the centroid of each area; the output map keeps the
@@ -1223,7 +1223,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-the-reference-implemen
     instances without `start` warn, columns that differ only in case are
     refused also without **--overwrite**, and a layer given twice is refused
     ([t.vect.what.strds](t.vect.what.strds.md#notes)).
-- **Areas** *(upstream)*. The values were read at the points of the maps
+- **Areas.** The values were read at the points of the maps
     only, so a map of areas got empty columns. Now **type** is `point` (the
     default), `centroid` or both, as in *v.what.rast*, and `type=centroid`
     reads the cell below the centroid of each area. The option was asked for
@@ -1448,6 +1448,13 @@ describes every module.
     `fatal()`. Now the parent process checks the child, `wait()` waits for
     all processes and reports the first error with a note, and the warning
     is gone.
+- **ParallelModuleQueue with more than one process.** The `put()` that
+    took the last free slot waited for all processes of the queue, so no
+    module started before the slowest one had ended. Now `put()` starts the
+    next module as soon as a slot is free; a failure is raised by the next
+    `put()` that finds it while waiting for a slot, after the running
+    processes ended and without starting its module, or by `wait()`; and
+    `get_num_run_procs()` counts the occupied slots.
 - **grass.script under LC_ALL=C.** Every Python tool failed for an argument
     with a non-ASCII character under `LC_ALL=C`. Now UTF-8 holds in the
     UTF-8 mode of Python.

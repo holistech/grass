@@ -25,9 +25,9 @@ The option **type** names the feature types that *v.what.rast* reads, `point`
 (the default), `centroid` or both. With `type=centroid` a map of areas is
 observed at the centroids of its areas, one value for each area: the value of
 the cell below the centroid. The output map is a copy of the whole input with
-its boundaries and centroids, so the areas arrive intact. Without it a map
-without points gets columns that stay empty. The last example observes
-counties.
+its boundaries and centroids, so the areas arrive intact. Without
+`type=centroid`, a map without points gets columns that stay empty. The last
+example observes counties.
 
 The output is made of two parts, both in the current mapset:
 

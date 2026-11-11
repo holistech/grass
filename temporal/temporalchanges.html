@@ -898,7 +898,7 @@ a list such as <code>contains,overlaps,overlapped,during</code>. Now <b>sampling
 also takes <code>related</code>, which stands for the nine relations in which a map
 and a granule share time; together with other names it gives their union,
 and the default stays <code>contains</code>
-(<a href="t.rast.aggregate.html#notes">t.rast.aggregate</a>).</li>
+(<a href="t.rast.aggregate.html#granules">t.rast.aggregate</a>).</li>
 <li><b>Weights by the overlap in time.</b> <em>t.rast.aggregate</em> counted each
 related map in full, however little of it lay in the granule. Now the
 flag <b>-w</b> weights each map by the time it shares with the granule: for
@@ -1269,7 +1269,7 @@ differ only in case are refused, <b>where</b> without points is reported,
 no common granule warns without dataset, values not sampled are NULL,
 and repeated columns are refused before writing
 (<a href="t.vect.observe.strds.html#notes">t.vect.observe.strds</a>).</li>
-<li><b>Areas</b> <em>(upstream)</em>. The values were read at the points of the input
+<li><b>Areas.</b> The values were read at the points of the input
 only, so a map of areas got empty columns. Now <b>type</b> is <code>point</code> (the
 default), <code>centroid</code> or both, as in <em>v.what.rast</em>, and <code>type=centroid</code>
 reads the cell below the centroid of each area; the output map keeps the
@@ -1302,7 +1302,7 @@ another unit is refused, <b>quantile</b> is an option (default 0.5), time
 instances without <code>start</code> warn, columns that differ only in case are
 refused also without <b>--overwrite</b>, and a layer given twice is refused
 (<a href="t.vect.what.strds.html#notes">t.vect.what.strds</a>).</li>
-<li><b>Areas</b> <em>(upstream)</em>. The values were read at the points of the maps
+<li><b>Areas.</b> The values were read at the points of the maps
 only, so a map of areas got empty columns. Now <b>type</b> is <code>point</code> (the
 default), <code>centroid</code> or both, as in <em>v.what.rast</em>, and <code>type=centroid</code>
 reads the cell below the centroid of each area. The option was asked for
@@ -1531,6 +1531,13 @@ wait for all processes, and <code>Messenger</code> warned about a restart after
 <code>fatal()</code>. Now the parent process checks the child, <code>wait()</code> waits for
 all processes and reports the first error with a note, and the warning
 is gone.</li>
+<li><b>ParallelModuleQueue with more than one process.</b> The <code>put()</code> that
+took the last free slot waited for all processes of the queue, so no
+module started before the slowest one had ended. Now <code>put()</code> starts the
+next module as soon as a slot is free; a failure is raised by the next
+<code>put()</code> that finds it while waiting for a slot, after the running
+processes ended and without starting its module, or by <code>wait()</code>; and
+<code>get_num_run_procs()</code> counts the occupied slots.</li>
 <li><b>grass.script under LC_ALL=C.</b> Every Python tool failed for an argument
 with a non-ASCII character under <code>LC_ALL=C</code>. Now UTF-8 holds in the
 UTF-8 mode of Python.</li>

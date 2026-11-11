@@ -180,9 +180,9 @@ January, and prints the smallest and the largest value of the cube there with
 *r3.univar*, then the same for the layer of July, month 1447. The fifth block
 sets the region to the whole cube with **raster_3d** and prints its top,
 bottom, vertical resolution and number of layers, which is the region to
-display the cube in. The layers lie
-in the order of time, the earliest at the bottom. By the formula of the
-generated series, January is the coldest and July the warmest month.
+display the cube in. The layers lie in the order of time, the earliest at the
+bottom. By the formula of the generated series, January is the coldest and
+July the warmest month.
 
 === "Command line"
 
