@@ -18,16 +18,11 @@ from __future__ import annotations
 import functools
 import re
 
-from grass.exceptions import FatalError
-from grass.temporal.algebra import time_functions
 from grass.temporal.algebra.maptypes import ELEMENTS, KINDS_OF_STDS, STDS_TYPES
 from grass.temporal.algebra.materialize import check_absent, materialize, plan
-from grass.temporal.algebra.profile import CORE
 from grass.temporal.algebra.sources import source
-from grass.temporal.state import get_current_mapset
 
-from . import translate
-from .grammar import parse as _parse_core
+from .grammar import parse
 from .granularity import sample_by_granularity
 from .translate import Translator
 
@@ -36,17 +31,6 @@ __all__ = ["Translator", "evaluate", "parse"]
 # The public parser classes take "num" or "num%NN" for numbered map names; the
 # core takes None, with the digits of "num%NN" as a separate option.
 _TIME_SUFFIXES = ("gran", "time")
-
-
-def parse(text, *, grammar=None):
-    """Return the syntax tree of the statement "name = expression"
-
-    :param text: the statement, such as "C = A + B"
-    :param grammar: an object with parse(text) that returns the tree of the
-        statement; None reads the syntax of the core
-    :raises SyntaxError: with the position of the first error
-    """
-    return (_parse_core if grammar is None else grammar.parse)(text)
 
 
 def evaluate(
@@ -64,7 +48,6 @@ def evaluate(
     time_suffix=None,
     granularity=None,
     selection=False,
-    profile=CORE,
 ):
     """Parse, translate and compute "name = expression"
 
@@ -96,22 +79,17 @@ def evaluate(
     :param debug: print each planned module call as a command line
     :param spatial: relate the maps in space as well, as the spatial flag of
         t.rast.algebra does; rasters are then computed in the union of the
-        regions of their inputs (if the profile asks for it)
+        regions of their inputs where a spatial relation related them
     :param register_null: register result maps without a valid cell too; by
         default they are removed
     :param nprocs: the number of module processes that run at once; 1 runs
         them one after another, and vector maps need 1
     :param time_suffix: how result maps are named after the basename: "gran"
         or "time" for a suffix from the start time of an absolute-time map;
-        any other value, such as "num%03", numbers the maps, and the profile
-        decides whether the digits of "num%NN" are used
+        any other value numbers the maps, with the digits of "num%NN" if it
+        is given in that form
     :param selection: register the registered maps unchanged and copy retimed
         ones instead of computing a map
-    :param profile: the variant of the algebra: its grammar reads the
-        expression and its translator class translates the tree; the default
-        is the algebra of the core. A grammar of a variant that reads
-        different syntax per map type has for_kind(kind, selection), which
-        returns the object with parse(text) for this expression.
     :param granularity: the common granularity of the datasets, a text such
         as "1 day" for absolute time or a whole number for relative time;
         None reads the datasets as they are
@@ -124,130 +102,68 @@ def evaluate(
     :raises grass.exceptions.FatalError: for a missing dataset or map, and
         without overwrite for an existing result dataset or map
     """
-    grammar = profile.grammar
-    if hasattr(grammar, "for_kind"):
-        grammar = grammar.for_kind(kind, selection)
-    statement = parse(expression, grammar=grammar)
+    statement = parse(expression)
     chain = {"processes": [], "register": [], "remove": [], "STDS": {}}
     if not run:
         return chain
-    types = _TemporalTypes(profile.one_temporal_type)
-    resolve = _resolver(kind, profile, granularity, types)
-    translator = (profile.translator or Translator)(
+    translator = Translator(
         kind=kind,
         spatial=spatial,
-        resolve=resolve,
-        profile=profile,
+        resolve=_resolver(kind, granularity),
         selection=selection,
     )
-    try:
-        name, series = translator.statement(statement)
-        planned = plan(
+    name, series = translator.statement(statement)
+    planned = plan(
+        series,
+        name,
+        basename=basename,
+        time_suffix=time_suffix if time_suffix in _TIME_SUFFIXES else None,
+        selection=selection,
+        digits=_suffix_digits(time_suffix),
+    )
+    # Also for a result without maps, which gets an empty dataset.
+    chain["STDS"] = {
+        "name": name,
+        # The type the run creates, so that a dry run shows what the run
+        # makes. The reference plans the type of the call, also where a
+        # mixed selection creates another one.
+        "stdstype": planned.stds_type,
+        "temporal_type": planned.temporal_type,
+    }
+    chain["processes"] = [
+        _as_process_dict(call, overwrite) for call in planned.processes
+    ]
+    chain["register"] = [
+        (map_name, str(start), str(end)) for map_name, start, end in planned.register
+    ]
+    if planned.remove:
+        chain["remove"] = [
+            {
+                "name": "g.remove",
+                "inputs": [
+                    ("type", ELEMENTS[KINDS_OF_STDS[planned.stds_type]]),
+                    ("name", ",".join(planned.remove)),
+                ],
+                "outputs": [],
+                "flags": ["f"],
+            }
+        ]
+    if debug:
+        for call in planned.processes:
+            print(_command(call))
+    if dry_run:
+        if not overwrite:
+            check_absent(planned)
+    else:
+        materialize(
             series,
             name,
-            basename=basename,
-            time_suffix=time_suffix if time_suffix in _TIME_SUFFIXES else None,
-            selection=selection,
-            # Known only now, after the datasets are read
-            temporal_type=types.first if profile.empty_result_type_from_input else None,
-            mapcalc=profile.mapcalc,
-            union_region=profile.union_region_when_spatial and spatial,
-            list_order=profile.list_order,
-            copies_by_position=profile.copies_by_position,
-            last_of_equal_names=profile.last_of_equal_names,
-            absolute_granularity=profile.absolute_granularity,
-            digits=_suffix_digits(time_suffix) if profile.suffix_digits else None,
-            number_registered=profile.number_registered,
+            overwrite=overwrite,
+            register_null=register_null,
+            nprocs=int(nprocs),
+            chain=planned,
         )
-        # A vector result without maps has no dataset, if the profile says so.
-        # A selection always creates its dataset, as t.select.md promises for
-        # both algebras. The reference creates none for an empty selection of
-        # vector maps; the classic profile follows the manual instead.
-        dataset_if_empty = profile.vector_dataset_if_empty or selection
-        if dataset_if_empty or kind != "vector" or planned.maps:
-            chain["STDS"] = {
-                "name": name,
-                # The type the run creates, so that a dry run shows what the
-                # run makes. The reference plans the type of the call, also
-                # where a mixed selection creates another one.
-                "stdstype": planned.stds_type,
-                "temporal_type": planned.temporal_type,
-            }
-        chain["processes"] = [
-            _as_process_dict(call, overwrite) for call in planned.processes
-        ]
-        chain["register"] = [
-            (map_name, str(start), str(end))
-            for map_name, start, end in planned.register
-        ]
-        if planned.remove:
-            chain["remove"] = [
-                {
-                    "name": "g.remove",
-                    "inputs": [
-                        ("type", ELEMENTS[KINDS_OF_STDS[planned.stds_type]]),
-                        ("name", ",".join(planned.remove)),
-                    ],
-                    "outputs": [],
-                    "flags": ["f"],
-                }
-            ]
-        if debug:
-            for call in planned.processes:
-                print(_command(call))
-        if dry_run:
-            if not overwrite:
-                check_absent(planned, classic=profile.classic_absence_check)
-        else:
-            materialize(
-                series,
-                name,
-                overwrite=overwrite,
-                register_null=register_null,
-                nprocs=int(nprocs),
-                classic_absence_check=profile.classic_absence_check,
-                keep_empty_vector_maps=profile.keep_empty_vector_maps,
-                vector_dataset_if_empty=dataset_if_empty,
-                chain=planned,
-            )
-    except ValueError as error:
-        mapped = _classic_error(error) if profile.classic_errors else None
-        if mapped is None:
-            raise
-        raise mapped from error
     return chain
-
-
-class _TemporalTypes:
-    """The temporal type of the first dataset with maps that an expression reads
-
-    A dataset without maps has no temporal type and is passed over, as is a
-    single map, which the reference does not check either.
-    """
-
-    def __init__(self, refuse_others):
-        self.first = None
-        self._refuse_others = refuse_others
-
-    def watch(self, resolve):
-        """Return resolve, noting the temporal type of the series it gives"""
-
-        def read(name, *args, **keywords):
-            series = resolve(name, *args, **keywords)
-            if series.temporal_type is None:
-                return series
-            if self.first is None:
-                self.first = series.temporal_type
-            elif self._refuse_others and series.temporal_type != self.first:
-                ident = name if "@" in name else f"{name}@{get_current_mapset()}"
-                msg = _(
-                    "Wrong temporal type of space time dataset <{stds}> <{type}> "
-                    "time is required"
-                ).format(stds=ident, type=self.first)
-                raise FatalError(msg)
-            return series
-
-        return read
 
 
 def _suffix_digits(time_suffix):
@@ -256,62 +172,21 @@ def _suffix_digits(time_suffix):
     return int(match.group(1)) if match else None
 
 
-def _resolver(kind, profile, granularity, types):
+def _resolver(kind, granularity):
     """Return the function that reads a dataset for the translator
 
     The result is None where the translator's own reader is meant.
-
-    :param types: the _TemporalTypes that watches the datasets; it watches
-        only where the profile asks for it
     """
-    order = "start" if profile.database_order else "time"
-    watched = profile.one_temporal_type or profile.empty_result_type_from_input
-    if granularity is not None:
-        resolve = functools.partial(
-            _sampled_source,
-            stds_type=STDS_TYPES[kind],
-            granularity=granularity,
-            search_path=profile.search_path,
-        )
-    elif order != "time" or watched or not profile.search_path:
-        resolve = functools.partial(
-            translate.source,
-            stds_type=STDS_TYPES[kind],
-            order=order,
-            search_path=profile.search_path,
-        )
-    else:
+    if granularity is None:
         return None
-    return types.watch(resolve) if watched else resolve
-
-
-def _classic_error(error):
-    """The exception of the reference for a ValueError of the core, or None
-
-    The core reports an expression it cannot compute with a ValueError, the
-    reference with the class that fits the cause. The causes the core
-    knows are subclasses of ValueError (time_functions.py), so the mapping
-    does not depend on the wording of a message.
-    """
-    if isinstance(error, time_functions.TimeFunctionError):
-        if error.ident is None:
-            return FatalError(str(error))
-        return FatalError(
-            _(
-                "Temporal function {func}() is not available for map <{map}>. "
-                "It requires absolute time, end time functions also an end time."
-            ).format(func=error.function, map=error.ident)
-        )
-    if isinstance(error, time_functions.TimeStepError):
-        return SyntaxError(str(error))
-    return None
-
-
-def _sampled_source(name, *, stds_type, granularity, search_path):
-    """The maps of a dataset on granules of the common granularity"""
-    return sample_by_granularity(
-        source(name, stds_type=stds_type, search_path=search_path), granularity
+    return functools.partial(
+        _sampled_source, stds_type=STDS_TYPES[kind], granularity=granularity
     )
+
+
+def _sampled_source(name, *, stds_type, granularity):
+    """The maps of a dataset on granules of the common granularity"""
+    return sample_by_granularity(source(name, stds_type=stds_type), granularity)
 
 
 def _as_process_dict(call, overwrite):

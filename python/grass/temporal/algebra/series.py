@@ -14,7 +14,6 @@ from .content import Content
 
 KINDS = ("raster", "raster3d", "vector")
 SORTS = ("field", "scalar")
-TIME_ORDERS = ("time", "start")
 
 
 # The operators of vector maps are overlays (v.overlay, v.patch); scalar
@@ -38,13 +37,8 @@ class Extent:
         """Return "absolute" or "relative" by the unit"""
         return "absolute" if self.unit is None else "relative"
 
-    def sort_key(self, order="time"):
-        """Order by start, then by end; an instant sorts as an empty interval
-
-        With order "start" the key is the start only, see Series.
-        """
-        if order == "start":
-            return (self.start,)
+    def sort_key(self):
+        """Order by start, then by end; an instant sorts as an empty interval"""
         return (self.start, self.start if self.end is None else self.end)
 
 
@@ -83,8 +77,8 @@ class Slot:
     rank: int | None = field(default=None, compare=False)
 
 
-def _slot_key(slot, order):
-    return () if slot.extent is None else slot.extent.sort_key(order)
+def _slot_key(slot):
+    return () if slot.extent is None else slot.extent.sort_key()
 
 
 @dataclass(frozen=True, eq=False)
@@ -96,21 +90,18 @@ class Series:
     its slots, meaning that the regions of the maps matter and not only
     their time, as with the spatial flag of t.rast.algebra.
 
-    The slots are sorted by time: by start, then by end for order "time",
-    by start alone for order "start". Slots that tie keep the order in
-    which they were given, which is the only tie-breaker they have. The
-    classic algebra sorts by start alone and keeps the order of the
-    database for equal starts, so a profile that follows it builds its
-    series with order "start" (an operation keeps the order of its first
-    operand).
+    The slots are sorted by time: by start, then by end. Slots that tie keep
+    the order in which they were given, which is the only tie-breaker they
+    have.
 
-    The list order is a second order beside the time order, for variants of
-    the algebra whose lists are not sorted: merge() lists the maps of its
-    first series, then those of the second, and so on, and the operations
-    that give one map for each map of one series (numbers and functions of
-    cells, buffers, time shifts) keep that list. listed() returns the slots
-    in this order. Operations that relate or combine two series give a new
-    list in time order. The list order is kept in the slots (Slot.rank)
+    The list order is a second order beside the time order: merge() lists the
+    maps of its first series, then those of the second, and so on, and the
+    operations that give one map for each map of one series (numbers and
+    functions of cells, buffers, time shifts) keep that list. listed()
+    returns the slots in this order. merge() reads its series in their list
+    order, which decides the order of the maps of equal time in its result.
+    Operations that relate or combine two series give a new list in time
+    order. The list order is kept in the slots (Slot.rank)
     and not beside them, so it follows a slot through every operation that
     sorts or filters the slots again, and nested calls of merge() need no
     extra bookkeeping.
@@ -129,7 +120,6 @@ class Series:
     kind: str = "raster"
     sort: str = "field"
     spatial: bool = False
-    order: str = "time"
 
     def __post_init__(self):
         if self.kind not in KINDS:
@@ -137,9 +127,6 @@ class Series:
             raise ValueError(msg)
         if self.sort not in SORTS:
             msg = f"Unknown sort {self.sort!r}, use one of {', '.join(SORTS)}"
-            raise ValueError(msg)
-        if self.order not in TIME_ORDERS:
-            msg = f"Unknown order {self.order!r}, use one of {', '.join(TIME_ORDERS)}"
             raise ValueError(msg)
         slots = tuple(self.slots)
         if len(slots) > 1 and any(slot.extent is None for slot in slots):
@@ -151,9 +138,7 @@ class Series:
             raise ValueError(msg)
         # sorted() is stable: slots of equal time keep their input order,
         # which is the only tie-breaker slots of equal time have.
-        object.__setattr__(
-            self, "slots", tuple(sorted(slots, key=lambda x: _slot_key(x, self.order)))
-        )
+        object.__setattr__(self, "slots", tuple(sorted(slots, key=_slot_key)))
 
     @property
     def temporal_type(self):

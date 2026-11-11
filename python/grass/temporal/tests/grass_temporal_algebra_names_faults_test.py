@@ -1,11 +1,12 @@
 """Test how the algebra core finds datasets and names its result maps
 
 source() looks for a dataset name without a mapset in the current mapset and
-then in the search path, unless search_path=False. In each mapset it tries a name with a dot whole before it reads the
-text after the dot as a semantic label, as open_old_stds() does, so that a
-dataset of an older release with a dot in its name is found. plan() pads
-numbered names to the given digits, and materialize() numbers only the maps it
-registers unless number_registered=False: a map without valid cells, which is not registered, leaves no gap in the numbers.
+then in the search path. In each mapset it tries a name with a dot whole
+before it reads the text after the dot as a semantic label, as
+open_old_stds() does, so that a dataset of an older release with a dot in
+its name is found. plan() pads numbered names to the given digits, and
+materialize() numbers only the maps it registers: a map without valid cells,
+which is not registered, leaves no gap in the numbers.
 """
 
 import datetime
@@ -18,7 +19,6 @@ import grass.temporal as tgis
 from grass.exceptions import FatalError
 from grass.temporal import algebra as ta
 from grass.temporal.algebra.materialize import plan
-from grass.temporal.algebra.profile import CORE
 from grass.temporal.testing.data import create_daily_stds
 from grass.temporal.testing.session import add_mapset, mapset_session
 from grass.tools import Tools
@@ -51,14 +51,6 @@ def names(dataset):
     ]
 
 
-def test_the_rules_of_the_core_for_names(core_session):
-    assert (CORE.search_path, CORE.suffix_digits, CORE.number_registered) == (
-        True,
-        True,
-        True,
-    )
-
-
 def test_source_finds_a_dataset_in_the_search_path(core_session):
     assert [slot.origin for slot in ta.source("O")] == ["o_1@other", "o_2@other"]
 
@@ -67,11 +59,6 @@ def test_source_finds_a_dataset_with_a_label_in_the_search_path(core_session):
     # O holds no map with the label, so the label selects none of its maps;
     # a dataset that was not found would be an error.
     assert ta.source("O.label").slots == ()
-
-
-def test_source_without_search_path_looks_in_the_current_mapset_only(core_session):
-    with pytest.raises(FatalError, match=r"<O@PERMANENT> not found"):
-        ta.source("O", search_path=False)
 
 
 def test_source_of_a_dataset_in_no_mapset_names_the_current_mapset(core_session):
@@ -176,11 +163,10 @@ def test_plan_pads_numbers_to_the_digits(core_session):
     ("options", "renumber"),
     [
         ({}, True),
-        ({"number_registered": False}, False),
         ({"time_suffix": "time"}, False),
         ({"names": ["w", "x", "y", "z"]}, False),
     ],
-    ids=["numbered", "keep planned names", "time suffix", "given names"],
+    ids=["numbered", "time suffix", "given names"],
 )
 def test_plan_numbers_registered_maps_only_for_numbered_names(
     core_session, options, renumber
@@ -196,14 +182,6 @@ def test_materialize_numbers_only_registered_maps(core_session):
     assert Tools(session=core_session).g_list(
         type="raster", pattern="high_*"
     ).text.split() == ["high_0", "high_1"]
-
-
-def test_materialize_keeps_the_gap_without_number_registered(core_session):
-    a = ta.source("A")
-    ta.materialize(
-        ta.where(a > 2, a, None), "GAP", basename="gap", number_registered=False
-    )
-    assert names("GAP") == ["gap_2", "gap_3"]
 
 
 def test_overwriting_renumbers_and_forgets_the_old_maps(core_session):

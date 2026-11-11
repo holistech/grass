@@ -78,33 +78,7 @@ def timevar(series, name):
         replace(slot, content=Const(_time_value(slot.extent, name)), origin=None)
         for slot in series.slots
     )
-    return Series(slots, series.kind, "scalar", series.spatial, series.order)
-
-
-class TimeStepError(ValueError):
-    """An increment of tshift() or buff_t() of the wrong kind for the time type
-
-    A profile that follows the classic algebra reports it as a SyntaxError, as
-    the reference implementation (grass.temporal.classic) does. A float with
-    a fraction, such as 0.5, on relative time is a number of the right kind
-    whose value cannot be used; it raises a plain ValueError, which no
-    profile maps. A fractional text such as "1.5" is no number here and
-    raises this class.
-    """
-
-
-class TimeFunctionError(ValueError):
-    """A temporal function that a map has no value for
-
-    function is the name of the function and ident the identifier of the map,
-    None for a map without origin. A profile that follows the classic algebra
-    reports it as a FatalError.
-    """
-
-    def __init__(self, message, function, ident=None):
-        super().__init__(message)
-        self.function = function
-        self.ident = ident
+    return Series(slots, series.kind, "scalar", series.spatial)
 
 
 def _is_number(increment):
@@ -129,30 +103,29 @@ def _checked_increment(series, increment):
     - 0.5 on relative time: shift_map_list() leaves [2, 5] unchanged and
       temporal_buffer() gives [1, 5], so the fraction is truncated.
 
-    A wrong kind raises TimeStepError: on relative time anything but an int,
-    a float or a text of a whole number ("2"), so also the text "1.5"; on
-    absolute time a number, also as text, or a text that is no time step. A
-    float with a fraction, such as 0.5, on relative time raises a plain
-    ValueError, see TimeStepError and ClassicTranslator._tshift().
+    A ValueError is raised on relative time for anything but an int, a float
+    or a text of a whole number ("2"), so also for the text "1.5", and for a
+    float with a fraction, such as 0.5; on absolute time for a number, also
+    as text, or a text that is no time step.
     """
     if series.temporal_type == "relative":
         if not _is_number(increment):
             msg = f"Relative time is changed by a number of its unit, not {increment!r}"
-            raise TimeStepError(msg)
+            raise ValueError(msg)
         if int(float(increment)) != float(increment):
             msg = f"Relative time is changed by whole units, not {increment!r}"
             raise ValueError(msg)
         return int(float(increment))
     if _is_number(increment):
         msg = f'Absolute time needs a time unit, e.g. "{increment} days"'
-        raise TimeStepError(msg)
+        raise ValueError(msg)
     if not check_granularity_string(increment, "absolute"):
         msg = f'Cannot read {increment!r} as a time step, use e.g. "1 day"'
-        raise TimeStepError(msg)
+        raise ValueError(msg)
     return increment
 
 
-def retime(series, *, shift=None, buffer=None, snap=False, snap_maps=None):
+def retime(series, *, shift=None, buffer=None, snap=False):
     """Shift, buffer or snap the time stamps; the contents stay
 
     Exactly one of shift, buffer and snap must be given. A series without
@@ -165,11 +138,8 @@ def retime(series, *, shift=None, buffer=None, snap=False, snap_maps=None):
     :param buffer: the same, taken off the start and added to the end. A
         negative buffer shrinks the maps and raises ValueError for a map
         that would keep no time (see _shrink())
-    :param snap: set the end of each map to the start of the next one
-    :param snap_maps: the function that snaps the list of map objects, by
-        default snap_map_list() of the library; the classic profile gives the
-        copy of the classic algebra, whose last instant ends after the
-        granularity as the classic algebra computes it
+    :param snap: set the end of each map to the start of the next one, as
+        snap_map_list() of the library does
     """
     check_series(series)
     if [shift is not None, buffer is not None, bool(snap)].count(True) != 1:
@@ -194,7 +164,7 @@ def retime(series, *, shift=None, buffer=None, snap=False, snap_maps=None):
         for map_ in maps:
             map_.temporal_buffer(buffer)
     else:
-        maps = (snap_maps or AbstractSpaceTimeDataset.snap_map_list)(maps)
+        maps = AbstractSpaceTimeDataset.snap_map_list(maps)
     slots = tuple(
         # Keep the origin where the new time stamp equals the old one, e.g.
         # tsnap of gapless maps: the slot is then still the registered map
@@ -265,7 +235,7 @@ def _shrink(series, buffer):
     return replace(series, slots=tuple(slots))
 
 
-def neighbour(series, offset, *, space="own"):
+def neighbour(series, offset):
     """Give each slot the content of the slot offset positions away
 
     Slots without such a neighbour are left out, as A[1] and A[-1] of the
@@ -275,28 +245,15 @@ def neighbour(series, offset, *, space="own"):
         neighbour, counted in the order of its slots
     :param offset: the whole number of positions to move in the series: 1 takes
         the content of the next slot and -1 that of the previous one; the time
-        stamps stay with the slots
-    :param space: the spatial extent of a slot: its own ("own") or that of the
-        neighbour whose content it takes ("neighbour")
-    :raises ValueError: for another space
+        stamps and the spatial extents stay with the slots
     """
     check_series(series)
     check_int(offset, "offset")
-    if space not in ("own", "neighbour"):
-        msg = f"space must be one of own, neighbour, got {space!r}"
-        raise ValueError(msg)
     slots = []
     for index, slot in enumerate(series.slots):
         other = index + offset
         if 0 <= other < len(series.slots):
-            neighbour_slot = series.slots[other]
-            slots.append(
-                Slot(
-                    slot.extent,
-                    neighbour_slot.content,
-                    slot.space if space == "own" else neighbour_slot.space,
-                )
-            )
+            slots.append(Slot(slot.extent, series.slots[other].content, slot.space))
     return replace(series, slots=tuple(slots))
 
 

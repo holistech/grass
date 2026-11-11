@@ -1264,12 +1264,6 @@
    "names": {},
    "origins": "repo"
   },
-  "grass.temporal.algebra.profile": {
-   "names": {
-    "CORE": "repo"
-   },
-   "origins": "repo"
-  },
   "grass.temporal.algebra.reducers": {
    "names": {
     "WEIGHTED_SERIES_METHODS": "repo"

@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from grass.temporal.series_limits import exceeded_series_limit, series_limit_warning
 
 from .content import (
-    COMPARISONS,
     LEFT_ASSOCIATIVE,
     Call,
     Const,
@@ -21,7 +20,7 @@ from .content import (
     SeriesAggregate,
     SeriesReduce,
 )
-from .variants import warn
+from ._messages import warn
 
 # Operators of r.mapcalc written before one operand; the content tree names
 # the negation "neg" so that it cannot be mistaken for the subtraction.
@@ -48,40 +47,6 @@ VECTOR_FUNCTIONS = frozenset({*OVERLAYS, PATCH})
 # The feature type of v.buffer to the content name of a buffer.
 BUFFERS = {"point": "buff_p", "line": "buff_l", "area": "buff_a"}
 BUFFER_TYPES = {name: features for features, name in BUFFERS.items()}
-
-
-@dataclass(frozen=True)
-class MapcalcStyle:
-    """How the r.mapcalc text of a content is written
-
-    The defaults are the text of the core, which is safe for any map name and
-    any number. The classic algebra writes the text more plainly, and the
-    result of a call depends on it only where the fields below say so.
-
-    :param quote_names: put every map name in double quotes, so that a name
-        such as a-b or 5 is not read as an expression; without it the name is
-        written as it is, which fails for those names
-    :param written_integers: write an integer as it is, also beyond the CELL
-        range, where r.mapcalc wraps it around or reads it as null; by default
-        such an integer is written as a float, which keeps its value
-    :param bare_comparisons: write a comparison without parentheses, as
-        "a == b", where it stands at the top, as an argument of a function
-        or as an operand of && and ||. As an operand of any other operator
-        it keeps its parentheses, which "(a > 1) + b" needs; the operands of
-        the comparison keep theirs as well
-    """
-
-    quote_names: bool = True
-    written_integers: bool = False
-    bare_comparisons: bool = False
-
-
-# The operators whose operands may be bare comparisons: r.mapcalc reads
-# "a > 1 && b < 2" as "(a > 1) && (b < 2)". Measured 2026-10-16 in a temporal
-# session of an XY project: the maps of "if(A > 2 && N < 4, A, N)" and of
-# "if(A > 3 || N < 2, A, N)" computed with bare comparisons equal those
-# computed with parentheses (temporal_algebra_core_plan_options_io_test.py).
-_LOOSE = frozenset({"&&", "||"})
 
 
 @dataclass(frozen=True)
@@ -114,13 +79,13 @@ def _float_literal(value):
     return f"{mantissa}{marker}{exponent}"
 
 
-def _literal(value, written_integers=False):
+def _literal(value):
     if value is None:
         return "null()"
     if isinstance(value, bool):
         return str(int(value))
     if isinstance(value, int):
-        if written_integers or _CELL_MIN <= value <= _CELL_MAX:
+        if _CELL_MIN <= value <= _CELL_MAX:
             return str(value)
         # r.mapcalc wraps larger integers around or reads them as null
         # (3000000000 gave -1294967296, 2147483648 gave null, measured
@@ -138,14 +103,12 @@ def _literal(value, written_integers=False):
     raise TypeError(msg)
 
 
-def _quote(name, quote_names=True):
+def _quote(name):
     """Quote a map name for r.mapcalc
 
     GRASS allows names that r.mapcalc would read as an expression, such as a-b
     or 5 (measured 2026-10-11).
     """
-    if not quote_names:
-        return name
     if '"' in name:
         msg = f"The map name {name!r} contains a quote and cannot be used in r.mapcalc"
         raise ValueError(msg)
@@ -180,39 +143,26 @@ class RasterBackend:
     # so that a map of another mapset becomes a map of this one.
     registers_origins = False
 
-    def expression(self, content, style=MapcalcStyle()):
+    def expression(self, content):
         """The r.mapcalc expression of a content
 
-        It is fully parenthesized, so the precedence of r.mapcalc never
-        matters, unless style asks for bare comparisons.
+        Map names are quoted and the text is fully parenthesized, so the
+        precedence of r.mapcalc never matters.
 
         :param content: the Content tree to write as r.mapcalc text
-        :param style: how names, integers and comparisons are written
         :raises ValueError: for an operator or function that r.mapcalc does
             not have, or that is given the wrong number of operands
         :raises TypeError: for a value that is not a number
         """
-        return self._expression(content, style, True)
-
-    def _expression(self, content, style, bare_allowed):
         match content:
             case MapRef(ident=ident, offset=offset) if offset:
-                name = _quote(ident, style.quote_names)
-                return f"{name}[{','.join(str(step) for step in offset)}]"
+                return f"{_quote(ident)}[{','.join(str(step) for step in offset)}]"
             case MapRef(ident=ident):
-                return _quote(ident, style.quote_names)
+                return _quote(ident)
             case Const(value=value):
-                return _literal(value, style.written_integers)
+                return _literal(value)
             case Call(function=function, args=args):
-                # An operand of an operator other than && and || needs its
-                # parentheses; the arguments of a function do not.
-                inner = function in _LOOSE or function in _FUNCTIONS
-                parts = [self._expression(arg, style, inner) for arg in args]
-                text = self._call(function, parts)
-                if bare_allowed and style.bare_comparisons and function in COMPARISONS:
-                    # _call() wraps the comparison in one pair of parentheses.
-                    return text[1:-1]
-                return text
+                return self._call(function, [self.expression(arg) for arg in args])
             case SeriesReduce():
                 msg = "A reduction with r.series is planned as a call of its own"
                 raise ValueError(msg)
@@ -258,9 +208,8 @@ class RasterBackend:
         msg = f"{function!r} is neither an operator nor a function of r.mapcalc"
         raise ValueError(msg)
 
-    def _mapcalc(self, output, expression, spatial, style):
-        name = _quote(output, style.quote_names)
-        parameters = {"expression": f"{name}={expression}"}
+    def _mapcalc(self, output, expression, spatial):
+        parameters = {"expression": f"{_quote(output)}={expression}"}
         if spatial:
             parameters["region"] = "union"
         # One process per call: how many calls run at once is up to whoever
@@ -268,12 +217,11 @@ class RasterBackend:
         parameters["nprocs"] = 1
         return ModuleCall("r.mapcalc", parameters)
 
-    def plan(self, content, output, *, spatial=False, style=MapcalcStyle()):
+    def plan(self, content, output, *, spatial=False):
         """Plan the computation of the map output from the content
 
         Return the module calls in the order to run them, and the temporary
-        maps to remove afterwards. style is the way the r.mapcalc text is
-        written, see MapcalcStyle.
+        maps to remove afterwards.
 
         One r.mapcalc call computes the map, unless reductions that skip
         null cells need r.series; their inputs that are expressions are
@@ -292,9 +240,7 @@ class RasterBackend:
             if isinstance(node, MapRef) and not node.offset:
                 return node.ident
             name = temporary()
-            calls.append(
-                self._mapcalc(name, self.expression(node, style), spatial, style)
-            )
+            calls.append(self._mapcalc(name, self.expression(node), spatial))
             return name
 
         def lower(node, target=None):
@@ -368,9 +314,7 @@ class RasterBackend:
             lower(content, target=output)
         else:
             lowered = lower(content)
-            calls.append(
-                self._mapcalc(output, self.expression(lowered, style), spatial, style)
-            )
+            calls.append(self._mapcalc(output, self.expression(lowered), spatial))
         return calls, temporaries
 
 
@@ -394,12 +338,12 @@ class Raster3DBackend(RasterBackend):
 
     kind = "raster3d"
 
-    def _mapcalc(self, output, expression, spatial, style):
+    def _mapcalc(self, output, expression, spatial):
         # No region option, whether or not the maps are related in space.
-        call = super()._mapcalc(output, expression, False, style)
+        call = super()._mapcalc(output, expression, False)
         return ModuleCall("r3.mapcalc", call.parameters)
 
-    def plan(self, content, output, *, spatial=False, style=MapcalcStyle()):
+    def plan(self, content, output, *, spatial=False):
         """Plan the computation of the map output from the content
 
         :raises ValueError: for a reduction that needs r.series
@@ -417,7 +361,7 @@ class Raster3DBackend(RasterBackend):
                 "no counterpart for 3D raster maps"
             )
             raise ValueError(msg)
-        return super().plan(content, output, spatial=spatial, style=style)
+        return super().plan(content, output, spatial=spatial)
 
 
 def _find_series_node(content):
@@ -465,11 +409,10 @@ class VectorBackend:
     kind = "vector"
     registers_origins = True
 
-    def plan(self, content, output, *, spatial=False, style=MapcalcStyle()):
+    def plan(self, content, output, *, spatial=False):
         """Plan the computation of the map output from the content
 
-        spatial and style have no effect: the vector modules compute every
-        feature and write no expression.
+        spatial has no effect: the vector modules compute every feature.
 
         :raises ValueError: for a content that is no vector map, overlay or
             buffer

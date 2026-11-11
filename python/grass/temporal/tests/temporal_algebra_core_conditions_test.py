@@ -2,7 +2,7 @@
 
 import pytest
 
-from grass.temporal.algebra import variants
+from grass.temporal.algebra import _messages
 from grass.temporal.algebra.content import NULL, Call, Const, MapRef
 from grass.temporal.algebra.operations import choose, gather, merge, where
 from grass.temporal.algebra.relations import equal
@@ -170,7 +170,7 @@ class Messages:
 @pytest.fixture
 def messages(monkeypatch):
     collected = Messages()
-    monkeypatch.setattr(variants, "get_tgis_message_interface", lambda: collected)
+    monkeypatch.setattr(_messages, "get_tgis_message_interface", lambda: collected)
     return collected
 
 

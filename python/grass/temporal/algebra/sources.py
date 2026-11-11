@@ -68,20 +68,17 @@ def _slot_of(map_):
     return Slot(extent_of(map_), MapRef(map_.get_id()), space_of(map_), map_.get_id())
 
 
-def _found_id(name, stds_type, search_path):
+def _found_id(name, stds_type):
     """The id of the dataset that the name selects, or None if there is none
 
     The mapsets are searched as open_old_stds() searches them: the one given
-    with the name, or the current mapset and, with search_path, then the
-    search path. In each mapset a raster dataset name with a dot is tried
+    with the name, or the current mapset and then the search path. In each mapset a raster dataset name with a dot is tried
     whole first, so that a dataset of an older release with a dot in its name
     is found, and then as name and semantic label. The id keeps the label
     ("name.label@mapset"), which open_old_stds() reads the same way in that
     mapset.
     """
     bare, _at, mapset = name.partition("@")
-    if not mapset and not search_path:
-        mapset = get_current_mapset()
     forms = [(bare, None)]
     if stds_type == "strds" and bare.count(".") == 1:
         base, _mapset, label = _parse_id(bare, stds_type)
@@ -102,7 +99,7 @@ def _found_id(name, stds_type, search_path):
     return f"{dataset.get_name()}@{dataset.get_mapset()}"
 
 
-def source(name, *, where=None, stds_type="strds", order="time", search_path=True):
+def source(name, *, where=None, stds_type="strds"):
     """Return the registered maps of a space time dataset as a series
 
     Needs a GRASS session and a temporal database.
@@ -112,21 +109,13 @@ def source(name, *, where=None, stds_type="strds", order="time", search_path=Tru
         unless a dataset of the whole name is found first (see _found_id())
     :param where: an SQL condition on the registered maps, as in t.rast.list
     :param stds_type: "strds", "str3ds" or "stvds"
-    :param order: how the series sorts the maps, "time" (start, then end) or
-        "start" (start only, see Series). With "start" maps of equal start
-        stay in the order in which the temporal database lists them, as the
-        classic algebra reads them, which the end time would override.
-    :param search_path: look for a name without a mapset in the current
-        mapset and then in the mapsets of the search path, as the other
-        temporal tools do; False looks in the current mapset only, as the
-        classic algebra does
     :raises grass.exceptions.FatalError: if the dataset does not exist
-    :raises ValueError: for another stds_type or order
+    :raises ValueError: for another stds_type
     """
     if stds_type not in KINDS_OF_STDS:
         msg = f"stds_type must be one of {', '.join(KINDS_OF_STDS)}, got {stds_type!r}"
         raise ValueError(msg)
-    ident = _found_id(name, stds_type, search_path)
+    ident = _found_id(name, stds_type)
     # open_old_stds() reports a missing dataset with msgr.fatal(), which
     # exits the process unless the messenger raises on errors, which
     # tgis.init(raise_fatal_error=True) sets up (state.py).
@@ -135,9 +124,7 @@ def source(name, *, where=None, stds_type="strds", order="time", search_path=Tru
     dataset = open_old_stds(ident, stds_type)
     maps = dataset.get_registered_maps_as_objects(where=where, order="start_time")
     return Series(
-        tuple(_slot_of(map_) for map_ in maps or []),
-        KINDS_OF_STDS[stds_type],
-        order=order,
+        tuple(_slot_of(map_) for map_ in maps or []), KINDS_OF_STDS[stds_type]
     )
 
 

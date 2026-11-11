@@ -117,7 +117,6 @@ FIGURE_CLASSES = {
     "MetadataRow": "grass.temporal.metadata.MetadataRow",
     "_PlanarExtentMethods": "grass.temporal.space_time_datasets._PlanarExtentMethods",
     "ProcessChain": "grass.temporal.algebra.materialize.ProcessChain",
-    "Profile": "grass.temporal.algebra.profile.Profile",
     "Raster3DDataset": "grass.temporal.space_time_datasets.Raster3DDataset",
     "Raster3DMetadata": "grass.temporal.metadata.Raster3DMetadata",
     "RasterDataset": "grass.temporal.space_time_datasets.RasterDataset",

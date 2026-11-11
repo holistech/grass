@@ -450,26 +450,3 @@ def test_neighbour_has_its_own_space_by_default(make_series):
         )
     )
     assert [slot.space for slot in neighbour(series, 1)] == boxes[:2]
-
-
-def test_neighbour_can_take_the_space_of_the_map_it_reads(make_series):
-    """A[1] of the classic algebra is a new map of the neighbour A2, with the
-    time stamp of A1 (generate_new_map(), then set_temporal_extent())"""
-    boxes = [Space(10, 0, 10, 0), Space(20, 10, 20, 10), Space(30, 20, 30, 20)]
-    series = make_series("a", (1, 2), (2, 3), (3, 4))
-    series = Series(
-        tuple(
-            Slot(slot.extent, slot.content, box, slot.origin)
-            for slot, box in zip(series.slots, boxes, strict=True)
-        )
-    )
-    following = neighbour(series, 1, space="neighbour")
-    assert [slot.space for slot in following] == boxes[1:]
-    assert following.times() == series.times()[:2]
-    preceding = neighbour(series, -1, space="neighbour")
-    assert [slot.space for slot in preceding] == boxes[:2]
-
-
-def test_neighbour_refuses_another_space(a):
-    with pytest.raises(ValueError, match="space must be one of"):
-        neighbour(a, 1, space="union")

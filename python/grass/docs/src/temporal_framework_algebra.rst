@@ -64,12 +64,7 @@ The core is built in layers, from the bottom up:
    :class:`~grass.temporal.algebra.materialize.ProcessChain`, and
    :func:`~grass.temporal.algebra.materialize.materialize` runs them and
    registers the maps.
-6. Variants: :mod:`~grass.temporal.algebra.profile` has
-   :class:`~grass.temporal.algebra.profile.Profile` and
-   ``grass.temporal.algebra.profile.CORE``, the rules of the core;
-   :mod:`~grass.temporal.algebra.variants` has the helpers of the operations that
-   a profile other than the core would use.
-7. Syntax, in :mod:`~grass.temporal.algebra.parser`: the lexer, the grammar, the
+6. Syntax, in :mod:`~grass.temporal.algebra.parser`: the lexer, the grammar, the
    nodes of the syntax tree and the operators in braces of the core
    (:mod:`~grass.temporal.algebra.parser.lexer`,
    :mod:`~grass.temporal.algebra.parser.grammar`,
@@ -100,17 +95,16 @@ The parser passes the expression and its options on:
     :pyobject: _AlgebraParser._evaluate
 
 :func:`~grass.temporal.algebra.parser.evaluate` reads the expression with the
-grammar of the profile into a syntax tree, lets the translator of the profile
-turn the tree into a series, which reads each dataset with
+grammar of the core into a syntax tree, lets the translator turn the tree into
+a series, which reads each dataset with
 :func:`~grass.temporal.algebra.sources.source`, and plans the maps with
-:func:`~grass.temporal.algebra.materialize.plan`, with the options that the
-profile sets:
+:func:`~grass.temporal.algebra.materialize.plan`:
 
 .. literalinclude:: ../../temporal/algebra/parser/__init__.py
     :caption: From the expression to the plan in grass.temporal.algebra.parser.evaluate
     :language: python
     :start-after: without overwrite for an existing result dataset or map
-    :end-before: # A vector result without maps has no dataset, if the profile says so.
+    :end-before: # Also for a result without maps, which gets an empty dataset.
 
 A dry run (``-d`` of *t.rast.algebra*) prints the process chain, the dictionary
 that :func:`~grass.temporal.algebra.parser.evaluate` returns for this plan; a

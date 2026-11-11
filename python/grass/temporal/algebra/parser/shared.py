@@ -1,8 +1,6 @@
-"""Constants and checks that the translators of the parser share
+"""Constants and checks of the translator of the parser
 
-These names are for variants of the algebra, not for users. Translator and
-ClassicTranslator (classic.py) read the same marks and refuse the same
-operands with them; a change here must therefore be checked against both.
+These names are details of translate.py, not for users.
 
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team
@@ -11,7 +9,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
-from grass.temporal.algebra import time_functions
 from grass.temporal.algebra.content import Const
 from grass.temporal.algebra.series import Series
 
@@ -38,9 +35,9 @@ def check_time_variable(name, series):
 
     timevar() gives null for the end of an instant and for the calendar of
     relative time. A null condition selects no map, so a slip such as end_doy
-    for start_doy would give an empty result without a word. The classic
-    algebra stops with an error that names the map, and so does this
-    translation. td() of an instant stays null, as in t.rast.mapcalc.
+    for start_doy would give an empty result without a word. The releases
+    before GRASS 8.6 stopped with an error that names the map, and so does
+    this translation. td() of an instant stays null, as in t.rast.mapcalc.
     """
     if name == "td":
         return
@@ -55,7 +52,7 @@ def check_time_variable(name, series):
             f"Temporal function {name}() is not available for {what}: it needs "
             "absolute time, and the end functions also an end time"
         )
-        raise time_functions.TimeFunctionError(msg, name, slot.origin)
+        raise ValueError(msg)
 
 
 def whole(value, name):

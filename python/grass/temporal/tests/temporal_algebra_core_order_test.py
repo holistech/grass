@@ -53,14 +53,14 @@ def names(slots):
     return [first_map(slot.content) for slot in slots]
 
 
-def in_given_order(make_series, order, *spans):
+def in_given_order(make_series, *spans):
     """A series whose slots are the maps a1, a2, ... in the order given"""
     slots = [make_series("a", span).slots[0] for span in spans]
     slots = [
         replace(slot, content=MapRef(f"a{number}@PERMANENT"))
         for number, slot in enumerate(slots, start=1)
     ]
-    return Series(tuple(slots), order=order)
+    return Series(tuple(slots))
 
 
 @pytest.fixture
@@ -79,35 +79,15 @@ def datasets(make_series):
 
 
 def test_the_default_key_orders_by_start_then_end(make_series):
-    series = in_given_order(make_series, "time", (1, 5), (1, 2))
+    series = in_given_order(make_series, (1, 5), (1, 2))
     assert names(series.slots) == ["a2", "a1"]
 
 
-def test_the_start_key_orders_by_start_only(make_series):
-    series = in_given_order(make_series, "start", (1, 5), (1, 2))
-    assert names(series.slots) == ["a1", "a2"]
+# The map of A that ends first comes before the longer map of W of the same
+# start.
 
 
-def test_the_start_key_still_orders_by_start(make_series):
-    series = in_given_order(make_series, "start", (3, 4), (1, 5), (1, 2))
-    assert names(series.slots) == ["a2", "a3", "a1"]
-
-
-def test_unknown_order(make_series):
-    with pytest.raises(ValueError, match="Unknown order 'end'"):
-        replace(make_series("a", (1, 2)), order="end")
-
-
-# The start key follows the operations. The classic tsnap(merge(W, A)) lists
-# the map of W before the first map of A although the map of A ends first
-# (reference: maps 0 to 4 are w1, a1, a2, a3, a4).
-
-
-def test_merge_of_start_ordered_series_keeps_the_start_key(datasets):
-    wide, daily = (replace(datasets[key], order="start") for key in ("W", "A"))
-    merged = merge(wide, daily)
-    assert merged.order == "start"
-    assert names(merged.slots) == ["w1", "a1", "a2", "a3", "a4"]
+def test_merge_sorts_by_start_then_end(datasets):
     assert names(merge(datasets["W"], datasets["A"]).slots) == [
         "a1",
         "w1",
@@ -115,48 +95,6 @@ def test_merge_of_start_ordered_series_keeps_the_start_key(datasets):
         "a3",
         "a4",
     ]
-
-
-def test_snapped_list_in_start_order(datasets):
-    wide, daily = (replace(datasets[key], order="start") for key in ("W", "A"))
-    snapped = retime(merge(wide, daily), snap=True)
-    assert names(snapped.listed()) == ["w1", "a1", "a2", "a3", "a4"]
-
-
-@pytest.mark.parametrize(
-    "operation",
-    [
-        lambda s: apply("+", s, 1),
-        lambda s: apply("+", s, s),
-        lambda s: where(apply(">", s, 1), s),
-        lambda s: choose(timevar(s, "td") > 0, s),
-        lambda s: retime(s, shift="1 day"),
-        lambda s: retime(s, buffer="1 day"),
-        lambda s: retime(s, snap=True),
-        lambda s: timevar(s, "td"),
-        lambda s: gather(s, relation("equal"), s, reduce="first"),
-        lambda s: pairs(s, relation("equal"), s),
-        lambda s: select(s, relation("equal"), s),
-        lambda s: merge(s, apply("+", s, 1)),
-    ],
-    ids=[
-        "number",
-        "series",
-        "where",
-        "choose",
-        "shift",
-        "buffer",
-        "snap",
-        "timevar",
-        "gather",
-        "pairs",
-        "select",
-        "merge",
-    ],
-)
-def test_the_key_is_kept_by_the_operations(datasets, operation):
-    series = replace(datasets["A"], order="start")
-    assert operation(series).order == "start"
 
 
 # The list order of merge()
@@ -316,12 +254,6 @@ def test_selection_lists_in_time_order(datasets):
     selected = select(merged, relation("equal"), datasets["A"])
     assert listed_in_time_order(selected)
     assert names(selected.listed()) == ["n1", "a1", "n2", "a2", "n3", "a3", "n4", "a4"]
-
-
-def test_selection_with_a_changed_time_lists_in_time_order(datasets):
-    merged = merge(datasets["N"], datasets["A"])
-    selected = select(merged, relation("equal"), datasets["A"], extent="union")
-    assert listed_in_time_order(selected)
 
 
 def test_gather_lists_in_time_order(datasets):

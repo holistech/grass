@@ -24,7 +24,6 @@ from grass.temporal.algebra import operations, time_functions
 from grass.temporal.algebra.backends import BUFFER_TYPES, PATCH, VECTOR_FUNCTIONS
 from grass.temporal.algebra.content import COMPARISONS, NULL, Const, call
 from grass.temporal.algebra.maptypes import OFFSET_COUNTS, STDS_TYPES
-from grass.temporal.algebra.profile import CORE
 from grass.temporal.algebra.reducers import compare, fold
 from grass.temporal.algebra.relations import TEMPORAL_RELATIONS, Relation, inverse
 from grass.temporal.algebra.series import Series, Slot
@@ -94,31 +93,10 @@ class Translator:
     functions that build series in memory. With spatial, every relation also
     asks for spatially related maps. kind is the map type of the datasets; it
     decides what + means and which indexes and functions exist. selection says
-    that the expression selects registered maps (t.select) and computes none;
-    the core translates it like any other expression, a variant of the algebra
-    may need to know.
-
-    The profile says which variant of the algebra is translated. Its fields
-    are read through self.profile.
-
-    The protected extension points of the class are statement(), value() and
-    the methods _result, _name, _index, _single_map, _operands, _binary,
-    _binary_values, _relation, _aligned, _relating_options, _select_op,
-    _pairs_op, _gather_op, _select, _count, _overlay, _arithmetic, _combine,
-    _apply, _compare, _compare_related, _logical, _if, _temporal_if,
-    _field_if, _conditions, _function, _call, _time_variable, _tsnap,
-    _tshift, _buff_t and _merge. A subclass for another variant of the
-    algebra overrides them and relies on their signatures; the translation
-    calls every one of them as a method of self, so an override is always
-    reached. The other private names are details of this class.
-
-    Every select(), pairs() and gather() of the translation goes through
-    _select_op(), _pairs_op() or _gather_op(), which add the options of
-    _relating_options(); a variant that relates maps by other rules
-    overrides that one method (the classic profile asks for the written
-    order of the relation names, once per name). _conditions() names order
-    and unique itself, so the conditions of if() relate alike in every
-    variant.
+    that the expression selects registered maps (t.select) and computes none:
+    strds(), str3ds() and stvds() then name datasets of other map types, which
+    are related by time and box only, and the result may not be a time
+    function.
     """
 
     def __init__(
@@ -128,16 +106,12 @@ class Translator:
         spatial=False,
         resolve=None,
         resolve_map=None,
-        profile=CORE,
         selection=False,
     ):
-        self.profile = profile
         self._kind = kind
         self._spatial = spatial
         self._selection = selection
-        self._resolve = resolve or functools.partial(
-            source, stds_type=STDS_TYPES[kind], search_path=profile.search_path
-        )
+        self._resolve = resolve or functools.partial(source, stds_type=STDS_TYPES[kind])
         self._resolve_map = resolve_map or functools.partial(source_map, kind=kind)
         self._datasets = {}
 
@@ -147,7 +121,7 @@ class Translator:
         :raises ValueError: if the expression gives no series
         :raises SyntaxError: if a vector expression gives numbers
         """
-        result = self._result(node.target, self.value(node.expression))
+        result = self.value(node.expression)
         if not isinstance(result, Series):
             msg = f"The expression of {node.target} gives no space time dataset"
             raise ValueError(msg)
@@ -161,13 +135,6 @@ class Translator:
             )
             raise SyntaxError(msg)
         return node.target, result
-
-    def _result(self, target, result):
-        """Return the value of the expression that target is registered as
-
-        A profile refuses here what it cannot register.
-        """
-        return result
 
     def value(self, node):
         """Return the series, content node or text of a syntax tree node
@@ -207,11 +174,10 @@ class Translator:
             msg = f"{node.name}[...] takes {_INDEX_FORMS[axes]} for {self._kind} maps"
             raise SyntaxError(msg)
         series = self._name(ast.Name(node.name))
-        space = self.profile.neighbour_space
         if len(offsets) == 1:
-            return time_functions.neighbour(series, offsets[0], space=space)
+            return time_functions.neighbour(series, offsets[0])
         if len(offsets) == axes + 1:
-            series = time_functions.neighbour(series, offsets[-1], space=space)
+            series = time_functions.neighbour(series, offsets[-1])
         return operations.cell_offset(series, *offsets[:axes])
 
     def _operands(self, node):
@@ -271,28 +237,6 @@ class Translator:
             return right
         return dataclasses.replace(right, kind=left.kind)
 
-    def _relating_options(self):
-        """Return the options of every select(), pairs() and gather()
-
-        An option that a call names itself takes precedence.
-        """
-        return {"mixed_times": self.profile.mixed_times}
-
-    def _select_op(self, left, relation, other, **options):
-        return operations.select(
-            left, relation, other, **(self._relating_options() | options)
-        )
-
-    def _pairs_op(self, left, relation, other, **options):
-        return operations.pairs(
-            left, relation, other, **(self._relating_options() | options)
-        )
-
-    def _gather_op(self, target, relation, other, **options):
-        return operations.gather(
-            target, relation, other, **(self._relating_options() | options)
-        )
-
     @staticmethod
     def _pair(symbol, left, right):
         if not (timed(left) and timed(right)):
@@ -310,12 +254,12 @@ class Translator:
                     "so it takes no temporal reference other than l"
                 )
                 raise SyntaxError(msg)
-            return self._select_op(left, relation, right, related=False)
+            return operations.select(left, relation, right, related=False)
         if operator.temporal == "l":
-            return self._select_op(left, relation, right)
+            return operations.select(left, relation, right)
         if operator.temporal == "r":
-            return self._pairs_op(left, relation, right, extent="right")
-        return self._gather_op(
+            return operations.pairs(left, relation, right, extent="right")
+        return operations.gather(
             left, relation, right, reduce=None, extent=EXTENTS[operator.temporal]
         )
 
@@ -328,7 +272,7 @@ class Translator:
                 "it takes no temporal reference other than l"
             )
             raise SyntaxError(msg)
-        return self._gather_op(left, self._relation(operator), right, reduce="count")
+        return operations.gather(left, self._relation(operator), right, reduce="count")
 
     def _overlay(self, symbol, left, right, operator):
         timed_vectors = all(
@@ -367,7 +311,7 @@ class Translator:
         right = self._aligned(left, right)
         relation = self._relation(operator)
         if operator.temporal == "r":
-            return self._pairs_op(
+            return operations.pairs(
                 left,
                 relation,
                 right,
@@ -375,7 +319,7 @@ class Translator:
                 content=lambda mine, theirs: call(symbol, mine, theirs),
                 space=space,
             )
-        return self._gather_op(
+        return operations.gather(
             left,
             relation,
             right,
@@ -454,7 +398,7 @@ class Translator:
             operator = TemporalOperator(symbol, aggregate=symbol[0])
         relation = self._relation(operator)
         if operator.temporal == "r":
-            return self._pairs_op(
+            return operations.pairs(
                 left,
                 relation,
                 right,
@@ -464,8 +408,8 @@ class Translator:
         extent = EXTENTS[operator.temporal]
         # The left maps that have related maps, and the joined conditions of
         # those related maps; both have the same time stamps.
-        targets = self._gather_op(left, relation, right, reduce=None, extent=extent)
-        others = self._gather_op(
+        targets = operations.gather(left, relation, right, reduce=None, extent=extent)
+        others = operations.gather(
             left,
             relation,
             right,
@@ -512,13 +456,8 @@ class Translator:
                 return _where(condition, then, otherwise)
             return operations.choose(
                 condition,
-                _constant_like(condition, then, listed=self.profile.list_order),
-                None
-                if otherwise is ABSENT
-                else _constant_like(
-                    condition, otherwise, listed=self.profile.list_order
-                ),
-                mixed_times=self.profile.mixed_times,
+                _constant_like(condition, then),
+                None if otherwise is ABSENT else _constant_like(condition, otherwise),
             )
         return self._temporal_if(condition, then, otherwise, relation, first)
 
@@ -526,34 +465,24 @@ class Translator:
         """Choose between then and else by a condition with time stamps
 
         first is the first of then and else that has time stamps. Without
-        else, otherwise is the marker ABSENT. A condition per cell goes to
-        _field_if().
+        else, otherwise is the marker ABSENT. A condition per cell chooses in
+        each cell, so where() takes the joined conditions and both branches
+        with the same time stamps.
         """
         operator = relation or TemporalOperator(None)
         conditions = self._conditions(first, condition, operator)
         if conditions.sort == "field":
-            return self._field_if(condition, then, otherwise, relation)
-        then_maps = (
-            then
-            if timed(then)
-            else _constant_like(first, then, listed=self.profile.list_order)
-        )
+            return _where(conditions, then, otherwise)
+        then_maps = then if timed(then) else _constant_like(first, then)
         if otherwise is ABSENT:
-            return operations.choose(
-                conditions, then_maps, mixed_times=self.profile.mixed_times
-            )
+            return operations.choose(conditions, then_maps)
         settled = _settled(conditions, relation)
         if not timed(otherwise):
             return operations.choose(
-                settled,
-                then_maps,
-                _constant_like(first, otherwise, listed=self.profile.list_order),
-                mixed_times=self.profile.mixed_times,
+                settled, then_maps, _constant_like(first, otherwise)
             )
         if not timed(then):
-            return operations.choose(
-                settled, then_maps, otherwise, mixed_times=self.profile.mixed_times
-            )
+            return operations.choose(settled, then_maps, otherwise)
         # Then and else have time stamps of their own; each map is judged by
         # the conditions related to it.
         if self._selection and "scalar" in {then.sort, otherwise.sort}:
@@ -562,11 +491,9 @@ class Translator:
             self._refuse_time_function()
         others = self._conditions(otherwise, condition, operator)
         return operations.merge(
-            operations.choose(conditions, then, mixed_times=self.profile.mixed_times),
+            operations.choose(conditions, then),
             operations.choose(
-                operations.apply("!", _settled(others, relation)),
-                otherwise,
-                mixed_times=self.profile.mixed_times,
+                operations.apply("!", _settled(others, relation)), otherwise
             ),
         )
 
@@ -580,44 +507,19 @@ class Translator:
         )
         raise ValueError(msg)
 
-    def _field_if(self, condition, then, otherwise, relation):
-        """Choose by a condition per cell between then and else
-
-        condition, then and otherwise are as _if() got them, relation is the
-        relation of if() or None. The choice is made in each cell, so
-        where() needs the joined conditions and both branches with the same
-        time stamps.
-        """
-        # The join that _temporal_if() made is made again here: the hook takes
-        # the condition as _if() got it, because an override (the classic
-        # profile) pairs that raw condition with the branches itself. The cost
-        # is a second join for a condition per cell.
-        first = next((branch for branch in (then, otherwise) if timed(branch)), None)
-        operator = relation or TemporalOperator(None)
-        conditions = self._conditions(first, condition, operator)
-        return _where(conditions, then, otherwise)
-
     def _conditions(self, target, condition, operator):
         """The joined condition of each map of target
 
         if({R}, c, X) reads "c R x", so the maps of X are related to the
         conditions by the inverse of R.
         """
-        # Every variant relates the conditions of if() in time order and once
-        # per map, so order and unique are named here and the relating options
-        # of a profile do not reach them. The classic profile comes here
-        # through _temporal_if(): the reference relates the conditions of
-        # if() in time order and once per map as well, so the profile meets
-        # the recorded results of the reference only this way.
-        return self._gather_op(
+        return operations.gather(
             target,
             inverse(self._relation(operator)),
             condition,
             reduce=_AGGREGATES[operator.aggregate],
             missing="null",
             equal_times="pairwise",
-            order="sorted",
-            unique=True,
         )
 
     def _function(self, node):
@@ -785,26 +687,21 @@ def _settled(conditions, relation):
     return operations.apply("if", operations.apply("isnull", conditions), 0, conditions)
 
 
-def _constant_like(series, value, *, listed=False):
+def _constant_like(series, value):
     """A series with the time stamps of series and value as each content
 
-    value is a content node or a map without time stamp. With listed the
-    slots keep their rank and the series its order, as a profile that lists
-    results in the order of the lists needs; the core leaves them out so that
-    its results do not depend on them.
+    value is a content node or a map without time stamp. The slots take no
+    rank (Slot.rank), so that the result does not depend on the list order
+    of series.
     """
     if isinstance(value, str):
         msg = f"A text such as '{value}' cannot be a branch of if()"
         raise TypeError(msg)
     content = value.slots[0].content if isinstance(value, Series) else value
     return Series(
-        tuple(
-            Slot(slot.extent, content, slot.space, rank=slot.rank if listed else None)
-            for slot in series
-        ),
+        tuple(Slot(slot.extent, content, slot.space) for slot in series),
         kind=series.kind,
         spatial=series.spatial,
-        **({"order": series.order} if listed else {}),
     )
 
 

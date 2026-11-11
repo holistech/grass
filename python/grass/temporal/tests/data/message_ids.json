@@ -244,7 +244,6 @@
  "Space time voxel cube",
  "Space time {sp} dataset <{name}> with relative time found, but no relative unit set for {sp} maps",
  "Space time {type} dataset <{id}> not found",
- "Space time {type} dataset <{name}> is already in the database. Use the overwrite flag.",
  "Spatio-temporal topological operators are not supported in granularity algebra mode",
  "Start time must be of type datetime for %(type)s map <%(id)s>",
  "Start time must be of type datetime for %(type)s map <%(id)s> with layer: %(l)s",

@@ -30,30 +30,21 @@ from .adapters import as_map, extent_from
 from .backends import BUFFERS, VECTOR_FUNCTIONS
 from .content import (
     NULL,
+    Call,
     Const,
     MapRef,
     ScalarFunctionError,
     call,
 )
+from ._messages import warn
+from .content import SeriesAggregate, SeriesReduce
 from .maptypes import DIMENSIONS, OFFSET_COUNTS
-from .relations import ORDERS
 from .relations import related as related_indices
 from .series import Series, Slot, Space
-from .variants import (
-    check_comparable,
-    combine_boxes,
-    content_at,
-    describe_extent,
-    pair_equal_times,
-    warn,
-)
 
 PAIR_EXTENTS = ("left", "right", "union", "intersection", "disjoint")
-SELECT_EXTENTS = PAIR_EXTENTS
 GATHER_EXTENTS = ("left", "union", "intersection", "disjoint")
 SPACES = ("keep", "union", "intersection")
-FAILURES = ("empty", "stop", "skip")
-BOXES = ("intersection", "union")
 MISSING = ("drop", "null", "keep")
 EQUAL_TIMES = ("all", "pairwise")
 NULLS = ("propagate", "skip")
@@ -63,6 +54,95 @@ _COMBINE = {
     "intersection": "temporal_intersection",
     "disjoint": "temporal_disjoint_union",
 }
+
+
+def _describe_extent(extent):
+    """The text of a time stamp in messages, "no slot" for None"""
+    if extent is None:
+        return "no slot"
+    # The unit tells apart relative times that read alike, e.g. series in
+    # days and in hours.
+    unit = "" if extent.unit is None else f" {extent.unit}"
+    if extent.end is None:
+        return f"{extent.start}{unit}"
+    return f"{extent.start} .. {extent.end}{unit}"
+
+
+def _check_comparable(first, second, *, times_only=False):
+    """Refuse two series that relations cannot relate
+
+    Relations exist only between series of one temporal type, and of one map
+    type where their contents meet. related() does not check this itself: on
+    mixed absolute and relative time, or on different units, it finds no
+    relation instead of failing. times_only says that no map of second enters
+    the result, only its time stamps and boxes or its numbers, so that its map
+    type does not matter: t.select relates a vector series to a raster series.
+
+    :raises ValueError: for series of different map types without
+        times_only, and for series of different temporal types or units
+    """
+    if first.kind != second.kind and not times_only:
+        msg = f"A {first.kind} series cannot be related to a {second.kind} series"
+        raise ValueError(msg)
+    units = {
+        slot.extent.unit
+        for slot in (*first.slots, *second.slots)
+        if slot.extent is not None
+    }
+    if len(units) > 1:
+        msg = "Series of different temporal types or units cannot be related"
+        raise ValueError(msg)
+
+
+def _content_at(operand, index):
+    """The content of operand in the slot at index of an operation
+
+    A series without time stamps gives its only slot, None gives null and a
+    number a constant.
+    """
+    if isinstance(operand, Series):
+        return operand.slots[0 if operand.timeless else index].content
+    if operand is None:
+        return NULL
+    if isinstance(operand, (Const, MapRef, Call, SeriesReduce, SeriesAggregate)):
+        return operand
+    return Const(operand)
+
+
+def _pair_equal_times(targets, matches, others):
+    """Pair maps of equal time stamps like numpy broadcasting
+
+    A single map on one side goes with all maps of its time on the other
+    side, n maps go with n maps one to one in the order of the series, and
+    other counts are an error. The partners are in the order of others.
+    """
+    positions = {}
+    counts = defaultdict(int)
+    for index, slot in enumerate(targets):
+        positions[index] = counts[slot.extent]
+        counts[slot.extent] += 1
+    paired = []
+    for index, found in enumerate(matches):
+        size = counts[targets[index].extent]
+        groups = defaultdict(list)
+        for other_index in found:
+            groups[others[other_index].extent].append(other_index)
+        chosen = []
+        for time, members in groups.items():
+            if size == 1 or len(members) == 1:
+                chosen.extend(members)
+            elif len(members) == size:
+                chosen.append(members[positions[index]])
+            else:
+                msg = (
+                    f"{size} maps of the time stamp "
+                    f"{_describe_extent(targets[index].extent)} cannot be paired "
+                    f"with {len(members)} maps of the time stamp "
+                    f"{_describe_extent(time)}"
+                )
+                raise ValueError(msg)
+        paired.append(sorted(chosen))
+    return paired
 
 
 def _joined_sort(*series):
@@ -83,73 +163,26 @@ def _origin(content, extent, *slots):
     return None
 
 
-def _combine_steps(target, others, mode, *, box=None, failure="empty", three_d=False):
-    """The time stamp and the box of a target combined with related slots
+def _combined_time(target, others, mode):
+    """The time stamp of a target combined with related slots
 
     "left" keeps the time stamp of the target, "right" takes that of each
     related slot in turn, so that of the last one. The other modes fold the
     target with each related slot in turn using the methods of
-    grass.temporal. With box the box of the target is combined with the box
-    of each related slot in the same step (see combine_boxes()).
+    grass.temporal.
 
-    A step fails if the time stamps do not combine or the boxes do not. The
-    failing step still applies the half that did combine, as the classic
-    algebra does (overlay_map_extent() evaluates the spatial and the temporal
-    overlay one after the other and without short circuit, and both change
-    the same map). failure says what a failing step means:
-
-    - "empty": the whole combination is empty
-    - "stop": the slots after it are left out, and what the steps before and
-      the half step itself set stays; the combination is empty only if no step
-      before succeeded
-    - "skip": the slot is passed over, and the combination is that of the
-      other slots, at worst the target as it is
-
-    :return: (time stamp, box), or None if the combination is empty
+    :return: the time stamp, or None if a step does not combine
     """
-    extent, space = target.extent, target.space
-    succeeded = 0
+    extent = target.extent
     for partner in others:
-        ok = True
         if mode == "right":
             extent = partner.extent
         elif mode != "left":
             combined = getattr(as_map(extent), _COMBINE[mode])(as_map(partner.extent))
-            found = extent_from(combined, target.extent.unit)
-            if found is None:
-                ok = False
-            else:
-                extent = found
-        if box is not None and space is not None and partner.space is not None:
-            found = combine_boxes(space, partner.space, box, three_d)
-            if found is None:
-                ok = False
-            else:
-                space = found
-        if ok:
-            succeeded += 1
-        elif failure == "empty":
-            return None
-        elif failure == "stop":
-            return (extent, space) if succeeded else None
-    return extent, space
-
-
-def _check_box(box, space):
-    if box is None:
-        return
-    check_option("box", box, BOXES)
-    if space != "keep":
-        msg = "box replaces space, so space must stay keep"
-        raise ValueError(msg)
-
-
-def _box_of(slot, partner, operation, three_d):
-    """The box of the pair (slot, partner), False if the boxes do not combine"""
-    if slot.space is None or partner.space is None:
-        return slot.space
-    found = combine_boxes(slot.space, partner.space, operation, three_d)
-    return False if found is None else found
+            extent = extent_from(combined, target.extent.unit)
+            if extent is None:
+                return None
+    return extent
 
 
 def _combined_space(own, others, mode):
@@ -189,26 +222,15 @@ def _combined_space(own, others, mode):
     return common
 
 
-def select(
-    left,
-    relation,
-    other,
-    *,
-    related=True,
-    extent="left",
-    failure="skip",
-    order="sorted",
-    unique=True,
-    mixed_times="error",
-):
+def select(left, relation, other, *, related=True):
     """Keep the slots l of left by whether a slot x of other with "l R x" exists
 
     With related=True a slot is kept if such a slot exists, with related=False
-    if none exists. Content stays as it is. select(L, R, X) and
-    select(L, R, X, related=False) are disjoint and together are L.
+    if none exists. Content and time stamp stay as they are. select(L, R, X)
+    and select(L, R, X, related=False) are disjoint and together are L.
 
     :param left: the Series whose slots are kept or dropped; the result is
-        made of its slots, so it has its map type, sort and order
+        made of its slots, so it has its map type and sort
     :param relation: the Relation "R" that the slot l must (or, with
         related=False, must not) have to some slot of other
     :param other: the Series whose slots are searched for partners; only their
@@ -216,76 +238,33 @@ def select(
         content
     :param related: True keeps the slots that have a partner, False those
         that have none
-    :param extent: the time stamp of a kept slot: its own ("left"), or its own
-        combined with the time stamps of its partners one after the other:
-        the union, intersection or disjoint union, or "right", the time stamp
-        of the last partner. Only for related=True
-    :param failure: what a partner whose time stamp does not combine means
-        for extent other than "left" and "right", see gather(); the default
-        "skip" passes over such a partner, so the slot is always kept
-    :param order: the order of the partners, which fixes the last one and the
-        result of "stop", see related()
-    :param unique: see related()
-    :param mixed_times: "error" refuses series of absolute and relative time
-        or of different units; "unrelated" relates nothing across them
-    :raises ValueError: for an extent other than "left" with related=False
+    :raises ValueError: for series of different temporal types or units
     """
     check_series(left, "left")
     check_relation(relation)
     check_series(other, "other")
-    check_option("extent", extent, SELECT_EXTENTS)
-    check_option("failure", failure, FAILURES)
-    check_option("order", order, ORDERS)
-    if extent != "left" and not related:
-        msg = "A slot without partner has no time stamp to combine, so extent must be left"
-        raise ValueError(msg)
-    check_comparable(left, other, mixed_times, times_only=True)
+    _check_comparable(left, other, times_only=True)
     matches = related_indices(
-        left.slots,
-        relation,
-        other.slots,
-        dimension=DIMENSIONS[left.kind],
-        order=order,
-        unique=unique,
+        left.slots, relation, other.slots, dimension=DIMENSIONS[left.kind]
     )
-    slots = []
-    for slot, found in zip(left.slots, matches, strict=True):
-        if bool(found) != related:
-            continue
-        if extent != "left":
-            combined = _combine_steps(
-                slot, [other.slots[index] for index in found], extent, failure=failure
-            )
-            if combined is None:
-                continue
-            if combined[0] != slot.extent:
-                # The slot is no longer the registered map it was.
-                slot = Slot(combined[0], slot.content, slot.space)
-        slots.append(_in_time_order(slot))
+    slots = [
+        _in_time_order(slot)
+        for slot, found in zip(left.slots, matches, strict=True)
+        if bool(found) == related
+    ]
     return replace(
         left, slots=tuple(slots), spatial=left.spatial or relation.spatial is not None
     )
 
 
-def pairs(
-    left,
-    relation,
-    other,
-    *,
-    extent="left",
-    content=None,
-    space="keep",
-    order="sorted",
-    unique=True,
-    box=None,
-    fold_all=False,
-    last_only=False,
-    mixed_times="error",
-):
+def pairs(left, relation, other, *, extent="left", content=None, space="keep"):
     """Make one slot per pair (l, x) with "l R x"
 
+    The pairs of one l are in the order of the slots of other, and a slot x
+    that several relation names relate to l makes one pair.
+
     :param left: the Series whose slots l are paired; the result has its map
-        type and order, and is spatial if either series or the relation is
+        type, and is spatial if either series or the relation is
     :param relation: the Relation "R" that a pair must satisfy
     :param other: the Series whose slots x are paired with l
     :param extent: the time stamp of a slot: that of l ("left"), of x
@@ -297,24 +276,7 @@ def pairs(
         time stamp comes from, x for extent="right" and l otherwise
         ("keep"), the box around l and x ("union"), or their common box
         ("intersection"), which keeps the extent of "keep" if there is none
-    :param order: the order of the partners of l, see related(); it is the
-        order of the slots of one l, and the order in which fold_all folds
-    :param unique: False makes a pair for every written relation name that
-        relates x to l, see related()
-    :param box: "intersection" or "union" combines the box of l with the box
-        of x for the slot of each pair, as an overlay of the classic algebra
-        does (see combine_boxes()), also if space takes no part in the relation; it
-        replaces space. The pairs end at the first partner of l without
-        common box (only "intersection" has none); fold_all still folds all
-        partners. Slots without box combine
-    :param fold_all: every pair of l gets the content that folds all partners
-        of l, content(content(l, x1), x2) and so on, instead of
-        content(l, x); needs content
-    :param last_only: keep only the last pair of each l, as the classic
-        algebra does when the partners of a map share one result map
-    :param mixed_times: "error" refuses series of absolute and relative time
-        or of different units; "unrelated" relates nothing across them
-    :raises ValueError: for fold_all without content
+    :raises ValueError: for series of different temporal types or units
     """
     check_series(left, "left")
     check_relation(relation)
@@ -323,58 +285,36 @@ def pairs(
         check_callable(content, "content")
     check_option("extent", extent, PAIR_EXTENTS)
     check_option("space", space, SPACES)
-    check_option("order", order, ORDERS)
-    _check_box(box, space)
-    if fold_all and content is None:
-        msg = "fold_all needs a content function to fold with"
-        raise ValueError(msg)
-    check_comparable(
-        left, other, mixed_times, times_only=content is None or other.sort == "scalar"
-    )
+    _check_comparable(left, other, times_only=content is None or other.sort == "scalar")
     matches = related_indices(
-        left.slots,
-        relation,
-        other.slots,
-        dimension=DIMENSIONS[left.kind],
-        order=order,
-        unique=unique,
+        left.slots, relation, other.slots, dimension=DIMENSIONS[left.kind]
     )
     slots = []
     for slot, found in zip(left.slots, matches, strict=True):
-        partners = [other.slots[index] for index in found]
-        folded = slot.content
-        if fold_all:
-            for partner in partners:
-                folded = content(folded, partner.content)
-        made = []
-        for partner in partners:
-            pair_space = None
-            if box is not None:
-                pair_space = _box_of(slot, partner, box, DIMENSIONS[left.kind] == "3D")
-                if pair_space is False:
-                    break
+        for partner in (other.slots[index] for index in found):
             if extent == "right":
                 time, own, others = partner.extent, partner.space, [slot.space]
             else:
-                combined = _combine_steps(slot, [partner], extent)
-                if combined is None:
+                time = _combined_time(slot, [partner], extent)
+                if time is None:
                     continue
-                time, own, others = combined[0], slot.space, [partner.space]
-            if fold_all:
-                value = folded
-            elif content is None:
-                value = slot.content
-            else:
-                value = content(slot.content, partner.content)
-            if box is None:
-                pair_space = _combined_space(own, others, space)
-            made.append(
-                Slot(time, value, pair_space, _origin(value, time, slot, partner))
+                own, others = slot.space, [partner.space]
+            value = (
+                slot.content
+                if content is None
+                else content(slot.content, partner.content)
             )
-        slots.extend(made[-1:] if last_only else made)
+            slots.append(
+                Slot(
+                    time,
+                    value,
+                    _combined_space(own, others, space),
+                    _origin(value, time, slot, partner),
+                )
+            )
     sort = left.sort if content is None else _joined_sort(left, other)
     spatial = left.spatial or other.spatial or relation.spatial is not None
-    return Series(tuple(slots), left.kind, sort, spatial, left.order)
+    return Series(tuple(slots), left.kind, sort, spatial)
 
 
 def _check_aligned(first, second, name):
@@ -394,8 +334,8 @@ def _check_aligned(first, second, name):
     )
     msg = (
         f"{name}() needs series with equal time stamps; they differ at slot "
-        f"{index}: {describe_extent(times[index] if index < len(times) else None)} and "
-        f"{describe_extent(others[index] if index < len(others) else None)}. Relate "
+        f"{index}: {_describe_extent(times[index] if index < len(times) else None)} and "
+        f"{_describe_extent(others[index] if index < len(others) else None)}. Relate "
         "the series with gather() or pairs() first."
     )
     raise ValueError(msg)
@@ -458,7 +398,7 @@ def _apply(function, operands, name):
     keep_rank = len(timed) == 1
     slots = []
     for index, slot in enumerate(first.slots):
-        value = call(function, *(content_at(operand, index) for operand in operands))
+        value = call(function, *(_content_at(operand, index) for operand in operands))
         if sort == "scalar" and not isinstance(value, Const):
             msg = f"{function}() cannot be computed for scalar values"
             raise ScalarFunctionError(msg)
@@ -473,7 +413,7 @@ def _apply(function, operands, name):
             )
         )
     spatial = any(part.spatial for part in series)
-    return Series(tuple(slots), first.kind, sort, spatial, first.order)
+    return Series(tuple(slots), first.kind, sort, spatial)
 
 
 def apply(function, *operands):
@@ -538,15 +478,13 @@ def gather(
     equal_times="all",
     nulls="propagate",
     space="keep",
-    order="sorted",
-    unique=True,
-    failure="empty",
-    box=None,
-    mixed_times="error",
 ):
     """For each slot t of target, reduce the slots x of other with "t R x"
 
-    The result has at most one slot per target slot.
+    The result has at most one slot per target slot. A reducer sees the
+    related slots in the order of the slots of other, which counts for
+    fold(), "first", "last" and the left-to-right nesting of the other
+    reducers; a slot that several relation names relate to t counts once.
 
     :param target: the Series whose slots t each give at most one slot of the
         result; the content of that slot combines the contents of the
@@ -567,8 +505,9 @@ def gather(
         gets a null content ("null") or stays as it is ("keep")
     :param extent: the time stamp of a result slot: that of the target
         ("left"), or its union, intersection or disjoint union with the
-        related slots; a target whose combined time stamp is empty (an
-        intersection without overlap) is left out whatever missing says
+        related slots, one after the other; a target whose combined time
+        stamp is empty (an intersection without overlap with any related
+        slot) is left out whatever missing says
     :param equal_times: "all" relates every map of a time to a target,
         "pairwise" pairs maps of equal time stamps one to one; without effect
         if space takes part in the relation
@@ -580,25 +519,7 @@ def gather(
         ("keep"), the box around the target and its related slots
         ("union"), or their common box ("intersection"), which keeps the
         extent of the target if there is none
-    :param order: the order of the related slots, see related(); a reducer
-        sees them in this order, which counts for fold(), "first", "last"
-        and the left-to-right nesting of the other reducers
-    :param unique: False lets a slot count once for every written relation
-        name that relates it, see related()
-    :param failure: what a related slot whose time stamp (or box, see box)
-        does not combine with that of the target means: "empty" leaves the
-        target out, "stop" ends the combination there and keeps what the
-        slots before it and the failing step itself set (the target is left
-        out only if no step before succeeded), "skip" passes over the slot.
-        The reducer sees all related slots whatever failure says
-    :param box: "intersection" or "union" combines the box of the target with
-        the box of each related slot in the same step as the time stamp, as an
-        overlay of the classic algebra does (see _combine_steps() and combine_boxes()),
-        also if space takes no part in the relation; the result box is the one
-        so far, and it replaces space. Only "intersection" can fail. Slots
-        without box combine
-    :param mixed_times: "error" refuses series of absolute and relative time
-        or of different units; "unrelated" relates nothing across them
+    :raises ValueError: for series of different temporal types or units
     :raises ValueError: for missing="keep" with a reducer whose result has
         another sort than the target
     :raises ValueError: if equal_times="pairwise" cannot pair the maps of
@@ -614,15 +535,9 @@ def gather(
     check_option("equal_times", equal_times, EQUAL_TIMES)
     check_option("nulls", nulls, NULLS)
     check_option("space", space, SPACES)
-    check_option("order", order, ORDERS)
-    check_option("failure", failure, FAILURES)
-    _check_box(box, space)
     reducers.check(reduce, nulls)
-    check_comparable(
-        target,
-        other,
-        mixed_times,
-        times_only=reduce in (None, "count") or other.sort == "scalar",
+    _check_comparable(
+        target, other, times_only=reduce in (None, "count") or other.sort == "scalar"
     )
     sort = reducers.sort_of(reduce, target.sort, other.sort)
     if missing == "keep" and sort != target.sort:
@@ -632,15 +547,10 @@ def gather(
         )
         raise ValueError(msg)
     matches = related_indices(
-        target.slots,
-        relation,
-        other.slots,
-        dimension=DIMENSIONS[target.kind],
-        order=order,
-        unique=unique,
+        target.slots, relation, other.slots, dimension=DIMENSIONS[target.kind]
     )
     if equal_times == "pairwise" and relation.spatial is None:
-        matches = pair_equal_times(target.slots, matches, other.slots, order=order)
+        matches = _pair_equal_times(target.slots, matches, other.slots)
     slots = []
     for slot, found in zip(target.slots, matches, strict=True):
         partners = [other.slots[index] for index in found]
@@ -650,17 +560,9 @@ def gather(
             elif missing == "keep":
                 slots.append(_in_time_order(slot))
             continue
-        combined = _combine_steps(
-            slot,
-            partners,
-            extent,
-            box=box,
-            failure=failure,
-            three_d=DIMENSIONS[target.kind] == "3D",
-        )
-        if combined is None:
+        time = _combined_time(slot, partners, extent)
+        if time is None:
             continue
-        time, box_space = combined
         weights = None
         if isinstance(reduce, reducers.SeriesMethod) and reduce.weights is not None:
             # The weight is the share of the target's own time stamp, not of
@@ -675,16 +577,12 @@ def gather(
             nulls,
             weights,
         )
-        extent_space = (
-            box_space
-            if box is not None
-            else _combined_space(
-                slot.space, [partner.space for partner in partners], space
-            )
+        extent_space = _combined_space(
+            slot.space, [partner.space for partner in partners], space
         )
         slots.append(Slot(time, value, extent_space, _origin(value, time, slot)))
     spatial = target.spatial or other.spatial or relation.spatial is not None
-    return Series(tuple(slots), target.kind, sort, spatial, target.order)
+    return Series(tuple(slots), target.kind, sort, spatial)
 
 
 def _grown(space, distance):
@@ -746,7 +644,7 @@ def buffer(series, distance, *, features="area"):
     return replace(series, slots=slots)
 
 
-def choose(condition, then, otherwise=None, *, mixed_times="error"):
+def choose(condition, then, otherwise=None):
     """Select whole slots by a scalar condition
 
     A slot of then is kept where the condition of its time stamp is true, a
@@ -763,14 +661,12 @@ def choose(condition, then, otherwise=None, *, mixed_times="error"):
     :param then: the Series whose slots are kept where the condition is true
     :param otherwise: the Series whose slots are kept where the condition is
         false; None chooses nothing where the condition is false
-    :param mixed_times: "error" refuses a branch of another temporal type or
-        unit than the condition; "unrelated" leaves out its slots, which no
-        condition belongs to
     :raises TypeError: if the condition is not a scalar series
     :raises ValueError: if a time stamp has several conditions and another
         number of slots in a branch, if a timed condition meets a branch map
         without time stamp, if then and otherwise hold maps of different
-        types, or if the series cannot be related
+        types, or if a branch has another temporal type or unit than the
+        condition
     """
     check_series(condition, "condition")
     check_series(then, "then")
@@ -789,13 +685,13 @@ def choose(condition, then, otherwise=None, *, mixed_times="error"):
         raise ValueError(msg)
     for branch, wanted in zip(branches, (True, False), strict=False):
         # The condition gives numbers only, so its map type does not matter.
-        check_comparable(condition, branch, mixed_times, times_only=True)
+        _check_comparable(condition, branch, times_only=True)
         slots.extend(_chosen(branch, values, wanted))
     spatial = any(part.spatial for part in (condition, *branches))
     if not condition.timeless:
         # Two series meet, as in apply(): the list is in time order.
         slots = [_in_time_order(slot) for slot in slots]
-    return Series(tuple(slots), then.kind, _joined_sort(*branches), spatial, then.order)
+    return Series(tuple(slots), then.kind, _joined_sort(*branches), spatial)
 
 
 def _chosen(branch, values, wanted):
@@ -812,7 +708,7 @@ def _chosen(branch, values, wanted):
         if len(conditions) > 1 and len(conditions) != counts[slot.extent]:
             msg = (
                 f"choose() cannot pair {len(conditions)} conditions with "
-                f"{counts[slot.extent]} maps of {describe_extent(slot.extent)}"
+                f"{counts[slot.extent]} maps of {_describe_extent(slot.extent)}"
             )
             raise ValueError(msg)
         if not conditions:
@@ -838,7 +734,7 @@ def where(condition, then, otherwise=0):
     return _apply("if", (condition, then, otherwise), "where")
 
 
-def merge(*series, keep_first_repeats=False):
+def merge(*series):
     """Return the union of series
 
     Identical slots are kept once with a warning, so that a later reduction
@@ -849,10 +745,6 @@ def merge(*series, keep_first_repeats=False):
 
     :param series: the Series to join, at least one; they must agree in sort,
         map type, temporal type and unit
-    :param keep_first_repeats: keep identical slots of the first series, and
-        drop only those of the later series that an earlier slot has already.
-        Computed slots lose the map they came from, so two of them can look
-        identical although they are different maps.
     :raises ValueError: if no series is given, or the series differ in sort,
         map type, temporal type or unit
     """
@@ -866,15 +758,15 @@ def merge(*series, keep_first_repeats=False):
         if part.sort != first.sort:
             msg = "merge() needs series of one sort, fields or scalars"
             raise ValueError(msg)
-        check_comparable(first, part)
+        _check_comparable(first, part)
     seen = set()
     slots = []
     duplicates = 0
-    for number, part in enumerate(series):
+    for part in series:
         # The list order of a part, so that a merge of merges lists the maps
         # of the inner one in the order it was written.
         for slot in part.listed():
-            if slot in seen and not (number == 0 and keep_first_repeats):
+            if slot in seen:
                 duplicates += 1
                 continue
             seen.add(slot)
@@ -882,4 +774,4 @@ def merge(*series, keep_first_repeats=False):
     if duplicates:
         warn(_("merge() dropped {count} duplicate map(s)").format(count=duplicates))
     spatial = any(part.spatial for part in series)
-    return Series(tuple(slots), first.kind, first.sort, spatial, first.order)
+    return Series(tuple(slots), first.kind, first.sort, spatial)

@@ -199,8 +199,8 @@ _VARIADIC = frozenset({"min", "max", "nmin", "nmax"})
 class ScalarFunctionError(ValueError):
     """A function that has no implementation for scalar values
 
-    A profile that lets r.mapcalc compute such a function on the maps of a
-    scalar series (the classic algebra does) catches this class.
+    apply() raises it for a series of numbers, such as sin(td(A)), whose
+    function has no Python implementation here.
     """
 
 

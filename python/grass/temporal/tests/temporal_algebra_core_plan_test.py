@@ -10,7 +10,7 @@ from dataclasses import replace
 import pytest
 
 from grass.temporal import series_limits
-from grass.temporal.algebra import variants
+from grass.temporal.algebra import _messages
 from grass.temporal.algebra import parser as algebra_parser
 from grass.temporal.algebra.backends import ModuleCall, Raster3DBackend, RasterBackend
 from grass.temporal.algebra.content import (
@@ -332,7 +332,7 @@ def _open_files(monkeypatch, soft, threads=None):
         def warning(self, message):
             warnings.append(message)
 
-    monkeypatch.setattr(variants, "get_tgis_message_interface", Messages)
+    monkeypatch.setattr(_messages, "get_tgis_message_interface", Messages)
     return warnings
 
 
@@ -432,7 +432,7 @@ def test_the_threads_are_counted_as_r_series_counts_them(
 def test_without_a_session_the_warning_of_a_reduction_goes_to_python(monkeypatch):
     """plan() needs no session, and the messenger exists only after init()"""
     _open_files(monkeypatch, 75, 3)
-    monkeypatch.setattr(variants, "get_tgis_message_interface", lambda: None)
+    monkeypatch.setattr(_messages, "get_tgis_message_interface", lambda: None)
     with pytest.warns(UserWarning, match=r"The limit of open files \(1\)"):
         RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
 

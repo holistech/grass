@@ -31,13 +31,13 @@ def _extent(span, unit):
 def no_messenger(monkeypatch):
     """Make merge() warn through Python, as before tgis.init()
 
-    variants.warn() uses the messenger of grass.temporal once tgis.init()
+    _messages.warn() uses the messenger of grass.temporal once tgis.init()
     has created it, which any session test of the process does, and warnings.warn()
     before. A test that checks the warning needs the second path whatever ran
     before it.
     """
     monkeypatch.setattr(
-        "grass.temporal.algebra.variants.get_tgis_message_interface", lambda: None
+        "grass.temporal.algebra._messages.get_tgis_message_interface", lambda: None
     )
 
 

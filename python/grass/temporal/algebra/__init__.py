@@ -90,9 +90,7 @@ From the bottom up:
    in materialize.py, plan() returns these calls with the map names and the
    registration as a ProcessChain, and materialize() runs them and
    registers the maps.
-6. Variants: profile.py has Profile and CORE, the rules of the core;
-   variants.py has helpers of the operations.
-7. Syntax, in parser/: lexer.py, grammar.py, ast.py and operators.py read
+6. Syntax, in parser/: lexer.py, grammar.py, ast.py and operators.py read
    the syntax of the core with PLY; translate.py turns the syntax tree into
    operations (Translator); granularity.py finds the datasets of the
    granularity mode (-g) and their common granularity and samples them;
@@ -104,7 +102,7 @@ A run of t.rast.algebra
 
 The tool creates a TemporalRasterAlgebraParser. With -g,
 setup_common_granularity() finds the datasets in the syntax tree and their
-common granularity. parse() calls parser.evaluate() with the profile CORE.
+common granularity. parse() calls parser.evaluate().
 The grammar (grammar.py) reads the expression into an ast.Statement; the
 translator reads each dataset with source(), with -g sampled by
 sample_by_granularity(), and builds the result series with the operations.
@@ -137,7 +135,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
-from .backends import MapcalcStyle
 from .content import NULL, Call, Const, MapRef, SeriesAggregate, SeriesReduce
 from .operations import (
     apply,
@@ -152,7 +149,6 @@ from .operations import (
     where,
 )
 from .materialize import ProcessChain, materialize, plan
-from .profile import CORE, Profile
 from .reducers import compare, fold, series_method
 from .relations import (
     Relation,
@@ -175,15 +171,12 @@ from .sources import source, source_map
 from .time_functions import granules, neighbour, retime, timevar
 
 __all__ = [
-    "CORE",
     "NULL",
     "Call",
     "Const",
     "Extent",
     "MapRef",
-    "MapcalcStyle",
     "ProcessChain",
-    "Profile",
     "Relation",
     "Series",
     "SeriesAggregate",

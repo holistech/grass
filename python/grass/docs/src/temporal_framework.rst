@@ -606,14 +606,10 @@ The modules of the package:
   slots of a target slot
 - :mod:`~grass.temporal.algebra.time_functions`: operations on the time
   stamps of a series
-- :mod:`~grass.temporal.algebra.variants`: helpers of the core operations
-  that other variants of the algebra use as well
 - :mod:`~grass.temporal.algebra.backends`: the turning of the content of a
   slot into module calls
 - :mod:`~grass.temporal.algebra.materialize`: planning a series as module
   calls and map names, and running the plan with registration of the maps
-- :mod:`~grass.temporal.algebra.profile`: the rules of the algebra that
-  ``evaluate`` computes
 
 The syntax of :program:`t.rast.algebra` is translated onto these functions
 by :func:`grass.temporal.algebra.parser.evaluate`, which also gives the

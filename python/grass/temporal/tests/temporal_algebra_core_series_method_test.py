@@ -12,7 +12,7 @@ import pytest
 
 import grass.script as gs
 import grass.temporal.algebra as ta
-from grass.temporal.algebra import reducers, variants
+from grass.temporal.algebra import _messages, reducers
 from grass.temporal.algebra.backends import RasterBackend
 from grass.temporal.algebra.content import MapRef, SeriesAggregate
 from grass.temporal.algebra.materialize import _map_names
@@ -113,7 +113,7 @@ def _open_files(monkeypatch, soft, threads):
         def warning(self, message):
             warnings.append(message)
 
-    monkeypatch.setattr(variants, "get_tgis_message_interface", Messages)
+    monkeypatch.setattr(_messages, "get_tgis_message_interface", Messages)
     return warnings
 
 
