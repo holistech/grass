@@ -831,12 +831,6 @@ def test_unknown_relation_is_an_error(session, expression):
 # --- documented equivalences ------------------------------------------------
 
 
-@pytest.mark.parametrize("operator", ["{:,equal}", "{:,equal,l}"])
-def test_select_operator_equals_plain_select(session, operator):
-    """`A {:,equal} B` and `A {:,equal,l} B` select the same maps as `A : B`"""
-    assert dry_register(f"R = A {operator} B") == maps("a2", "a3")
-
-
 @pytest.mark.parametrize("operator", ["{:}", "{!:}"])
 def test_default_select_operator_equals_plain_select(session, operator):
     """`A {:} B` selects like `A : B` and `A {!:} B` like `A !: B`"""

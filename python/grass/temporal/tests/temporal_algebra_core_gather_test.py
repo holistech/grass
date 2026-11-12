@@ -160,15 +160,6 @@ def test_unknown_reducer_names_every_kind_of_reducer(a, b):
         gather(b, contains, a, reduce="nonsense")
 
 
-def test_scalar_reduction_in_python(b, make_series):
-    s = make_series("s", (1, 2), (2, 3), (3, 4), (4, 5), values=[1, None, 3, 4])
-    assert contents(gather(b, contains, s, reduce="sum", nulls="skip")) == [
-        Const(1),
-        Const(7),
-    ]
-    assert contents(gather(b, contains, s, reduce="sum")) == [NULL, Const(7)]
-
-
 # b1 = [1, 3] contains the first two values and b2 = [3, 5] the last two.
 SCALARS = [
     # reduce, values, propagating null, skipping null

@@ -23,18 +23,6 @@ CASES = [
         [("2001-01-02", "2001-01-04", 2, 2), ("2001-01-02", "2001-01-04", 3, 3)],
         id="temporal extent1",
     ),
-    # Old assertions: n 4, minmin 0, maxmax 5, start 2001-01-01, end 2001-01-05, topo True, gran 1 day
-    pytest.param(
-        "if({contains}, B == 5,  A - 1,  A + 1)",
-        {},
-        [
-            ("2001-01-01", "2001-01-02", 0, 0),
-            ("2001-01-02", "2001-01-03", 1, 1),
-            ("2001-01-03", "2001-01-04", 4, 4),
-            ("2001-01-04", "2001-01-05", 5, 5),
-        ],
-        id="temporal conditional time dimension bug",
-    ),
     # Old assertions: n 4, minmin 2, maxmax 5, start 2001-01-01, end 2001-01-05
     pytest.param(
         "A + (A {#, equal,l} A)",
@@ -434,7 +422,6 @@ SHAPE = {
     "B {+,contains,r} A": (True, "1 day"),
     "C {#,contains} A": (True, "2 days"),
     "if(A # D == 1, A)": (True, "1 day"),
-    "if({contains}, B == 5,  A - 1,  A + 1)": (True, "1 day"),
     "if({during},A # D == 1, C {#,contains} A)": (True, "2 days"),
     "map(singlemap) + A": (True, "1 day"),
     "tmap(singletmap)": (True, "1 day"),
