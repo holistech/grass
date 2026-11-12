@@ -146,28 +146,41 @@ def recorded_pick(case, method, spatial):
 
 @pytest.fixture(scope="module")
 def series(sampling_session):
-    """The recorded cases as datasets: (seed, number) -> (case, sampler, input)"""
+    """The recorded cases of one seed as datasets, built when first asked for
+
+    Returns a function of the seed that gives number -> (case, sampler,
+    input). Building all three seeds at once took 87 s on every pytest-xdist
+    worker that ran a test of this module; one seed takes 27 s (pytest -n
+    auto --durations on this module alone, 2026-11-12: wall clock 98.5 s
+    before, 38.7 s after). A worker that gets every test of the module still
+    builds all three.
+    """
     made = {}
-    for seed, kind in RECORDED.items():
-        for number, case in enumerate(kind["cases"]):
-            sampler = f"s{seed}{number}"
-            inp = f"i{seed}{number}"
-            register(
-                sampling_session,
-                sampler,
-                case["sampler"],
-                f"sm{seed}{number}_",
-                case["sampler_boxes"],
-            )
-            register(
-                sampling_session,
-                inp,
-                case["input"],
-                f"in{seed}{number}_",
-                case["input_boxes"],
-            )
-            made[seed, number] = (case, sampler, inp)
-    return made
+
+    def cases_of(seed):
+        if seed not in made:
+            made[seed] = {}
+            for number, case in enumerate(RECORDED[seed]["cases"]):
+                sampler = f"s{seed}{number}"
+                inp = f"i{seed}{number}"
+                register(
+                    sampling_session,
+                    sampler,
+                    case["sampler"],
+                    f"sm{seed}{number}_",
+                    case["sampler_boxes"],
+                )
+                register(
+                    sampling_session,
+                    inp,
+                    case["input"],
+                    f"in{seed}{number}_",
+                    case["input_boxes"],
+                )
+                made[seed][number] = (case, sampler, inp)
+        return made[seed]
+
+    return cases_of
 
 
 @pytest.mark.parametrize("seed", SEEDS.values(), ids=SEEDS)
@@ -176,9 +189,7 @@ def test_tool_sampling_matches_the_recorded_picks(series, seed):
     per granule as the classic sample_by_dataset(); None marks a granule
     without a related map on both sides"""
     found_a_pick = False
-    for (case_seed, number), (case, sampler, inp) in series.items():
-        if case_seed != seed:
-            continue
+    for number, (case, sampler, inp) in series(seed).items():
         for method, spatial in itertools.product(
             SINGLE_METHODS + MULTI_METHODS, (False, True)
         ):
@@ -216,9 +227,7 @@ def test_the_recorded_boxes_include_edge_and_corner_contact():
 def test_the_comparison_detects_a_wrong_relation(series):
     """Negative check: the tool's 'during' against the recorded 'contain' must
     differ on some case, so the comparison above is not vacuously true"""
-    for (seed, _number), (case, sampler, inp) in series.items():
-        if seed != SEEDS["mixed"]:
-            continue
+    for case, sampler, inp in series(SEEDS["mixed"]).values():
         tool = tool_column(sampler, inp, ["during"], False)
         if tool != recorded_pick(case, ["contain"], False):
             return
@@ -228,9 +237,7 @@ def test_the_comparison_detects_a_wrong_relation(series):
 def test_the_comparison_detects_a_swapped_relation_order(series):
     """Negative check for the order: the recorded pick of a multi-method list
     against the swapped order of the tool's names must differ on some case"""
-    for (seed, _number), (case, sampler, inp) in series.items():
-        if seed != SEEDS["overlapping"]:
-            continue
+    for case, sampler, inp in series(SEEDS["overlapping"]).values():
         for method in MULTI_METHODS:
             swapped = list(reversed(method_relations(method)))
             tool = tool_column(sampler, inp, swapped, False)
@@ -243,9 +250,7 @@ def test_the_comparison_detects_a_missing_spatial_test(series):
     """Negative check: the recorded pick without the spatial test against the
     tool's pick with it must differ on some case, so the boxes make the
     spatial half of the comparison able to fail"""
-    for (seed, _number), (case, sampler, inp) in series.items():
-        if seed != SEEDS["intervals"]:
-            continue
+    for case, sampler, inp in series(SEEDS["intervals"]).values():
         for method in SINGLE_METHODS:
             tool = tool_column(sampler, inp, method_relations(method), True)
             if tool != recorded_pick(case, method, False):
