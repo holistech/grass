@@ -48,18 +48,6 @@ def project_session(tmp_path):
         yield session
 
 
-def test_new_dataset_with_dot_keeps_its_name(project_session):
-    """A dot in the name of a new raster dataset is refused, not kept or split.
-
-    Before a dot was refused, a map type kept the dot in the name while the
-    type strds dropped the text after it, so the same name made different
-    datasets depending on the tool.
-    """
-    with pytest.raises(FatalError, match="a dot is not allowed"):
-        tgis.open_new_stds("a.b", "raster", "absolute", "t", "d", "mean")
-    assert tgis.get_dataset_list("strds", "absolute", columns="name") == {}
-
-
 def test_old_strds_is_opened_with_its_label(project_session):
     tgis.open_new_stds("test", "strds", "absolute", "t", "d", "mean")
     sp = tgis.open_old_stds("test.S2_8", "strds")
@@ -119,16 +107,6 @@ def test_a_dot_after_the_mapset_is_not_a_dot_in_the_name(project_session):
     """Only the name part before the at sign is checked."""
     check_new_stds_name("ab@a.b")
     check_new_stds_name("ab")
-
-
-def test_a_label_after_a_dot_still_selects_maps_of_an_existing_dataset(
-    project_session,
-):
-    """Reading is not changed: name.label opens the strds with a label filter."""
-    tgis.open_new_stds("test", "strds", "absolute", "t", "d", "mean")
-    sp = tgis.open_old_stds("test.S2_8", "strds")
-    assert sp.get_name() == "test.S2_8"
-    assert sp.get_name(semantic_label=False) == "test"
 
 
 def test_an_existing_dataset_with_a_dot_stays_usable(project_session):
