@@ -75,6 +75,11 @@ DATE_AND_NUMBER = (
     "compared with the number 10; compare them with a date or time in quotes, "
     'such as "2001-01-03" or "12:00:00"'
 )
+DATE_ALONE = (
+    "'2001-03-01' is a date without a time of day, but start_time() and "
+    "end_time() give the time of day; compare dates with start_date() or "
+    "end_date(), or give a time such as '2001-03-01 00:00:00'"
+)
 TD_OF_AN_INSTANCE = (
     "td() requires a time interval, but map <i_1@work> is a time instance"
 )
@@ -89,10 +94,11 @@ UNEQUAL_BRANCHES = (
     ("expression", "text"),
     [
         ("if(start_date(A) > 10, A)", DATE_AND_NUMBER),
+        ('if(start_time(A) >= "2001-03-01", A)', DATE_ALONE),
         ("if(td(I) > 0, I)", TD_OF_AN_INSTANCE),
         ("if(A > 1, A, I)", UNEQUAL_BRANCHES),
     ],
-    ids=["date and number", "td of an instance", "unequal branches"],
+    ids=["date and number", "date alone", "td of an instance", "unequal branches"],
 )
 def test_the_tool_reports_the_error_and_writes_nothing(work, expression, text):
     """t.select stops with the message of the core, without a traceback,

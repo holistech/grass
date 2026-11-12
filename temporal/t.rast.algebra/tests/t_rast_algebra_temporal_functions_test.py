@@ -102,6 +102,11 @@ DATE_AND_NUMBER = (
     "compared with the number 12; compare them with a date or time in quotes, "
     'such as "2001-01-03" or "12:00:00"'
 )
+DATE_ALONE = (
+    "'2001-03-01' is a date without a time of day, but start_time() and "
+    "end_time() give the time of day; compare dates with start_date() or "
+    "end_date(), or give a time such as '2001-03-01 00:00:00'"
+)
 TD_OF_AN_INSTANCE = (
     "td() requires a time interval, but map <i1@PERMANENT> is a time instance"
 )
@@ -116,10 +121,11 @@ UNEQUAL_BRANCHES = (
     ("expression", "text"),
     [
         ("if(start_time(intervals) > 12, intervals)", DATE_AND_NUMBER),
+        ('if(start_time(intervals) >= "2001-03-01", intervals)', DATE_ALONE),
         ("if(td(instants) > 0, instants)", TD_OF_AN_INSTANCE),
         ("if(intervals > 1, intervals, instants)", UNEQUAL_BRANCHES),
     ],
-    ids=["date and number", "td of an instance", "unequal branches"],
+    ids=["date and number", "date alone", "td of an instance", "unequal branches"],
 )
 def test_the_tool_reports_the_error_and_writes_nothing(time_series, expression, text):
     """The tool stops with the message of the core, without a traceback,
@@ -192,3 +198,15 @@ def test_merge_with_tsnap_of_no_maps_keeps_the_other_maps(algebra):
         True,
         [(1, 2, 1), (2, 3, 2), (3, 4, 3), (4, 5, 4)],
     )
+
+
+def test_round_of_the_paper_is_no_function(time_series):
+    """Table A2 of the paper lists round() among the spatial functions, but
+    the algebra has no such function and says so without a traceback"""
+    tools = Tools(session=time_series.session, consistent_return_value=True)
+    before = inventory(tools)
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_algebra(expression="R = round(intervals)", basename="r")
+    assert "Unknown function round()" in message(error.value)
+    assert "Traceback" not in error.value.stderr
+    assert inventory(tools) == before

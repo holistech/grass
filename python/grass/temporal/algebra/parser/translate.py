@@ -754,7 +754,8 @@ def _moment(text, other):
     start_time() and both for start_datetime().
 
     :raises TypeError: if other is not a series of dates or times
-    :raises ValueError: if the text is no date or time
+    :raises ValueError: if the text is no date or time, or a date alone is
+        compared with a time of day
     """
     if not (isinstance(other, Series) and other.sort == "scalar"):
         msg = (
@@ -779,6 +780,17 @@ def _moment(text, other):
         msg = f"'{text}' is not a date or time: {moment}"
         raise ValueError(msg)
     if isinstance(sample, datetime.time):
+        # A text without a colon has no time of day. Reading it as midnight
+        # made "start_time(A) >= '2001-03-01'" hold for every map that starts
+        # at midnight, whatever the date.
+        if ":" not in text:
+            msg = (
+                f"'{text}' is a date without a time of day, but start_time() "
+                "and end_time() give the time of day; compare dates with "
+                "start_date() or end_date(), or give a time such as "
+                f"'{text} 00:00:00'"
+            )
+            raise ValueError(msg)
         return Const(moment.time())
     # datetime is a subclass of date, so it is checked first.
     if sample is None or isinstance(sample, datetime.datetime):

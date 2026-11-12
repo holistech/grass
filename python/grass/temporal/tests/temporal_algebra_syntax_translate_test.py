@@ -6,6 +6,7 @@ table, on series built in memory.
 
 import dataclasses
 import datetime
+import re
 
 import pytest
 
@@ -408,8 +409,7 @@ def test_comparisons_with_dates_and_times(translator):
 
 
 def test_text_takes_the_part_the_time_function_gives(translator, datasets):
-    """As in the classic algebra, start_time() takes the time of a date
-    with time, and the time 00:00 of a date alone"""
+    """start_time() takes the time of day of a date with time"""
     noon = run(translator, 'start_time(A) < "2001-01-01 12:00:00"')
     assert [slot.content for slot in noon] == [Const(1)] * 4
     assert (
@@ -420,8 +420,38 @@ def test_text_takes_the_part_the_time_function_gives(translator, datasets):
             Const(datetime.time(12, 0)),
         ).slots
     )
-    midnight = run(translator, 'start_time(A) == "2001-01-01"')
+
+
+@pytest.mark.parametrize(
+    ("expression", "text"),
+    [
+        ('start_time(A) == "2001-01-01"', "2001-01-01"),
+        ('end_time(A) > "2001-01-03"', "2001-01-03"),
+    ],
+)
+def test_a_date_alone_is_refused_for_a_time_of_day(translator, expression, text):
+    """A date has no time of day; reading it as midnight selected by chance"""
+    message = (
+        f"'{text}' is a date without a time of day, but start_time() and "
+        "end_time() give the time of day; compare dates with start_date() or "
+        f"end_date(), or give a time such as '{text} 00:00:00'"
+    )
+    with pytest.raises(ValueError, match=f"^{re.escape(message)}$"):
+        run(translator, expression)
+
+
+def test_midnight_and_times_of_day_still_compare(translator, datasets):
+    """A date with a time of day, also 00:00:00, and a time alone compare
+
+    Fixture A has four maps, the days 1 to 2, 2 to 3, 3 to 4 and 4 to 5
+    January 2001. Each starts at 00:00:00. start_time() gives only the time
+    of day and the date of the text is dropped, so it equals 00:00:00 and is
+    before 12:00:00 for all four maps.
+    """
+    midnight = run(translator, 'start_time(A) == "2001-01-01 00:00:00"')
     assert [slot.content for slot in midnight] == [Const(1)] * 4
+    before_noon = run(translator, 'start_time(A) < "12:00:00"')
+    assert [slot.content for slot in before_noon] == [Const(1)] * 4
 
 
 @pytest.mark.parametrize(
