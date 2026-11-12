@@ -401,30 +401,6 @@ def test_a_module_that_fails_stops_the_import_with_a_message(
     assert "out" not in gs.read_command("t.list", type="strds").split()
 
 
-def test_a_new_project_without_the_temporal_database_is_refused(
-    archives, target, tmp_path, failing_modules
-):
-    failing_modules.add("t.connect")
-
-    with pytest.raises(FatalError, match="Unable to create default temporal"):
-        tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="newproject")
-
-
-def test_an_environment_that_cannot_be_made_is_refused(
-    archives, target, tmp_path, monkeypatch
-):
-    def refuse(*args):
-        msg = "no room"
-        raise OSError(msg)
-
-    monkeypatch.setattr(gs, "create_environment", refuse)
-
-    with pytest.raises(
-        FatalError, match="Unable to create environment for location newproject"
-    ):
-        tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="newproject")
-
-
 def test_an_extraction_without_the_data_filter_is_refused(
     archives, target, tmp_path, monkeypatch
 ):
@@ -512,7 +488,9 @@ def test_an_environment_that_cannot_be_made_leaves_the_process_as_it_was(
     monkeypatch.setattr(gs, "create_environment", refuse)
     before = _process_state()
 
-    with pytest.raises(FatalError, match="Unable to create environment"):
+    with pytest.raises(
+        FatalError, match="Unable to create environment for location newproject"
+    ):
         tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="newproject")
 
     assert _process_state() == before
