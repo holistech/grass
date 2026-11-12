@@ -22,6 +22,7 @@ order, "equal" as the relation the builder files.
 """
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 from grass.temporal.algebra.sources import source
@@ -30,6 +31,7 @@ from grass.temporal.related_maps import (
     related_per_granule,
     with_gaps,
 )
+from grass.temporal.testing.data import MapSpec, register_stds
 from grass.tools import Tools
 
 SCENARIOS = json.loads(
@@ -50,40 +52,30 @@ METHODS = [
 ]
 
 
-def register(tools, name, spans, numbers, boxes, tmp_path):
+def register(tools, name, spans, numbers, boxes):
     """One strds whose maps have the given day spans; end None is an instant
 
     The map ids are numbered as given, so that the order of the ids is
-    neither the order of the start times nor the order of registration.
+    neither the order of the start times nor the order of registration. The
+    maps are registered with the library because the grouping tests do not
+    test t.register. Measured 2026-11-12 with pytest -n 0 on the scenario
+    test: 65 s with t.create and t.register, 13 s for both tests of this
+    file with the library; the datasets of all 20 scenarios were identical in t.info and t.rast.list.
     """
-    instants, intervals = [], []
+    specs = []
     for number, (start, end), box in zip(numbers, spans, boxes, strict=True):
         map_name = f"{name}_{number}"
         tools.g_region(res=10, **box)
         tools.r_mapcalc(expression=f"{map_name} = {number}", overwrite=True)
-        stamp = f"2001-01-{start + 1:02d}"
-        if end is None:
-            instants.append(f"{map_name}|{stamp}")
-        else:
-            intervals.append(f"{map_name}|{stamp}|2001-01-{end + 1:02d}")
-    tools.t_create(
-        type="strds",
-        output=name,
-        temporaltype="absolute",
-        title=name,
-        description=name,
-        overwrite=True,
-    )
-    # One call per kind of stamp: a file that mixed intervals and instants
-    # failed on 2026-10-14 with "End time must be greater than start time" for
-    # the instant after an interval. register.py keeps the end time of the
-    # previous line for a line without one, which explains it (read, not
-    # separately tested).
-    for kind, lines in (("instants", instants), ("intervals", intervals)):
-        if lines:
-            file = tmp_path / f"{name}_{kind}.txt"
-            file.write_text("\n".join(lines) + "\n")
-            tools.t_register(type="raster", input=name, file=file, overwrite=True)
+        specs.append(
+            MapSpec(
+                map_name,
+                number,
+                datetime(2001, 1, start + 1),
+                None if end is None else datetime(2001, 1, end + 1),
+            )
+        )
+    register_stds(tools, "strds", name, specs, via="library", overwrite=True)
 
 
 def number_of(ident):
@@ -93,14 +85,25 @@ def number_of(ident):
     return int(ident.split("@")[0].rsplit("_", 1)[1])
 
 
-def tool_grouping(sampler_name, input_name, method, spatial):
+def sources(sampler_name, input_name):
+    """The granules of the sampler with their gaps and the Series of the input
+
+    Both are read once and used for every method list: the Series are not
+    changed by related_per_granule(), the tool reads them once as well.
+    """
+    return (
+        with_gaps(source(sampler_name, stds_type="strds")),
+        source(input_name, stds_type="strds"),
+    )
+
+
+def grouping(granules, inputs, method, spatial):
     """(granule numbers, related map numbers per granule) from the library
     functions"""
-    granules = with_gaps(source(sampler_name, stds_type="strds"))
     rows = related_per_granule(
         granules,
         method_relations(method),
-        source(input_name, stds_type="strds"),
+        inputs,
         spatial=spatial,
     )
     granule_ids = [number_of(str(slot.origin)) for slot in granules.slots]
@@ -109,8 +112,12 @@ def tool_grouping(sampler_name, input_name, method, spatial):
     ]
 
 
-def test_core_groups_as_sample_by_dataset(temporal_module_session, tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("t_sample_core_data")
+def tool_grouping(sampler_name, input_name, method, spatial):
+    """The grouping of one method list for the datasets of the given names"""
+    return grouping(*sources(sampler_name, input_name), method, spatial)
+
+
+def test_core_groups_as_sample_by_dataset(temporal_module_session):
     tools = Tools(session=temporal_module_session)
     for scenario, recorded in enumerate(SCENARIOS):
         sampler_name = f"csamp_{scenario}"
@@ -123,19 +130,21 @@ def test_core_groups_as_sample_by_dataset(temporal_module_session, tmp_path_fact
                 data["spans"],
                 data["numbers"],
                 data["boxes"],
-                tmp_path,
             )
+        granules, inputs = sources(sampler_name, input_name)
         for method in METHODS:
             for spatial in (False, True):
                 expected = recorded["groupings"][f"{'+'.join(method)}|{spatial}"]
-                assert list(
-                    tool_grouping(sampler_name, input_name, method, spatial)
-                ) == (expected), (scenario, method, spatial)
+                assert list(grouping(granules, inputs, method, spatial)) == (
+                    expected
+                ), (
+                    scenario,
+                    method,
+                    spatial,
+                )
 
 
-def test_equal_start_times_come_in_map_id_order(
-    temporal_module_session, tmp_path_factory
-):
+def test_equal_start_times_come_in_map_id_order(temporal_module_session):
     """Three maps start on day 1 and lie in one granule; by end time they
     would be ids 1, 3, 2, and sample_by_dataset() listed them by id
 
@@ -144,16 +153,14 @@ def test_equal_start_times_come_in_map_id_order(
     2026-10-14: ordering the ties by end time instead lets the random test
     pass and fails this one).
     """
-    tmp_path = tmp_path_factory.mktemp("t_sample_core_ties")
     tools = Tools(session=temporal_module_session)
     box = {"w": 0, "e": 10, "s": 0, "n": 10}
-    register(tools, "tsamp", [(0, 6)], [1], [box], tmp_path)
+    register(tools, "tsamp", [(0, 6)], [1], [box])
     register(
         tools,
         "tinput",
         [(1, 2), (1, 3), (1, 4)],
         [1, 3, 2],
         [box, box, box],
-        tmp_path,
     )
     assert tool_grouping("tsamp", "tinput", ["contain"], False) == ([1], [[1, 2, 3]])
