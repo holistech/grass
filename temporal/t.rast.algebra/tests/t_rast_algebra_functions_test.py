@@ -29,13 +29,16 @@ def test_td_in_arithmetic(algebra, expression, expected):
     assert algebra.triples(expression) == expected
 
 
-@pytest.mark.parametrize(("expression", "count"), [("E + td(E)", 4), ("I + td(I)", 3)])
-def test_td_of_time_instants_is_null(algebra, expression, count):
-    """Instants have no length, so td() is null and so is the sum; such maps
-    are registered only with register_null"""
-    assert algebra.run(expression) == []
-    rows = algebra.run(expression, register_null=True)
-    assert [row.min for row in rows] == [None] * count
+@pytest.mark.parametrize(
+    ("expression", "ident"), [("E + td(E)", "e1"), ("I + td(I)", "i1")]
+)
+def test_td_of_time_instants_is_an_error(algebra, expression, ident):
+    """Instants have no length, so td() stops with an error that names the
+    first map, also with register_null, and no result dataset is created"""
+    for options in ({}, {"register_null": True}):
+        with pytest.raises(ValueError, match=f"map <{ident}@PERMANENT> is a time"):
+            algebra.run(expression, **options)
+        assert not algebra.exists()
 
 
 def test_buff_t_buffers_both_sides(algebra):

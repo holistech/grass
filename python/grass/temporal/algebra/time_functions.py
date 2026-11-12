@@ -23,6 +23,7 @@ from grass.temporal.temporal_granularity import check_granularity_string
 from ._checks import check_int, check_series
 from .adapters import as_map, extent_of
 from .content import NULL, Const
+from .operations import _describe_extent
 from .series import Extent, Series, Slot
 
 TIME_FIELDS = {
@@ -46,9 +47,13 @@ TIMEVARS = (
 
 
 def _time_value(extent, name):
+    """The value of the temporal variable name for one extent
+
+    None for a value that does not exist: the end variables of an instant
+    and every variable but td of relative time. td of an instant never gets
+    here, timevar() refuses it.
+    """
     if name == "td":
-        if extent.end is None:
-            return None
         if extent.unit is None:
             return time_delta_to_relative_time(extent.end - extent.start)
         return extent.end - extent.start
@@ -63,9 +68,15 @@ def timevar(series, name):
     """The scalar series of a temporal variable, e.g. "td" or "start_doy"
 
     td is the length of the interval, in days for absolute time and in the
-    time unit for relative time. Values that do not exist are null: the
-    calendar variables for relative time, td and the end variables for an
-    instant.
+    time unit for relative time. An instant has no length, so td of a series
+    with an instant raises ValueError, which names the first instant: its map,
+    or its time where the slot is no registered map, as in a computed series.
+    The releases before GRASS 8.6 stopped there, too. The other values that
+    do not exist are null: every variable but td for relative time, and the
+    end variables for an instant. The parser refuses those itself and names
+    the map (check_time_variable()); t.rast.mapcalc writes them as null() and
+    does not call timevar() for td of an instant, which it writes as null()
+    as well.
     """
     check_series(series)
     if name not in TIMEVARS:
@@ -74,6 +85,15 @@ def timevar(series, name):
     if series.timeless:
         msg = "A map without time stamp has no temporal variables"
         raise ValueError(msg)
+    if name == "td":
+        for slot in series.slots:
+            if slot.extent.end is None:
+                what = slot.origin or _describe_extent(slot.extent)
+                msg = (
+                    f"td() requires a time interval, but map <{what}> is a time "
+                    "instance"
+                )
+                raise ValueError(msg)
     slots = tuple(
         replace(slot, content=Const(_time_value(slot.extent, name)), origin=None)
         for slot in series.slots

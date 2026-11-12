@@ -159,19 +159,7 @@ in I.
     because its maps have no related map to combine with; GRASS 8.5 accepts the
     other operators.
 
-5. **td() of a time instance** is null instead of an error, so a condition
-    on it is neither true nor false. This expression gives no map;
-    GRASS 8.5 stops with an error:
-
-    ```sh
-    C = if(td(I) > 0, I)
-    ```
-
-    A temporal variable that a map does not have, such as `end_doy()` of a
-    time instance or the calendar values of relative time, is an error in
-    GRASS 8.5 and 8.6.
-
-6. **More syntax.** Comparisons, temporal functions and the minus sign may
+5. **More syntax.** Comparisons, temporal functions and the minus sign may
     stand anywhere in an expression, and a dataset may have the name of a
     function. GRASS 8.5 reports a syntax error for each of these
     expressions; the last one adds 1 to a dataset named `td`:
@@ -185,7 +173,7 @@ in I.
     C = td + 1
     ```
 
-7. **Intersection with several related maps.** With the temporal
+6. **Intersection with several related maps.** With the temporal
     operator `i`, a map whose related maps have no common intersection is
     left out. GRASS 8.5 intersects the map with its related maps
     until the first one that has no common time with the result so far,
@@ -198,7 +186,7 @@ in I.
     C = H {:,follows|precedes,i} A
     ```
 
-8. **Negative buffer.** A negative size in `buff_t()` shrinks the maps by that
+7. **Negative buffer.** A negative size in `buff_t()` shrinks the maps by that
     size at both ends. GRASS 8.6 stops with an error if a map would keep no
     time, that is if its end would fall on or before its start, and for a time
     instance, which has no duration to shrink. GRASS 8.5 goes on instead: for a
@@ -212,7 +200,7 @@ in I.
     C = buff_t(B, "-1 day")
     ```
 
-9. **merge() of maps read at an offset.** Two maps with equal content and
+8. **merge() of maps read at an offset.** Two maps with equal content and
     time stamps are one map. GRASS 8.5 made a new map for each map read with
     a temporal neighbourhood modifier, and `merge()` kept such a map next to
     an equal one. For four maps in A, this expression gives four maps, where
@@ -222,7 +210,7 @@ in I.
     C = merge(A[0], A[0])
     ```
 
-10. **Integers beyond 32 bits.** GRASS 8.6 keeps an integer
+9. **Integers beyond 32 bits.** GRASS 8.6 keeps an integer
     constant beyond 32 bits and writes it as a floating point number, so the
     result map is of type DCELL. GRASS 8.5 reads it as *r3.mapcalc*
     does, which keeps only its lower 32 bits: 3000000000 becomes
@@ -246,7 +234,7 @@ in I.
     C = if(td(RS) * td(RS) > 5, RS, 1)
     ```
 
-11. **Maps that touch under -s.** Under **-s**, a selection with the temporal
+10. **Maps that touch under -s.** Under **-s**, a selection with the temporal
     operator `r` or `u` takes the time of the maps that are related in time
     and in space. GRASS 8.5 chose the maps with the spatial test but took the
     time from the maps related in time, also from one whose box only touches
@@ -1508,10 +1496,10 @@ map, and four maps in total.
     c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
     ```
 
-    Item 7, intersection: the map of `H` follows the map of `A` of the first
+    Item 6, intersection: the map of `H` follows the map of `A` of the first
     day and precedes the one of the fourth day. The algebra leaves it out,
     because the two intersections are not the same time; GRASS 8.5 gave one
-    time instance. Item 9: `merge()` of two equal maps read at an offset gives
+    time instance. Item 8: `merge()` of two equal maps read at an offset gives
     four maps; GRASS 8.5 gave eight.
 
     ```sh

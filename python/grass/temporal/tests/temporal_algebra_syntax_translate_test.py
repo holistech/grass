@@ -712,8 +712,10 @@ def test_empty_series_pass_through(translator):
     assert len(run(translator, "if(td(A) > 5, A, N)")) == 4
 
 
-def test_td_of_an_instant_is_null(translator):
-    assert len(run(translator, "if(td(I) > 0, I)")) == 0
+def test_td_of_a_time_instance_is_an_error(translator):
+    """A time instance has no duration; the error names its map"""
+    with pytest.raises(ValueError, match="but map <i1@PERMANENT> is a time instance"):
+        run(translator, "if(td(I) > 0, I)")
 
 
 @pytest.mark.parametrize(

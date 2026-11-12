@@ -87,7 +87,6 @@ DIFFERENT = {
         "Other:ValueError",
         "then and else of a map condition need equal time stamps",
     ),
-    "if(td(I) > 0, I)": ("maps", "td() of a time instance is null"),
     "C {+,contains,r} A": (
         "maps",
         "an operator with r gives each pair its own value",

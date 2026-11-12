@@ -369,6 +369,10 @@ above, an offset value needs to be added. For example, start_doy(A, 0)
 would return the DOY of the current map in STDS A. end_hour(A, -1) would
 return the end hour of the previous map in STDS A.
 
+A function whose value a map does not have stops the algebra with an error
+that names the map: `td()` and the end functions of a time instance, and on
+relative time every function but `td()`.
+
 #### Comparison operator
 
 As mentioned above, the conditions are comparison expressions that are
@@ -757,18 +761,7 @@ start with A, and time instances in I.
     `l`, because its maps have no related map to combine with; GRASS 8.5
     accepted the other operators.
 
-5. **td() of a time instance** is null instead of an error, so a condition
-    on it is neither true nor false. This expression gives no map; GRASS 8.5
-    stopped with an error:
-
-    ```sh
-    C = if(td(I) > 0, I)
-    ```
-
-    A temporal variable that a map does not have, such as `end_doy()` of a
-    time instance or the calendar values of relative time, is an error.
-
-6. **More syntax.** Comparisons, temporal functions and the minus sign may
+5. **More syntax.** Comparisons, temporal functions and the minus sign may
     stand anywhere in an expression, and a dataset may have the name of a
     function. GRASS 8.5 reported a syntax error for each of these
     expressions; the last one adds 1 to a dataset named `td`:
@@ -782,7 +775,7 @@ start with A, and time instances in I.
     C = td + 1
     ```
 
-7. **Intersection with several related maps.** With the temporal
+6. **Intersection with several related maps.** With the temporal
     operator `i`, a map whose related maps have no common intersection is
     left out. GRASS 8.5 intersected the map with its related maps until the
     first one that had no common time with the result so far, so that its
@@ -795,7 +788,7 @@ start with A, and time instances in I.
     C = H {:,follows|precedes,i} A
     ```
 
-8. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
+7. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
     by that size at both ends. The algebra stops with an error if a map
     would keep no time, that is if its end would fall on or before its start,
     and for a time instance, which has no duration to shrink. GRASS 8.5 went
@@ -809,7 +802,7 @@ start with A, and time instances in I.
     C = buff_t(B, "-1 day")
     ```
 
-9. **merge() of maps read at an offset.** Two maps with equal content and
+8. **merge() of maps read at an offset.** Two maps with equal content and
     time stamps are one map. GRASS 8.5 made a new map for each map read with
     a temporal neighbourhood modifier and for each value of a temporal
     function with an offset, and `merge()` kept such a map next to an equal
@@ -822,7 +815,7 @@ start with A, and time instances in I.
     C = merge(start_day(A, 1), start_day(A, 1))
     ```
 
-10. **tsnap() of maps that start together.** Of maps with the same start,
+9. **tsnap() of maps that start together.** Of maps with the same start,
     `tsnap()` snaps only one to the start of the next later map; the others
     keep their own ends. The algebra takes the map that ends last, so its
     result does not depend on the order of the maps. If C has a map from day
@@ -835,7 +828,7 @@ start with A, and time instances in I.
     D = tsnap(merge(C, A))
     ```
 
-11. **Integers beyond 32 bits.** The algebra keeps an integer constant
+10. **Integers beyond 32 bits.** The algebra keeps an integer constant
     beyond 32 bits and writes it as a floating point number, so the result
     map is of type DCELL. GRASS 8.5 read it as *r.mapcalc* does, which keeps
     only its lower 32 bits: 3000000000 becomes -1294967296, and 2147483648
@@ -859,7 +852,7 @@ start with A, and time instances in I.
     C = if(td(RS) * td(RS) > 5, RS, 1)
     ```
 
-12. **A number beside a temporal operator.** An operator in braces or the
+11. **A number beside a temporal operator.** An operator in braces or the
     hash operator `#` needs a space time dataset on both sides. GRASS 8.5
     read the number with the expression behind it as the right operand, so
     that the first expression was the second; the algebra reports a syntax
@@ -880,7 +873,7 @@ start with A, and time instances in I.
     C = A - 1.5 {%,starts} A
     ```
 
-13. **Maps without a related map under -n.** With **-n**, the algebra
+12. **Maps without a related map under -n.** With **-n**, the algebra
     registers a null map for each map of the left side of `{&&,...}` that
     has no related map; GRASS 8.5 never registered one. In this expression
     the maps of A that contain no map of E give a null map each, where
@@ -890,7 +883,7 @@ start with A, and time instances in I.
     C = if(A > 1 {&&,contains,&,l} E > 1, A)
     ```
 
-14. **Maps that touch under -s.** Under **-s**, a selection with the temporal
+13. **Maps that touch under -s.** Under **-s**, a selection with the temporal
     operator `r` or `u` takes the time of the maps that are related in time
     and in space. GRASS 8.5 chose the maps with the spatial test but took the
     time from the maps related in time, also from one whose box only touches
@@ -1068,7 +1061,7 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
     as the next map keeps its own end instead. Earlier versions gave it the end
     of the next map, so the two maps swapped their ends. In the datasets above,
     the map of A on days 2 to 3 and the map of C on days 2 to 4 start together;
-    of such maps the one that ends last is snapped, see item 10 of the
+    of such maps the one that ends last is snapped, see item 9 of the
     differences above:
 
     ```sh
@@ -2619,20 +2612,7 @@ conclusion map, and four maps in total.
     c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
     ```
 
-    Item 5, `td()` of a time instance: the algebra gives null, so the
-    condition is neither true nor false and no map remains. GRASS 8.5 stopped
-    with an error.
-
-    ```sh
-    t.rast.algebra expression="E4 = if(td(I) > 0, I)" basename=e4
-    t.info -g type=strds input=E4 | grep "^number_of_maps="
-    ```
-
-    ```text
-    number_of_maps=0
-    ```
-
-    Item 6, more syntax: the minus sign may stand at the start of an
+    Item 5, more syntax: the minus sign may stand at the start of an
     expression, which gives 9, 8, 7 and 6. GRASS 8.5 reported a syntax error.
 
     ```sh
@@ -2648,7 +2628,7 @@ conclusion map, and four maps in total.
     c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|6.0|6.0
     ```
 
-    Item 7, intersection: the map of `H` follows the map of `A` of the first
+    Item 6, intersection: the map of `H` follows the map of `A` of the first
     day and precedes the one of the fourth day. The algebra leaves it out,
     because the two intersections are not the same time; GRASS 8.5 gave one
     time instance.
@@ -2662,7 +2642,7 @@ conclusion map, and four maps in total.
     number_of_maps=0
     ```
 
-    Item 8, negative buffer: the maps of `B` last two days, so a buffer of -1
+    Item 7, negative buffer: the maps of `B` last two days, so a buffer of -1
     day on both sides leaves no time. The algebra stops with an error. GRASS
     8.5 went on and made a time instance of each map, at the middle of its
     interval: 2 and 4 March.
@@ -2679,7 +2659,7 @@ conclusion map, and four maps in total.
     t.rast.algebra failed
     ```
 
-    Item 9: `merge()` of two equal maps read at an offset gives four maps;
+    Item 8: `merge()` of two equal maps read at an offset gives four maps;
     GRASS 8.5 gave eight.
 
     ```sh
@@ -2691,7 +2671,7 @@ conclusion map, and four maps in total.
     number_of_maps=4
     ```
 
-    Item 10, `tsnap()` of maps that start together: the map of `H` and the
+    Item 9, `tsnap()` of maps that start together: the map of `H` and the
     second map of `A` both start on 2 March, and `H` ends on 4 March. The
     algebra snaps the map of `H` to 3 March in both expressions.
 
@@ -2725,7 +2705,7 @@ conclusion map, and four maps in total.
     c_4|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
     ```
 
-    Item 11, integers beyond 32 bits: the algebra keeps the constant
+    Item 10, integers beyond 32 bits: the algebra keeps the constant
     3000000000 and adds the one day of each map to it. GRASS 8.5 read it as
     *r.mapcalc* does, with its lower 32 bits only, which is -1294967296.
 

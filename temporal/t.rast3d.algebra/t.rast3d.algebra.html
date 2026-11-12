@@ -169,18 +169,6 @@ C = B {+,contains,r} A
 The inverse selection <code>A {!:,R,t} B</code> takes only the temporal operator <code>l</code>,
 because its maps have no related map to combine with; GRASS 8.5 accepts the
 other operators.</li>
-<li><b>td() of a time instance</b> is null instead of an error, so a condition
-on it is neither true nor false. This expression gives no map;
-GRASS 8.5 stops with an error:
-
-<div class="code"><pre>
-C = if(td(I) &gt; 0, I)
-</pre></div>
-
-<p>
-A temporal variable that a map does not have, such as <code>end_doy()</code> of a
-time instance or the calendar values of relative time, is an error in
-GRASS 8.5 and 8.6.</li>
 <li><b>More syntax.</b> Comparisons, temporal functions and the minus sign may
 stand anywhere in an expression, and a dataset may have the name of a
 function. GRASS 8.5 reports a syntax error for each of these
@@ -1528,10 +1516,10 @@ c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
 </pre></div>
 
 <p>
-Item 7, intersection: the map of <code>H</code> follows the map of <code>A</code> of the first
+Item 6, intersection: the map of <code>H</code> follows the map of <code>A</code> of the first
 day and precedes the one of the fourth day. The algebra leaves it out,
 because the two intersections are not the same time; GRASS 8.5 gave one
-time instance. Item 9: <code>merge()</code> of two equal maps read at an offset gives
+time instance. Item 8: <code>merge()</code> of two equal maps read at an offset gives
 four maps; GRASS 8.5 gave eight.
 
 <div class="code"><pre>

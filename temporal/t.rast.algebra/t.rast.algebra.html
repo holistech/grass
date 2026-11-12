@@ -396,6 +396,11 @@ above, an offset value needs to be added. For example, start_doy(A, 0)
 would return the DOY of the current map in STDS A. end_hour(A, -1) would
 return the end hour of the previous map in STDS A.
 
+<p>
+A function whose value a map does not have stops the algebra with an error
+that names the map: <code>td()</code> and the end functions of a time instance, and on
+relative time every function but <code>td()</code>.
+
 <h4>Comparison operator</h4>
 
 As mentioned above, the conditions are comparison expressions that are
@@ -810,17 +815,6 @@ C = B {+,contains,r} A
 The inverse selection <code>A {!:,R,t} B</code> takes only the temporal operator
 <code>l</code>, because its maps have no related map to combine with; GRASS 8.5
 accepted the other operators.</li>
-<li><b>td() of a time instance</b> is null instead of an error, so a condition
-on it is neither true nor false. This expression gives no map; GRASS 8.5
-stopped with an error:
-
-<div class="code"><pre>
-C = if(td(I) &gt; 0, I)
-</pre></div>
-
-<p>
-A temporal variable that a map does not have, such as <code>end_doy()</code> of a
-time instance or the calendar values of relative time, is an error.</li>
 <li><b>More syntax.</b> Comparisons, temporal functions and the minus sign may
 stand anywhere in an expression, and a dataset may have the name of a
 function. GRASS 8.5 reported a syntax error for each of these
@@ -1128,7 +1122,7 @@ of each map to the start of the next map. A map that starts at the same time
 as the next map keeps its own end instead. Earlier versions gave it the end
 of the next map, so the two maps swapped their ends. In the datasets above,
 the map of A on days 2 to 3 and the map of C on days 2 to 4 start together;
-of such maps the one that ends last is snapped, see item 10 of the
+of such maps the one that ends last is snapped, see item 9 of the
 differences above:
 
 <div class="code"><pre>
@@ -2691,21 +2685,7 @@ c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
 </pre></div>
 
 <p>
-Item 5, <code>td()</code> of a time instance: the algebra gives null, so the
-condition is neither true nor false and no map remains. GRASS 8.5 stopped
-with an error.
-
-<div class="code"><pre>
-t.rast.algebra expression="E4 = if(td(I) &gt; 0, I)" basename=e4
-t.info -g type=strds input=E4 | grep "^number_of_maps="
-</pre></div>
-
-<div class="code"><pre>
-number_of_maps=0
-</pre></div>
-
-<p>
-Item 6, more syntax: the minus sign may stand at the start of an
+Item 5, more syntax: the minus sign may stand at the start of an
 expression, which gives 9, 8, 7 and 6. GRASS 8.5 reported a syntax error.
 
 <div class="code"><pre>
@@ -2722,7 +2702,7 @@ c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|6.0|6.0
 </pre></div>
 
 <p>
-Item 7, intersection: the map of <code>H</code> follows the map of <code>A</code> of the first
+Item 6, intersection: the map of <code>H</code> follows the map of <code>A</code> of the first
 day and precedes the one of the fourth day. The algebra leaves it out,
 because the two intersections are not the same time; GRASS 8.5 gave one
 time instance.
@@ -2737,7 +2717,7 @@ number_of_maps=0
 </pre></div>
 
 <p>
-Item 8, negative buffer: the maps of <code>B</code> last two days, so a buffer of -1
+Item 7, negative buffer: the maps of <code>B</code> last two days, so a buffer of -1
 day on both sides leaves no time. The algebra stops with an error. GRASS
 8.5 went on and made a time instance of each map, at the middle of its
 interval: 2 and 4 March.
@@ -2755,7 +2735,7 @@ t.rast.algebra failed
 </pre></div>
 
 <p>
-Item 9: <code>merge()</code> of two equal maps read at an offset gives four maps;
+Item 8: <code>merge()</code> of two equal maps read at an offset gives four maps;
 GRASS 8.5 gave eight.
 
 <div class="code"><pre>
@@ -2768,7 +2748,7 @@ number_of_maps=4
 </pre></div>
 
 <p>
-Item 10, <code>tsnap()</code> of maps that start together: the map of <code>H</code> and the
+Item 9, <code>tsnap()</code> of maps that start together: the map of <code>H</code> and the
 second map of <code>A</code> both start on 2 March, and <code>H</code> ends on 4 March. The
 algebra snaps the map of <code>H</code> to 3 March in both expressions.
 
@@ -2803,7 +2783,7 @@ c_4|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
 </pre></div>
 
 <p>
-Item 11, integers beyond 32 bits: the algebra keeps the constant
+Item 10, integers beyond 32 bits: the algebra keeps the constant
 3000000000 and adds the one day of each map to it. GRASS 8.5 read it as
 <em>r.mapcalc</em> does, with its lower 32 bits only, which is -1294967296.
 

@@ -99,6 +99,10 @@ def _time_token_value(name, first_extent, extent, is_absolute, msgr):
         msgr.fatal(
             _("The temporal operators <{}> support only absolute time.").format(side)
         )
+    if name == "td" and extent.end is None:
+        # timevar() refuses td() of an instant, as the algebra does; this tool
+        # has always written null() for it.
+        return "null()"
     value = timevar(Series((Slot(extent, Const(None)),)), name).slots[0].content.value
     return "null()" if value is None else str(value)
 

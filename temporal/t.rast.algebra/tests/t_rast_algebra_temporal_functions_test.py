@@ -102,12 +102,18 @@ DATE_AND_NUMBER = (
     "compared with the number 12; compare them with a date or time in quotes, "
     'such as "2001-01-03" or "12:00:00"'
 )
+TD_OF_AN_INSTANCE = (
+    "td() requires a time interval, but map <i1@PERMANENT> is a time instance"
+)
 
 
 @pytest.mark.parametrize(
     ("expression", "text"),
-    [("if(start_time(intervals) > 12, intervals)", DATE_AND_NUMBER)],
-    ids=["date and number"],
+    [
+        ("if(start_time(intervals) > 12, intervals)", DATE_AND_NUMBER),
+        ("if(td(instants) > 0, instants)", TD_OF_AN_INSTANCE),
+    ],
+    ids=["date and number", "td of an instance"],
 )
 def test_the_tool_reports_the_error_and_writes_nothing(time_series, expression, text):
     """The tool stops with the message of the core, without a traceback,

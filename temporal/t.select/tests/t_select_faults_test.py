@@ -3,12 +3,12 @@
 The algebra looks for a dataset name without a mapset in the current mapset
 and then in the search path. A calendar function such as start_month() needs
 absolute time; on relative time the algebra stops with an error and creates no
-dataset.
+dataset. So does an expression the core refuses, with the message of the core.
 """
 
 import pytest
 
-from grass.temporal.testing.data import MapSpec, create_daily_stds, create_stds
+from grass.temporal.testing.data import MapSpec, create_daily_stds, create_stds, day
 from grass.temporal.testing.readback import inventory, list_maps, message
 from grass.temporal.testing.session import mapset_session, project_session
 from grass.tools import ToolError, Tools
@@ -20,7 +20,8 @@ def work(tmp_path_factory):
 
     The dataset A with the daily maps a_1 and a_2 is in "other". The dataset
     R in "work" has the maps r_1 and r_2 of relative time, days 0 to 2 and 2
-    to 4.
+    to 4, and the dataset I in "work" the time instances i_1 and i_2 on the
+    first two days.
     """
     project = tmp_path_factory.mktemp("search_path") / "project"
     with (
@@ -39,6 +40,9 @@ def work(tmp_path_factory):
             [MapSpec("r_1", 1, 0, 2), MapSpec("r_2", 2, 2, 4)],
             temporaltype="relative",
             unit="days",
+        )
+        create_stds(
+            tools, "strds", "I", [MapSpec("i_1", 1, day(0)), MapSpec("i_2", 2, day(1))]
         )
         tools.g_mapsets(operation="add", mapset="other")
         yield tools
@@ -71,12 +75,18 @@ DATE_AND_NUMBER = (
     "compared with the number 10; compare them with a date or time in quotes, "
     'such as "2001-01-03" or "12:00:00"'
 )
+TD_OF_AN_INSTANCE = (
+    "td() requires a time interval, but map <i_1@work> is a time instance"
+)
 
 
 @pytest.mark.parametrize(
     ("expression", "text"),
-    [("if(start_date(A) > 10, A)", DATE_AND_NUMBER)],
-    ids=["date and number"],
+    [
+        ("if(start_date(A) > 10, A)", DATE_AND_NUMBER),
+        ("if(td(I) > 0, I)", TD_OF_AN_INSTANCE),
+    ],
+    ids=["date and number", "td of an instance"],
 )
 def test_the_tool_reports_the_error_and_writes_nothing(work, expression, text):
     """t.select stops with the message of the core, without a traceback,

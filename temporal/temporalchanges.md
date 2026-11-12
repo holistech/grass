@@ -80,9 +80,6 @@ on precedence.
     the right map and the value of the pair, and `!:` takes only the
     temporal operator `l`
     ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
-- **td() of a time instance.** `td()` of a time instance stopped the tool
-    with an error. Now it is null, and a condition on it is neither true nor
-    false ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **More forms of expressions.** Comparisons, temporal functions and minus
     signs were syntax errors outside a few places, and a dataset could not
     have the name of a function, so that `C = A`, `C = -A + 10`,

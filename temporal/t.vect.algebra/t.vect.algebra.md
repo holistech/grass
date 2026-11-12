@@ -591,18 +591,7 @@ the areas of the two maps of A in its time, and time instances in I.
     C = if({during,|}, start_day(A) > 1, B)
     ```
 
-6. **td() of a time instance** is null instead of an error, so a condition on it
-    is neither true nor false. This expression gives no map; GRASS 8.5 stops
-    with an error:
-
-    ```sh
-    C = if(td(I) > 0, I)
-    ```
-
-    A temporal variable that a map does not have, such as `end_doy()` of a
-    time instance, is an error in GRASS 8.5 and 8.6.
-
-7. **More syntax.** The temporal neighbourhood modifier of *t.rast.algebra*,
+6. **More syntax.** The temporal neighbourhood modifier of *t.rast.algebra*,
     such as `A[1]` and `A[-1]`, applies to vector datasets. Comparisons and
     temporal functions may stand anywhere in a condition, also with the number
     on the left, in arithmetic and after a minus sign, and a dataset may have
@@ -625,7 +614,7 @@ the areas of the two maps of A in its time, and time instances in I.
     C = if(A {#,during} B + 1 > 1, A)
     ```
 
-8. **Negative buffer.** A negative size in `buff_t()` shrinks the maps by that
+7. **Negative buffer.** A negative size in `buff_t()` shrinks the maps by that
     size at both ends. GRASS 8.6 stops with an error if a map would keep no
     time, that is if its end would fall on or before its start, and for a time
     instance, which has no duration to shrink. GRASS 8.5 goes on instead: for a
@@ -639,7 +628,7 @@ the areas of the two maps of A in its time, and time instances in I.
     C = buff_t(B, "-1 day")
     ```
 
-9. **merge() of buffers.** Two maps with equal content and time stamps are
+8. **merge() of buffers.** Two maps with equal content and time stamps are
     one map. GRASS 8.5 made a new map for each buffer of `buff_p()`,
     `buff_l()` and `buff_a()`, and `merge()` kept such a map next to an equal
     one. This expression gives the buffers of the maps of A once, where
@@ -649,7 +638,7 @@ the areas of the two maps of A in its time, and time instances in I.
     C = merge(buff_p(A, 1), buff_p(A, 1))
     ```
 
-10. **Maps that touch under -s.** Under **-s**, a selection with the temporal
+9. **Maps that touch under -s.** Under **-s**, a selection with the temporal
     operator `r` or `u` takes the time of the maps that are related in time
     and in space. GRASS 8.5 chose the maps with the spatial test but took the
     time from the maps related in time, also from one whose box only touches

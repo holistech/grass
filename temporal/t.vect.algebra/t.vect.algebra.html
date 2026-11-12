@@ -635,17 +635,6 @@ C = if({during}, start_day(A) &gt; 1, B)
 C = if({during,|}, start_day(A) &gt; 1, B)
 </pre></div>
 </li>
-<li><b>td() of a time instance</b> is null instead of an error, so a condition on it
-is neither true nor false. This expression gives no map; GRASS 8.5 stops
-with an error:
-
-<div class="code"><pre>
-C = if(td(I) &gt; 0, I)
-</pre></div>
-
-<p>
-A temporal variable that a map does not have, such as <code>end_doy()</code> of a
-time instance, is an error in GRASS 8.5 and 8.6.</li>
 <li><b>More syntax.</b> The temporal neighbourhood modifier of <em>t.rast.algebra</em>,
 such as <code>A[1]</code> and <code>A[-1]</code>, applies to vector datasets. Comparisons and
 temporal functions may stand anywhere in a condition, also with the number

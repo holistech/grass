@@ -35,19 +35,41 @@ def a(make_series):
     return make_series("a", (1, 2), (2, 3), (3, 4), (4, 5))
 
 
-def test_td_in_days_and_null_for_an_instant(make_series):
-    series = make_series("x", (1, 3), 5)
-    result = timevar(series, "td")
+def test_td_in_days(make_series):
+    # [1, 3] lasts two days, [5, 6] one.
+    result = timevar(make_series("x", (1, 3), (5, 6)), "td")
     assert result.sort == "scalar"
-    assert values(result) == [2.0, None]
+    assert values(result) == [2.0, 1.0]
+
+
+def test_td_names_the_first_instance_of_a_mixed_series(make_series):
+    """x2 and x3 are time instances; the error names x2, the first of them"""
+    series = make_series("x", (1, 3), 5, 7)
+    with pytest.raises(ValueError, match="td") as error:
+        timevar(series, "td")
+    assert str(error.value) == (
+        "td() requires a time interval, but map <x2@PERMANENT> is a time instance"
+    )
+
+
+def test_td_of_an_instance_without_map_names_its_time(make_series):
+    """A computed value names no registered map, so the time stands for it"""
+    series = make_series("x", 5, values=[1])
+    with pytest.raises(ValueError, match="td") as error:
+        timevar(series, "td")
+    assert str(error.value) == (
+        "td() requires a time interval, but map <2001-01-05 00:00:00> is a time "
+        "instance"
+    )
 
 
 def test_td_of_relative_time_in_its_unit(make_series):
     assert values(timevar(make_series("r", (2, 5), unit="days"), "td")) == [3]
 
 
-def test_td_of_a_relative_instant_is_null(make_series):
-    assert values(timevar(make_series("r", 2, unit="days"), "td")) == [None]
+def test_td_of_a_relative_instant_is_an_error(make_series):
+    with pytest.raises(ValueError, match=r"map <r1@PERMANENT> is a time instance"):
+        timevar(make_series("r", 2, unit="days"), "td")
 
 
 @pytest.mark.parametrize(

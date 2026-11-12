@@ -37,7 +37,7 @@ def check_time_variable(name, series):
     relative time. A null condition selects no map, so a slip such as end_doy
     for start_doy would give an empty result without a word. The releases
     before GRASS 8.6 stopped with an error that names the map, and so does
-    this translation. td() of an instant stays null, as in t.rast.mapcalc.
+    this translation. td() of an instant is refused by timevar() itself.
     """
     if name == "td":
         return
