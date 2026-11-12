@@ -72,11 +72,11 @@ def _found_id(name, stds_type):
     """The id of the dataset that the name selects, or None if there is none
 
     The mapsets are searched as open_old_stds() searches them: the one given
-    with the name, or the current mapset and then the search path. In each mapset a raster dataset name with a dot is tried
-    whole first, so that a dataset of an older release with a dot in its name
-    is found, and then as name and semantic label. The id keeps the label
-    ("name.label@mapset"), which open_old_stds() reads the same way in that
-    mapset.
+    with the name, or the current mapset and then the search path. In each
+    mapset a raster dataset name with a dot is tried whole first, so that a
+    dataset of an older release with a dot in its name is found, and then as
+    name and semantic label. The id keeps the label ("name.label@mapset"),
+    which open_old_stds() reads the same way in that mapset.
     """
     bare, _at, mapset = name.partition("@")
     forms = [(bare, None)]

@@ -26,6 +26,7 @@ from ._checks import (
     check_series,
     require,
 )
+from ._messages import warn
 from .adapters import as_map, extent_from
 from .backends import BUFFERS, VECTOR_FUNCTIONS
 from .content import (
@@ -34,10 +35,10 @@ from .content import (
     Const,
     MapRef,
     ScalarFunctionError,
+    SeriesAggregate,
+    SeriesReduce,
     call,
 )
-from ._messages import warn
-from .content import SeriesAggregate, SeriesReduce
 from .maptypes import DIMENSIONS, OFFSET_COUNTS
 from .relations import related as related_indices
 from .series import Series, Slot, Space

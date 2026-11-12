@@ -800,8 +800,9 @@ def materialize(
     cell are removed and not registered unless register_null is True; if
     that leaves no map, the dataset stays empty and a warning says so. Their
     entries in the temporal database are deleted as well, and the numbered
-    maps after them are renamed to close the gap (see plan()). A warning names each such map that copies a raster or 3D raster map
-    with data, which the current region missed.
+    maps after them are renamed to close the gap (see plan()). A warning
+    names each such map that copies a raster or 3D raster map with data,
+    which the current region missed.
     Result maps registered with the other temporal type are replaced when
     overwriting.
 
