@@ -44,7 +44,7 @@ def interval_map(name, start, end):
     return map_
 
 
-def test_the_classic_gap_list_from_day_31_counts_from_the_start():
+def test_the_library_gap_list_from_day_31_counts_from_the_start():
     # Granules from 31.01. to 30.04.: [31.01., 28.02.], [28.02., 31.03.],
     # [31.03., 30.04.]. The first and the last are equal to a map, the
     # middle one relates to none and is the only gap.

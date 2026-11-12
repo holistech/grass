@@ -1,5 +1,4 @@
-"""Sampling with a common granularity: the algebra core against the
-classic algebra
+"""Sampling with a common granularity: the algebra core against the library
 
 The library samples datasets with
 AbstractSpaceTimeDataset.resample_maplist_by_granularity() (the function that
@@ -36,8 +35,8 @@ def random_spans(generator):
     return spans
 
 
-def classic(spans, granularity):
-    """The sampled maps of the classic algebra as (id, start, end)"""
+def library(spans, granularity):
+    """The maps sampled by the library as (id, start, end)"""
     maps = []
     for number, (start, end) in enumerate(spans, start=1):
         map_ = tgis.RasterDataset(f"m{number}@PERMANENT")
@@ -79,12 +78,12 @@ def core(spans, granularity):
 
 
 @pytest.mark.usefixtures("temporal_module_session")
-def test_core_samples_as_the_classic_algebra():
+def test_core_samples_as_the_library():
     generator = random.Random(4)
     for _ in range(300):
         spans = random_spans(generator)
         granularity = generator.randint(1, 3)
-        assert core(spans, granularity) == classic(spans, granularity), (
+        assert core(spans, granularity) == library(spans, granularity), (
             spans,
             granularity,
         )

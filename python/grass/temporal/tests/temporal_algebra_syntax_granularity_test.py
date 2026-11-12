@@ -59,7 +59,7 @@ def triples(series):
         ),
     ],
 )
-def test_samples_as_the_classic_algebra(make_series, spans, granularity, expected):
+def test_samples_as_the_library(make_series, spans, granularity, expected):
     sampled = sample_by_granularity(make_series("m", *spans), granularity)
     assert triples(sampled) == expected
 
