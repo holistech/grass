@@ -8,7 +8,6 @@ import pytest
 
 import grass.temporal as tgis
 from grass.exceptions import FatalError
-from grass.exceptions import FatalError as TemporalAlgebraFatalError
 from grass.temporal.testing import io_cache
 from grass.temporal.testing.data import MapSpec, create_stds, day, register_stds
 from grass.tools import Tools
@@ -298,10 +297,10 @@ def _create_paper_datasets(tools, directory):
 class Algebra:
     """Run the temporal raster algebra in the test session"""
 
-    # The classic algebra raised its own FatalError, other library code the
-    # one of grass.exceptions. The core raises ValueError, TypeError or
-    # SyntaxError instead, which tests name where they expect them.
-    errors = (FatalError, TemporalAlgebraFatalError)
+    # Library code raises the FatalError of grass.exceptions. The core raises
+    # ValueError, TypeError or SyntaxError instead, which tests name where they
+    # expect them.
+    errors = FatalError
 
     def __init__(self, session):
         self.session = session

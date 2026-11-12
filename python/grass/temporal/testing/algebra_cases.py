@@ -5,7 +5,7 @@ and its docstring lists the maps with their values and times. Every map is
 constant, so the region is small and the expected value of a result follows
 from the values of the maps. check_case() and check_dry() compare what the
 algebra core makes with the expected maps. A case is (expression, options
-of the runner, expected), the format of the t.rast.algebra cases;
+of evaluate(), expected), the format of the t.rast.algebra cases;
 ``expected`` is a list of maps (start, end, min, max) or, for vector maps,
 (start, end, points, lines, areas), or the name of the error class that the
 expression raises.
@@ -125,26 +125,6 @@ def monthly_datasets(tools):
         [MapSpec("b1", 7, when(1), when(4)), MapSpec("b2", 8, when(4), when(7))],
     )
     create_stds(tools, "strds", "C", [MapSpec("c1", 9, when(1), when(1, 1, 2002))])
-
-
-def algebra_granularity(tools):
-    """Make the monthly datasets for the granularity cases
-
-    Dataset D d1..d3 = 10, 11, 12 for 31 days from the first of January,
-    March and May; singletmap.
-    """
-    small_region(tools, 3, 3)
-    monthly_datasets(tools)
-    create_stds(
-        tools,
-        "strds",
-        "D",
-        [
-            MapSpec(f"d{k}", 9 + k, when(m), when(m) + datetime.timedelta(days=31))
-            for k, m in enumerate((1, 3, 5), 1)
-        ],
-    )
-    single_map(tools, "raster", "singletmap", 99, january(3), january(4))
 
 
 def raster_granularity(tools):
@@ -361,7 +341,7 @@ def check_case(
     :param expression: The right hand side, run as ``R = <expression>``
     :param expected: See the module docstring; dates are ``"2001-01-02"`` or,
         off midnight, ``"2001-01-02T12:00:00"``; an instant has the end None
-    :param options: The options of the runner; ``result_type`` is not one, it
+    :param options: The options of ``outcome()``; ``result_type`` is not one, it
         names the dataset type to read the result as, if it differs from the
         type of the kind (a mixed expression)
     :param shape: ``(check_temporal_topology(), get_granularity())`` of the
@@ -371,7 +351,7 @@ def check_case(
     :param names: The names of the result maps (without the mapset) in the
         order of their start times
     """
-    base = "lcco"
+    base = "lc"
     result = outcome(kind, expression, basename=base, **options)
     if isinstance(expected, str):
         assert result.get("error") == expected, result
