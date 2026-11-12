@@ -76,16 +76,21 @@ def specs(intervals, prefix):
     ]
 
 
-def create_series(tools, kind, stds, intervals, prefix=None):
-    """Create a STDS with one map per interval; maps are named <prefix><number>"""
+def create_series(tools, kind, stds, intervals, prefix=None, via="library"):
+    """Create a STDS with one map per interval; maps are named <prefix><number>
+
+    via is the route of register_stds(). The library route writes into the
+    mapset in which grass.temporal was initialised, so a dataset of another
+    mapset needs "tool".
+    """
     maps = specs(intervals, prefix or stds.lower())
     if kind == "stvds":
         # v.random points: the shared make_map() writes other geometry.
         for spec in maps:
             tools.v_random(output=spec.name, npoints=1, seed=spec.value)
-        register_stds(tools, kind, stds, maps)
+        register_stds(tools, kind, stds, maps, via=via)
     else:
-        create_stds(tools, kind, stds, maps)
+        create_stds(tools, kind, stds, maps, via=via)
 
 
 @pytest.fixture(scope="module")
@@ -100,7 +105,12 @@ def series(temporal_module_session):
       with the time of a4; it is in the mapset search path
 
     The session mirrors its environment into os.environ for the module; some
-    tests run the algebra in this process.
+    tests run the algebra in this process. The datasets of PERMANENT are
+    registered in this process as well, because every test module of the
+    directory builds them again in each xdist worker: the fixture took 10.6 s
+    with t.create and t.register and 3.4 s so (measured 2026-11-12, median of
+    three builds each with time.perf_counter). Both routes give the same
+    datasets, maps and metadata in t.info -g and t.*.list.
     """
     session = temporal_module_session
     tools = Tools(session=session, overwrite=True)
@@ -126,10 +136,11 @@ def series(temporal_module_session):
             MapSpec("s1", 1, day(10), day(20)),
             MapSpec("s2", 2, day(20), day(30)),
         ],
+        via="library",
     )
 
     tools.g_mapset(mapset="other", flags="c")
-    create_series(tools, "strds", "X", [(10, 20), (30, 40)], prefix="x")
+    create_series(tools, "strds", "X", [(10, 20), (30, 40)], prefix="x", via="tool")
     tools.g_mapset(mapset="PERMANENT")
     tools.g_mapsets(mapset="other", operation="add")
     return SimpleNamespace(session=session)
