@@ -98,16 +98,19 @@ def lines(result):
 
 
 def snapshot(tools, owner):
-    """What the two mapsets hold: maps of every type and the temporal database"""
+    """What the two mapsets hold: maps of every type and the temporal database
+
+    One t.list call per group of types lists the rows of the calls per type,
+    with the type as a last column (compared on the datasets of this module,
+    2026-11-12); it saves eight tool calls per snapshot.
+    """
     state = []
     for session, mapset in ((tools, CURRENT), (owner, OWNER)):
         state.append(
             session.g_list(type="raster,raster_3d,vector", mapset=mapset).stdout
         )
-        for stds_type in ("strds", "str3ds", "stvds"):
-            state.append(session.t_list(type=stds_type).stdout)
-        for map_type in ("raster", "raster3d", "vector"):
-            state.append(session.t_list(type=map_type).stdout)
+        state.append(session.t_list(type="strds,str3ds,stvds").stdout)
+        state.append(session.t_list(type="raster,raster_3d,vector").stdout)
     return state
 
 
@@ -126,14 +129,16 @@ def phantoms(tools):
 
 
 def snapshot_of_owner(owner):
-    """Maps and datasets of "first", which a tool of "second" must not change"""
+    """Maps and datasets of "first", which a tool of "second" must not change
+
+    One t.list call per group of types, as in snapshot().
+    """
     return [
         owner.g_list(type="raster,raster_3d,vector", mapset=OWNER).stdout,
-        *(owner.t_list(type=kind).stdout for kind in ("strds", "str3ds", "stvds")),
-        *(
-            owner.t_list(type=kind, columns="id,start_time,end_time").stdout
-            for kind in ("raster", "raster3d", "vector")
-        ),
+        owner.t_list(type="strds,str3ds,stvds").stdout,
+        owner.t_list(
+            type="raster,raster_3d,vector", columns="id,start_time,end_time"
+        ).stdout,
     ]
 
 
