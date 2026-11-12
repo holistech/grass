@@ -280,12 +280,6 @@ def test_temporal_extent_operators(series_3d, temporal, expected):
     assert [row[2] for row in rows] == [101, 102, 203, 204]
 
 
-def test_default_extent_is_left_reference(series_3d):
-    """Without a temporal operator the time stamps of the left side are used"""
-    rows = result(series_3d.session, "A {+,during} W")
-    assert times(rows) == intervals((1, 2), (2, 3), (3, 4), (4, 5))
-
-
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [

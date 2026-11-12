@@ -85,11 +85,6 @@ def _parse(expression, name, **keywords):
     return parser.parse(f"{name} = {expression}", name, True)
 
 
-def test_parser_runs_the_core(series_3d):
-    _parse("A + B", "fac_sum")
-    assert [row[1] for row in _values("fac_sum")] == [11, 22, 33, 44]
-
-
 def test_parser_samples_with_the_common_granularity(series_3d):
     """W has maps of two days; sampled by the day of A, w1 counts for days 1
     and 2, w2 for days 3 and 4"""

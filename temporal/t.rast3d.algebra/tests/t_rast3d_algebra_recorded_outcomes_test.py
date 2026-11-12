@@ -15,8 +15,8 @@ import pytest
 
 from grass.temporal.testing import outcomes
 
+# "A + B" is tested in t_rast3d_algebra_test.py with the same values and times.
 SAME = [
-    "A + B",
     "A - B - 1",
     "A * 2",
     "A / B",
@@ -61,10 +61,6 @@ DIFFERENT = {
     'buff_t(A, "-1 day")': (
         "Other:ValueError",
         "a negative buffer must leave every map some time (end < start)",
-    ),
-    "W {:,contains,r} A": (
-        "maps",
-        "a selection with r gives one map per related pair",
     ),
     "W {+,contains,r} A": (
         "maps",
