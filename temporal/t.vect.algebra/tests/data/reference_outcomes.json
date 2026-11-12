@@ -1,34 +1,4 @@
 {
- "same|aa !: wide": {
-  "maps": [
-   [
-    "aa1",
-    "2001-01-01T00:00:00",
-    "2001-01-02T00:00:00",
-    0,
-    0,
-    1
-   ],
-   [
-    "aa2",
-    "2001-01-02T00:00:00",
-    "2001-01-03T00:00:00",
-    0,
-    0,
-    1
-   ],
-   [
-    "aa3",
-    "2001-01-03T00:00:00",
-    "2001-01-04T00:00:00",
-    0,
-    0,
-    1
-   ]
-  ],
-  "stds": true,
-  "ttype": "absolute"
- },
  "same|aa & ab": {
   "maps": [
    [
@@ -103,36 +73,6 @@
   "stds": true,
   "ttype": "absolute"
  },
- "same|aa : ab": {
-  "maps": [
-   [
-    "aa1",
-    "2001-01-01T00:00:00",
-    "2001-01-02T00:00:00",
-    0,
-    0,
-    1
-   ],
-   [
-    "aa2",
-    "2001-01-02T00:00:00",
-    "2001-01-03T00:00:00",
-    0,
-    0,
-    1
-   ],
-   [
-    "aa3",
-    "2001-01-03T00:00:00",
-    "2001-01-04T00:00:00",
-    0,
-    0,
-    1
-   ]
-  ],
-  "stds": true,
-  "ttype": "absolute"
- },
  "same|aa ^ ab": {
   "maps": [
    [
@@ -167,10 +107,6 @@
   "error": "SyntaxError",
   "msg": "syntax error on line #, position # token T_HASH_OPERATOR near # expression #"
  },
- "same|aa {#,during} wide": {
-  "error": "SyntaxError",
-  "msg": "syntax error on line #, position # token T_HASH_OPERATOR near # expression #"
- },
  "same|aa {&,equal} ab": {
   "maps": [
    [
@@ -185,36 +121,6 @@
     "N_1",
     "2001-01-02T00:00:00",
     "2001-01-03T00:00:00",
-    0,
-    0,
-    1
-   ]
-  ],
-  "stds": true,
-  "ttype": "absolute"
- },
- "same|aa {:,during} wide": {
-  "maps": [
-   [
-    "aa1",
-    "2001-01-01T00:00:00",
-    "2001-01-02T00:00:00",
-    0,
-    0,
-    1
-   ],
-   [
-    "aa2",
-    "2001-01-02T00:00:00",
-    "2001-01-03T00:00:00",
-    0,
-    0,
-    1
-   ],
-   [
-    "aa3",
-    "2001-01-03T00:00:00",
-    "2001-01-04T00:00:00",
     0,
     0,
     1

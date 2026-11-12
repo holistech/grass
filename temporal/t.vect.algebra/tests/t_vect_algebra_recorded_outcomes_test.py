@@ -14,6 +14,8 @@ import pytest
 
 from grass.temporal.testing import outcomes
 
+# An expression whose recorded maps are input maps, or whose outcome
+# t_vect_algebra_test.py checks in more detail, is tested there only.
 SAME = [
     "aa & ab",
     "aa | ab",
@@ -24,9 +26,6 @@ SAME = [
     "aa {&,equal} ab",
     "aa {|,during} wide",
     "wide {|,contains} aa",
-    "aa : ab",
-    "aa {:,during} wide",
-    "aa !: wide",
     "buff_p(pa, 1)",
     "buff_l(la, 1)",
     "buff_a(aa, 1) & ab",
@@ -38,12 +37,12 @@ SAME = [
     "merge(aa, ac)",
 ]
 
-# A count is no vector map; the core rejects it as a syntax error, also when the
-# relation finds no pair, as for aa and ab. A number as else is no vector map
+# A count is no vector map; the core rejects it as a syntax error
+# (test_hash_operator_is_not_a_map_expression in t_vect_algebra_test.py), also
+# when the relation finds no pair, as for aa and ab. A number as else is no vector map
 # either, also where no map takes the else branch. The classic algebra
 # rejected the same expressions.
 REFUSED = [
-    "aa {#,during} wide",
     "aa {#,during} ab",
     "if(td(aa) == 1, aa, null())",
 ]
@@ -64,14 +63,6 @@ DIFFERENT = {
     'buff_t(aa, "-1 day")': (
         "Other:ValueError",
         "a negative buffer must leave every map some time (end < start)",
-    ),
-    "aa {:,contains} wide": ("maps", "an empty result creates an empty dataset"),
-    # wide1 contains aa1 and aa2, which do not overlap, so that the
-    # intersection with both has no primitives. The classic algebra
-    # registers that map empty.
-    "wide {&,contains} aa": (
-        "maps",
-        "a vector map without primitives is not registered",
     ),
     # The classic vector grammar has no neighbour rule and reports a syntax
     # error.

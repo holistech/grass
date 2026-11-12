@@ -217,11 +217,6 @@ def test_vector_parser_registers_selected_maps(vector_series):
     ]
 
 
-def test_vector_parser_buffers(vector_series):
-    _vparse("buff_p(pa, 1)", "fac_buf")
-    assert [areas for _, areas in _maps("fac_buf")] == [1, 2, 3]
-
-
 def test_an_empty_vector_result_creates_an_empty_dataset(vector_series):
     # The daily maps of aa never have the same time as the two-day maps of
     # wide, and the default relation is equal.

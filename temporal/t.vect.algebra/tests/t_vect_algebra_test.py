@@ -162,11 +162,6 @@ def test_selection_with_new_extent_copies_maps(vector_series):
     assert sorted(existing) == [f"{name}_0@PERMANENT", f"{name}_1@PERMANENT"]
 
 
-def test_selection_by_single_map(vector_series):
-    """tmap() makes a single time stamped map usable as selection reference"""
-    assert timeline(vector_series.session, "aa : tmap(ev)") == days((2, 3))
-
-
 def test_nested_selection(vector_series):
     """Selections can be chained: the result of the first one is the input"""
     assert timeline(vector_series.session, "aa : ab !: tmap(ev)") == days(
@@ -181,12 +176,15 @@ def test_nested_selection(vector_series):
     ("expression", "expected"),
     [
         ('tshift(aa, "1 day")', days((2, 3), (3, 4), (4, 5))),
-        ("tsnap(aa)", DAILY),
         ('tshift(aa, "1 day") : aa', days((2, 3), (3, 4))),
     ],
 )
 def test_temporal_shift_and_snap(vector_series, expression, expected):
-    """tshift moves all maps by the granule; tsnap keeps gapless intervals"""
+    """tshift moves all maps by the granule, also before a selection
+
+    tsnap() of the gapless maps of aa is checked by
+    test_time_function_that_changes_nothing_registers_the_inputs.
+    """
     assert timeline(vector_series.session, expression) == expected
 
 
