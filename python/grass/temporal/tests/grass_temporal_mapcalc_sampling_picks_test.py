@@ -90,9 +90,9 @@ def register(session, name, spans, prefix, boxes):
     because of the run time: the module took 291 s with one t.register file
     per map and 131 s with this in-process call (pytest --durations,
     2026-10-14). For the same reason the dataset is made with the function
-    that t.create calls, with the values of t.create: the module took 0.4 s
+    that t.create calls, with the values of t.create: t.create took 0.4 s
     per dataset (ten datasets timed one by one, 2026-11-12), about 48 s of
-    the 87 s that the 120 datasets of the series needed.
+    the 87 s that building the series of all three seeds needed.
     """
     tgis.open_new_stds(name, "strds", "relative", "t", "t", "mean", overwrite=True)
     for i, ((start, end), (west, south, east, north)) in enumerate(
