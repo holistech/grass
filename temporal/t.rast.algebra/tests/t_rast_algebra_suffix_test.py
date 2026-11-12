@@ -3,7 +3,7 @@
 suffix takes gran, time, num and num%NN; any other text is refused before a
 map, a dataset or an entry of the temporal database is written. The default
 of this tool is num. A result of a single time instant is numbered also with
-gran, as in the classic algebra, which numbers a result without
+gran, as in the classic algebra, which numbered a result without
 granularity.
 """
 

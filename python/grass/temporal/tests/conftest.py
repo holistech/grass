@@ -84,8 +84,8 @@ def temporal_module_session(tmp_path_factory):
 def temporal_exit_session(temporal_module_session):
     """Like temporal_module_session, but a fatal error ends the process
 
-    For tests that check the abort of the classic algebra with
-    pytest.raises(SystemExit), the way the tools fail. temporal_session
+    For tests that check the abort of a tool with pytest.raises(SystemExit),
+    the way the tools fail. temporal_session
     makes fatal errors raise FatalError instead and restores the mode of
     before when the module ends. The session is shared, so a module that
     requests this fixture must not also rely on raising errors in the tests

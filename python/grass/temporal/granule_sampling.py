@@ -311,7 +311,7 @@ def registered_maps_by_granularity(stds, gran=None, where=None, dbif=None):
                 )
 
         # A relative granule given as a number is taken as it is, as the
-        # granularity of the dataset and the classic algebra give it; only a
+        # granularity of the dataset gives it; only a
         # text, as from a tool option, is read here.
         if stds.is_time_relative() and isinstance(gran, str):
             unit = stds.get_relative_time_unit()

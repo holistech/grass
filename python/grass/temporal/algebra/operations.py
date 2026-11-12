@@ -391,7 +391,7 @@ def _apply(function, operands, name):
             )
             raise ValueError(msg)
     # With one series of maps the result is one map for each of its maps and
-    # keeps its list order; with several the classic algebra builds a new
+    # keeps its list order; with several the classic algebra built a new
     # list in time order (probe 2026-10-16 with the classic algebra:
     # merge(N, A) + 1 numbers the maps of N first, merge(N, A) + merge(A, N)
     # numbers the results in time order).

@@ -242,7 +242,7 @@ def test_the_error_names_the_extent_and_the_buffer(make_series):
 
 
 def test_one_map_too_short_stops_the_whole_dataset(make_series):
-    """Classic keeps the short maps unchanged or makes instants of them; the
+    """Classic kept the short maps unchanged or made instants of them; the
     core does not register a result in which some maps have another meaning"""
     x = make_series("x", (1, 11), (12, 16), (17, 29))
     with pytest.raises(ValueError, match=r"x2@PERMANENT"):

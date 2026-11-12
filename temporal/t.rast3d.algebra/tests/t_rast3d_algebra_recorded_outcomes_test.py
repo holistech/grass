@@ -45,14 +45,14 @@ SAME = [
 
 # Each changed rule with a short form of its item in the list of differences
 # in the manual, and what the core gives: "maps" for registered maps, which
-# may be none, or the class of the error as differential.outcome() names it.
+# may be none, or the class of the error as outcomes.outcome() names it.
 # A crash of the core then does not pass for a difference.
 DIFFERENT = {
     # Where a negative buffer leaves a map no time, the core stops with an
-    # error. The classic algebra stores an instant when the end equals the
-    # start, and keeps the old time stamp with an error message when the end
+    # error. The classic algebra stored an instant when the end equals the
+    # start, and kept the old time stamp with an error message when the end
     # would precede it. Measured 2026-10-14 with t.rast.algebra -c only; the
-    # 3D algebra takes the same classic code path, buff_t() calling
+    # 3D algebra took the same classic code path, buff_t() calling
     # temporal_buffer() of the map dataset.
     'buff_t(W, "-1 day")': (
         "Other:ValueError",
@@ -111,9 +111,7 @@ def without_names(result):
     """The outcome without the names of the maps
 
     The reference counted the maps in another order and with gaps, so the
-    names differ, as in ``merge(A, D)``; the comparison of the core with the
-    classic profile, which this test made before, did not read the names
-    either.
+    names differ, as in ``merge(A, D)``.
     """
     if "maps" in result:
         result = {**result, "maps": [[None, *row[1:]] for row in result["maps"]]}

@@ -294,14 +294,14 @@ CASES = [
 
 CORE = {
     # Manual, Differences from GRASS 8.5, item 1: one result per conclusion map;
-    # the classic algebra gives one result for each pair of condition map and
+    # the classic algebra gave one result for each pair of condition map and
     # conclusion map
     "temporal conditional relation 1": [
         ("2001-01-01", "2001-01-03", 4, 4),
         ("2001-01-03", "2001-01-05", 5, 5),
     ],
     # Manual, Differences from GRASS 8.5, item 2: then and else need equal time
-    # stamps; the core stops with an error, the classic algebra leaves out the
+    # stamps; the core stops with an error, the classic algebra left out the
     # other maps
     "spatial conditional 3": "Other:ValueError",
 }

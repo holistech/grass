@@ -3,8 +3,8 @@
 A series of month granules from 31 January counts every start from the first
 one, so a cut to the end of February does not carry over into March: 31.01.,
 28.02., 31.03., 30.04. Covered are the granules of the algebra core and the
-gap list of the classic library, which the classic algebra (-g), t.rast.list
-(method=gran) and other tools sample with. Maps are built in memory only, so
+gap list of the library, which t.rast.list (method=gran) and other tools
+sample with. Maps are built in memory only, so
 no GRASS session and no temporal database are needed here.
 """
 

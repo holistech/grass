@@ -33,14 +33,14 @@ class Grammar:
     start = "statement"
     # From the weakest to the strongest binding. Selection binds weakest, as
     # in the classic algebra; && binds stronger than ||, as in r.mapcalc and
-    # most languages, which the classic algebra does only for map values.
+    # most languages, which the classic algebra did only for map values.
     precedence = (
         ("left", "SELECT", "NOT_SELECT", "SELECT_OP"),
         ("left", "OR", "OR_OP"),
         ("left", "AND", "AND_OP"),
         ("nonassoc", "EQ", "NE", "LT", "LE", "GT", "GE", "CMP_OP"),
         # The overlays of vector maps bind as + does, from left to right, as
-        # in the classic vector grammar, where they share one level with +,
+        # in the classic vector grammar, where they shared one level with +,
         # the v.patch of vector maps.
         (
             "left",

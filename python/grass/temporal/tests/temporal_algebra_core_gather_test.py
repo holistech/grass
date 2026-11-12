@@ -445,7 +445,7 @@ def test_invalid_option_values(a, b, option, value):
 def test_and_or_join_the_related_contents_as_they_are(a, b, c, reduce, function):
     """Unlike all and any they do not compare a single related content with 0:
     r.mapcalc refuses a floating point map as an operand of && and ||, and the
-    classic algebra writes it unchanged"""
+    classic algebra wrote it unchanged"""
     assert contents(gather(a, during, c, reduce=reduce)) == [ref("c1"), ref("c1")]
     assert contents(gather(b, contains, a, reduce=reduce))[0] == Call(
         function, (ref("a1"), ref("a2"))

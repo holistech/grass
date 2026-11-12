@@ -1,8 +1,8 @@
 """The sampling of t.rast.mapcalc against the picks of the classic routine
 
-The tool has no switch to the classic algebra, so its choice of the map per
-sampler granule must stay that of the classic sample_by_dataset(), which the
-classic dataset_mapcalculator used: gap granules skipped, and per granule the
+The choice of t.rast.mapcalc of the map per sampler granule must stay that of
+sample_by_dataset() of the releases up to GRASS 8.5, which their
+dataset_mapcalculator used: gap granules skipped, and per granule the
 first sample. The picks of that routine are in
 data/mapcalc_sampling_picks.json, recorded from the reference implementation
 on 2026-11-12 for 60 random cases (20 each of three kinds of series) with every

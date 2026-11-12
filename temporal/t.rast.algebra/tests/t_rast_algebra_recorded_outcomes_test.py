@@ -69,7 +69,7 @@ SAME = [
 
 # Each changed rule with a short form of its item in the list of differences
 # in the manual, and what the core gives: "maps" for registered maps, which
-# may be none, or the class of the error as differential.outcome() names it.
+# may be none, or the class of the error as outcomes.outcome() names it.
 # A crash of the core then does not pass for a difference.
 DIFFERENT = {
     "B {:,contains,r} A": (
@@ -91,7 +91,7 @@ DIFFERENT = {
         "an operator with r gives each pair its own value",
     ),
     # Where a negative buffer leaves a map no time, the core stops with an
-    # error. The classic algebra stores an instant when the end equals the
+    # error. The classic algebra stored an instant when the end equals the
     # start without a message, and keeps the old time stamp when the end
     # would precede it, printing one ERROR line per map ("End time must be
     # greater than start time ...", exit code 0; measured 2026-10-14).
@@ -175,7 +175,7 @@ def random_expression(generator, depth=0):
     """Arithmetic and selections on datasets of equal intervals, where both
     parsers must agree
 
-    The classic grammar has no rule for a dataset or a number alone, for a
+    The classic grammar had no rule for a dataset or a number alone, for a
     dataset in parentheses or for abs() of a number (checked 12 October 2026
     by parsing with run=False). The core reads all of them, so such
     expressions would compare a result with a syntax error.

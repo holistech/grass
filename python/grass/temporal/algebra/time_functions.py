@@ -175,7 +175,7 @@ def retime(series, *, shift=None, buffer=None, snap=False):
             slot.content,
             slot.space,
             slot.origin if extent_of(map_) == slot.extent else None,
-            # A snapped list is sorted, as the classic tsnap() sorts it.
+            # A snapped list is sorted, as the classic tsnap() sorted it.
             None if snap else slot.rank,
         )
         for map_, slot in zip(maps, series.slots, strict=True)
@@ -189,7 +189,8 @@ def _shrink(series, buffer):
     temporal_buffer() cannot be used: for an end before the start it prints
     an error and keeps the old time stamp, for an end equal to the start it
     stores an instant (set_absolute_time() and set_relative_time(); measured
-    2026-10-14 with t.rast.algebra -c, the classic algebra silently leaves
+    2026-10-14 with t.rast.algebra -c, which has since been removed, the
+    classic algebra silently left
     such maps unchanged or makes instants of them). Both would register a
     map whose time is not the buffered one, so the new extent is computed
     here and a slot that keeps no interval (end <= start, GRASS intervals

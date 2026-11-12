@@ -379,7 +379,7 @@ CASES = [
 
 CORE = {
     # Manual, Differences from GRASS 8.5, item 4: a right reference gives one map
-    # per related pair with the value of the pair; the classic algebra combines
+    # per related pair with the value of the pair; the classic algebra combined
     # the left map with all of its related maps in each result
     "raster arithmetic relation 4": [
         ("2001-01-01", "2001-01-02", 6, 6),

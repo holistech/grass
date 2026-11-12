@@ -220,7 +220,7 @@ def test_intersect_in_the_same_unit_is_that_of_plain_extents(first, second):
         expected.D["start_time"],
         expected.D["end_time"],
     )
-    # An instant stays a plain extent, as the classic algebra tells it by type.
+    # An instant stays a plain extent, as the classic algebra told it by type.
     if expected.D["end_time"] is None:
         assert type(result) is type(expected)
 
@@ -367,7 +367,7 @@ def test_the_relation_of_a_reversed_extent_is_refused(build, other):
 
 
 def test_the_predicates_of_a_reversed_extent_still_answer():
-    # The classic algebra calls the predicates by name; they stay unchecked.
+    # The setters and the predicates stay unchecked.
     reversed_extent = reversed_by_setter(TemporalExtent(start_time=5, end_time=6))
     other = TemporalExtent(start_time=1, end_time=2)
 

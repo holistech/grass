@@ -119,7 +119,7 @@ def test_selection_without_partner_is_not_kept_and_keeps_its_origin(make_series)
 
 
 def test_intersection_of_an_interval_with_an_instant_is_the_instant(make_series):
-    """The classic algebra sets the instant on the map as well, through
+    """The classic algebra set the instant on the map as well, through
     _set_temporal_extent() for the plain extent that the intersection with an
     instant returns (_overlay_temporal_extent() in temporal_algebra.py)."""
     interval = make_series("i", (1, 10))

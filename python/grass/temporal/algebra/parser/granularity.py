@@ -166,7 +166,7 @@ def sample_by_granularity(series, granularity):
         unit=first.unit,
         kind=series.kind,
     )
-    # Granules have no spatial extent. The classic sampling gives each
+    # Granules have no spatial extent. The classic sampling gave each
     # sampled map the extent of its map, without which a spatial relation
     # (-s) would find nothing.
     spaces = {slot.content: slot.space for slot in series.slots}

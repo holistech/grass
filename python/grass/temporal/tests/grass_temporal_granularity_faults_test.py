@@ -383,8 +383,8 @@ def test_relative_granule_given_as_number_is_taken_as_it_is(relative_instant):
     """A number is not read like the text of a tool option: the granularity 0
     of a relative dataset of one instant gives no granule, as before, which
     the classic algebra relied on in its granularity mode (it then failed with
-    a TypeError, measured 05.11.2026 on the reference before and after this
-    rule)"""
+    a TypeError, measured 05.11.2026 on the classic algebra, which has since
+    been removed, before and after this rule)"""
     assert (
         relative_instant.get_registered_maps_as_objects_by_granularity(gran=0) is None
     )

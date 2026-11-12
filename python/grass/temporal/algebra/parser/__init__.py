@@ -125,8 +125,8 @@ def evaluate(
     chain["STDS"] = {
         "name": name,
         # The type the run creates, so that a dry run shows what the run
-        # makes. The reference plans the type of the call, also where a
-        # mixed selection creates another one.
+        # makes. The classic algebra planned the type of the call, also where
+        # a mixed selection created another one.
         "stdstype": planned.stds_type,
         "temporal_type": planned.temporal_type,
     }

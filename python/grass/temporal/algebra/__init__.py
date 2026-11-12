@@ -51,7 +51,8 @@ the core
 the classic algebra
     The language of the temporal algebra as the releases before GRASS 8.6
     and the publications define it: what an expression may say and what it
-    means.
+    means. The implementation of those releases is no longer part of GRASS;
+    the comments use the term for the behavior it had.
 the public parser classes
     TemporalRasterAlgebraParser, TemporalRaster3DAlgebraParser and
     TemporalVectorAlgebraParser (parser/facade.py), which the tools and

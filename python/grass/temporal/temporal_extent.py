@@ -94,8 +94,7 @@ def _refuse_reversed(extent) -> None:
     Only the constructor, temporal_relation() and
     RelativeTemporalExtent.intersect() check. The setters and the
     predicates do not: t.shift and t.snap set the start and the end one after
-    the other and pass through such a state, and the classic algebra calls the
-    predicates by name.
+    the other and pass through such a state.
     """
     start = extent.D.get("start_time")
     end = extent.D.get("end_time")
@@ -192,7 +191,7 @@ class TemporalExtent(Row):
             return None
 
         # The intersection with a time instance is that instance as a plain
-        # TemporalExtent; the classic algebra tells it from an interval by its
+        # TemporalExtent; the classic algebra told it from an interval by its
         # type.
         if self.D["end_time"] is None:
             return TemporalExtent(start_time=self.D["start_time"])

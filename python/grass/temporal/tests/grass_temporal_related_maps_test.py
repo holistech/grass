@@ -1,9 +1,10 @@
-"""The classic per-relation sampling of grass.temporal.related_maps
+"""The per-relation sampling of grass.temporal.related_maps
 
 The method expansion, the order of the related maps, the closed 2D box
 filter, the gap slots and the two sampler guards are pure computations on
 slots, so they are checked here without a GRASS session. The tools that use
-them are compared with sample_by_dataset() in their own tests.
+them are checked against the picks of sample_by_dataset() of the releases up
+to GRASS 8.5 in their own tests.
 
 SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later

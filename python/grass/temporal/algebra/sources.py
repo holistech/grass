@@ -132,7 +132,7 @@ def source_map(name, *, timestamp=True, kind="raster"):
 
     With timestamp, the map has its time stamp: the registered one if the map
     is in the temporal database, otherwise the one read from the GRASS
-    database (r.timestamp), as the classic algebra does, so a single map
+    database (r.timestamp), as the classic algebra did, so a single map
     stamped with r.timestamp is usable without registration. Without
     timestamp, the map has none and apply() uses it in every slot.
 
@@ -159,7 +159,7 @@ def source_map(name, *, timestamp=True, kind="raster"):
         map_.select()
     else:
         # Read the time stamp from the GRASS database, as the classic
-        # _open_single_map() does, so a map stamped with r.timestamp but not
+        # _open_single_map() did, so a map stamped with r.timestamp but not
         # registered is usable.
         map_.load()
         map_.read_timestamp_from_grass()

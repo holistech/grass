@@ -36,7 +36,7 @@ _FUNCTIONS = frozenset(
 
 
 # The overlays of vector maps: the content names the operator of v.overlay,
-# and "disor" is the name of the classic algebra for v.patch. Only "and",
+# and "disor" was the name of the classic algebra for v.patch. Only "and",
 # "or" and "disor" are no names of r.mapcalc; "xor" and "not" are, so the map
 # type of a series, not the name in its content, tells which backend reads
 # the content. None of the names is in LEFT_ASSOCIATIVE or variadic, so
@@ -331,7 +331,7 @@ class Raster3DBackend(RasterBackend):
       "Union or intersection of regions is not implemented" (same
       measurement, region=intersect fails alike). Maps related in space are
       therefore computed in the current 3D region, which is what the
-      classic algebra does as well.
+      classic algebra did as well.
     - There is no r3.series, so a reduction that skips null cells and
       needs r.series cannot be planned.
     """
@@ -401,7 +401,7 @@ class VectorBackend:
     """Plan vector maps with v.overlay, v.patch, v.buffer and g.copy
 
     Each overlay and buffer is one module call, so a nested expression
-    computes its parts into temporary maps, as the classic algebra does. A
+    computes its parts into temporary maps, as the classic algebra did. A
     registered map that reaches the result unchanged is registered as it
     is; a map with another time stamp is copied.
     """

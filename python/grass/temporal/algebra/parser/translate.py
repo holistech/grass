@@ -723,7 +723,7 @@ def _moment(text, other):
     The text is read as the time stamps of grass.temporal are, so with
     dateutil installed also in formats other than ISO and as a time of day
     alone. It then takes the kind of the values it is compared with, as the
-    classic algebra does: the date for start_date(), the time of day for
+    classic algebra did: the date for start_date(), the time of day for
     start_time() and both for start_datetime().
 
     :raises TypeError: if other is not a series of dates or times

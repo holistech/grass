@@ -7,10 +7,9 @@ calendar functions, and the start_time()/end_time() offsets are computed from
 the slot extents. The expression itself stays a text: a dataset name is
 replaced by the map name where it stands as a whole name, not as a part of a
 longer name and not as the name of a function, and the function tokens by
-their values. The tool has no switch between the classic and the core
-algebra, so the sampling follows the rules of the classic sample_by_dataset()
-of the releases before GRASS 8.6, through grass.temporal.related_maps, which
-explains the one deliberate difference.
+their values. The sampling follows the rules of sample_by_dataset() of the
+releases up to GRASS 8.5, through grass.temporal.related_maps, which explains
+the one deliberate difference.
 
 SPDX-FileCopyrightText: 2012-2013 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -39,7 +38,7 @@ from .kinds import KINDS, stds_kind_of
 from .open_stds import check_new_stds, open_new_stds, open_old_stds
 from .related_maps import method_relations, related_per_granule, sampler_refusal
 
-# The calendar tokens need absolute time, as in the classic tool.
+# The calendar tokens need absolute time, as in the tool of GRASS 8.5.
 _CALENDAR_TOKENS = tuple(
     f"{side}_{field}"
     for side in ("start", "end")
@@ -85,8 +84,8 @@ def _time_token_value(name, first_extent, extent, is_absolute, msgr):
     timevar() has no such offset, so it is computed here, with
     time_delta_to_relative_time() so that the float form (90.0, not 90) is
     kept. td() and the calendar functions come from timevar(). A calendar token
-    on relative time is fatal, as in the classic tool. A value that does not
-    exist, such as the end of an instant, becomes "null()".
+    on relative time is fatal, as in the tool of GRASS 8.5. A value that does
+    not exist, such as the end of an instant, becomes "null()".
     """
     if name in ("start_time", "end_time"):
         stamp = extent.start if name == "start_time" else extent.end
@@ -192,13 +191,12 @@ def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
     Returns a list with one entry per granule: the map used as mapcalc_name()
     writes it, or None where none relates.
 
-    The tool has no switch between the classic and the core algebra, so the
-    map used is the one sample_by_dataset() takes, the first of the first
-    relation in names that has one; related_maps explains why gather() does
-    not do that.
+    The map used is the one sample_by_dataset() of the releases up to GRASS
+    8.5 took, the first of the first relation in names that has one;
+    related_maps explains why gather() does not do that.
 
-    Warns, as the classic tool does, once per granule that relates more than
-    one map. An input without registered maps gives a column of None.
+    Warns, as the tool of GRASS 8.5 did, once per granule that relates more
+    than one map. An input without registered maps gives a column of None.
     """
     inputs = _read_series(name, where, stds_type, msgr)
     column = []
@@ -221,9 +219,10 @@ def _open_inputs(names, stds_type):
     """Open the input datasets and tell whether they are to be sampled
 
     No sampling when the inputs reduce to a single dataset, deduplicated by
-    name without the semantic label, as in the classic tool. The expression
-    refers to a dataset by the name it has without the mapset, which can
-    differ from what was typed in inputs, so that name is what is substituted.
+    name without the semantic label, as in the tool of GRASS 8.5. The
+    expression refers to a dataset by the name it has without the mapset,
+    which can differ from what was typed in inputs, so that name is what is
+    substituted.
     Two inputs with the same such name, as in "x,x" or "x,x@other", are
     refused, because the expression cannot tell them apart.
 
@@ -255,7 +254,7 @@ def _semantic_labels(first_dataset, first_series, where, map_kind):
     """Return the semantic label of the sampler granule of each slot
 
     The sampler granule carries the time stamp and, for raster, the semantic
-    label of the result map, as in the classic tool. The label is read from
+    label of the result map, as in the tool of GRASS 8.5. The label is read from
     the registered maps of the sampler, where t.register stored it: select()
     on a single map does not return it (measured 2026-10-14 with a map
     labelled by r.support before t.register), load() reads the GRASS map
@@ -408,7 +407,7 @@ def dataset_mapcalculator(
     # Fail before any computation if the output cannot be created.
     check_new_stds(output, type, None, gs.overwrite())
 
-    # The extra inputs in reverse sorted order, as in the classic tool: the
+    # The extra inputs in reverse sorted order, as in the tool of GRASS 8.5: the
     # order decides which refusal or warning comes first.
     others = sorted(names[1:])
     others.reverse()
@@ -461,7 +460,7 @@ def dataset_mapcalculator(
     }
 
     # The sampler granule carries the time stamp and, for raster, the semantic
-    # label of the result map, as in the classic tool. The label is read from
+    # label of the result map, as in the tool of GRASS 8.5. The label is read from
     # the registered maps of the sampler, where t.register stored it: select()
     # on a single map does not return it (measured 2026-10-14 with a map
     # labelled by r.support before t.register), load() reads the GRASS map
@@ -490,7 +489,7 @@ def dataset_mapcalculator(
     else:
         # Inputs that name one dataset with different semantic labels
         # (x.B4,x.B8) are not sampled: the n-th map of each is used with the
-        # n-th map of the first, as in the classic tool.
+        # n-th map of the first, as in the tool of GRASS 8.5.
         for name in others:
             other_series = _read_series(
                 _qualified(name, datasets[name]), where, stds_type, msgr

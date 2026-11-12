@@ -1,10 +1,10 @@
-"""The classic per-relation sampling of maps by granules
+"""The per-relation sampling of maps by granules
 
-t.rast.mapcalc, t.rast3d.mapcalc and t.sample have no switch between the
-classic and the core algebra, so their results are those of the classic
-sample_by_dataset() of the releases before GRASS 8.6, except for one fixed
-fault (below). This module is the one place that reproduces its rules on the
-temporal algebra core, so that the tools do not carry diverging copies:
+The results of t.rast.mapcalc, t.rast3d.mapcalc and t.sample are those of
+sample_by_dataset() of the releases up to GRASS 8.5, except for one fixed
+fault (below). That function is not part of GRASS any more. This module is
+the one place that holds its rules on the temporal algebra core, so that the
+tools do not carry diverging copies:
 
 - the sampling method names expand into relation names in the order in which
   sample_by_dataset() tries them,
@@ -16,20 +16,20 @@ The fixed fault: the method "start" also selects a map of the same time as
 the granule, which sample_by_dataset() meant to select but never did (see
 _METHOD_GROUPS).
 
-It does not call gather(), which differs from the classic rules in two ways.
-A classic caller that takes one map takes the first map of the first relation
-that has one, while gather() takes the earliest start over all relations.
-And the spatial relation of the core is not the classic one: the classic
-builder relates maps by their 2D extent, also for 3D rasters, as closed boxes,
-because it searches an R-tree that counts contact at an edge or a corner as
-intersection. The spatial relations of the core are 3D for 3D rasters and give
+It does not call gather(), which differs from those rules in two ways.
+A caller of the releases up to GRASS 8.5 that takes one map takes the first
+map of the first relation that has one, while gather() takes the earliest
+start over all relations. And the spatial relation of the core is not the one
+of those releases: their builder relates maps by their 2D extent, also for 3D
+rasters, as closed boxes, because it searches an R-tree that counts contact at
+an edge or a corner as intersection. The spatial relations of the core are 3D for 3D rasters and give
 no relation to boxes that share only a corner. So under spatial the temporal
 partners come from related() without a spatial part, and a closed 2D box test
 filters them (see boxes_intersect()).
 
 Aggregation does not use this module. aggregation_core takes the union of the
-related maps in time order, which is a documented change from the classic
-order.
+related maps in time order, which is a documented change from the order of
+the releases up to GRASS 8.5.
 
 SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -68,8 +68,8 @@ _PLAIN_RELATIONS = {
 # after the plain method names, in this order. They are read as written, not
 # upper-cased. "over" is an old short form of "overlap".
 # sample_by_dataset() ended "start" with "equals", which upper-cases to the key
-# "EQUALS" that the builder never files (it files "EQUAL"), so the classic
-# "start" never matched a map of equal time (measured 2026-10-14 in a
+# "EQUALS" that the builder never files (it files "EQUAL"), so "start" of the
+# releases up to GRASS 8.5 never matched a map of equal time (measured 2026-10-14 in a
 # temporary project: method=equal listed an equal map, method=start printed
 # None for it). "start" here ends with "equal" instead, so that a map with the
 # same time as the granule is selected, as the name "equals" intended.
@@ -147,8 +147,9 @@ def method_relations(method, any_relation: bool = False):
 def boxes_intersect(left, right):
     """True if the 2D extents touch or overlap, edges and corners included
 
-    The classic -s searches an R-tree over west, east, south and north, which
-    counts contact as intersection, whatever the bottom and top of 3D maps.
+    The flag -s of the releases up to GRASS 8.5 searched an R-tree over west,
+    east, south and north, which counts contact as intersection, whatever the
+    bottom and top of 3D maps; the sampling keeps that rule.
     """
     return (
         left.west <= right.east
@@ -161,19 +162,20 @@ def boxes_intersect(left, right):
 def related_per_granule(granules, names, inputs, *, spatial=False):
     """Per granule, the slots of inputs related through names
 
-    The classic function collects the maps relation by relation in the order
-    of names and drops duplicates. One merged relation would return a single
-    start-time order, which differs whenever a granule relates maps through
-    more than one relation, so the relations are kept apart. A relation
-    reads "granule R input", as the topology builder files the maps.
+    The function of the releases up to GRASS 8.5 collected the maps relation
+    by relation in the order of names and drops duplicates. One merged
+    relation would return a single start-time order, which differs whenever a
+    granule relates maps through more than one relation, so the relations are
+    kept apart. A relation reads "granule R input", as the topology builder
+    files the maps.
 
     Within a relation the maps come by start time and, for an equal start
-    time, by map id. This is the order the classic function lists them in,
+    time, by map id. This is the order that function listed them in,
     as the database returns them; the core would order such ties by end time,
-    so the inputs are put in the classic order before related() numbers
-    them. The order was pinned for t.sample by its characterization tests.
-    The classic mapcalc took the hit order of the R-tree, which is undefined,
-    so the same rule serves it.
+    so the inputs are put in that order before related() numbers them. The
+    order was pinned for t.sample by its characterization tests. The
+    mapcalc tools of those releases took the hit order of the R-tree, which is
+    undefined, so the same rule serves them.
 
     With spatial, a map must also touch the granule in 2D.
 
@@ -210,8 +212,8 @@ def with_gaps(series):
     starts after the latest end of the granules before it and runs from that
     end to its start. A granule that ends inside a longer one leaves no gap;
     touching granules give no gap. The series must be an interval dataset. A
-    gap has the spatial extent (0, 0, 0, 0, 0, 0) as in the classic
-    function, which matters under spatial: the gap then relates only to maps
+    gap has the spatial extent (0, 0, 0, 0, 0, 0) as in the releases up to
+    GRASS 8.5, which matters under spatial: the gap then relates only to maps
     whose box touches the origin.
     """
     out = []
@@ -234,9 +236,10 @@ def with_gaps(series):
 
 
 def sampler_refusal(sampler, dataset, check_map_time=True):
-    """The classic message why sampler cannot sample dataset, or None
+    """The message why sampler cannot sample dataset, or None
 
-    These are the two guards at the top of sample_by_dataset(): the temporal
+    These are the two guards at the top of sample_by_dataset() of the releases
+    up to GRASS 8.5: the temporal
     types must be equal, and the sampler must have interval time.
 
     :param sampler: the sampler space time dataset object
@@ -252,7 +255,7 @@ def sampler_refusal(sampler, dataset, check_map_time=True):
 
 
 def sampler_refused(sampler, dataset, msgr):
-    """True, with the classic message, if sampler cannot sample dataset
+    """True, with its message, if sampler cannot sample dataset
 
     The message of sampler_refusal() goes to msgr.error() and the caller
     decides what refusing means. A tool that ends on a refusal calls

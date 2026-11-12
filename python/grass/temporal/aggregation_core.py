@@ -132,7 +132,7 @@ def _names(target, surviving, basename, granularity, time_suffix, offset):
 
     surviving is the series that gather() returned, target the full grid of
     granules. The numeric suffix counts the granules from one, so that a
-    dropped empty granule leaves a gap, as the classic count does: the number
+    dropped empty granule leaves a gap, as the count of GRASS 8.5 did: the number
     of a surviving slot is its position in target.
     """
     # gather() keeps the order of target and the extent of each target slot,
@@ -160,7 +160,7 @@ def _names(target, surviving, basename, granularity, time_suffix, offset):
 def _report_granules(reduced):
     """Tell for each granule with a related map that it is aggregated
 
-    The classic aggregation reported this per granule at verbose level. A
+    The aggregation of GRASS 8.5 reported this per granule at verbose level. A
     lone related map counts as well: it is a one-argument aggregate.
     """
     msgr = get_tgis_message_interface()
@@ -215,7 +215,7 @@ def aggregate_series(
     if weighting:
         weights = "map" if method == "sum" else "granule"
     # missing="drop": a granule without a related map produces no map, as the
-    # classic tool skips it. nulls="skip": r.series passes over null cells.
+    # tool of GRASS 8.5 skipped it. nulls="skip": r.series passes over null cells.
     reduced = ta.gather(
         target,
         sampling_relation(sampling),

@@ -193,7 +193,7 @@ def test_spatial_relations(make_series):
 def test_space_without_names_needs_a_spatial_relation(make_series):
     """Boxes that share only a corner have no spatial relation (they are
     disjoint), although the search of the topology builder finds them; boxes
-    that share an edge meet. The classic algebra relates only the second."""
+    that share an edge meet. The classic algebra related only the second."""
     square = Space(10, 0, 10, 0)
     others = [
         make_series("c", (1, 2), space=Space(20, 10, 20, 10)).slots[0],

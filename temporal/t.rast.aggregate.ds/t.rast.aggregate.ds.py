@@ -163,7 +163,7 @@ def main():
             )
             if not input_series.slots:
                 gs.fatal(_("Space time raster dataset <{}> is empty").format(input))
-            # where filters the sampler too, as the classic tool does.
+            # where filters the sampler too, as the tool of GRASS 8.5 did.
             sampler_maps = sampler_sp.get_registered_maps_as_objects(
                 where=where, order="start_time", dbif=dbif
             )
@@ -187,8 +187,8 @@ def main():
             time_suffix=time_suffix,
             offset=offset,
             nprocs=nprocs,
-            # t.rast.aggregate.ds has no file_limit option, so the classic
-            # default stays.
+            # t.rast.aggregate.ds has no file_limit option, so the default
+            # of GRASS 8.5 stays.
             file_limit=1000,
             # register_null straight (not negated): -n keeps null maps,
             # matching t.rast.aggregate and the help text. The tool used to

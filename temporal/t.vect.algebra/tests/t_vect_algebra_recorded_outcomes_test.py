@@ -53,8 +53,8 @@ REFUSED = [
 # A crash of the core then does not pass for a difference.
 DIFFERENT = {
     # Where a negative buffer leaves a map no time, the core stops with an
-    # error. The classic algebra stores an instant when the end equals the
-    # start, and keeps the old time stamp with an error message when the end
+    # error. The classic algebra stored an instant when the end equals the
+    # start, and kept the old time stamp with an error message when the end
     # would precede it (measured 2026-10-14 with t.vect.algebra -c, -1 and -6 days).
     'buff_t(wide, "-1 day")': (
         "Other:ValueError",
@@ -64,11 +64,11 @@ DIFFERENT = {
         "Other:ValueError",
         "a negative buffer must leave every map some time (end < start)",
     ),
-    # The classic vector grammar has no neighbour rule and reports a syntax
+    # The classic vector grammar had no neighbour rule and reported a syntax
     # error.
     "aa[1]": ("maps", "the core reads A[1] and A[-1] also for vector datasets"),
     "aa[-1]": ("maps", "the core reads A[1] and A[-1] also for vector datasets"),
-    # The classic vector grammar reads the hash operator only directly before
+    # The classic vector grammar read the hash operator only directly before
     # a comparison.
     "if(aa {#,during} wide + 1 > 1, aa)": (
         "maps",
@@ -83,8 +83,8 @@ DIFFERENT = {
         "an overlay with r gives each pair its own overlay",
     ),
     # The core reads the name of a spatial relation without -s, as the classic
-    # algebra does. Both give no map, which the core registers as an empty
-    # dataset and the classic algebra does not create at all.
+    # algebra did. Both give no map, which the core registers as an empty
+    # dataset and the classic algebra did not create at all.
     "aa {&,equal|overlap} ab": (
         "maps",
         "an empty result creates an empty dataset only in the core",

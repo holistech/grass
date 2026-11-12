@@ -234,7 +234,7 @@ def call(function, *args):
         raise ValueError(msg)
     if function == "if" and len(args) == 2:
         # r.mapcalc gives 0 where if(c, t) is false (measured 2026-10-17 with
-        # r.mapcalc "z = if(col() > 1, 5)": 0 in the first column), and so does
+        # r.mapcalc "z = if(col() > 1, 5)": 0 in the first column), and so did
         # the classic algebra, which handed if() to r.mapcalc.
         args = (*args, Const(0))
     if function == "if" and isinstance(args[0], Const):

@@ -46,19 +46,19 @@ SAME = [
 # is checked separately below, because this comparison cannot see the numbers.
 DIFFERENT = {
     # The core reads the neighbourhood modifier A[1] and copies the shifted
-    # map; the reference reports a syntax error.
+    # map; the reference reported a syntax error.
     "A[1]": ("maps", "the core reads A[1] and A[-1]"),
     # The core reads the name of a spatial relation, with and without -s; the
-    # reference does not know it (see also the test with the flag below).
+    # reference did not know it (see also the test with the flag below).
     "A {:,equal|overlap} B": ("maps", "the core reads spatial relations"),
     # The core reads an expression that is only a dataset, the reference
-    # reports a syntax error.
+    # reported a syntax error.
     "A": ("maps", "the core reads a bare dataset"),
     # A computed result is no selection on the core.
     "A + B": ("ValueError", "t.select selects maps, it computes none"),
     # A negative buffer that leaves a map no time is an error on the core;
-    # the reference makes instants (end == start) without a message or
-    # keeps the old time (end < start) and prints one ERROR line per map
+    # the reference made instants (end == start) without a message or
+    # kept the old time (end < start) and printed one ERROR line per map
     # ("End time must be greater than start time ...", exit code 0).
     'buff_t(A, "-5 days") {:,during} D': (
         "ValueError",

@@ -99,12 +99,12 @@ def main():
     tgis.init()
 
     # All datasets are checked before anything is read, the inputs first, as
-    # the classic function did.
+    # the function of GRASS 8.5 did.
     input_stds = [tgis.open_old_stds(name, intype) for name in inputs]
     sampler_stds = tgis.open_old_stds(sampler, samtype)
 
     # The comma joins several map ids in one cell, so it cannot separate
-    # columns; the classic function fell back to " | ".
+    # columns; the function of GRASS 8.5 fell back to " | ".
     if separator is None or separator == "" or separator.find(",") >= 0:
         separator = " | "
 

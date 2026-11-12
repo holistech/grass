@@ -298,7 +298,7 @@ def _create_paper_datasets(tools, directory):
 class Algebra:
     """Run the temporal raster algebra in the test session"""
 
-    # The classic algebra raises its own FatalError, other library code the
+    # The classic algebra raised its own FatalError, other library code the
     # one of grass.exceptions. The core raises ValueError, TypeError or
     # SyntaxError instead, which tests name where they expect them.
     errors = (FatalError, TemporalAlgebraFatalError)

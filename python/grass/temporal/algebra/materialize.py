@@ -269,7 +269,7 @@ def plan(
     plain map reference) is copied with g.copy under <basename>_N numbered
     from 1, and any other content raises ValueError. This holds for every map
     type, so a selection copies retimed raster maps with g.copy as the classic
-    algebra does, not with r.mapcalc.
+    algebra did, not with r.mapcalc.
 
     :param series: the Series whose slots become maps; its kind decides the
         type of the dataset and of the maps
@@ -347,7 +347,7 @@ def _plan_selection(series, name, basename, stds_type, result_type):
     A slot with an origin is the registered map itself. A slot whose origin
     was dropped by a temporal operator but still holds a plain map reference
     is a retimed map, copied with g.copy; the copies are numbered
-    <basename>_1, _2, ..., as the classic t.select names them. Numbering runs
+    <basename>_1, _2, ..., as the classic t.select named them. Numbering runs
     over the copies only, so it does not depend on how many maps are
     registered unchanged. Any other content cannot be selected.
 
@@ -596,7 +596,7 @@ def _store(map_, overwrite, dbif):
     # time table of the new type matches no row, so the map gets no time
     # while the row of the old type stays behind (measured 2026-10-11 with
     # t.rast.algebra, see _store_new_map() in temporal_algebra.py of the
-    # reference). delete() runs on the stored copy because it resets the
+    # classic algebra, which has since been removed). delete() runs on the stored copy because it resets the
     # object, which would discard the time of map_.
     stored.delete(dbif)
     map_.insert(dbif)

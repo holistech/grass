@@ -104,7 +104,7 @@ def listed_rows(tools, name):
 # A case is the call of a tool with a dataset of the mapset m and the check of
 # the result; the calls write to the mapset "second" with overwrite, so the
 # cases do not depend on each other. t.select relates ds to itself because the
-# classic algebra takes no bare dataset there.
+# classic algebra took no bare dataset there.
 CASES = {
     "t.rast.list": (
         lambda t, p, m: t.t_rast_list(input=f"ds@{m}"),
