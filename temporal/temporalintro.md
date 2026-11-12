@@ -254,7 +254,7 @@ search path. A name without a mapset is searched by *t.rast.list*, for
 example, in the current mapset first, then in the mapsets of the search path
 in their order, and is not found if the dataset lies in a mapset outside the
 search path. *t.select* and the algebra tools search the
-current mapset and the search path, with **-c** only the current mapset. A
+current mapset and the search path. A
 tool that reads the maps of a dataset of another mapset, such as
 *t.rast.mapcalc*, *t.rast3d.mapcalc* and *t.rast.accdetect*, needs no entry in
 the search path for it. For the other tools, add the mapset
