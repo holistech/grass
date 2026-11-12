@@ -45,11 +45,19 @@ def archives(tools, absolute, tmp_path_factory):
     """The uncompressed archive of the absolute dataset in each format
 
     Several tests read the same archive, so it is written once per format
-    instead of once per test.
+    instead of once per test. The working directory of the tool is passed
+    explicitly instead of relying on its default.
     """
     directory = tmp_path_factory.mktemp("vect_archives")
     for fmt in FORMATS:
-        _export(tools, absolute, directory / fmt, format=fmt, compression="no")
+        _export(
+            tools,
+            absolute,
+            directory / fmt,
+            directory=str(directory),
+            format=fmt,
+            compression="no",
+        )
     return {fmt: directory / fmt for fmt in FORMATS}
 
 

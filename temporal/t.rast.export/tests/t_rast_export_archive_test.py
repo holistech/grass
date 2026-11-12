@@ -42,11 +42,21 @@ def archives(tools, absolute, tmp_path_factory):
     """The uncompressed archive of the absolute dataset in each format
 
     Several tests read the same archive, so it is written once per format
-    instead of once per test.
+    instead of once per test. The working directory of the tool is passed
+    explicitly: a module fixture is built before the autouse fixture that
+    changes into tmp_path, so the default ./ would be the directory pytest
+    was started in.
     """
     directory = tmp_path_factory.mktemp("rast_archives")
     for fmt in FORMATS:
-        _export(tools, absolute, directory / fmt, format=fmt, compression="no")
+        _export(
+            tools,
+            absolute,
+            directory / fmt,
+            directory=str(directory),
+            format=fmt,
+            compression="no",
+        )
     return {fmt: directory / fmt for fmt in FORMATS}
 
 
