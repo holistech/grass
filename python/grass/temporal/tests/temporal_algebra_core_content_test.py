@@ -31,6 +31,13 @@ B = MapRef("b1@PERMANENT")
         ("/", (7.0, 2), 3.5),
         ("/", (1, 0), None),
         ("%", (-7, 2), -1),
+        # r.mapcalc takes the remainder of a float like C fmod() (measured
+        # 2026-11-12 with r.mapcalc "m = 7.5 % 2" in a one-cell region of a
+        # temporary project: r.univar -g mean 1.5; -7.5 % 2 gave -1.5 and
+        # 7 % 2.5 gave 2).
+        ("%", (7.5, 2), 1.5),
+        ("%", (-7.5, 2), -1.5),
+        ("%", (7, 2.5), 2.0),
         # r.mapcalc gives null for a modulo by zero (measured 2026-11-11 with
         # r.mapcalc "m = 7 % 0" in a one-cell region: r.univar null_cells=1).
         ("%", (7, 0), None),
@@ -176,3 +183,9 @@ def test_chain_needs_contents():
 def test_evaluate_rejects_function_without_scalar_implementation():
     with pytest.raises(ValueError, match="sin"):
         evaluate("sin", [0])
+
+
+def test_a_null_condition_of_the_scalar_if_gives_null():
+    """if() is null aware, so evaluate() hands it the null condition itself"""
+    assert evaluate("if", [None, 1, 2]) is None
+    assert evaluate("if", [None, 1]) is None
