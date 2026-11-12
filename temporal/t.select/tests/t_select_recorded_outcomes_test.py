@@ -22,34 +22,20 @@ from grass.tools import Tools
 DAY0 = datetime(2001, 1, 1)
 counter = itertools.count()
 
+# An expression whose recorded maps are input maps that t_select_test.py
+# already expects by name (and so by time and value) is tested there only.
 SAME = [
-    "A : B",
-    "A !: B",
-    "A {:, during} B",
-    "A {:, contains} B",
-    "A {:, over} B",
-    "A {:,during,l} D",
     "A {:,during,r} D",
     "A {:,overlaps,i} B",
     "A {:,overlaps,u} B",
     "A {:,overlaps,d} B",
     "A : B !: D",
     "A {:,during} B {:,during} D",
-    "A {:,equal} B {:,equal} B",
-    "if(start_doy(A) > 20, A)",
-    "if(start_doy(A) > 20, A, B)",
-    "if(A {#, contains} B > 1, A)",
-    "if(td(A) == 10, A) : B",
-    "if({equal}, A {#, contains} B > 1, A {:, contains} B)",
-    "tsnap(A)",
-    'A : tshift(B, "5 days")',
     'buff_t(A, "1 days") {:,contains} B',
     'buff_t(A, "1 days") {:,overlaps} B',
     # b2 [22,27) and b9 [28,29) lie inside the shrunk a3 [21,29)
     'buff_t(A, "-1 days") {:,contains} B',
     'buff_t(A, "-1 days") {:,during} D',
-    "A : X@other",
-    "X@other {:, precedes} A",
 ]
 
 # Each changed rule with the item of the manual's difference list, and what

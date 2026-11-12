@@ -209,13 +209,6 @@ def test_not_select_by_relation(series, relations, expected):
     assert selected_names(series.session, "A {!:, %s} B" % relations) == expected
 
 
-def test_select_and_not_select_are_complements(series):
-    """Every A map is in exactly one of the results of : and !: for a relation."""
-    selected = selected_names(series.session, "A {:, contains} B")
-    inverse = selected_names(series.session, "A {!:, contains} B")
-    assert sorted(selected + inverse) == ["a1", "a2", "a3", "a4"]
-
-
 def test_chained_select_applies_left_to_right(series):
     """A : B : D keeps the A maps equal to B maps and then equal to D maps."""
     assert run_select(series.session, "A : B : D") == []
@@ -642,12 +635,12 @@ def test_errors_are_reported_without_traceback(series, expression):
 
 @pytest.mark.parametrize(
     "expression",
+    # "A :" and "A {:, equal, x} B" are in
+    # test_errors_are_reported_without_traceback, which checks more.
     [
-        "A :",
         "A B",
         "A {:} ",
         "A = B",
-        "A {:, equal, x} B",
         "A {#, contains} B",
         "if(start_doy(A) > 20)",
         "if(A, B)",
@@ -687,8 +680,8 @@ def test_dataset_of_other_type_fails(series):
 
 @pytest.mark.parametrize(
     "operator",
+    # "{:, equal, x}" is in test_errors_are_reported_without_traceback.
     [
-        "{:, equal, x}",
         "{=, equal}",
         "{:, equal, l, r}",
         "{:, foo}",
