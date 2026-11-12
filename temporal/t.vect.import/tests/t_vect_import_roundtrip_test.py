@@ -69,7 +69,7 @@ def _pair(archives):
 
 
 @pytest.mark.parametrize(("fmt", "compression"), FORMATS)
-def test_the_maps_come_back_with_their_times_and_points(
+def test_the_maps_come_back_with_their_times_points_and_attributes(
     tools, tmp_path, prefix, fmt, compression
 ):
     archive = _exported(tools, tmp_path, fmt, compression)
@@ -82,14 +82,6 @@ def test_the_maps_come_back_with_their_times_and_points(
         [(1.0, 1.0, 1.0), (1.0, 2.0, 2.0)],
         [(2.0, 1.0, 1.0), (2.0, 2.0, 2.0)],
     ]
-
-
-@pytest.mark.parametrize(("fmt", "compression"), FORMATS)
-def test_the_attributes_come_back(tools, tmp_path, prefix, fmt, compression):
-    archive = _exported(tools, tmp_path, fmt, compression)
-
-    rows = _import(tools, archive, prefix, tmp_path)
-
     # value = 10 k + i and name = "k_i" for point i of map k
     assert [_table(tools, row.name, "value,name") for row in rows] == [
         [("11", "1_1"), ("12", "1_2")],
