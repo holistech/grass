@@ -22,6 +22,8 @@ of the source, and the report of t.upgrade on a database of the current
 version, which now creates the views anew and says so. The ids were
 extracted on 26.10.2026 from the tree before the clean-up (commit
 b8f890df1c) by parsing every ``_("...")`` literal.
+The ids that only the classic implementation (``grass.temporal.classic``) had
+were removed from the list when that package was deleted.
 """
 
 import ast

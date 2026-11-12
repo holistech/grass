@@ -5,15 +5,6 @@
 t.rast3d.algebra and t.vect.algebra and the addons call. ``parse()`` computes
 the expression with the core.
 
-Each class keeps an object of the class of the reference implementation
-(``grass.temporal.classic``) for its map type, built only when something asks
-for it: an attribute that the facade does not have is read from the reference
-object, so that code written for the classes of the reference keeps working.
-The object gets the arguments of the constructor of the facade. The facade
-does not inherit from the reference, so that the reference stays as it is.
-This module imports the three classes of the reference, so
-``import grass.temporal`` loads ``grass.temporal.classic``.
-
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -23,15 +14,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-from grass.temporal.classic.temporal_raster3d_algebra import (
-    TemporalRaster3DAlgebraParser as _Raster3DReference,
-)
-from grass.temporal.classic.temporal_raster_algebra import (
-    TemporalRasterAlgebraParser as _RasterReference,
-)
-from grass.temporal.classic.temporal_vector_algebra import (
-    TemporalVectorAlgebraParser as _VectorReference,
-)
 from grass.temporal.state import get_tgis_message_interface
 
 from . import evaluate
@@ -41,16 +23,12 @@ from .granularity import GranularityModeError, common_granularity, dataset_names
 class _AlgebraParser:
     """What the three public parser classes share
 
-    The subclasses name the class of the reference and the map type. The
-    constructor arguments are kept as attributes with the same names that
-    the reference has, so that code which reads or sets ``run`` or ``debug``
-    after the construction keeps working. They are handed to the reference
-    object again each time it is asked for.
+    The subclasses name the map type. The constructor arguments are kept as
+    attributes, so that code which reads or sets ``run`` or ``debug`` after
+    the construction keeps working.
     """
 
-    _reference_class: type
     _kind: str
-    _options = ("pid", "run", "debug", "spatial")
 
     def __init__(
         self,
@@ -61,11 +39,11 @@ class _AlgebraParser:
     ) -> None:
         """Create the parser
 
-        The defaults ``run=False, debug=True`` are those of the classes of the
-        reference, so that a caller written for them gets the same behaviour.
+        The defaults ``run=False, debug=True`` are those that callers of the
+        classes of the releases before GRASS 8.6 relied on.
 
-        :param pid: the process id in the names of the temporary maps of the
-            reference object; the core does not use it
+        :param pid: kept for callers of those releases; the core does not use
+            it
         :param run: compute the expression; False only checks its syntax
         :param debug: print the module calls
         :param spatial: relate the maps in space as well as in time, the flag
@@ -77,40 +55,6 @@ class _AlgebraParser:
         self.spatial = spatial
         self.granularity = None
         self.use_granularity = False
-        self._reference_object = None
-
-    def _reference(self):
-        """Return the reference object, built with the current options"""
-        if self._reference_object is None:
-            self._reference_object = self._reference_class(
-                **self._reference_arguments()
-            )
-        else:
-            # Options set after the construction reach the reference too.
-            for name in self._options:
-                setattr(self._reference_object, name, getattr(self, name))
-        return self._reference_object
-
-    def _reference_arguments(self) -> dict:
-        return {name: getattr(self, name) for name in self._options}
-
-    def __getattr__(self, name):
-        """Hand everything the facade does not have to the reference"""
-        # Called only for names not found on the facade. A name with an
-        # underscore must not build a reference object: copy and pickle look for
-        # __getstate__ and the like on an object that has no attributes yet.
-        if name.startswith("_"):
-            raise AttributeError(name)
-        return getattr(self._reference(), name)
-
-    def __dir__(self):
-        # The names of the class of the reference too, so that dir() lists
-        # what __getattr__ reads from it. The attributes that the reference
-        # object sets in its constructor are only listed once it exists.
-        names = set(super().__dir__()) | set(dir(self._reference_class))
-        if self._reference_object is not None:
-            names |= set(vars(self._reference_object))
-        return sorted(names)
 
     def setup_common_granularity(self, expression, stdstype="strds") -> bool:
         """Use the common granularity of all datasets of the expression
@@ -182,14 +126,6 @@ class _AlgebraParser:
 class _GriddedAlgebraParser(_AlgebraParser):
     """Raster and 3D raster: the options that the map calculation takes"""
 
-    _options = (
-        *_AlgebraParser._options,
-        "register_null",
-        "dry_run",
-        "nprocs",
-        "time_suffix",
-    )
-
     def __init__(
         self,
         pid: int | None = None,
@@ -253,21 +189,18 @@ class _GriddedAlgebraParser(_AlgebraParser):
 class TemporalRasterAlgebraParser(_GriddedAlgebraParser):
     """The temporal algebra of space time raster datasets (t.rast.algebra)"""
 
-    _reference_class = _RasterReference
     _kind = "raster"
 
 
 class TemporalRaster3DAlgebraParser(_GriddedAlgebraParser):
     """The temporal algebra of space time 3D raster datasets (t.rast3d.algebra)"""
 
-    _reference_class = _Raster3DReference
     _kind = "raster3d"
 
 
 class TemporalVectorAlgebraParser(_AlgebraParser):
     """The temporal algebra of space time vector datasets (t.vect.algebra)"""
 
-    _reference_class = _VectorReference
     _kind = "vector"
 
     def parse(self, expression, basename: str | None = None, overwrite: bool = False):

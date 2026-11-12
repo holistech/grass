@@ -25,8 +25,8 @@ SYMBOLS = (
 )  # fmt: skip
 
 # The manual names both overlap relations "over". The published paper writes
-# "equals" for the relation that is called "equal"; the reference
-# implementation (grass.temporal.classic) reads it the same way. It is a
+# "equals" for the relation that is called "equal"; the classic algebra
+# read it the same way. It is a
 # second name so that the printed expressions run. TEMPORAL_RELATIONS keeps
 # the canonical names only.
 _SHORTHANDS = {"over": ("overlaps", "overlapped"), "equals": ("equal",)}

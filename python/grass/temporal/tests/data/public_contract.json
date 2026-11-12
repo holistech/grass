@@ -1405,7 +1405,6 @@
   "SpaceTimeVectorDataset": "docs",
   "SpatioTemporalTopologyBuilder": "repo",
   "TemporalRaster3DAlgebraParser": "repo",
-  "TemporalRasterAlgebraLexer": "repo",
   "TemporalRasterAlgebraParser": "repo",
   "TemporalVectorAlgebraParser": "repo",
   "VectorDataset": "repo",

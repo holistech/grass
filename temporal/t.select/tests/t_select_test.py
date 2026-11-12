@@ -710,8 +710,7 @@ def test_blank_before_temporal_operator(series):
 def test_core_refuses_a_time_function_as_the_selected_maps(series):
     """A time function as a conclusion of if() gives numbers, not maps: the
     core stops with a message before it creates anything, as the list of
-    differences in t.select.md says. The reference implementation
-    (grass.temporal.classic) does not, see t_select_differential_test.py."""
+    differences in t.select.md says. The releases before GRASS 8.6 did not."""
     tools = Tools(session=series.session, overwrite=True)
     rasters = tools.g_list(type="raster", mapset="PERMANENT").text.split()
     with pytest.raises(ToolError) as error:

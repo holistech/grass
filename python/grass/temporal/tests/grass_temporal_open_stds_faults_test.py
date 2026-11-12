@@ -53,17 +53,6 @@ def test_missing_dataset_is_still_reported_by_its_name_without_label(project_ses
         tgis.open_old_stds("nothing.S2_8", "strds")
 
 
-def test_classic_algebra_still_splits_the_label_first(project_session):
-    insert_old_stds("a")
-    insert_old_stds("a.S2_8")
-    sp = tgis.open_old_stds("a.S2_8", "strds", whole_name_first=False)
-    assert sp.get_name(semantic_label=False) == "a"
-    assert sp.semantic_label == "S2_8"
-    insert_old_stds("b.c")
-    with pytest.raises(FatalError, match="not found"):
-        tgis.open_old_stds("b.c", "strds", whole_name_first=False)
-
-
 INSERT_IN_OWN_MAPSET = """
 import sys
 import grass.temporal as tgis

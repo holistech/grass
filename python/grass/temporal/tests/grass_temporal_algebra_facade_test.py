@@ -1,11 +1,8 @@
-"""The public parser classes are separate from the reference implementation
+"""The public parser classes of the algebra core
 
 The classes that t.rast.algebra, t.rast3d.algebra, t.vect.algebra and the
-addons call do not inherit from the parser classes of the reference
-implementation (grass.temporal.classic), and they build an object of the
-reference only when something needs one. These tests run without a database:
-a facade that needed the reference at construction or in ``parse()`` of the
-core would fail here.
+addons call keep the options of their constructor as attributes and compute
+with the core. These tests run without a database.
 
 SPDX-License-Identifier: GPL-2.0-or-later
 """
@@ -17,7 +14,6 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.algebra.parser import facade
-from grass.temporal.classic import temporal_algebra as reference
 
 CLASSES = [
     ("TemporalRasterAlgebraParser", facade.TemporalRasterAlgebraParser),
@@ -32,32 +28,18 @@ def test_the_package_exports_the_facade(name, parser_class):
 
 
 @pytest.mark.parametrize(("name", "parser_class"), CLASSES)
-def test_a_facade_is_not_an_engine(name, parser_class):
-    assert not issubclass(parser_class, reference.TemporalAlgebraParser)
-    assert not isinstance(parser_class(), reference.TemporalAlgebraParser)
-
-
-@pytest.mark.parametrize(("name", "parser_class"), CLASSES)
-def test_construction_builds_no_engine(name, parser_class):
+def test_construction_keeps_the_options(name, parser_class):
     parser = parser_class(run=True, debug=False)
-    assert parser._reference_object is None
     assert (parser.run, parser.debug, parser.use_granularity) == (True, False, False)
     assert parser.granularity is None
 
 
 @pytest.mark.parametrize(("name", "parser_class"), CLASSES)
-def test_the_defaults_are_those_of_the_classes_before_the_engine_was_separated(
+def test_the_defaults_are_those_of_the_classes_before_the_core_replaced_them(
     name, parser_class
 ):
     parser = parser_class()
     assert (parser.run, parser.debug, parser.spatial) == (False, True, False)
-
-
-@pytest.mark.parametrize(("name", "parser_class"), CLASSES)
-def test_a_facade_lists_the_names_of_the_engine(name, parser_class):
-    names = dir(parser_class())
-    assert {"parse", "setup_common_granularity"} <= set(names)
-    assert set(dir(parser_class._reference_class)) <= set(names)
 
 
 @pytest.mark.parametrize(("name", "parser_class"), CLASSES)
@@ -69,48 +51,15 @@ def test_a_facade_can_be_copied_and_pickled(name, parser_class):
         pickle.loads(pickle.dumps(parser)),  # noqa: S301, our own object
     ):
         assert (clone.run, clone.debug) == (True, False)
-        assert clone._reference_object is None
 
 
-def test_an_unknown_name_with_an_underscore_does_not_build_an_engine():
-    parser = facade.TemporalRasterAlgebraParser()
+@pytest.mark.parametrize(("name", "parser_class"), CLASSES)
+def test_an_unknown_name_is_an_attribute_error(name, parser_class):
     with pytest.raises(AttributeError):
-        parser._no_such_attribute  # noqa: B018
-    assert parser._reference_object is None
+        parser_class().no_such_attribute  # noqa: B018
 
 
-class StubReference:
-    """Stands in for the reference, which needs a database"""
-
-    def __init__(self, **arguments):
-        self.arguments = arguments
-        self.names = {"x": 1}
-
-
-class StubbedParser(facade.TemporalRasterAlgebraParser):
-    _reference_class = StubReference
-
-
-def test_one_engine_gets_the_options_of_the_facade():
-    parser = StubbedParser(pid=7, run=True, debug=False, nprocs=3, time_suffix="gran")
-    assert parser.names == {"x": 1}
-    reference_object = parser._reference_object
-    assert reference_object.arguments == {
-        "pid": 7,
-        "run": True,
-        "debug": False,
-        "spatial": False,
-        "register_null": False,
-        "dry_run": False,
-        "nprocs": 3,
-        "time_suffix": "gran",
-    }
-    # The same reference object answers later calls.
-    assert parser.names == {"x": 1}
-    assert parser._reference_object is reference_object
-
-
-def test_the_core_computes_the_granularity_mode_without_the_reference(monkeypatch):
+def test_the_granularity_mode_finds_the_datasets_in_the_syntax_tree(monkeypatch):
     """The core finds the datasets in its syntax tree and asks the library"""
     calls = []
 
@@ -119,23 +68,7 @@ def test_the_core_computes_the_granularity_mode_without_the_reference(monkeypatc
         return "2 days"
 
     monkeypatch.setattr(facade, "common_granularity", common_granularity)
-    parser = StubbedParser()
+    parser = facade.TemporalRasterAlgebraParser()
     assert parser.setup_common_granularity("R = if(A != 1, B)", "str3ds") is True
     assert calls == [(["A", "B"], "str3ds")]
     assert (parser.granularity, parser.use_granularity) == ("2 days", True)
-    assert parser._reference_object is None
-
-
-def test_options_set_after_the_construction_reach_the_engine():
-    parser = StubbedParser(run=False)
-    assert parser.names == {"x": 1}
-    parser.run = True
-    assert parser.names == {"x": 1}
-    assert parser._reference_object.arguments["run"] is False
-    assert parser._reference_object.run is True
-
-
-def test_a_name_only_the_engine_has_is_read_from_it():
-    parser = StubbedParser()
-    assert parser.names == {"x": 1}
-    assert parser._reference_object is not None

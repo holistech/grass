@@ -52,10 +52,6 @@ the classic algebra
     The language of the temporal algebra as the releases before GRASS 8.6
     and the publications define it: what an expression may say and what it
     means.
-the reference implementation (grass.temporal.classic)
-    The implementation of the classic algebra that is older than the core.
-    After its first mention in a module it is called "the reference". Tests
-    compare the core with it.
 the public parser classes
     TemporalRasterAlgebraParser, TemporalRaster3DAlgebraParser and
     TemporalVectorAlgebraParser (parser/facade.py), which the tools and

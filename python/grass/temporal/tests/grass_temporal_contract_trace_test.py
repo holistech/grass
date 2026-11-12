@@ -97,10 +97,11 @@ def test_missing_from_contract_reports_unknown_names():
 
 
 def test_a_copy_of_a_top_name_in_another_module_is_not_covered():
-    # The classic algebra keeps its own copy of this function. The contract
-    # pins the exported one, not every function of that name.
+    # The contract pins the exported function, not every function of that
+    # name. The module of the copy is made up: the check reads only the name
+    # of the module, and the package has no second copy of a top name.
     exported = "grass.temporal.temporal_granularity.compute_absolute_time_granularity"
-    copy = "grass.temporal.classic.granularity.compute_absolute_time_granularity"
+    copy = "grass.temporal.granularity_copy.compute_absolute_time_granularity"
 
     assert missing_from_contract({exported}) == []
     assert missing_from_contract({copy}) == [copy]

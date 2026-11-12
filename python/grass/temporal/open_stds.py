@@ -126,9 +126,7 @@ def find_stds_id(name: str, type: str, dbif=None) -> str:
     return f"{bare}@{mapset or get_current_mapset()}"
 
 
-def open_old_stds(
-    name, type, dbif=None, *, whole_name_first=True, for_writing: bool = False
-):
+def open_old_stds(name, type, dbif=None, *, for_writing: bool = False):
     """Open an existing space time dataset.
 
     Return the created and initialized object of the specified type.
@@ -145,10 +143,6 @@ def open_old_stds(
     :param type: The type of the space time dataset (strd, str3ds, stvds,
                  raster, vector, raster3d)
     :param dbif: The optional database interface to be used
-    :param whole_name_first: Whether the name with a dot is tried whole before
-                             the text after the dot is read as a semantic
-                             label. The classic algebra passes False, as it
-                             always read the label.
     :param for_writing: Whether the caller changes the dataset. A name that
                         selects the maps of a dataset by a semantic label
                         ("name.label") is then refused, because a change acts
@@ -174,9 +168,7 @@ def open_old_stds(
         # selects the maps of the dataset "name" unless a dataset of the
         # whole name exists in the same mapset or in one searched before it.
         bare, _at, whole_mapset = name.partition("@")
-        whole = (
-            whole_name_first and "." in bare and stds_kind_of(stds_type).name == "strds"
-        )
+        whole = "." in bare and stds_kind_of(stds_type).name == "strds"
         if whole and bare.count(".") > 1:
             # _parse_id() refuses a label with a dot, so only the whole name
             # can match; the refusal comes if it does not.

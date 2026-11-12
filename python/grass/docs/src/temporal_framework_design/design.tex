@@ -439,7 +439,7 @@ connection and passes it on (listing~\ref{lst:register}).
 \code{register\_maps\_in\_space\_time\_dataset()} always opens a connection
 of its own; its argument \code{dbif} is deprecated.
 
-\section{The algebra core and the classic algebra}
+\section{The algebra core}
 \label{sec:algebra}
 
 The algebra core is the package \code{grass.temporal.algebra}. It computes the
@@ -473,12 +473,9 @@ The parser classes of the tools, such as \code{TemporalRasterAlgebraParser},
 read an expression with the grammar of the core and a translator, which turns
 the syntax tree into calls of the operations.
 
-The classic algebra is the language of the temporal algebra as the manuals and
-the publications define it. The core computes its expressions; the manuals of
-the algebra tools list where the results differ from the releases before
-GRASS~8.6. The implementation that is older than the core stays in
-\code{grass.temporal.classic} as the reference implementation, and the tests
-compare the core with it.
+The core computes the expressions of the temporal algebra as the manuals and
+the publications define it; the manuals of the algebra tools list where the
+results differ from the releases before GRASS~8.6.
 
 Listing~\ref{lst:algebra} computes the monthly means of
 listing~\ref{lst:aggregate} with the core.

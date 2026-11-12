@@ -142,27 +142,8 @@ the SQL object serialization, all classes that represent table entries, datetime
     This module contains functions to parse, convert and process datetime objects
     in the temporal framework.
 
-The classic implementation of the spatio-temporal algebra for space time raster,
-3D raster and vector datasets, the reference of the algebra core, is the package
-:mod:`~grass.temporal.classic`. It stays unchanged because publications cite it:
-
-- :mod:`~grass.temporal.classic.temporal_algebra`, the lexer and parser of the
-  temporal expressions, the base of the other parsers
-- :mod:`~grass.temporal.classic.temporal_operator`, the lexer and parser of the
-  operators in curly braces, such as ``{+,during}``
-- :mod:`~grass.temporal.classic.temporal_raster_base_algebra`, what the raster
-  and 3D raster algebra share
-- :mod:`~grass.temporal.classic.temporal_raster_algebra`, the algebra of space
-  time raster datasets
-- :mod:`~grass.temporal.classic.temporal_raster3d_algebra`, the algebra of
-  space time 3D raster datasets
-- :mod:`~grass.temporal.classic.temporal_vector_algebra`, the algebra of space
-  time vector datasets
-- :mod:`~grass.temporal.classic.granularity`, the granularity of a map list as
-  the classic algebra computes it
-
 The package ``grass.temporal.ply`` is an embedded copy of the PLY lexer and
-parser generator that the classic algebra builds on. It is not documented here.
+parser generator that the parser of the algebra core builds on. It is not documented here.
 
 High level API
 ^^^^^^^^^^^^^^
@@ -326,8 +307,8 @@ space time datasets.
 :mod:`~grass.temporal.related_maps`
 """""""""""""""""""""""""""""""""""
 
-    The sampling of the maps by granules with the rules of the classic
-    algebra, on the algebra core. Used in :mod:`~grass.temporal.mapcalc` and
+    The sampling of the maps by granules with the rules of the releases before
+    GRASS 8.6, on the algebra core. Used in :mod:`~grass.temporal.mapcalc` and
     *t.sample*.
 
 :mod:`~grass.temporal.series_limits`

@@ -450,7 +450,7 @@ def _module(call, overwrite):
     # changes the messages of a module. Without it the progress of v.overlay
     # drowned the warnings: measured 2026-10-13 in grass --tmp-project XY,
     # t.vect.algebra "C = A & B" over three map pairs wrote 108 lines to
-    # stderr, the reference 23.
+    # stderr, the classic algebra 23.
     module = Module(call.name, run_=False, quiet=True, **parameters)
     module.flags["overwrite"].value = overwrite
     return module
@@ -603,8 +603,7 @@ def _store(map_, overwrite, dbif):
 
 
 # Names per g.remove call, so that the list of arguments of the process stays
-# small however many maps a series has; the chunk size of the reference
-# (temporal_algebra.py).
+# small however many maps a series has; the chunk size of the classic algebra.
 _REMOVE_CHUNK = 100
 
 

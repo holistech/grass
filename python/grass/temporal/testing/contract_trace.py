@@ -395,7 +395,7 @@ def _is_top_name(function: str, module: str, contract: dict) -> bool:
     """Tell whether the contract's top name is this very function
 
     A bare name match would let a copy of the same name elsewhere in the
-    package pass (classic.granularity keeps its own copies of functions), so
+    package pass (a module could keep its own copy of a function), so
     the module that grass.temporal imports the name from must be the module
     that defines the called code.
     """

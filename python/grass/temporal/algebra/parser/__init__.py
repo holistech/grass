@@ -3,8 +3,8 @@
 The parser reads an expression such as ``C = A {+,during} B`` into a syntax
 tree, and the translator turns the tree into calls of the core operations.
 evaluate() computes an expression for the public parser classes and t.select,
-and returns the process chain dictionary in the form of the reference
-implementation (grass.temporal.classic).
+and returns the process chain dictionary in the form that the classic
+algebra returned.
 
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team

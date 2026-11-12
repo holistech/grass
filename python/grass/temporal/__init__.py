@@ -70,7 +70,6 @@ from .space_time_datasets import (
 from .topology import SpatioTemporalTopologyBuilder
 from .stds_export import export_stds
 from .stds_import import import_stds
-from .classic.temporal_raster_base_algebra import TemporalRasterAlgebraLexer
 from .temporal_extent import AbsoluteTemporalExtent, RelativeTemporalExtent
 from .temporal_granularity import (
     check_granularity_string,
@@ -109,7 +108,6 @@ __all__ = [
     "SpaceTimeVectorDataset",
     "SpatioTemporalTopologyBuilder",
     "TemporalRaster3DAlgebraParser",
-    "TemporalRasterAlgebraLexer",
     "TemporalRasterAlgebraParser",
     "TemporalVectorAlgebraParser",
     "VectorDataset",
