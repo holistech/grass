@@ -126,9 +126,10 @@ parentheses (<a href="t.rast.algebra.html#differences-from-grass-85">t.rast.alge
 on the left of <code>{&amp;&amp;,...}</code> without a related map. Now <b>-n</b> registers a
 null map for each such map
 (<a href="t.rast.algebra.html#differences-from-grass-85">t.rast.algebra</a>).</li>
-<li><b>Blanks in operators.</b> A blank after a comma of an operator in curly
-brackets, as in <code>aa {&amp;,equal, l} ab</code> or <code>A {+,equal, l} B</code>, was a syntax
-error. Now it is read in all algebra tools
+<li><b>Blanks in operators.</b> A blank before the temporal operator of an
+operator in curly brackets, after the second comma as in
+<code>aa {&amp;,equal, l} ab</code> or <code>A {+,equal, l} B</code>, was a syntax error. Now it is
+read in all algebra tools
 (<a href="t.vect.algebra.html#temporal-operators">t.vect.algebra</a>).</li>
 <li><b>Maps that touch under -s.</b> Under <b>-s</b>, a selection with the temporal
 operator <code>r</code> or <code>u</code> took its time also from a map whose box only touches

@@ -126,9 +126,10 @@ on precedence.
     on the left of `{&&,...}` without a related map. Now **-n** registers a
     null map for each such map
     ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
-- **Blanks in operators.** A blank after a comma of an operator in curly
-    brackets, as in `aa {&,equal, l} ab` or `A {+,equal, l} B`, was a syntax
-    error. Now it is read in all algebra tools
+- **Blanks in operators.** A blank before the temporal operator of an
+    operator in curly brackets, after the second comma as in
+    `aa {&,equal, l} ab` or `A {+,equal, l} B`, was a syntax error. Now it is
+    read in all algebra tools
     ([t.vect.algebra](t.vect.algebra.md#temporal-operators)).
 - **Maps that touch under -s.** Under **-s**, a selection with the temporal
     operator `r` or `u` took its time also from a map whose box only touches
