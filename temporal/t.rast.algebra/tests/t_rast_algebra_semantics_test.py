@@ -674,7 +674,24 @@ def random_condition(seed):
     return render(rng, 3, rng.choice(["time", "map", "mixed"]))
 
 
-@pytest.mark.parametrize("seed", range(40))
+def distinct_seeds(count):
+    """The seeds below count whose condition no smaller seed gives and
+    test_truth_table_datasets does not check
+
+    Several seeds give the same single atom, such as start_day(T) == 2; its
+    case would run the same expression against the same expected values again.
+    """
+    seen = {condition for _bit, _dataset, condition in TRUTH_TABLE_BITS}
+    seeds = []
+    for seed in range(count):
+        condition = random_condition(seed)[0]
+        if condition not in seen:
+            seen.add(condition)
+            seeds.append(seed)
+    return seeds
+
+
+@pytest.mark.parametrize("seed", distinct_seeds(40))
 def test_random_conditions_match_python(algebra, seed):
     """Random formulas of temporal, map and mixed conditions"""
     condition, formula = random_condition(seed)
@@ -730,9 +747,15 @@ def test_map_conditions_select_like_time_stamp_conditions(algebra, dataset, cond
     )
 
 
+# Equality is symmetric, so each pair of two different conditions is checked
+# in one order; a condition joined with itself says nothing about the order.
 @pytest.mark.parametrize(
     ("operator", "first", "second"),
-    [(operator, *pair) for operator in ["&&", "||"] for pair in CONDITION_PAIRS],
+    [
+        (operator, *pair)
+        for operator in ["&&", "||"]
+        for pair in itertools.combinations(CONDITIONS, 2)
+    ],
 )
 def test_conditions_commute(algebra, operator, first, second):
     """c1 op c2 == c2 op c1, joined as in test_nested_if_is_conjunction"""
