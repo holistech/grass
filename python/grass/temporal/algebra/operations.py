@@ -334,9 +334,10 @@ def _check_aligned(first, second, name):
     )
     msg = (
         f"{name}() needs series with equal time stamps; they differ at slot "
-        f"{index}: {_describe_extent(times[index] if index < len(times) else None)} and "
-        f"{_describe_extent(others[index] if index < len(others) else None)}. Relate "
-        "the series with gather() or pairs() first."
+        f"{index}: "
+        f"{_describe_extent(times[index] if index < len(times) else None)} and "
+        f"{_describe_extent(others[index] if index < len(others) else None)}. "
+        "Relate the series with gather() or pairs() first."
     )
     raise ValueError(msg)
 

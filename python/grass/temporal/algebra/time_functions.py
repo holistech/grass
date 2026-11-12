@@ -190,8 +190,8 @@ def _shrink(series, buffer):
     an error and keeps the old time stamp, for an end equal to the start it
     stores an instant (set_absolute_time() and set_relative_time(); measured
     2026-10-14 with t.rast.algebra -c, which has since been removed, the
-    classic algebra silently left
-    such maps unchanged or makes instants of them). Both would register a
+    classic algebra silently left such maps unchanged or made instants of
+    them). Both would register a
     map whose time is not the buffered one, so the new extent is computed
     here and a slot that keeps no interval (end <= start, GRASS intervals
     need end > start) raises ValueError. The new extent is computed before it

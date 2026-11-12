@@ -80,7 +80,8 @@ From the bottom up:
 4. Operations: operations.py (select, pairs, gather, apply, where, choose,
    merge, cell_offset, buffer, lift); reducers.py, how gather() combines
    related slots; time_functions.py (timevar, retime, neighbour, granules);
-   _checks.py, the type checks at the entry of the operations.
+   _checks.py, the type checks at the entry of the operations; _messages.py,
+   warn(), which sends a warning to the message interface of grass.temporal.
 5. Computing: backends.py turns a content tree into module calls
    (r.mapcalc, r3.mapcalc, r.series, g.copy, v.overlay, v.patch, v.buffer);
    in materialize.py, plan() returns these calls with the map names and the
