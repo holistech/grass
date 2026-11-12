@@ -24,13 +24,14 @@ start of the rework and, where the rework took them over later, after it;
 GRASS 8.5 does not have them either. Where the rework later
 changed such an entry, the entry describes the behavior of GRASS 8.6.
 
-The algebra tools compute with a new implementation by default. The flag
-**-c** selects the classic algebra, which gives the results of the releases
-before GRASS 8.6 with the exceptions in [Classic algebra](#classic-algebra);
-use it to repeat a published result. Errors that were fixed without a change
-of the result of a valid call are only grouped, in
-[Fixed errors](#fixed-errors). The [EXAMPLES](#examples) show two of the
-changes in the North Carolina sample dataset.
+The algebra tools compute with one implementation, new in GRASS 8.6; the
+implementation of the releases up to GRASS 8.5 is no longer part of GRASS
+(see [Temporal algebra](#temporal-algebra)). Corrections of results that
+GRASS 8.5 computed wrongly are listed in
+[Corrected results of the algebra](#corrected-results-of-the-algebra).
+Errors that were fixed without a change of the result of a valid call are
+only grouped, in [Fixed errors](#fixed-errors). The [EXAMPLES](#examples)
+show two of the changes in the North Carolina sample dataset.
 
 ## Temporal algebra
 
@@ -38,19 +39,20 @@ Since GRASS 8.6, *[t.rast.algebra](t.rast.algebra.md)*,
 *[t.rast3d.algebra](t.rast3d.algebra.md)*,
 *[t.vect.algebra](t.vect.algebra.md)* and *[t.select](t.select.md)*
 compute their expressions with a new implementation, the Python package
-`grass.temporal.algebra`. The algebra of the releases before stays available
-as the classic algebra: the flag **-c** selects it for one call, the
-environment variable `GRASS_TEMPORAL_ALGEBRA=classic` for a whole session or
-script. `GRASS_TEMPORAL_ALGEBRA=core`, an empty or an unset variable selects
-the new algebra, the flag takes precedence over the variable, and a value of
-blanks only is refused. In Python, the parser classes take `classic=True`.
-To repeat the results of a publication, set **-c** or the variable. The
-section [Core and classic algebra](t.rast.algebra.md#differences-from-grass-85)
-of *t.rast.algebra* describes both algebras.
+`grass.temporal.algebra`. The implementation of the releases up to GRASS 8.5
+is removed, with the flag **-c** and the environment variable
+`GRASS_TEMPORAL_ALGEBRA` that selected it while GRASS 8.6 was developed: a
+call with **-c** is refused like any unknown flag, before anything is
+written, and the variable has no effect. The formulas of the publication
+cited in *t.rast.algebra* compute with the new implementation, see the
+catalog "Catalog: expressions of the publication" there. The old
+implementation is in those releases and in the history of the source code
+(tag `classic-reference-corpus`). The section
+[Differences from GRASS 8.5](t.rast.algebra.md#differences-from-grass-85) of
+*t.rast.algebra* describes the differences.
 
-The new algebra differs from the releases before GRASS 8.6 in the points
-below; **-c** keeps the behavior of those releases in each of them. The
-example [Read a condition as the releases before GRASS
+The new algebra differs from the releases up to GRASS 8.5 in the points
+below. The example [Read a condition as the releases before GRASS
 8.6](#read-a-condition-as-the-releases-before-grass-86) shows the first point
 on precedence.
 
@@ -58,26 +60,25 @@ on precedence.
     several related condition maps gave one result for each pair, so a
     conclusion map could occur several times. Now there is one result per
     conclusion map: the conditions are joined with and, and a relation
-    written as `{during,|}` joins them with or. Use **-c** for the old
-    results ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
+    written as `{during,|}` joins them with or
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Equal time stamps for then and else.** With a condition on map values,
     only the maps whose time stamp occurred in both the then and the else
     part were computed, and the others were left out without notice; the
     result could be empty. Now the then and the else part need equal time
     stamps, or the tool stops with an error. Write both parts with equal
-    times, or use **-c**
-    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
+    times ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Precedence of `&&` and `||`.** Conditions on temporal variables were
     read from left to right, and parentheses around conditions were not
     accepted. Now `&&` binds stronger than `||`, and conditions can be
-    grouped with parentheses. Use **-c** for the old results
+    grouped with parentheses
     ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Selection with the time of the right map.** `A {:,R,r} B` kept only
     the last pair of a selection, an operator with `r` joined the left map
     with all related right maps in each result, and `!:` took every temporal
     operator. Now there is one map for each related pair, with the time of
     the right map and the value of the pair, and `!:` takes only the
-    temporal operator `l`. Use **-c** for the old results
+    temporal operator `l`
     ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **td() of a time instance.** `td()` of a time instance stopped the tool
     with an error. Now it is null, and a condition on it is neither true nor
@@ -91,8 +92,7 @@ on precedence.
 - **Intersection with several related maps.** The temporal operator `i`
     with several related maps intersected them up to the first map without
     common time, so the result depended on their order. Now a map whose
-    related maps have no common intersection is left out. Use **-c** for
-    the old results
+    related maps have no common intersection is left out
     ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Negative buffers.** `buff_t()` with a negative buffer reported an error
     when the end came before the start but kept the old time, and an end
@@ -102,28 +102,26 @@ on precedence.
 - **merge() of equal maps.** `merge()` kept a map read with the
     neighbourhood modifier or a temporal function with an offset next to an
     equal map, so `merge(A[0], A[0])` gave eight maps instead of four. Now
-    two maps with equal content and time are one map. Use **-c** for the old
-    results ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
+    two maps with equal content and time are one map
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **tsnap() of maps that start together.** The times that `tsnap()` gave
     two maps with the same start depended on the order of the arguments of
     `merge()`. Now they do not: of a map from 2 to 3 January and a map from
-    2 to 4 January, both end on 3 January in either order. Use **-c** for
-    the old results
+    2 to 4 January, both end on 3 January in either order
     ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Integers beyond 32 bits.** An integer constant beyond 32 bits was read
     by *r.mapcalc* with its lower 32 bits only (3000000000 became
     -1294967296, 2147483648 became null), and the values of temporal
     functions were computed with 32 bits. Now the new algebra keeps the
     constant and writes it as a floating point value, and the values of
-    temporal functions keep all digits. Use **-c** for the old results
+    temporal functions keep all digits
     ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **A number next to an operator in brackets.** A number next to an
     operator in curly brackets or the hash operator was read together with
     the expression behind it: `A {*,equal} 2 - B` meant
     `A {*,equal} (2 - B)`. Now such an operator needs a dataset on both
     sides, and the form without parentheses is a syntax error. Add the
-    parentheses, or use **-c**
-    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
+    parentheses ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Null maps with -n.** With **-n**, no null map was registered for a map
     on the left of `{&&,...}` without a related map. Now **-n** registers a
     null map for each such map
@@ -150,40 +148,35 @@ on precedence.
 - **Datasets in the search path.** *t.rast.algebra* and
     *t.rast3d.algebra* looked for a dataset name without mapset in the
     current mapset only. Now the new algebra looks in the current mapset and
-    then in the search path; **-c** keeps looking in the current mapset only
+    then in the search path
     ([t.rast.algebra](t.rast.algebra.md#use-datasets-of-another-mapset)).
 - **Digits of the map numbers.** With `suffix=num%NN`, *t.rast.algebra*
     ignored `NN` and took the number of digits from the number of maps. Now
-    `NN` sets the number of digits as in *t.rast.extract*; **-c** keeps the
-    digits from the number of maps
+    `NN` sets the number of digits as in *t.rast.extract*
     ([t.rast.algebra](t.rast.algebra.md#name-the-result-maps-and-plan-a-run)).
+- **Granularity mode with more expressions.** With **-g**, the algebra
+    looked for the names of datasets in the text of the expression, and a
+    word that is no dataset name could stop the tool: the unit in
+    `tshift(A, "1 day")` or `buff_t(A, "3 days")` was searched as a dataset
+    `day`, a comparison with `!=`, as in `if(N != 1.5, B, A)`, was a syntax
+    error, and an expression without any dataset, such as `map(M) / 0` or
+    `tmap(M) : tmap(M)`, ended with `reduce() of empty iterable with no
+    initial value`. Now **-g** reads the names from the syntax tree, so text
+    in a function and `!=` cause no error, and an expression that names no
+    dataset prints a warning and computes as without **-g**, because there
+    is nothing to sample. Of 333 recorded expressions, 26 gave another
+    answer; the others are unchanged
+    ([t.rast.algebra](t.rast.algebra.md#granularity-algebra)).
 
-## Classic algebra
+## Corrected results of the algebra
 
-The classic algebra, selected with **-c** or `GRASS_TEMPORAL_ALGEBRA=classic`,
-gives the results of the releases before GRASS 8.6 with the exceptions below. In
-most of them, those releases computed a wrong result, refused an expression that
-they should compute, or computed one that they should refuse. The implementation
-of those releases, which stays in the source code as `grass.temporal.classic`,
-was corrected in the same way, except in the last two entries, on `merge()` of
-absolute and relative time and on the selection of a relative time instance,
-and under **-s** for maps whose boxes touch at a corner (see
-[t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)):
-only the classic algebra computes the first two, and `grass.temporal.classic`
-still ends with a `TypeError` and still relates maps whose boxes touch at a
-corner. Results of an earlier release that used one of these forms
-need a new run. All other results of the classic algebra are those of the
-releases before GRASS 8.6: the tests compare it with recorded results of that
-implementation. The manuals of the algebra tools describe many of these
-corrections with examples, in their sections "Corrections to the classic
-algebra".
-
-Besides, the classic algebra reports errors with the messages of the new
-algebra, prints its debug output as module calls, reads the syntax of the
-whole expression before it computes, raises `FatalError` instead of
-`SystemExit` in Python for an existing result, and ends the expressions that
-it refuses with a message instead of a Python traceback. No result changes by
-this ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
+In the cases below, GRASS 8.5 and the releases before it computed a wrong
+result, refused an expression that they should compute, or computed one that
+they should refuse, with a few exceptions that the entries name. GRASS 8.6
+gives the result described. Results of an earlier release that used one of
+these forms need a new run. The manuals of the algebra tools describe many of
+these corrections with examples, in their sections "Results corrected since
+GRASS 8.5".
 
 - **Unknown relations.** Unknown relations, such as `{:,bogus}` or
     `{+,nonsense}`, and operators of the wrong type gave no result without
@@ -306,7 +299,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
     `exp(A * 1000)`, could not be registered, because writing its range
     failed, and the temporal database could stay locked. Now its minimum and
     maximum are stored as NULL, and a failed transaction is rolled back. This
-    concerned the library and with it both algebras
+    concerned the library and with it the algebra
     ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **td() of a counted map.** `td()` of a map counted by the hash operator
     gave the count instead of the duration, as an operand and in a
@@ -336,8 +329,8 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **tsnap() of a map that starts with the next map.** `tsnap()` gave a map
     that starts at the same time as the next map the end of that map, so
     the two maps exchanged their ends; *t.snap* did the same. Now such a map
-    keeps its own end; in the classic algebra the map listed first keeps its
-    end ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85),
+    keeps its own end
+    ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85),
     [t.snap](t.snap.md#notes)).
 - **Steps of months and years.** `tshift()` and `buff_t()` by months or
     years ended with the error "day is out of range for month" when the
@@ -365,9 +358,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
     (ten days at 10:30: 14400 minutes). Now these are 14 months and 10 days;
     a time of day that differs still counts (10:30 to 11:30 ten days later:
     241 hours). This holds for the suffix `gran`, for `tsnap()` and for the
-    granularity mode **-g**, and it is one of two cases where the classic
-    algebra was changed on purpose in a point that was no error (the other:
-    datasets of a mapset outside the search path). Results
+    granularity mode **-g**. Results
     with **-g**, `gran` or `tsnap()` over such series need a new run;
     *t.support* **-m** computes the stored granularity of a dataset again
     ([t.rast.algebra](t.rast.algebra.md#granularity-algebra)).
@@ -383,8 +374,8 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
     ([t.vect.algebra](t.vect.algebra.md#results-corrected-since-grass-85)).
 - **Datasets of a mapset outside the search path.** A dataset
     `name@mapset` of a mapset outside the search path was refused. Now it is
-    read if the mapset has a temporal database, so the classic algebra
-    computes an expression that it refused before; see [Datasets of other
+    read if the mapset has a temporal database, so an algebra expression that
+    GRASS 8.5 refused computes; see [Datasets of other
     mapsets](#datasets-of-other-mapsets)
     ([temporal data processing](temporalintro.md#datasets-of-other-mapsets)).
 - **Range of maps in full.** The temporal database stored the minimum and
@@ -403,7 +394,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Selection of a relative time instance.** A selection on relative time
     with a time instance on the right and the temporal operator `r`, such as
     `RT {:,contains,r} tmap(rinst)`, ended with a `TypeError`. Now it gives
-    the selected map with the time of the instance, as the new algebra does
+    the selected map with the time of the instance
     ([t.rast.algebra](t.rast.algebra.md#catalog-differences-from-grass-85)).
 
 ## Granularity, gaps and lists
@@ -414,11 +405,10 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
     granularity 1 day. Now steps of whole months, also those that end on the
     last day of a shorter month, count as months, and the granularity is
     1 month. The
-    granularity mode **-g** of the new algebra makes one granule per month,
-    and *t.rast.to.rast3* one layer per month; the classic algebra keeps
-    counting such series in days. Compute the stored granularity of older
-    datasets again with *t.support* **-m**; use **-c** for the old results
-    of **-g**. The example [Register a series of month
+    granularity mode **-g** of the algebra makes one granule per month,
+    and *t.rast.to.rast3* one layer per month. Compute the stored
+    granularity of older datasets again with *t.support* **-m**. The
+    example [Register a series of month
     ends](#register-a-series-of-month-ends) shows such a series
     ([t.register](t.register.md#monthly-series-that-start-at-the-end-of-a-month),
     [temporal data processing](temporalintro.md#granularity)).
@@ -427,7 +417,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
     holds for the gaps of *t.rast.list* **method=deltagaps**, *t.info*,
     *t.topology*, *t.sample*, *t.rast.mapcalc* and *t.rast3d.mapcalc*.
     *t.rast.gapfill* fills no covered gap and counts the granules of a gap
-    from the start of the dataset. The classic algebra keeps the old rule
+    from the start of the dataset
     ([temporal data processing](temporalintro.md#granularity),
     [t.rast.list](t.rast.list.md#notes)).
 - **Granularity over a year and at a time of day.** Between the first days
@@ -466,7 +456,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Weeks start on Monday.** A granule of a week in *t.rast.aggregate*
     began at the first map, on its day of the week, and so did the weekly
     cycles of *t.rast.accumulate*. Now weeks begin on the Monday on or
-    before the first map. The classic algebra keeps the old rule
+    before the first map
     ([t.rast.aggregate](t.rast.aggregate.md#notes)).
 - **Granules of the list tools.** In *t.rast.list*, *t.rast3d.list* and
     *t.vect.list*, **method=gran** with a **granule** on relative time ended
@@ -517,8 +507,8 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **method=start keeps maps of equal time.** The sampling method `start`
     lost the maps of equal time, so a sampler map with a map of the same
     time got none. Now `start` includes `equal`; this holds for *t.sample*,
-    *t.rast.mapcalc* and *t.rast3d.mapcalc*. The classic algebra keeps the
-    old rule ([t.sample](t.sample.md#notes),
+    *t.rast.mapcalc* and *t.rast3d.mapcalc*
+    ([t.sample](t.sample.md#notes),
     [temporal data processing](temporalintro.md#sampling)).
 - **Samplers of time instances.** A sampler of time instances or of the
     other temporal type made *t.sample*, *t.rast.mapcalc* and
@@ -661,8 +651,7 @@ this ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
     with a dot in its name could not be opened or removed, because the part
     after the dot was taken for a semantic label. Now each mapset, the
     current one first and then those of the search path, is searched for the
-    whole name first and then for the name with label; the classic algebra
-    still takes the label off first
+    whole name first and then for the name with label
     ([temporal data processing](temporalintro.md#semantic-labels)).
 
 ## Datasets of other mapsets
@@ -1354,20 +1343,26 @@ describes every module.
     tool](https://grass.osgeo.org/grass-devel/manuals/libpython/temporal_framework_tools.html),
     [extending the algebra
     core](https://grass.osgeo.org/grass-devel/manuals/libpython/temporal_framework_algebra.html)).
-- **The classic algebra moved.** The modules of the algebra of the releases
-    before, `temporal_algebra`, `temporal_raster_base_algebra`,
-    `temporal_operator` and their siblings, moved to
-    `grass.temporal.classic`. The parser classes that `grass.temporal`
-    exports, such as `TemporalRasterAlgebraParser`, now select the new or
-    the classic algebra.
+- **The classic algebra is removed.** The modules of the algebra of the
+    releases up to GRASS 8.5, `temporal_algebra`,
+    `temporal_raster_base_algebra`, `temporal_operator` and their siblings,
+    are no longer part of GRASS, and neither are their lexers and parsers.
+    The parser classes `TemporalRasterAlgebraParser`,
+    `TemporalRaster3DAlgebraParser` and `TemporalVectorAlgebraParser` that
+    `grass.temporal` exports compute with the new implementation, and the
+    argument `lexer` of `setup_common_granularity()` of the parser classes
+    is gone with the lexers. Code that imports one of the removed names has to
+    use the parser classes or the package `grass.temporal.algebra`; the
+    tables below list the names. The old implementation is in GRASS 8.5 and
+    in the history of the source code (tag `classic-reference-corpus`).
 - **Comparisons without eval** *(upstream)*. The algebra of the releases
     before compared values with `eval` of strings. Now it uses
     `compare_values()`, `eval_datetime_str()` is deprecated, and a value in
     a list of conditions that is not a Boolean raises a `TypeError`; both
-    methods are in `grass.temporal.classic.temporal_algebra` only. The
+    methods are removed with the classic algebra. The
     results are the same.
-- **Parser tables.** The classic parser built its tables in each call of
-    `parse()`. Now they are built once for each parser class.
+- **Parser tables.** The parser of GRASS 8.5 built its tables in each call
+    of `parse()`. Now they are built once for each parser class.
 - **Directory of the SQL templates** *(upstream)*. `get_sql_template_path()`
     took the directory of the SQL files that create and update the temporal
     database from `GISBASE`, below which it assumed `etc`. Now it takes
@@ -1492,7 +1487,7 @@ value of `grass.temporal.kinds.KINDS`, such as `KINDS["raster"]`.
 | `DBConnection` | `db.DBConnection` |
 | `DatasetBase` | `base.BaseRow(kind)` |
 | `DictSQLSerializer` | `rows.DictSQLSerializer` |
-| `GlobalTemporalVar` | `classic.temporal_algebra.GlobalTemporalVar` |
+| `GlobalTemporalVar` | removed with the classic algebra |
 | `RPCDefs` | removed; the functions of the server of the C libraries are called with `c_libraries_interface.CLibrariesInterface.call()` |
 | `Raster3DAbsoluteTime` | `temporal_extent.AbsoluteTimeRow(kind)` |
 | `Raster3DBase` | `base.BaseRow(kind)` |
@@ -1530,14 +1525,15 @@ value of `grass.temporal.kinds.KINDS`, such as `KINDS["raster"]`.
 | `STVDSSpatialExtent` | `spatial_extent.SpatialExtentRow(kind)` |
 | `SpatialExtent` | `spatial_extent.SpatialExtent` |
 | `SpatialTopologyDatasetConnector` | removed; `topology.TopologyLinks` holds the relations, which `get_temporal_relations()` and the like read |
-| `TemporalAlgebraLexer` | `classic.temporal_algebra.TemporalAlgebraLexer` |
-| `TemporalAlgebraParser` | `classic.temporal_algebra.TemporalAlgebraParser` |
+| `TemporalAlgebraLexer` | removed with the classic algebra |
+| `TemporalAlgebraParser` | removed with the classic algebra |
 | `TemporalExtent` | `temporal_extent.TemporalExtent` |
-| `TemporalOperatorLexer` | `classic.temporal_operator.TemporalOperatorLexer` |
-| `TemporalOperatorParser` | `classic.temporal_operator.TemporalOperatorParser` |
-| `TemporalRasterBaseAlgebraParser` | `classic.temporal_raster_base_algebra.TemporalRasterBaseAlgebraParser` |
+| `TemporalOperatorLexer` | removed with the classic algebra |
+| `TemporalOperatorParser` | removed with the classic algebra |
+| `TemporalRasterAlgebraLexer` | removed with the classic algebra |
+| `TemporalRasterBaseAlgebraParser` | removed with the classic algebra |
 | `TemporalTopologyDatasetConnector` | removed; `topology.TopologyLinks` |
-| `TemporalVectorAlgebraLexer` | `classic.temporal_vector_algebra.TemporalVectorAlgebraLexer` |
+| `TemporalVectorAlgebraLexer` | removed with the classic algebra |
 | `VectorAbsoluteTime` | `temporal_extent.AbsoluteTimeRow(kind)` |
 | `VectorBase` | `base.BaseRow(kind)` |
 | `VectorMetadata` | `metadata.MetadataRow(kind)` |
@@ -1548,10 +1544,10 @@ value of `grass.temporal.kinds.KINDS`, such as `KINDS["raster"]`.
 | `assign_valid_time_to_map` | `register.assign_valid_time_to_map` |
 | `c_library_server` | `c_libraries_interface.c_library_server` |
 | `check_datetime_string` | `datetime_math.check_datetime_string` |
-| `compute_common_absolute_time_granularity` | `temporal_granularity.compute_common_absolute_time_granularity`; the classic algebra keeps a copy in `classic.granularity` |
-| `compute_common_absolute_time_granularity_simple` | `temporal_granularity.compute_common_absolute_time_granularity_simple`; the classic algebra keeps a copy in `classic.granularity` |
+| `compute_common_absolute_time_granularity` | `temporal_granularity.compute_common_absolute_time_granularity` |
+| `compute_common_absolute_time_granularity_simple` | `temporal_granularity.compute_common_absolute_time_granularity_simple` |
 | `compute_common_relative_time_granularity` | `temporal_granularity.compute_common_relative_time_granularity` |
-| `compute_datetime_delta` | `datetime_math.compute_datetime_delta`; the classic algebra keeps a copy in `classic.granularity` |
+| `compute_datetime_delta` | `datetime_math.compute_datetime_delta` |
 | `compute_univar_stats` | `univar_statistics.compute_univar_stats` |
 | `count_temporal_topology_relationships` | `topology.count_temporal_topology_relationships` |
 | `create_suffix_from_datetime` | `datetime_math.create_suffix_from_datetime` |
@@ -1600,21 +1596,21 @@ tables when a module is imported count as kept.
 | Module of GRASS 8.5 | Names lost | In GRASS 8.6 |
 | --- | --- | --- |
 | `metadata` | 72 | the classes of the metadata rows are one class `MetadataRow(kind)`; the methods of each column are made from the column tables when the module is imported |
-| `temporal_algebra` | 98 | moved to `classic.temporal_algebra` |
-| `temporal_raster_base_algebra` | 55 | moved to `classic.temporal_raster_base_algebra` |
-| `temporal_operator` | 51 | moved to `classic.temporal_operator` |
+| `temporal_algebra` | 98 | module removed with the classic algebra |
+| `temporal_raster_base_algebra` | 55 | module removed with the classic algebra |
+| `temporal_operator` | 51 | module removed with the classic algebra |
 | `base` | 49 | the classes of the base rows and registers are `BaseRow(kind)` and `RegisterRow(kind)` |
 | `c_libraries_interface` | 47 | the typed methods of the client, such as `read_raster_info()` and `write_raster_timestamp()`, are `CLibrariesInterface.call()` with the name of the function; `RPCDefs`, `get_location()`, `get_gisdbase()`, `fatal_error()`, the `read_*_full_info()` methods and `remove_raster_semantic_label()` are removed |
 | `temporal_topology_dataset_connector` | 46 | module removed; `topology.TopologyLinks` and `topology.SpatioTemporalTopologyBuilder` |
 | `temporal_extent` | 31 | the classes of the time rows are `AbsoluteTimeRow(kind)` and `RelativeTimeRow(kind)`; `TemporalExtent.adjacent()` is removed |
 | `spatial_topology_dataset_connector` | 30 | module removed; `topology.TopologyLinks` |
 | `spatial_extent` | 10 | the classes of the extent rows are `SpatialExtentRow(kind)`; `set_spatial_extent_2d()`, `get_spatial_extent_as_tuple_2d()`, `get_volume()` and `set_spatial_extent_from_values_2d()` are removed |
-| `temporal_vector_algebra` | 22 | moved to `classic.temporal_vector_algebra`; `TemporalVectorAlgebraParser` stays in `grass.temporal` |
+| `temporal_vector_algebra` | 22 | module removed with the classic algebra; `TemporalVectorAlgebraParser` stays in `grass.temporal` |
 | `core` | 18 | split into `db` (connections), `schema` (creation, checks and upgrade of the database) and `state` (the state of the session and `init()`); `core` forwards to them; the module variables such as `tgis_backend` and `current_mapset` are removed and read with the `get_*()` functions |
 | `spatio_temporal_relationships` | 9 | module removed; `topology.SpatioTemporalTopologyBuilder` |
 | `abstract_space_time_dataset` | 5 | `create_map_register_name()`, `is_map_registered()`, `sample_by_dataset()`, `sample_by_dataset_sql()` and `get_registered_maps_as_objects_with_temporal_topology()` are removed |
-| `temporal_raster3d_algebra` | 4 | moved to `classic.temporal_raster3d_algebra`; `TemporalRaster3DAlgebraParser` stays in `grass.temporal` |
-| `temporal_raster_algebra` | 4 | moved to `classic.temporal_raster_algebra`; `TemporalRasterAlgebraParser` stays in `grass.temporal` |
+| `temporal_raster3d_algebra` | 4 | module removed with the classic algebra; `TemporalRaster3DAlgebraParser` stays in `grass.temporal` |
+| `temporal_raster_algebra` | 4 | module removed with the classic algebra; `TemporalRasterAlgebraParser` stays in `grass.temporal` |
 | `space_time_datasets` | 3 | `GRASS_TIMESTAMP_FMT` and `get_np_array()` of raster and 3D raster maps are removed |
 | `datetime_math` | 2 | `relative_time_to_time_delta()` and `relative_time_to_time_delta_seconds()` are removed |
 | `extract` | 2 | `run_mapcalc2d()` and `run_mapcalc3d()` are `batches.run_mapcalc()` |
