@@ -68,3 +68,17 @@ def test_the_core_gives_the_chain_of_the_code_before_profiles(
     golden = json.loads(GOLDEN.read_text())[expression]
     assert golden["register"]
     assert as_json(chain(expression)) == golden
+
+
+def test_the_comparison_sees_a_changed_merge(in_memory_datasets, monkeypatch):
+    """Without this the comparison above could not see a difference: with a
+    merge that keeps only its first argument, exactly the chain of merge()
+    departs from the recorded one."""
+    monkeypatch.setattr(translate.Translator, "_merge", lambda self, first, _: first)
+    golden = json.loads(GOLDEN.read_text())
+    changed = [
+        expression
+        for expression in EXPRESSIONS
+        if as_json(chain(expression)) != golden[expression]
+    ]
+    assert changed == ["R = merge(A, B)"]
