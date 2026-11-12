@@ -166,22 +166,21 @@ def _origin(content, extent, *slots):
 def _combined_time(target, others, mode):
     """The time stamp of a target combined with related slots
 
-    "left" keeps the time stamp of the target, "right" takes that of each
-    related slot in turn, so that of the last one. The other modes fold the
+    "left" keeps the time stamp of the target. The other modes fold the
     target with each related slot in turn using the methods of
-    grass.temporal.
+    grass.temporal; pairs() takes the time stamp of the partner for "right"
+    itself.
 
     :return: the time stamp, or None if a step does not combine
     """
     extent = target.extent
+    if mode == "left":
+        return extent
     for partner in others:
-        if mode == "right":
-            extent = partner.extent
-        elif mode != "left":
-            combined = getattr(as_map(extent), _COMBINE[mode])(as_map(partner.extent))
-            extent = extent_from(combined, target.extent.unit)
-            if extent is None:
-                return None
+        combined = getattr(as_map(extent), _COMBINE[mode])(as_map(partner.extent))
+        extent = extent_from(combined, target.extent.unit)
+        if extent is None:
+            return None
     return extent
 
 
