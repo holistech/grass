@@ -24,12 +24,18 @@ def create_stvds(tools, name, maps_and_times, **options):
 
     The maps exist already; their coordinates are the point of the datasets,
     so they are not made by make_map(), which writes one point per map.
+    The datasets are registered in this process, because every test module
+    of the directory builds them again in each xdist worker: vector_series
+    took 8.4 s with t.create and t.register and 2.2 s so (measured
+    2026-11-12, median of three builds each with time.perf_counter), with the
+    same datasets, maps and metadata in t.info -g and t.vect.list.
     """
     register_stds(
         tools,
         "stvds",
         name,
         [MapSpec(vector, None, start, end) for vector, start, end in maps_and_times],
+        via="library",
         **options,
     )
 
