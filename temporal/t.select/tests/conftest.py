@@ -108,9 +108,10 @@ def series(temporal_module_session):
     tests run the algebra in this process. The datasets of PERMANENT are
     registered in this process as well, because every test module of the
     directory builds them again in each xdist worker: the fixture took 10.6 s
-    with t.create and t.register and 3.4 s so (measured 2026-11-12, median of
-    three builds each with time.perf_counter). Both routes give the same
-    datasets, maps and metadata in t.info -g and t.*.list.
+    with t.create and t.register and takes 3.4 s with the library (measured
+    2026-11-12, median of three builds each with time.perf_counter). Both
+    routes give the same datasets, maps and metadata in t.info -g and
+    t.*.list.
     """
     session = temporal_module_session
     tools = Tools(session=session, overwrite=True)
