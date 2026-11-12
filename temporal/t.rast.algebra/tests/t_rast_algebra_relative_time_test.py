@@ -8,8 +8,6 @@ finding M5).
 
 import pytest
 
-from grass.temporal.testing.reference import run_reference
-
 
 def relative_maps(algebra, expression, **kwargs):
     """Return (start, end, value) of the result maps"""
@@ -47,55 +45,21 @@ def test_relative_buffer_and_shift(algebra):
 
 
 @pytest.mark.parametrize(
-    "expression",
-    [
-        'buff_t(RT, "3 hours")',
-        'buff_t(RT, "1 day")',
-        'buff_t(RT, "1 month")',
-        'RT + buff_t(RT, "1 day")',
-        # A refused buffer leaves no result, also for absolute time.
-        "buff_t(A, 3)",
-    ],
-)
-def test_buffer_of_the_wrong_kind_is_a_syntax_error(algebra, expression):
-    """A buffer with a time unit is refused for relative time like a number
-    without unit is for absolute time. It was a TypeError of the subtraction
-    of the buffer from the start time. The error leaves no result dataset.
-
-    Checked on the reference implementation (grass.temporal.classic) only: the
-    core raises a ValueError with its own message for the same expressions.
-    """
-    algebra.remove("R")
-    with pytest.raises(SyntaxError, match=r"buff_t\(\) needs a"):
-        run_reference(
-            "raster", f"R = {expression}", basename="r", overwrite=True, run=True
-        )
-    assert not algebra.exists()
-
-
-@pytest.mark.parametrize(
     ("increment", "expected"),
-    [
-        # A fraction is cut to a whole number of units, towards zero.
-        ("1.5", [(-1, 2, 1), (0, 3, 2), (1, 4, 3)]),
-        ("2", [(-2, 3, 1), (-1, 4, 2), (0, 5, 3)]),
-        ("0.5", [(0, 1, 1), (1, 2, 2), (2, 3, 3)]),
-        ("-1.5", [(0, 1, 1), (1, 2, 2), (2, 3, 3)]),
-    ],
+    [("2", [(-2, 3, 1), (-1, 4, 2), (0, 5, 3)])],
 )
-def test_relative_buffer_with_a_fractional_number(algebra, increment, expected):
-    """Numbers other than whole ones stay valid for relative time. Targets
-    measured 2026-10-15 on the library before the buff_t() checks changed,
-    with the reference."""
-    algebra.remove("R")
-    run_reference(
-        "raster",
-        f"R = buff_t(RT, {increment})",
-        basename="r",
-        overwrite=True,
-        run=True,
-    )
-    assert [(row.start, row.end, row.min) for row in algebra.maps("R")] == expected
+def test_relative_buffer_with_a_whole_number(algebra, increment, expected):
+    """A whole number is a buffer in the time unit. Target recorded from the
+    reference implementation on 2026-10-15."""
+    assert relative_maps(algebra, f"buff_t(RT, {increment})") == expected
+
+
+@pytest.mark.parametrize("increment", ["1.5", "0.5", "-1.5"])
+def test_relative_buffer_with_a_fractional_number_is_refused(algebra, increment):
+    """A number with a fraction is a syntax error on relative time. The classic
+    algebra cut it to a whole number of units, towards zero."""
+    with pytest.raises(SyntaxError, match="whole number"):
+        algebra.parse(f"buff_t(RT, {increment})")
 
 
 def test_relative_time_difference(algebra):

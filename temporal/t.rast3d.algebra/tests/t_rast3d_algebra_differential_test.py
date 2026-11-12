@@ -1,15 +1,15 @@
-"""Comparison of the algebra core with the classic algebra for 3D rasters
+"""The algebra core on 3D raster expressions that the classic algebra read the same way
 
-The outcome of the classic algebra is that of the reference implementation
-(grass.temporal.classic), which runs in each test. The registered maps
-(start, end, minimum and maximum, rounded to 6 significant digits) must agree,
-except for the differences that the manual lists between the core and the
-releases before GRASS 8.6.
+Each expression of SAME is computed and must give maps. DIFFERENT lists the
+changed rules with a short form of the item in the list of differences in the
+manual and the class of the outcome of the core, which is the class of the
+error or "maps". The registered maps are compared as start, end, minimum and
+maximum, rounded to 6 significant digits.
 """
 
 import pytest
 
-from grass.temporal.testing import differential
+from grass.temporal.testing import outcomes
 
 SAME = [
     "A + B",
@@ -96,35 +96,10 @@ GRANULARITY_DIFFERENT = {
 }
 
 
-def without_names(result):
-    """The outcome without the names of the maps
-
-    The reference counts the maps in another order and with gaps, so the
-    names differ, as in ``merge(A, D)`` (N_0, N_4, N_6 in the reference,
-    N_0, N_1, N_5 in the core, seen 11.11.2026). The comparison of the core
-    with the classic profile, which this test made before, did not read the
-    names either.
-    """
-    if "maps" in result:
-        result = {**result, "maps": [[None, *row[1:]] for row in result["maps"]]}
-    return result
-
-
-def outcomes(expression, **options):
-    """The outcomes of the reference and of the core, without map names"""
+def run(expression, **options):
+    """The outcome of the core, with the options of the tool"""
     options = {"register_null": True, **options}
-    return tuple(
-        without_names(
-            differential.outcome(
-                "raster3d",
-                expression,
-                differential.RUNNERS[runner],
-                basename=basename,
-                **options,
-            )
-        )
-        for runner, basename in (("reference", "fa"), ("core", "fb"))
-    )
+    return outcomes.outcome("raster3d", expression, basename="fb", **options)
 
 
 def kind(core):
@@ -133,28 +108,21 @@ def kind(core):
 
 
 @pytest.mark.parametrize("expression", SAME)
-def test_same_result(series_3d, expression):
-    reference, core = outcomes(expression)
-    assert differential.compare("raster3d", expression, reference, core) is None
+def test_the_core_computes_the_expression(series_3d, expression):
+    assert kind(run(expression)) == "maps"
 
 
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
-def test_listed_differences_still_differ(series_3d, expression):
-    """A listed difference that no longer differs must leave the list"""
-    reference, core = outcomes(expression)
-    assert differential.compare("raster3d", expression, reference, core) is not None
-    assert kind(core) == DIFFERENT[expression][0]
+def test_listed_differences_give_the_listed_outcome(series_3d, expression):
+    assert kind(run(expression)) == DIFFERENT[expression][0]
 
 
 @pytest.mark.parametrize("expression", GRANULARITY_SAME)
-def test_granularity_same_result(series_3d, expression):
-    reference, core = outcomes(expression, granularity=True)
-    assert differential.compare("raster3d", expression, reference, core) is None
+def test_granularity_computes_the_expression(series_3d, expression):
+    assert kind(run(expression, granularity=True)) == "maps"
 
 
 @pytest.mark.parametrize("expression", sorted(GRANULARITY_DIFFERENT))
-def test_granularity_listed_differences_still_differ(series_3d, expression):
-    """A listed difference that no longer differs must leave the list"""
-    reference, core = outcomes(expression, granularity=True)
-    assert differential.compare("raster3d", expression, reference, core) is not None
+def test_granularity_listed_differences_give_the_listed_outcome(series_3d, expression):
+    core = run(expression, granularity=True)
     assert kind(core) == GRANULARITY_DIFFERENT[expression][0]

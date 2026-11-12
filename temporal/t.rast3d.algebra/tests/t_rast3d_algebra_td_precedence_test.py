@@ -7,7 +7,7 @@ the values 1, 2, 3 and 4, so td(A) is 1 for each of them.
 import pytest
 
 from grass.temporal.testing import io_cache
-from grass.temporal.testing.differential import RUNNERS, outcome, prepare
+from grass.temporal.testing.outcomes import outcome, prepare
 
 KIND = "raster3d"
 
@@ -39,12 +39,9 @@ def cached_io(datasets):
     """Replace the fixture of conftest.py: the caches run through datasets"""
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new", "old"), CHANGED)
-def test_td_binds_as_operand_of_the_stronger_operator(
-    datasets, runner, expression, new, old
-):
+def test_td_binds_as_operand_of_the_stronger_operator(datasets, expression, new, old):
     assert new != old
-    result = outcome(KIND, expression, RUNNERS[runner], basename="fa")
+    result = outcome(KIND, expression, basename="fa")
     assert "error" not in result, result
     assert [low for *_, low, _high in result["maps"]] == pytest.approx(new, rel=1e-5)

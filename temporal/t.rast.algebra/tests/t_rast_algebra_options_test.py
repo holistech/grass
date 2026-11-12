@@ -12,7 +12,6 @@ import pytest
 import grass.temporal as tgis
 from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.readback import message
-from grass.temporal.testing.reference import reference_parser
 from grass.tools import ToolError, Tools
 
 pytestmark = pytest.mark.real_io
@@ -458,19 +457,6 @@ def test_parse_without_run_creates_nothing(algebra, expression):
     assert not algebra.exists("R")
 
 
-def test_result_map_without_command_and_without_raster_is_fatal(algebra):
-    """A result map that has no mapcalc command and no raster is an error
-
-    Printing the message alone would register the dataset with a missing map.
-    The state cannot be produced by an expression, so the step is called
-    directly on the reference.
-    """
-    parser = reference_parser("raster", run=True, debug=False)
-    missing = tgis.RasterDataset("no_such_map@PERMANENT")
-    with pytest.raises(algebra.errors, match="no_such_map"):
-        parser._mapcalc_expression(missing)
-
-
 @pytest.mark.parametrize(
     ("basename", "first", "second", "count", "start"),
     [
@@ -519,24 +505,6 @@ def test_debug_output_without_run(algebra, capsys):
     debug=True prints nothing"""
     run_with_debug(algebra, "(A + A) * 2", run=False)
     assert not capsys.readouterr().out
-
-
-def test_debug_output_of_the_reference(algebra, capsys):
-    """The reference prints the mapcalc commands and the resulting
-    statement, and without run the statement with the placeholder name. Only
-    the reference keeps this output."""
-
-    def parse(run):
-        algebra.remove("R")
-        parser = reference_parser("raster", run=run, debug=True, dry_run=True)
-        parser.parse("R = (A + A) * 2", "r", True)
-
-    parse(run=True)
-    output = capsys.readouterr().out
-    assert "((a1@PERMANENT + a1@PERMANENT) * 2)" in output
-    assert "R = [" in output
-    parse(run=False)
-    assert "R = A**" in capsys.readouterr().out
 
 
 def test_the_algebra_refuses_a_dot_output(algebra, tool):

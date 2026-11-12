@@ -17,10 +17,7 @@ import pytest
 
 from grass.temporal.testing import io_cache
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.temporal.testing.differential import (
-    constant_values,
-    outcome_of_runner,
-)
+from grass.temporal.testing.outcomes import constant_values, outcome
 from grass.tools import Tools
 
 KIND = "raster"
@@ -122,10 +119,6 @@ UNCHANGED = [
     ("if(td(A) > 30, A, 0)", [1.5, 0, 3.5, 0]),
 ]
 
-# Forms with td() behind a number or left of a weaker operator are no
-# productions and stay refused
-REFUSED = ["A + 2 * td(A)", "td(A) + A"]
-
 
 @pytest.fixture(scope="module")
 def durations(temporal_module_session):
@@ -173,8 +166,10 @@ def cached_io(durations):
     """Replace the fixture of conftest.py: the caches run through durations"""
 
 
-def run(runner, expression, basename, **options):
-    return outcome_of_runner(KIND, expression, runner, basename, **options)
+def run(expression, basename, **options):
+    """The outcome of the core; a map that is null everywhere is a result"""
+    options = {"register_null": True, **options}
+    return outcome(KIND, expression, basename=basename, **options)
 
 
 def values(result):
@@ -182,66 +177,50 @@ def values(result):
     return [pytest.approx(value, rel=1e-5) for value in constant_values(result)]
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new", "old"), CHANGED)
-def test_td_binds_as_operand_of_the_stronger_operator(
-    durations, runner, expression, new, old
-):
+def test_td_binds_as_operand_of_the_stronger_operator(durations, expression, new, old):
     assert new != old
-    assert values(run(runner, expression, "fa")) == new
+    assert values(run(expression, "fa")) == new
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new"), NEWLY_READ)
-def test_td_as_left_operand_is_read(durations, runner, expression, new):
-    assert values(run(runner, expression, "fa")) == new
+def test_td_as_left_operand_is_read(durations, expression, new):
+    assert values(run(expression, "fa")) == new
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new"), UNCHANGED)
-def test_forms_with_td_that_were_right_keep_their_value(
-    durations, runner, expression, new
-):
-    assert values(run(runner, expression, "fa")) == new
-
-
-@pytest.mark.parametrize("expression", REFUSED)
-def test_forms_without_a_production_stay_refused(durations, expression):
-    assert run("reference", expression, "fa")["error"] == "SyntaxError"
+def test_forms_with_td_that_were_right_keep_their_value(durations, expression, new):
+    assert values(run(expression, "fa")) == new
 
 
 # The argument of td() does not matter. The dataset A has the maps a1 to a4.
-@pytest.mark.parametrize("runner", ["reference", "core"])
-def test_td_of_a_neighbour_map(durations, runner):
+def test_td_of_a_neighbour_map(durations):
     """A[1] has no successor for April; the duration is that of the result map
 
     January to March: a + td / a as in the first row, 1.5 + 31 / 1.5,
     2.5 + 28 / 2.5, 3.5 + 31 / 3.5. Before the correction (a + td) / a:
     32.5 / 1.5, 30.5 / 2.5, 34.5 / 3.5.
     """
-    result = run(runner, "A + td(A[1]) / A", "fa")
+    result = run("A + td(A[1]) / A", "fa")
     assert values(result) == [22.166667, 13.7, 12.357143]
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
-def test_td_of_a_counted_map(durations, runner):
+def test_td_of_a_counted_map(durations):
     """A {#,contains} E counts E in the January map only; td() is its duration
 
     1.5 + 31 / 1.5 = 22.1667. Before the correction (1.5 + 31) / 1.5 = 21.6667.
     """
-    result = run(runner, "A + td(A {#,contains} E) / A", "fa")
+    result = run("A + td(A {#,contains} E) / A", "fa")
     assert values(result) == [22.166667]
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
-def test_td_of_a_map_with_a_time_stamp(durations, runner):
+def test_td_of_a_map_with_a_time_stamp(durations):
     """tmap(a1) is the January map: 1.5 + 31 / 1.5 on January only"""
-    result = run(runner, "A + td(tmap(a1)) / A", "fa")
+    result = run("A + td(tmap(a1)) / A", "fa")
     assert values(result) == [22.166667]
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
-def test_the_granularity_mode_groups_td_too(durations, runner):
+def test_the_granularity_mode_groups_td_too(durations):
     """A has one granularity, one month, so -g leaves the maps as they are"""
-    result = run(runner, "A + td(A) / A", "fa", granularity=True)
+    result = run("A + td(A) / A", "fa", granularity=True)
     assert values(result) == [22.166667, 13.7, 12.357143, 11.166667]

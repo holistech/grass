@@ -17,10 +17,7 @@ import pytest
 
 from grass.temporal.testing import io_cache
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.temporal.testing.differential import (
-    constant_values,
-    outcome_of_runner,
-)
+from grass.temporal.testing.outcomes import constant_values, outcome
 from grass.tools import Tools
 
 KIND = "raster"
@@ -106,16 +103,6 @@ UNCHANGED = [
     ("2 - A - A", [-1, -3, -5, -7]),
 ]
 
-# A chain of numbers or maps without a dataset has no statement to compute,
-# and a parenthesised chain of numbers has no production
-REFUSED = [
-    "map(L) - 1 - 1",
-    "map(L) + map(L)",
-    "A + (1 - 2 - 3)",
-    "A * (1 - 2)",
-    "(1 + 2) * A",
-]
-
 
 @pytest.fixture(scope="module")
 def chains(temporal_module_session):
@@ -141,8 +128,10 @@ def cached_io(chains):
     """Replace the fixture of conftest.py: the caches run through chains"""
 
 
-def run(runner, expression, basename, **options):
-    return outcome_of_runner(KIND, expression, runner, basename, **options)
+def run(expression, basename, **options):
+    """The outcome of the core; a map that is null everywhere is a result"""
+    options = {"register_null": True, **options}
+    return outcome(KIND, expression, basename=basename, **options)
 
 
 def values(result):
@@ -150,32 +139,23 @@ def values(result):
     return [pytest.approx(value, rel=1e-5) for value in constant_values(result)]
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new", "old"), CHAINS)
-def test_a_chain_is_grouped_from_the_left(chains, runner, expression, new, old):
+def test_a_chain_is_grouped_from_the_left(chains, expression, new, old):
     assert new != old
-    assert values(run(runner, expression, "fa")) == new
+    assert values(run(expression, "fa")) == new
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new"), NEWLY_READ)
-def test_a_chain_after_a_dataset_is_read(chains, runner, expression, new):
-    assert values(run(runner, expression, "fa")) == new
+def test_a_chain_after_a_dataset_is_read(chains, expression, new):
+    assert values(run(expression, "fa")) == new
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new"), UNCHANGED)
-def test_chains_with_the_same_value_both_ways(chains, runner, expression, new):
-    assert values(run(runner, expression, "fa")) == new
+def test_chains_with_the_same_value_both_ways(chains, expression, new):
+    assert values(run(expression, "fa")) == new
 
 
-@pytest.mark.parametrize("expression", REFUSED)
-def test_forms_without_a_production_stay_refused(chains, expression):
-    assert run("reference", expression, "fa")["error"] == "SyntaxError"
-
-
-@pytest.mark.parametrize("runner", ["reference", "core"])
-def test_the_granularity_mode_groups_from_the_left_too(chains, runner):
+def test_the_granularity_mode_groups_from_the_left_too(chains):
     """A has one granularity, one month, so -g leaves the maps as they are"""
-    result = run(runner, "map(L) - 1 - A", "fa", granularity=True)
+    result = run("map(L) - 1 - A", "fa", granularity=True)
     assert values(result) == [-2, -3, -4, -5]

@@ -2,12 +2,11 @@
 
 Expressions that relate datasets of different types.
 
-Every case runs in the reference implementation (grass.temporal.classic) and
-in the core. The expected maps are those the old assertions describe (number of maps, extent, minimum, maximum, topology,
-granularity); the comment of a case repeats them. CORE holds the cases where
-the core calculates differently according to the manual ("Differences
-from GRASS 8.5"); SHAPE what the old test asserted besides the maps. The datasets
-are those of algebra_cases, see its builder for the data.
+The expected maps are those the old assertions describe (number of maps,
+extent, minimum, maximum, topology, granularity); the comment of a case repeats
+them. CORE holds the maps the core makes where they differ according to the
+manual ("Differences from GRASS 8.5"); SHAPE what the old test asserted besides
+the maps. The datasets are those of algebra_cases, see its builder for the data.
 """
 
 import pytest
@@ -17,7 +16,6 @@ from grass.tools import Tools
 
 KIND = "select"
 
-RUNNERS = ["reference", "core"]
 
 CASES = [
     # Old assertions: n 2, minmin 2, maxmax 3, start 2001-01-02, end 2001-01-04, topo True, gran 1 day
@@ -123,10 +121,9 @@ DRY = [
     ),
 ]
 
-# What the core plans where it differs from the reference. Its run of this
-# expression makes a str3ds, as the run of the reference does
-# (test_mixed_runs_make_a_str3ds); its plan names that type, while the plan of
-# the reference names the stdstype of the call, which the old test asserted.
+# What the core plans where it differs from the old test, which asserted the
+# stdstype of the call. The run of this expression makes a str3ds
+# (test_mixed_runs_make_a_str3ds), and the plan names that type.
 # Decided 19.10.2026: the plan names what the run makes.
 DRY_AS_RUN = {
     "different stds handling2 (dry run)": {"register": 2, "stdstype": "str3ds"},
@@ -141,24 +138,20 @@ def data(temporal_module_session):
 
 
 def case_id(request):
-    # The last part of the id is the runner.
-    return request.node.callspec.id.rsplit("-", 1)[0]
+    return request.node.callspec.id
 
 
-@pytest.mark.parametrize("runner", RUNNERS)
 @pytest.mark.parametrize(("expression", "options", "expected"), CASES)
-def test_cases(data, request, runner, expression, options, expected):
+def test_cases(data, request, expression, options, expected):
     shape = SHAPE.get(expression)
     message = None
-    if runner == "core":
-        name = case_id(request)
-        if name in CORE:
-            expected = CORE[name]
-            message = CORE_MESSAGE.get(name)
-            shape = SHAPE_CORE.get(name, shape)
+    name = case_id(request)
+    if name in CORE:
+        expected = CORE[name]
+        message = CORE_MESSAGE.get(name)
+        shape = SHAPE_CORE.get(name, shape)
     algebra_cases.check_case(
         KIND,
-        runner,
         expression,
         options,
         expected,
@@ -168,21 +161,17 @@ def test_cases(data, request, runner, expression, options, expected):
     )
 
 
-@pytest.mark.parametrize("runner", RUNNERS)
 @pytest.mark.parametrize(("expression", "options", "expected"), DRY)
-def test_dry_runs(data, request, runner, expression, options, expected):
-    if runner != "reference":
-        expected = DRY_AS_RUN.get(case_id(request), expected)
-    algebra_cases.check_dry(KIND, runner, expression, options, expected)
+def test_dry_runs(data, request, expression, options, expected):
+    expected = DRY_AS_RUN.get(case_id(request), expected)
+    algebra_cases.check_dry(KIND, expression, options, expected)
 
 
-@pytest.mark.parametrize("runner", RUNNERS)
-def test_mixed_runs_make_a_str3ds(data, runner):
+def test_mixed_runs_make_a_str3ds(data):
     # The run of the planned expression: the type of its result is what the
     # plan of the core names (DRY_AS_RUN).
     algebra_cases.check_case(
         KIND,
-        runner,
         "if({contains}, (stvds(C) {#,contains} str3ds(A)) == 2, str3ds(A))",
         {"result_type": "str3ds", "stdstype": "strds"},
         [("2001-01-02", "2001-01-03", 2, 2), ("2001-01-03", "2001-01-04", 3, 3)],

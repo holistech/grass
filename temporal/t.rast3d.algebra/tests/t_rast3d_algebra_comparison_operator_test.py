@@ -9,7 +9,7 @@ the result.
 import pytest
 
 from grass.temporal.testing import io_cache
-from grass.temporal.testing.differential import RUNNERS, outcome, prepare
+from grass.temporal.testing.outcomes import outcome, prepare
 
 KIND = "raster3d"
 
@@ -39,9 +39,8 @@ def cached_io(datasets):
     """Replace the fixture of conftest.py: the caches run through datasets"""
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "values"), EXPRESSIONS)
-def test_a_comparison_by_hand(datasets, runner, expression, values):
-    result = outcome(KIND, expression, RUNNERS[runner], basename="fa")
+def test_a_comparison_by_hand(datasets, expression, values):
+    result = outcome(KIND, expression, basename="fa")
     assert "error" not in result, result
     assert [row[3] for row in result["maps"]] == values

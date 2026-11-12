@@ -13,7 +13,6 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.exceptions import FatalError
-from grass.temporal.testing.reference import run_reference
 from grass.tools import ToolError, Tools
 
 pytestmark = pytest.mark.real_io
@@ -646,8 +645,7 @@ def test_a_selection_with_r_gives_one_map_per_related_pair(series_3d):
 def test_a_refused_increment_is_reported_with_the_message_of_the_library(
     series_3d,
 ):
-    """The reference implementation (grass.temporal.classic) names tshift() and
-    the unit instead"""
+    """The classic algebra named tshift() and the unit instead"""
     tools = Tools(session=series_3d.session, overwrite=True)
     with pytest.raises(ToolError) as error:
         tools.t_rast3d_algebra(
@@ -802,47 +800,18 @@ def test_raster_dataset_is_refused(series_3d):
         tools.t_rast3d_algebra(expression="res = flat + A", basename="bad")
 
 
-@pytest.mark.parametrize("implementation", ["core", "reference"])
 @pytest.mark.parametrize(
     "expression",
     ["B - td(A * 2)", "B - td(A + B)"],
 )
-def test_duration_of_an_expression_in_arithmetic(series_3d, implementation, expression):
+def test_duration_of_an_expression_in_arithmetic(series_3d, expression):
     """td() of a computed expression is the duration of its maps (one day) on
     the right of an operator, as td() of a dataset is"""
-    if implementation == "core":
-        name = run_algebra(series_3d.session, expression)
-    else:
-        name = f"res{next(_counter)}"
-        run_reference(
-            "raster3d",
-            f"{name} = {expression}",
-            basename=name,
-            overwrite=True,
-            run=True,
-        )
+    name = run_algebra(series_3d.session, expression)
     rows = list_maps(series_3d.session, name)
     assert [row[2] for row in rows] == [9, 19, 29, 39]
 
 
-def run_on(series_3d, expression, implementation):
-    """Return the maps of "res = <expression>" computed by the core or by
-    the reference"""
-    if implementation == "core":
-        name = run_algebra(series_3d.session, expression)
-    else:
-        name = f"res{next(_counter)}"
-        run_reference(
-            "raster3d",
-            f"{name} = {expression}",
-            basename=name,
-            overwrite=True,
-            run=True,
-        )
-    return list_maps(series_3d.session, name)
-
-
-@pytest.mark.parametrize("implementation", ["core", "reference"])
 @pytest.mark.parametrize(
     "expression",
     [
@@ -852,28 +821,8 @@ def run_on(series_3d, expression, implementation):
         "A + tsnap(A {:,equal} Q)",
     ],
 )
-def test_tsnap_and_tshift_of_no_maps_give_an_empty_result(
-    series_3d, implementation, expression
-):
+def test_tsnap_and_tshift_of_no_maps_give_an_empty_result(series_3d, expression):
     """Without maps to snap or shift the result is an empty dataset, like any
     other empty result"""
-    assert run_on(series_3d, expression, implementation) == []
-
-
-@pytest.mark.parametrize("expression", ['tshift(A, "1 DAY")', 'tshift(A, "1 d")'])
-def test_tshift_with_a_refused_increment_is_a_syntax_error(series_3d, expression):
-    """An increment that the library refuses is an error, not an absent result.
-
-    Checked on the reference only: the core raises a ValueError with its own
-    message for the same expressions.
-    """
-    name = f"res{next(_counter)}"
-    with pytest.raises(SyntaxError, match="tshift"):
-        run_reference(
-            "raster3d",
-            f"{name} = {expression}",
-            basename=name,
-            overwrite=True,
-            run=True,
-        )
-    assert list_maps(series_3d.session, name) is None
+    name = run_algebra(series_3d.session, expression)
+    assert list_maps(series_3d.session, name) == []

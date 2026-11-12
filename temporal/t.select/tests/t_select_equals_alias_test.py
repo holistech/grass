@@ -1,7 +1,7 @@
 """The relation name equals, which the published algebra paper writes
 
 As t_rast_algebra_equals_alias_test.py, for the tool t.select on each dataset
-type: the core and the reference read equals as another name of equal.
+type: the core reads equals as another name of equal.
 conftest.py describes the datasets; a2 and b1 have the same time.
 """
 
@@ -9,7 +9,6 @@ import itertools
 
 import pytest
 
-from grass.temporal.testing.differential import RUNNERS, compare, outcome
 from grass.tools import Tools
 
 KINDS = {"strds": "t_rast_list", "stvds": "t_vect_list", "str3ds": "t_rast3d_list"}
@@ -43,12 +42,3 @@ def test_equals_is_another_name_of_equal(series, kind, equals, equal):
     assert select(series.session, equals, kind) == canonical
     # A refusal on both sides would make the comparison above vacuous.
     assert canonical
-
-
-@pytest.mark.parametrize(("equals", "equal"), SPELLINGS)
-def test_the_reference_reads_equals(series, equals, equal):
-    written = outcome("select", equals, RUNNERS["reference"], basename="fa")
-    canonical = outcome("select", equal, RUNNERS["reference"], basename="fb")
-    assert "error" not in canonical
-    assert canonical["maps"]
-    assert compare("select", equals, written, canonical) is None

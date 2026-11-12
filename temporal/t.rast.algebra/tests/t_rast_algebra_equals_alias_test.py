@@ -1,14 +1,13 @@
 """The relation name equals, which the published algebra paper writes
 
-The paper prints {+,equals,l}; the relation is called equal. The core and the
-reference read equals as another name of equal.
+The paper prints {+,equals,l}; the relation is called equal. The core reads
+equals as another name of equal.
 """
 
 import pytest
 
 from grass.temporal.testing import io_cache
-from grass.temporal.testing.corpus import reference_outcome
-from grass.temporal.testing.differential import RUNNERS, compare, outcome, prepare
+from grass.temporal.testing.outcomes import compare, outcome, prepare
 
 KIND = "raster"
 
@@ -41,38 +40,28 @@ def cached_io(datasets):
     """Replace the fixture of conftest.py: the caches run through datasets"""
 
 
-def run(runner, expression, basename):
-    return outcome(KIND, expression, RUNNERS[runner], basename=basename)
+def run(expression, basename):
+    return outcome(KIND, expression, basename=basename)
 
 
-@pytest.mark.parametrize("runner", ["core", "reference"])
 @pytest.mark.parametrize(("equals", "equal"), SPELLINGS)
-def test_equals_is_another_name_of_equal(datasets, runner, equals, equal):
-    written = run(runner, equals, "fa")
-    canonical = run(runner, equal, "fb")
+def test_equals_is_another_name_of_equal(datasets, equals, equal):
+    written = run(equals, "fa")
+    canonical = run(equal, "fb")
     assert compare(KIND, equals, written, canonical) is None
     # A refusal on both sides would make the comparison above vacuous.
     assert "error" not in canonical
     assert canonical["maps"]
 
 
-def test_upper_case_equals_is_refused_like_upper_case_equal(datasets):
-    """The classic lexer reads relation names in lower case only"""
-    for name in ("equal", "equals"):
-        upper = f"A {{+,{name.upper()},l}} N"
-        assert run("reference", upper, "fb")["error"] == "SyntaxError"
+def test_equals_beside_equal_names_the_relation_once(datasets):
+    """equals|equal relates a partner once, as equal alone does
 
-
-def test_equals_beside_equal_names_the_relation_twice(datasets):
-    """The reference reads equals|equal as it reads equal|equal
-
-    A relation named twice relates a partner twice in the classic algebra
-    (a + n + n), so equals|equal is not equal, as equal|equal is not.
+    A relation named twice does not relate a partner twice. The classic
+    algebra did (a + n + n), so equal|equal was not equal.
     """
-    reference = reference_outcome(KIND, "A {+,equal|equal,l} N")
-    written = run("reference", "A {+,equals|equal,l} N", "fd")
-    once = run("reference", "A {+,equal,l} N", "fc")
-    assert compare(KIND, "A {+,equals|equal,l} N", reference, written) is None
+    written = run("A {+,equals|equal,l} N", "fd")
+    once = run("A {+,equal,l} N", "fc")
     assert "error" not in once
     assert once["maps"]
-    assert compare(KIND, "A {+,equal,l} N", written, once) is not None
+    assert compare(KIND, "A {+,equals|equal,l} N", written, once) is None

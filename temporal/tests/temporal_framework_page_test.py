@@ -61,7 +61,6 @@ import pytest
 
 import grass.script as gs
 from grass.temporal.testing.contract_trace import called_names, missing_from_contract
-from grass.temporal.testing.manual_examples import example_environment
 from grass.temporal.testing.session import project_session
 
 REPOSITORY = Path(__file__).resolve().parents[2]
@@ -229,7 +228,7 @@ def prepared_script(title, source, session, work):
 
     Returns the path of the script and the environment to run it in.
     """
-    env = example_environment(session.env)
+    env = dict(session.env)
     if title != CREATES_ITS_DATASET:
         create_datasets(env)
     script = work / "block.py"
@@ -945,7 +944,7 @@ def test_example_tool_runs_as_the_page_shows(page_session):
     """The tool of the page and its calls run and print what the page shows"""
     session, work = page_session
     blocks = tool_blocks()
-    env = example_environment(session.env)
+    env = dict(session.env)
 
     outputs, _names = run_example(blocks, env, work)
 
@@ -960,7 +959,7 @@ def test_example_tool_runs_as_the_page_shows(page_session):
 def test_example_tool_uses_only_the_contract(page_session):
     """The tool calls only functions that the public contract lists"""
     session, work = page_session
-    env = example_environment(session.env)
+    env = dict(session.env)
 
     _outputs, names = run_example(tool_blocks(), env, work, trace=True)
 
@@ -982,7 +981,7 @@ def test_example_tool_loads_no_temporal_code_for_its_interface(page_session):
             str(work / tool),
             "--interface-description",
         ],
-        env=example_environment(session.env),
+        env=dict(session.env),
         cwd=work,
         capture_output=True,
         text=True,
@@ -1084,7 +1083,7 @@ def test_algebra_example_runs_as_the_page_shows(page_session):
     """The script of the algebra guide prints the plan and the maps it shows"""
     session, work = page_session
     blocks = blocks_of(ALGEBRA_PAGE)
-    env = example_environment(session.env)
+    env = dict(session.env)
 
     outputs, _names = run_example(blocks, env, work)
 
@@ -1100,7 +1099,7 @@ def test_algebra_example_runs_as_the_page_shows(page_session):
 def test_algebra_example_uses_only_the_contract(page_session):
     """The script calls the core API it is meant to show, all of it in the contract"""
     session, work = page_session
-    env = example_environment(session.env)
+    env = dict(session.env)
 
     _outputs, names = run_example(blocks_of(ALGEBRA_PAGE), env, work, trace=True)
 

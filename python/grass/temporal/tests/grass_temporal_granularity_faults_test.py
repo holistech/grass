@@ -25,7 +25,6 @@ import grass.temporal as tgis
 from grass.pygrass.messages import FatalError
 from grass.temporal.algebra.content import MapRef
 from grass.temporal.algebra.series import Extent, Series, Slot, Space
-from grass.temporal.classic import granularity as classic_granularity
 from grass.temporal.related_maps import with_gaps
 from grass.temporal.testing.data import MapSpec, create_stds
 from grass.tools import Tools
@@ -146,39 +145,34 @@ def test_month_steps_with_a_time_of_day_are_months(session):
     assert tgis.compute_absolute_time_granularity(series_of(starts)) == "1 month"
 
 
-# The library and the copy of the classic algebra count both alike.
-GRANULARITY_FUNCTIONS = pytest.mark.parametrize(
-    "granularity_of",
-    [
-        tgis.compute_absolute_time_granularity,
-        classic_granularity.compute_absolute_time_granularity,
-    ],
-    ids=["library", "classic"],
-)
-
-
-@GRANULARITY_FUNCTIONS
 @pytest.mark.parametrize("instants", [False, True], ids=["intervals", "instants"])
-def test_granularity_of_month_firsts_over_a_year(session, granularity_of, instants):
+def test_granularity_of_month_firsts_over_a_year(session, instants):
     """A step from 1 January 2024 to 1 March 2025 is 14 months, not 2"""
     starts = [D(2024, 1, 1), D(2025, 3, 1)]
-    assert granularity_of(series_of(starts, instants=instants)) == "14 months"
+    assert (
+        tgis.compute_absolute_time_granularity(series_of(starts, instants=instants))
+        == "14 months"
+    )
 
 
-@GRANULARITY_FUNCTIONS
-def test_granularity_of_instants_at_the_same_time_of_day(session, granularity_of):
+def test_granularity_of_instants_at_the_same_time_of_day(session):
     """Instants at 10:30, ten days apart, are 10 days apart, not 14400
     minutes"""
     starts = [D(2026, 6, 1, 10, 30), D(2026, 6, 11, 10, 30)]
-    assert granularity_of(series_of(starts, instants=True)) == "10 days"
+    assert (
+        tgis.compute_absolute_time_granularity(series_of(starts, instants=True))
+        == "10 days"
+    )
 
 
-@GRANULARITY_FUNCTIONS
-def test_granularity_of_instants_at_another_time_of_day(session, granularity_of):
+def test_granularity_of_instants_at_another_time_of_day(session):
     """Instants at 10:30 and 11:30 ten days later are 241 hours apart: the
     hours differ and count, the minutes are equal and do not"""
     starts = [D(2026, 6, 1, 10, 30), D(2026, 6, 11, 11, 30)]
-    assert granularity_of(series_of(starts, instants=True)) == "241 hours"
+    assert (
+        tgis.compute_absolute_time_granularity(series_of(starts, instants=True))
+        == "241 hours"
+    )
 
 
 def test_registered_month_end_series_stores_one_month(tools, session):
@@ -388,9 +382,9 @@ def test_single_relative_instant_names_missing_granularity(relative_instant):
 def test_relative_granule_given_as_number_is_taken_as_it_is(relative_instant):
     """A number is not read like the text of a tool option: the granularity 0
     of a relative dataset of one instant gives no granule, as before, which
-    the classic algebra relies on in its granularity mode (it then fails with
-    a TypeError, measured 05.11.2026 with grass.temporal.testing.differential
-    on the reference before and after this rule)"""
+    the classic algebra relied on in its granularity mode (it then failed with
+    a TypeError, measured 05.11.2026 on the reference before and after this
+    rule)"""
     assert (
         relative_instant.get_registered_maps_as_objects_by_granularity(gran=0) is None
     )

@@ -1,9 +1,8 @@
-"""Comparison of the algebra core with the reference implementation for t.select
+"""The algebra core on t.select expressions that the classic algebra read the same way
 
-The core and the reference implementation (grass.temporal.classic) select from
-the same datasets (conftest.py); the registered maps must agree, except for
-the differences that the manual lists between the core and the releases before
-GRASS 8.6. The reference runs in each test.
+Each expression of SAME selects maps from the datasets of conftest.py.
+DIFFERENT lists the changed rules with the item of the manual's list of
+differences from the releases before GRASS 8.6 and the outcome of the core.
 """
 
 import itertools
@@ -13,7 +12,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.algebra.parser import evaluate
-from grass.temporal.testing import differential
+from grass.temporal.testing import outcomes
 from grass.tools import Tools
 
 DAY0 = datetime(2001, 1, 1)
@@ -106,36 +105,21 @@ def selected(session, expression):
     return sorted(rows)
 
 
-def selection_outcome(runner, basename, expression, stdstype="strds", **options):
-    """differential.outcome() of a selection with the runner that RUNNERS names"""
-    return differential.outcome(
+def selection_outcome(basename, expression, stdstype="strds", **options):
+    """outcomes.outcome() of a selection"""
+    return outcomes.outcome(
         "select",
         expression,
-        differential.RUNNERS[runner],
         basename=basename,
         stdstype=stdstype,
         **options,
     )
 
 
-def days(result):
-    """The (start day, end day) of each map of an outcome"""
-    return [
-        (
-            (datetime.fromisoformat(start) - DAY0).days,
-            (datetime.fromisoformat(end) - DAY0).days,
-        )
-        for _, start, end, *_ in result["maps"]
-    ]
-
-
 @pytest.mark.parametrize("expression", SAME)
-def test_same_result(series, expression):
-    reference = selection_outcome("reference", "fa", expression)
-    core = selection_outcome("core", "fb", expression)
-    assert differential.compare("select", expression, reference, core) is None
-    # Two errors or two empty results are equal and would compare nothing.
-    assert core.get("maps"), "the expression selects no map and compares nothing"
+def test_the_core_selects_maps(series, expression):
+    core = selection_outcome("fb", expression)
+    assert core.get("maps"), "the expression selects no map"
 
 
 def outcome(expression, spatial=False):
@@ -163,31 +147,22 @@ def outcome(expression, spatial=False):
 
 
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
-def test_listed_differences_still_differ(series, expression):
-    """A listed difference that no longer differs must leave the list"""
-    reference = selection_outcome("reference", "fa", expression)
-    core = selection_outcome("core", "fb", expression)
-    assert differential.compare("select", expression, reference, core) is not None, (
-        DIFFERENT[expression][1]
-    )
-    assert outcome(expression) == DIFFERENT[expression][0]
+def test_listed_differences_give_the_listed_outcome(series, expression):
+    assert outcome(expression) == DIFFERENT[expression][0], DIFFERENT[expression][1]
 
 
-def test_spatial_relation_is_read_by_the_core_only(series):
+def test_spatial_relation_is_read_by_the_core(series):
     """The core reads the spatial relation and selects maps, with and without
-    -s; the reference reports a syntax error for the name, with or without
-    -s"""
+    -s; the classic grammar reported a syntax error for the name"""
     expression = "A {:,equal|overlap} B"
     assert outcome(expression) == "maps"
     assert outcome(expression, spatial=True) == "maps"
-    reference = selection_outcome("reference", "fa", expression, spatial=True)
-    assert reference["error"] == "SyntaxError"
 
 
 def test_right_reference_gives_one_map_per_pair(series):
     """a3 contains b2 and b9: the core registers a map for each pair, the
-    reference only the last pair of each map of A (measured 2026-10-14 on
-    this fixture: 4 maps against 3, the map of b2 missing)"""
+    classic algebra only the last pair of each map of A (measured 2026-10-14
+    on this fixture: 4 maps against 3, the map of b2 missing)"""
     expression = "A {:,contains,r} B"
     core = selected(series.session, expression)
     assert [(start, end) for _, start, end in core] == [
@@ -196,8 +171,6 @@ def test_right_reference_gives_one_map_per_pair(series):
         (28, 29),
         (35, 40),
     ]
-    reference = selection_outcome("reference", "fa", expression)
-    assert days(reference) == [(0, 4), (28, 29), (35, 40)]
 
 
 def test_mixed_result_numbers_the_copies_in_time_order(series):
@@ -217,47 +190,3 @@ def test_mixed_result_numbers_the_copies_in_time_order(series):
         "C_2@PERMANENT",
         "C_3@PERMANENT",
     ]
-
-
-TIME_FUNCTION_SELECTED = "if(start_doy(A)<3,start_doy(A, 1), A)"
-
-
-def test_the_reference_fails_on_a_time_function_as_the_selected_maps(series):
-    """The reference never computes the value of start_doy(A, 1) and fails
-    when it copies that map into the result"""
-    reference = selection_outcome("reference", "tfref", TIME_FUNCTION_SELECTED)
-    assert reference["error"] == "Other:CalledModuleError"
-    assert "g.copy raster=tmp_map_name_" in reference["msg"]
-
-
-@pytest.mark.parametrize(
-    ("first", "second"),
-    [
-        # A failed copy of a map that is not a temporary one
-        (
-            {"error": "Other:CalledModuleError", "msg": "g.copy raster=a@x,b"},
-            {
-                "error": "Other:ValueError",
-                "msg": "A time function such as start_doy()"
-                " cannot be the result of a selection: more",
-            },
-        ),
-        # Another ValueError of the core
-        (
-            {"error": "Other:CalledModuleError", "msg": "g.copy raster=tmp_map_name_1"},
-            {"error": "Other:ValueError", "msg": "t.select selects maps"},
-        ),
-        # Another failing module of the reference
-        (
-            {"error": "Other:CalledModuleError", "msg": "r.mapcalc expression=a"},
-            {
-                "error": "Other:ValueError",
-                "msg": "A time function such as start_doy()"
-                " cannot be the result of a selection: more",
-            },
-        ),
-    ],
-)
-def test_other_pairs_with_a_value_error_are_differences(first, second):
-    """Only the class of the time function is accepted"""
-    assert differential.accepted_error_pair("select", "A", first, second) is None

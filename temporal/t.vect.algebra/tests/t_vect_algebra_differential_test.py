@@ -1,15 +1,14 @@
-"""Comparison of the algebra core with the classic algebra for vector maps
+"""The algebra core on vector expressions that the classic algebra read the same way
 
-The outcome of the classic algebra is that of the reference implementation
-(grass.temporal.classic), which runs in each test. The registered maps
-(identifier, start, end and the numbers of points, lines and areas) must
-agree, except for the differences that the manual lists between the core and
-the releases before GRASS 8.6.
+Each expression of SAME is computed and must give maps, each of REFUSED is a
+syntax error. DIFFERENT lists the changed rules with a short form of the item
+in the list of differences in the manual and what the core gives. The registered maps are compared as
+identifier, start, end and the numbers of points, lines and areas.
 """
 
 import pytest
 
-from grass.temporal.testing import differential
+from grass.temporal.testing import outcomes
 
 SAME = [
     "aa & ab",
@@ -33,18 +32,21 @@ SAME = [
     # Shrinks the two-day maps of wide to one day, so each keeps an interval.
     'buff_t(wide, "-12 hours")',
     "merge(aa, ac)",
-    # A count is no vector map; both algebras reject it as a syntax error,
-    # also when the relation finds no pair, as for aa and ab.
+]
+
+# A count is no vector map; the core rejects it as a syntax error, also when the
+# relation finds no pair, as for aa and ab. A number as else is no vector map
+# either, also where no map takes the else branch. The classic algebra
+# rejected the same expressions.
+REFUSED = [
     "aa {#,during} wide",
     "aa {#,during} ab",
-    # A number as else is no vector map either, also where no map takes the
-    # else branch.
     "if(td(aa) == 1, aa, null())",
 ]
 
 # Each changed rule with a short form of its item in the list of differences
 # in the manual, and what the core gives: "maps" for registered maps, which
-# may be none, or the class of the error as differential.outcome() names it.
+# may be none, or the class of the error as outcomes.outcome() names it.
 # A crash of the core then does not pass for a difference.
 DIFFERENT = {
     # Where a negative buffer leaves a map no time, the core stops with an
@@ -95,27 +97,22 @@ DIFFERENT = {
 }
 
 
-def outcomes(expression):
-    """The outcomes of the reference and of the core"""
-    reference = differential.outcome(
-        "vector", expression, differential.RUNNERS["reference"], basename="fa"
-    )
-    core = differential.outcome(
-        "vector", expression, differential.RUNNERS["core"], basename="fb"
-    )
-    return reference, core
+def run(expression):
+    """The outcome of the core"""
+    return outcomes.outcome("vector", expression, basename="fb")
 
 
 @pytest.mark.parametrize("expression", SAME)
-def test_same_result(vector_series, expression):
-    reference, core = outcomes(expression)
-    assert differential.compare("vector", expression, reference, core) is None
+def test_the_core_computes_the_expression(vector_series, expression):
+    assert "error" not in run(expression)
+
+
+@pytest.mark.parametrize("expression", REFUSED)
+def test_the_core_refuses_a_number_as_a_vector_map(vector_series, expression):
+    assert run(expression)["error"] == "SyntaxError"
 
 
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
-def test_listed_differences_still_differ(vector_series, expression):
-    """A listed difference that no longer differs must leave the list"""
-    reference, core = outcomes(expression)
-    assert differential.compare("vector", expression, reference, core) is not None
-    kind = core.get("error", "maps")
+def test_listed_differences_give_the_listed_outcome(vector_series, expression):
+    kind = run(expression).get("error", "maps")
     assert kind == DIFFERENT[expression][0]

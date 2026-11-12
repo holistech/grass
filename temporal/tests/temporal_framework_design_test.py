@@ -47,7 +47,6 @@ from grass.grassdb.create import create_mapset
 from grass.temporal.testing.contract_trace import called_names, missing_from_contract
 from grass.temporal.testing.manual_examples import (
     NormalizeContext,
-    example_environment,
     normalize,
 )
 from grass.temporal.testing.nc_dataset import (
@@ -486,7 +485,7 @@ def run_prerequisites(name, env, work):
 @pytest.mark.parametrize("name", sorted(EXAMPLE_RUNS))
 def test_example_runs_and_prints_the_shown_output(name, example_mapset, tmp_path):
     session, work = example_mapset
-    env = example_environment(session.env)
+    env = dict(session.env)
     run_prerequisites(name, env, work)
     result = run_example(name, env, work, EXAMPLE_RUNS[name][1])
     assert result.returncode == 0, result.stderr
@@ -499,7 +498,7 @@ def test_example_runs_and_prints_the_shown_output(name, example_mapset, tmp_path
 @pytest.mark.parametrize("name", sorted(EXAMPLE_RUNS))
 def test_example_uses_only_the_contract(name, example_mapset):
     session, work = example_mapset
-    env = example_environment(session.env)
+    env = dict(session.env)
     run_prerequisites(name, env, work)
     names = called_names(EXAMPLES / f"{name}.py", env=env, cwd=work)
     contract = json.loads(CONTRACT.read_text())

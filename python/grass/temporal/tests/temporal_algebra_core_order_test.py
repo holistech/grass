@@ -2,9 +2,9 @@
 
 The expected orders come from the classic algebra, which numbers the result
 maps of an expression in the order of its map list. They were read on
-2026-10-16 by running each expression with run_reference() in a session with
-the datasets of grass.temporal.testing.expressions_data and listing the result
-maps by their number; the series below have the time stamps of the
+2026-10-16 by running each expression on the reference implementation in a
+session with the datasets of grass.temporal.testing.expressions_data and listing
+the result maps by their number; the series below have the time stamps of the
 datasets A, N, AF (daily from 1 January 2001), W (one map, 1 to 5 January),
 Z (daily) and E (four instants on 1 January) of that module. Each test
 names the expression it follows.

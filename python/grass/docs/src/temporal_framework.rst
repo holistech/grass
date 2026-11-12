@@ -681,6 +681,8 @@ imports it inside the function that skips a test. Its modules:
   :mod:`~grass.temporal.testing.corpus_orphans`: running the reference
   implementation, comparing it with the core, and the recorded results of the
   reference that the comparisons read
+- :mod:`~grass.temporal.testing.outcomes`: running an expression on the
+  algebra core and describing the maps it made
 - :mod:`~grass.temporal.testing.algebra_cases`: algebra cases with expected
   values derived by hand
 - :mod:`~grass.temporal.testing.expressions`,

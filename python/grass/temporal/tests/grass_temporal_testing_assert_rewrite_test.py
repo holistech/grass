@@ -11,11 +11,11 @@ from grass.temporal.testing import algebra_cases
 
 
 def test_a_failing_helper_assertion_shows_the_values(monkeypatch):
-    def runner(kind, expression, **options):
+    def run(kind, expression, **options):
         return {"register": ["a", "b"]}
 
-    monkeypatch.setitem(algebra_cases.RUNNERS, "stub", runner)
+    monkeypatch.setattr(algebra_cases, "run_core", run)
     with pytest.raises(AssertionError) as excinfo:
-        algebra_cases.check_dry("raster", "stub", "A", {}, {"register": 3})
+        algebra_cases.check_dry("raster", "A", {}, {"register": 3})
     message = str(excinfo.value)
     assert "2 == 3" in message, message

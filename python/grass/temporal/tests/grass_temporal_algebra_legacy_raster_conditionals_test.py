@@ -2,12 +2,11 @@
 
 Conditional expressions of the raster algebra.
 
-Every case runs in the reference implementation (grass.temporal.classic) and
-in the core. The expected maps are those the old assertions describe (number of maps, extent, minimum, maximum, topology,
-granularity); the comment of a case repeats them. CORE holds the cases where
-the core calculates differently according to the manual ("Differences
-from GRASS 8.5"); SHAPE what the old test asserted besides the maps. The datasets
-are those of algebra_cases, see its builder for the data.
+The expected maps are those the old assertions describe (number of maps,
+extent, minimum, maximum, topology, granularity); the comment of a case repeats
+them. CORE holds the maps the core makes where they differ according to the
+manual ("Differences from GRASS 8.5"); SHAPE what the old test asserted besides
+the maps. The datasets are those of algebra_cases, see its builder for the data.
 """
 
 import pytest
@@ -17,7 +16,6 @@ from grass.tools import Tools
 
 KIND = "raster"
 
-RUNNERS = ["reference", "core"]
 
 CASES = [
     # Old assertions: n 4, minmin 0, maxmax 5, start 2001-01-01, end 2001-01-05, topo True, gran 1 day
@@ -360,24 +358,20 @@ def data(temporal_module_session):
 
 
 def case_id(request):
-    # The last part of the id is the runner.
-    return request.node.callspec.id.rsplit("-", 1)[0]
+    return request.node.callspec.id
 
 
-@pytest.mark.parametrize("runner", RUNNERS)
 @pytest.mark.parametrize(("expression", "options", "expected"), CASES)
-def test_cases(data, request, runner, expression, options, expected):
+def test_cases(data, request, expression, options, expected):
     shape = SHAPE.get(expression)
     message = None
-    if runner == "core":
-        name = case_id(request)
-        if name in CORE:
-            expected = CORE[name]
-            message = CORE_MESSAGE.get(name)
-            shape = SHAPE_CORE.get(name, shape)
+    name = case_id(request)
+    if name in CORE:
+        expected = CORE[name]
+        message = CORE_MESSAGE.get(name)
+        shape = SHAPE_CORE.get(name, shape)
     algebra_cases.check_case(
         KIND,
-        runner,
         expression,
         options,
         expected,

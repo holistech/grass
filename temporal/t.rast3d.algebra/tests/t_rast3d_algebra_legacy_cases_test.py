@@ -2,17 +2,15 @@
 
 The cases are those of test_raster3d_algebra.py on the dataset A of the
 series_3d fixture in conftest.py (a1..a4 = 1..4, daily from 2001-01-01), the
-same as the setUpClass of the old file. Every case runs in the reference
-implementation (grass.temporal.classic) and in the core; both agree on all of
-them, so there is no CORE table. The format is
-that of t_rast_algebra_legacy_cases_test.py: (expression, options of the
-runner, expected maps as (start, end, min, max) or the name of the error
-class).
+same as the setUpClass of the old file. The core makes the maps the old
+file expects, so there is no CORE table. The format is that of
+t_rast_algebra_legacy_cases_test.py: (expression, options of the runner,
+expected maps as (start, end, min, max) or the name of the error class).
 """
 
 import pytest
 
-from grass.temporal.testing.differential import RUNNERS, outcome
+from grass.temporal.testing.outcomes import outcome
 
 KIND = "raster3d"
 
@@ -52,12 +50,9 @@ CASES = [
 ]
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "options", "expected"), CASES)
-def test_cases(series_3d, runner, expression, options, expected):
-    result = outcome(
-        KIND, expression, RUNNERS[runner], basename=f"l3{runner[:2]}", **options
-    )
+def test_cases(series_3d, expression, options, expected):
+    result = outcome(KIND, expression, basename="l3co", **options)
     if isinstance(expected, str):
         assert result["error"] == expected
         return

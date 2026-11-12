@@ -7,9 +7,8 @@ points (seeds 1, 1, 1, 1 for A, 2, 2 for B, 3 for C and 4, 4, 4 for D, so the
 maps of a dataset are copies of each other). The format is that of
 t_rast_algebra_legacy_cases_test.py, with the numbers of points, lines and
 areas of a map in place of its minimum and maximum: (start, end, points, lines,
-areas). Every case runs in the reference implementation
-(grass.temporal.classic) and in the core; both agree on all of them, so there
-is no CORE table.
+areas). The core makes the maps the old test expects, so
+there is no CORE table.
 
 The old test asserted the numbers of areas of a dataset, not of a map. Where a
 case yields maps built from identical inputs the sum divides equally; the
@@ -23,7 +22,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.testing.data import MapSpec, register_stds
-from grass.temporal.testing.differential import RUNNERS, outcome
+from grass.temporal.testing.outcomes import outcome
 from grass.tools import Tools
 
 KIND = "vector"
@@ -160,15 +159,12 @@ def legacy(vector_series):
     return vector_series
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "options", "expected"), CASES)
-def test_cases(legacy, runner, expression, options, expected):
-    result = outcome(
-        KIND, expression, RUNNERS[runner], basename=f"lv{runner[:2]}", **options
-    )
+def test_cases(legacy, expression, options, expected):
+    result = outcome(KIND, expression, basename="lvco", **options)
     assert "error" not in result, result
     assert sorted(tuple(row[1:]) for row in result["maps"]) == sorted(expected)
-    result_set = tgis.open_old_stds(f"Rlv{runner[:2]}", "stvds")
+    result_set = tgis.open_old_stds("Rlvco", "stvds")
     assert (
         result_set.check_temporal_topology(),
         result_set.get_granularity(),

@@ -3,8 +3,8 @@
 Each builder below makes the datasets of a group of cases in a test session
 and its docstring lists the maps with their values and times. Every map is
 constant, so the region is small and the expected value of a result follows
-from the values of the maps. check_case() and check_dry() compare what an
-algebra runner makes with the expected maps. A case is (expression, options
+from the values of the maps. check_case() and check_dry() compare what the
+algebra core makes with the expected maps. A case is (expression, options
 of the runner, expected), the format of the t.rast.algebra cases;
 ``expected`` is a list of maps (start, end, min, max) or, for vector maps,
 (start, end, points, lines, areas), or the name of the error class that the
@@ -32,7 +32,7 @@ from grass.temporal.testing.data import (
     register_stds,
     small_region,
 )
-from grass.temporal.testing.differential import RUNNERS, outcome
+from grass.temporal.testing.outcomes import outcome, run_core
 
 
 def when(month, day=1, year=2001):
@@ -353,12 +353,11 @@ def _order(row):
 
 
 def check_case(
-    kind, runner, expression, options, expected, shape=None, message=None, names=None
+    kind, expression, options, expected, shape=None, message=None, names=None
 ):
-    """Run an expression with a runner and compare the result with the case
+    """Run an expression on the core and compare the result with the case
 
     :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``
-    :param runner: ``"reference"`` or ``"core"``
     :param expression: The right hand side, run as ``R = <expression>``
     :param expected: See the module docstring; dates are ``"2001-01-02"`` or,
         off midnight, ``"2001-01-02T12:00:00"``; an instant has the end None
@@ -372,8 +371,8 @@ def check_case(
     :param names: The names of the result maps (without the mapset) in the
         order of their start times
     """
-    base = f"lc{runner[:2]}"
-    result = outcome(kind, expression, RUNNERS[runner], basename=base, **options)
+    base = "lcco"
+    result = outcome(kind, expression, basename=base, **options)
     if isinstance(expected, str):
         assert result.get("error") == expected, result
         if message:
@@ -397,15 +396,15 @@ def check_case(
         assert (stds.check_temporal_topology(), stds.get_granularity()) == shape
 
 
-def check_dry(kind, runner, expression, options, expected):
-    """Plan an expression with a runner and compare the process chain
+def check_dry(kind, expression, options, expected):
+    """Plan an expression on the core and compare the process chain
 
     ``expected`` is a dict with the numbers of the maps to register
     (``register``) and of the planned processes (``processes``), optionally
     the names of the first and last process (``names``) and the type of the
     result (``stdstype``, default strds); the result is always named R.
     """
-    chain = RUNNERS[runner](
+    chain = run_core(
         kind, f"R = {expression}", basename="r", overwrite=True, run=True,
         dry_run=True, **options,
     )  # fmt: skip

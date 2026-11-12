@@ -2,9 +2,8 @@
 
 A month or year step that ends behind the last day of a shorter month ends
 on that day. Before, the library raised a ValueError ("day is out of range
-for month") and the expression stopped in every algebra. The reference
-implementation (grass.temporal.classic) and the core give the same maps, for
-each kind of dataset and for the selection of t.select.
+for month") and the expression stopped in every algebra. The core gives the
+maps below, for each kind of dataset and for the selection of t.select.
 """
 
 from datetime import datetime
@@ -12,7 +11,7 @@ from datetime import datetime
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.temporal.testing.differential import RUNNERS, outcome
+from grass.temporal.testing.outcomes import outcome
 from grass.tools import Tools
 
 pytestmark = pytest.mark.slow
@@ -54,7 +53,6 @@ def datasets(temporal_module_session):
         )
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize("kind", list(KINDS))
 @pytest.mark.parametrize(
     ("expression", "start", "end"),
@@ -76,15 +74,14 @@ def datasets(temporal_module_session):
     ],
 )
 def test_month_and_year_steps_end_on_the_last_day_of_a_shorter_month(
-    datasets, runner, kind, expression, start, end
+    datasets, kind, expression, start, end
 ):
     stds_type, prefix = KINDS[kind]
     options = {"stdstype": stds_type} if kind == "select" else {}
     result = outcome(
         kind,
         expression.format(prefix),
-        RUNNERS[runner],
-        basename=f"me{runner}",
+        basename="me",
         **options,
     )
     assert "error" not in result, result

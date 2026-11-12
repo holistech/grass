@@ -14,7 +14,6 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.exceptions import FatalError
-from grass.temporal.testing.reference import reference_parser
 from grass.tools import ToolError, Tools
 
 pytestmark = pytest.mark.real_io
@@ -733,27 +732,6 @@ def test_debug_output_without_run(vector_series, capsys):
     parser = tgis.TemporalVectorAlgebraParser(run=False, debug=True)
     parser.parse("dbg = aa & ab", "dbg", True)
     assert not capsys.readouterr().out
-
-
-@pytest.mark.parametrize("run", [True, False])
-def test_debug_output_of_the_reference(vector_series, capsys, run):
-    """With debug=True the reference prints the parsed rules, with or
-    without running. Only the reference keeps this output; the core prints
-    the module calls."""
-    parser = reference_parser("vector", run=run, debug=True)
-    parser.parse("dbg = aa & ab", "dbg", True)
-    assert "aa&ab" in capsys.readouterr().out
-
-
-def test_deprecated_overlay_cmd_value_alias(vector_series, monkeypatch):
-    """overlay_cmd_value forwards to operator_cmd_value with the new arguments"""
-    parser = reference_parser("vector", run=True, debug=False)
-    calls = []
-    monkeypatch.setattr(
-        parser, "operator_cmd_value", lambda *args: calls.append(args) or ["cmd"]
-    )
-    assert parser.overlay_cmd_value("map", {}, "&", ["DURING"]) == ["cmd"]
-    assert calls == [("map", "&", ["DURING"])]
 
 
 @pytest.mark.parametrize(

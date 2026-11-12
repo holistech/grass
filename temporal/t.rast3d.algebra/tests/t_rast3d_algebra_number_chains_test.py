@@ -7,7 +7,7 @@ As t_rast_algebra_number_chains_test.py. A has four maps with the values 1, 2,
 import pytest
 
 from grass.temporal.testing import io_cache
-from grass.temporal.testing.differential import RUNNERS, outcome, prepare
+from grass.temporal.testing.outcomes import outcome, prepare
 
 KIND = "raster3d"
 
@@ -35,10 +35,9 @@ def cached_io(datasets):
     """Replace the fixture of conftest.py: the caches run through datasets"""
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "new", "old"), CHAINS)
-def test_a_chain_is_grouped_from_the_left(datasets, runner, expression, new, old):
+def test_a_chain_is_grouped_from_the_left(datasets, expression, new, old):
     assert new != old
-    result = outcome(KIND, expression, RUNNERS[runner], basename="fa")
+    result = outcome(KIND, expression, basename="fa")
     assert "error" not in result, result
     assert [low for *_, low, _high in result["maps"]] == new

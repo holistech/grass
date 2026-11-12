@@ -1,18 +1,15 @@
-"""Comparison of the algebra core with the classic algebra
+"""The algebra core on expressions that the classic algebra read the same way
 
-The outcome of the classic algebra is that of the reference implementation
-(grass.temporal.classic), which runs in each test. The registered maps (start,
-end, minimum and maximum, rounded to 6 significant digits) must agree, except
-for the differences that the manual lists between the core and the releases
-before GRASS 8.6. Values are compared rather than r.mapcalc expressions,
-because the two write them differently.
+Each expression of SAME is computed and planned, and must compute each result
+map with one r.mapcalc call. DIFFERENT lists the changed rules with a short form of the
+item in the list of differences in the manual and the class of the outcome of
+the core. The registered maps are compared as start, end, minimum and maximum,
+rounded to 6 significant digits.
 """
-
-import random
 
 import pytest
 
-from grass.temporal.testing import differential
+from grass.temporal.testing import outcomes
 
 SAME = [
     "A + N",
@@ -169,35 +166,20 @@ GRANULARITY_DIFFERENT = {
 def without_names(result):
     """The outcome without the names of the maps
 
-    The reference and the core count the maps in another order, so the names
-    differ; the comparison of the core with the classic profile, which this
-    test made before, did not read them either.
+    The classic algebra counted the maps in another order than the core, so
+    the names differed; the equivalent spellings of EXTENDED are compared by
+    time and value alone.
     """
     if "maps" in result:
         result = {**result, "maps": [[None, *row[1:]] for row in result["maps"]]}
     return result
 
 
-def run(runner, expression, **options):
-    """The outcome of a runner of differential.RUNNERS, without map names"""
-    basename = {"reference": "fa", "core": "fb"}[runner]
+def run(expression, basename="fb", **options):
+    """The outcome of the core, without map names"""
     options = {"register_null": True, **options}
     return without_names(
-        differential.outcome(
-            "raster",
-            expression,
-            differential.RUNNERS[runner],
-            basename=basename,
-            **options,
-        )
-    )
-
-
-def difference(expression, **options):
-    """What compare() finds between the reference and the core"""
-    reference = run("reference", expression, **options)
-    return differential.compare(
-        "raster", expression, reference, run("core", expression, **options)
+        outcomes.outcome("raster", expression, basename=basename, **options)
     )
 
 
@@ -206,65 +188,22 @@ def kind(result):
     return result.get("error", "maps")
 
 
-@pytest.mark.parametrize("expression", SAME)
-def test_same_result(algebra, expression):
-    assert difference(expression) is None
-
-
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
-def test_listed_differences_still_differ(algebra, expression):
-    """A listed difference that no longer differs must leave the list"""
-    assert difference(expression) is not None
-    assert kind(run("core", expression)) == DIFFERENT[expression][0]
+def test_listed_differences_give_the_listed_outcome(algebra, expression):
+    assert kind(run(expression)) == DIFFERENT[expression][0]
 
 
 @pytest.mark.parametrize(("expression", "equivalent"), EXTENDED.items())
 def test_extended_syntax(algebra, expression, equivalent):
-    assert kind(run("reference", expression)) == "SyntaxError"
-    expected = run("reference", equivalent)
+    expected = run(equivalent, basename="fa")
     assert kind(expected) == "maps"
-    core = run("core", expression)
-    assert differential.compare("raster", expression, expected, core) is None
+    core = run(expression)
+    assert outcomes.compare("raster", expression, expected, core) is None
 
 
-RANDOM_DATASETS = ("A", "N", "D", "HA")
-
-
-def random_expression(generator, depth=0):
-    """Arithmetic and selections on datasets of equal intervals, where both
-    parsers must agree
-
-    The classic grammar has no rule for a dataset or a number alone, for a
-    dataset in parentheses or for abs() of a number (checked 12 October 2026
-    by parsing with run=False). The core reads all of them, so such
-    expressions would compare a result with a syntax error.
-    """
-    if depth == 3 or (depth > 0 and generator.random() < 0.3):
-        return generator.choice([*RANDOM_DATASETS, str(generator.randint(1, 5))])
-    form = generator.choice(
-        ["{} + {}", "{} - {}", "{} * {}", "({}) : {}", "abs({}) + {}"]
-    )
-    left = random_expression(generator, depth + 1)
-    right = random_expression(generator, depth + 1)
-    if not any(name in left + right for name in RANDOM_DATASETS) or (
-        form in {"({}) : {}", "abs({}) + {}"}
-        and not any(name in left for name in RANDOM_DATASETS)
-    ):
-        left = "A"
-    if form == "({}) : {}":
-        if not any(name in right for name in RANDOM_DATASETS):
-            right = "N"
-        if left in RANDOM_DATASETS:
-            form = "{} : {}"
-    return form.format(left, right)
-
-
-RANDOM = [random_expression(random.Random(seed)) for seed in range(30)]
-
-
-@pytest.mark.parametrize("expression", RANDOM)
-def test_random_expressions(algebra, expression):
-    assert difference(expression) is None
+@pytest.mark.parametrize("expression", SAME)
+def test_the_core_computes_the_expression(algebra, expression):
+    assert kind(run(expression)) == "maps"
 
 
 def mapcalc_calls(chain):
@@ -278,24 +217,21 @@ def test_one_mapcalc_call_per_map(algebra, expression):
     assert mapcalc_calls(chain) == len(chain["register"])
 
 
-@pytest.mark.parametrize("expression", GRANULARITY_SAME)
-def test_granularity_same_result(algebra, expression):
-    assert difference(expression, granularity=True) is None
-
-
 @pytest.mark.parametrize("expression", sorted(GRANULARITY_DIFFERENT))
-def test_granularity_listed_differences_still_differ(algebra, expression):
-    """A listed difference that no longer differs must leave the list"""
-    assert difference(expression, granularity=True) is not None
-    core = run("core", expression, granularity=True)
+def test_granularity_listed_differences_give_the_listed_outcome(algebra, expression):
+    core = run(expression, granularity=True)
     assert kind(core) == GRANULARITY_DIFFERENT[expression][0]
+
+
+@pytest.mark.parametrize("expression", GRANULARITY_SAME)
+def test_granularity_computes_the_expression(algebra, expression):
+    assert kind(run(expression, granularity=True)) == "maps"
 
 
 def test_granularity_with_the_spatial_flag(algebra):
     """The sampled maps keep their spatial extent, so that the spatial
     relation of -s finds them"""
-    assert len(run("core", "A + B", granularity=True, spatial=True)["maps"]) == 4
-    assert difference("A + B", granularity=True, spatial=True) is None
+    assert len(run("A + B", granularity=True, spatial=True)["maps"]) == 4
 
 
 @pytest.mark.parametrize("expression", GRANULARITY_SAME)

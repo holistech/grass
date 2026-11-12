@@ -2,12 +2,11 @@
 
 Temporalalgebraparser, the select algebra of t.select.
 
-Every case runs in the reference implementation (grass.temporal.classic) and
-in the core. The expected maps are those the old assertions describe (number of maps, extent, minimum, maximum, topology,
-granularity); the comment of a case repeats them. CORE holds the cases where
-the core calculates differently according to the manual ("Differences
-from GRASS 8.5"); SHAPE what the old test asserted besides the maps. The datasets
-are those of algebra_cases, see its builder for the data.
+The expected maps are those the old assertions describe (number of maps,
+extent, minimum, maximum, topology, granularity); the comment of a case repeats
+them. CORE holds the maps the core makes where they differ according to the
+manual ("Differences from GRASS 8.5"); SHAPE what the old test asserted besides
+the maps. The datasets are those of algebra_cases, see its builder for the data.
 """
 
 import re
@@ -17,12 +16,11 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 
-from grass.temporal.testing import differential, algebra_cases
+from grass.temporal.testing import algebra_cases, outcomes
 from grass.tools import Tools
 
 KIND = "select"
 
-RUNNERS = ["reference", "core"]
 
 CASES = [
     # Old assertions: n 4, minmin 1, maxmax 4, start 2001-01-01, end 2001-01-05, topo True, gran 1 day
@@ -247,7 +245,7 @@ TIME_FUNCTION_REFUSED = (
     "A time function such as start_doy() cannot be the result of a selection"
 )
 
-# What the core makes of a planned run where the reference plans maps: a time
+# What the core makes of a planned run of a time
 # function as the conclusion of if() gives no map, so the core refuses it, as
 # t.select.md says (decided 20.10.2026).
 DRY_REFUSED = {"time constant (dry run)": ("ValueError", TIME_FUNCTION_REFUSED)}
@@ -261,24 +259,20 @@ def data(temporal_module_session):
 
 
 def case_id(request):
-    # The last part of the id is the runner.
-    return request.node.callspec.id.rsplit("-", 1)[0]
+    return request.node.callspec.id
 
 
-@pytest.mark.parametrize("runner", RUNNERS)
 @pytest.mark.parametrize(("expression", "options", "expected"), CASES)
-def test_cases(data, request, runner, expression, options, expected):
+def test_cases(data, request, expression, options, expected):
     shape = SHAPE.get(expression)
     message = None
-    if runner == "core":
-        name = case_id(request)
-        if name in CORE:
-            expected = CORE[name]
-            message = CORE_MESSAGE.get(name)
-            shape = SHAPE_CORE.get(name, shape)
+    name = case_id(request)
+    if name in CORE:
+        expected = CORE[name]
+        message = CORE_MESSAGE.get(name)
+        shape = SHAPE_CORE.get(name, shape)
     algebra_cases.check_case(
         KIND,
-        runner,
         expression,
         options,
         expected,
@@ -288,15 +282,14 @@ def test_cases(data, request, runner, expression, options, expected):
     )
 
 
-@pytest.mark.parametrize("runner", RUNNERS)
 @pytest.mark.parametrize(("expression", "options", "expected"), DRY)
-def test_dry_runs(data, request, runner, expression, options, expected):
-    refused = DRY_REFUSED.get(case_id(request)) if runner == "core" else None
+def test_dry_runs(data, request, expression, options, expected):
+    refused = DRY_REFUSED.get(case_id(request))
     if refused is not None:
         with pytest.raises(ValueError, match=re.escape(refused[1])):
-            algebra_cases.check_dry(KIND, runner, expression, options, expected)
+            algebra_cases.check_dry(KIND, expression, options, expected)
     else:
-        algebra_cases.check_dry(KIND, runner, expression, options, expected)
+        algebra_cases.check_dry(KIND, expression, options, expected)
 
 
 def test_the_core_refuses_a_time_function_as_the_selected_maps(data):
@@ -304,10 +297,9 @@ def test_the_core_refuses_a_time_function_as_the_selected_maps(data):
     # the result dataset or a map. A basename of its own, so that the maps of
     # the other cases do not hide a map of this run.
     basename = "tfco"
-    result = differential.outcome(
+    result = outcomes.outcome(
         KIND,
         "if(start_doy(A)<3,start_doy(A, 1), A)",
-        differential.RUNNERS["core"],
         basename=basename,
         stdstype="strds",
     )

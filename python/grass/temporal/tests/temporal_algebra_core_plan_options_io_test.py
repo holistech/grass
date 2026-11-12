@@ -9,7 +9,7 @@ The tests that need no session are in temporal_algebra_core_plan_options_test.py
 import pytest
 
 import grass.temporal.algebra as ta
-from grass.temporal.testing import differential, readback
+from grass.temporal.testing import outcomes, readback
 from grass.tools import Tools
 
 
@@ -17,7 +17,7 @@ from grass.tools import Tools
 def session(temporal_module_session, tmp_path_factory):
     directory = tmp_path_factory.mktemp("data")
     for kind in ("raster", "vector"):
-        differential.prepare(kind, temporal_module_session, directory)
+        outcomes.prepare(kind, temporal_module_session, directory)
     tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
     tools.g_region(n=3, s=0, e=3, w=0, res=1)
     return temporal_module_session

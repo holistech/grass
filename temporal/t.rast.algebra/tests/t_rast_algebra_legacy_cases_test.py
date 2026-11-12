@@ -10,10 +10,10 @@ last end), written out per map: every map is constant, so a case lists
 (start, end, value, value). The per-map values follow from the values of the
 maps, which are given beside the cases.
 
-Every case runs in the reference implementation (grass.temporal.classic) and
-in the core. CORE holds the cases where the core differs, with the item of the
-section "Differences from GRASS 8.5" in the manual of t.rast.algebra that
-documents the difference.
+The expected maps of a case are those the old tests asserted. CORE holds the
+maps the core makes where they differ, with the item of the section
+"Differences from GRASS 8.5" in the manual of t.rast.algebra that documents the
+difference.
 """
 
 import datetime
@@ -23,7 +23,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.temporal.testing.differential import RUNNERS, outcome
+from grass.temporal.testing.outcomes import outcome
 from grass.tools import Tools
 
 KIND = "raster"
@@ -475,7 +475,7 @@ GRANULARITY_ONLY = {"granularity": True}
 # error, here the doubled sign is the expression. The old tests only asked for
 # a failure (assertModuleFail). In granularity mode the pre-pass that samples
 # the datasets fails first, with "Unable to process the expression in
-# granularity algebra mode" (FatalError) in all three runners: for a missing
+# granularity algebra mode" (FatalError): for a missing
 # brace, for operators with temporal relations in curly brackets, which the
 # manual rules out in this mode, and for maps that overlap (GO), checked
 # 19.10.2026.
@@ -510,8 +510,8 @@ FAILS = [
 ]
 
 
-def run(runner, expression, options, name):
-    return outcome(KIND, expression, RUNNERS[runner], basename=name, **options)
+def run(expression, options, name):
+    return outcome(KIND, expression, basename=name, **options)
 
 
 def maps_of(result):
@@ -526,37 +526,32 @@ def check_shape(result_name, shape):
     assert (stds.check_temporal_topology(), stds.get_granularity()) == shape
 
 
-def check(runner, request, expression, options, expected, shapes):
-    if runner == "core":
-        expected = CORE.get(request.node.callspec.id.rsplit("-", 1)[0], expected)
-    result = run(runner, expression, options, f"lc{runner[:2]}")
+def check(request, expression, options, expected, shapes):
+    expected = CORE.get(request.node.callspec.id, expected)
+    result = run(expression, options, "lcco")
     assert maps_of(result) == sorted(expected)
     if expression in shapes and expected:
-        check_shape(f"Rlc{runner[:2]}", shapes[expression])
+        check_shape("Rlcco", shapes[expression])
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "options", "expected"), ARITHMETIC)
-def test_arithmetic_cases(algebra, request, runner, expression, options, expected):
-    check(runner, request, expression, options, expected, SHAPE)
+def test_arithmetic_cases(algebra, request, expression, options, expected):
+    check(request, expression, options, expected, SHAPE)
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "options", "expected"), OPERATORS)
-def test_operator_cases(algebra, request, runner, expression, options, expected):
-    check(runner, request, expression, options, expected, SHAPE)
+def test_operator_cases(algebra, request, expression, options, expected):
+    check(request, expression, options, expected, SHAPE)
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "options", "expected"), GRANULARITY)
-def test_granularity_cases(monthly, request, runner, expression, options, expected):
-    check(runner, request, expression, options, expected, GRANULARITY_SHAPE)
+def test_granularity_cases(monthly, request, expression, options, expected):
+    check(request, expression, options, expected, GRANULARITY_SHAPE)
 
 
-@pytest.mark.parametrize("runner", ["reference", "core"])
 @pytest.mark.parametrize(("expression", "options", "error"), FAILS)
-def test_failing_cases(monthly, runner, expression, options, error):
-    assert run(runner, expression, options, f"lf{runner[:2]}")["error"] == error
+def test_failing_cases(monthly, expression, options, error):
+    assert run(expression, options, "lfco")["error"] == error
 
 
 def test_every_shape_belongs_to_a_case():

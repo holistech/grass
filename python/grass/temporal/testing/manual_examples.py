@@ -67,7 +67,6 @@ import grass.script as gs
 from grass.grassdb.create import create_mapset
 
 from . import nc_dataset, postgresql
-from .corpus import MODE_VARIABLE
 from .session import project_session
 from .versions import downgrade_to_version_2
 
@@ -599,15 +598,6 @@ class BlockResult:
     skipped: str | None = None
 
 
-def example_environment(env: dict) -> dict:
-    """Return a copy of env for the blocks of a manual
-
-    Without GRASS_TEMPORAL_REFERENCE: the tests of the repository also run
-    with it set, and an example has to show what a reader gets without it.
-    """
-    return {key: value for key, value in env.items() if key != MODE_VARIABLE}
-
-
 def _gdal_reason(driver: str) -> str | None:
     try:
         from osgeo import gdal  # noqa: PLC0415
@@ -699,7 +689,7 @@ def _run_shell(blocks: list[Block], session, workdir: Path) -> list[BlockResult]
             downgrade_to_version_2(session)
         returncode, stdout, stderr = _run(
             ["bash", "-e", "-o", "pipefail", "-c", block.code],
-            env=example_environment(session.env),
+            env=session.env,
             cwd=workdir,
             seconds=BLOCK_SECONDS,
         )
@@ -735,7 +725,7 @@ def _run_python(
         # Python prints and what the tools it starts write to the same pipe.
         returncode, stdout, stderr = _run(
             [sys.executable, "-u", "-c", _DRIVER],
-            env=example_environment(session.env),
+            env=session.env,
             cwd=workdir,
             seconds=BLOCK_SECONDS * len(runnable),
             stdin=json.dumps(job),
@@ -850,8 +840,7 @@ def run_manual(
     control comment says not-run or names a requirement that does not hold
     here; requires=old-database turns the temporal database into version 2
     before the block. After a failing block, the later ones are skipped. The
-    blocks see the environment of the session without the variables that
-    choose an algebra (example_environment).
+    blocks see the environment of the session.
 
     Returns one result per block, in the order of the document.
     """

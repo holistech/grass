@@ -9,7 +9,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.temporal.testing.differential import RUNNERS, outcome
+from grass.temporal.testing.outcomes import outcome
 from grass.tools import Tools
 
 
@@ -90,9 +90,8 @@ def test_conditions_related_by_two_names_pair_with_maps_of_equal_time(algebra):
     """Two condition maps of one time are paired one to one with two
     conclusion maps of another time, also where each condition map relates
     to each conclusion map by two of the written names: ec1 and ec2 [1,2]
-    are during and start ea1 and ea2 [1,3]. A related map counts once, so
-    the reference implementation and the core agree. td() is
-    one day, so ea1 and ea2 are kept; ea3 [3,4] has no related condition,
+    are during and start ea1 and ea2 [1,3]. A related map counts once.
+    td() is one day, so ea1 and ea2 are kept; ea3 [3,4] has no related condition,
     which a relation beyond equal reads as false, so it gets the else 0."""
     tools = Tools(session=algebra.session)
     create_stds(
@@ -121,11 +120,5 @@ def test_conditions_related_by_two_names_pair_with_maps_of_equal_time(algebra):
         ["N_1", "2001-01-01T00:00:00", "2001-01-03T00:00:00", 20.0, 20.0],
         ["N_2", "2001-01-03T00:00:00", "2001-01-04T00:00:00", 0.0, 0.0],
     ]
-    for runner, basename in (("reference", "fa"), ("core", "fk")):
-        result = outcome(
-            "raster",
-            "if({during|starts}, td(EC) > 0, EA, 0)",
-            RUNNERS[runner],
-            basename=basename,
-        )
-        assert result.get("maps") == expected, (runner, result)
+    result = outcome("raster", "if({during|starts}, td(EC) > 0, EA, 0)", basename="fk")
+    assert result.get("maps") == expected, result
