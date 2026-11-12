@@ -5,12 +5,6 @@ of the module that could compute it. Scalar values, one value per slot such
 as the length of an interval, are folded into constants while a tree is
 built, so a tree without map references can be decided in Python.
 
-Every class has a field mark that the core neither sets nor reads. A variant
-of the algebra attaches an identity to a content with it, for the maps that
-it tells apart although their trees are equal. The mark takes no part in
-equality, hash or repr, so two contents that differ only in their mark are
-equal and the core cannot tell them apart.
-
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -20,7 +14,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 import math
 import operator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -29,7 +23,6 @@ class MapRef:
 
     ident: str
     offset: tuple[int, ...] = ()
-    mark: object = field(default=None, compare=False, repr=False, kw_only=True)
 
 
 @dataclass(frozen=True)
@@ -37,7 +30,6 @@ class Const:
     """A constant value; None is null"""
 
     value: object = None
-    mark: object = field(default=None, compare=False, repr=False, kw_only=True)
 
 
 @dataclass(frozen=True)
@@ -46,7 +38,6 @@ class Call:
 
     function: str
     args: tuple
-    mark: object = field(default=None, compare=False, repr=False, kw_only=True)
 
 
 @dataclass(frozen=True)
@@ -59,7 +50,6 @@ class SeriesReduce:
 
     method: str
     args: tuple
-    mark: object = field(default=None, compare=False, repr=False, kw_only=True)
 
 
 @dataclass(frozen=True)
@@ -85,7 +75,6 @@ class SeriesAggregate:
     args: tuple
     file_limit: int = 1000
     weights: tuple | None = None
-    mark: object = field(default=None, compare=False, repr=False, kw_only=True)
 
 
 Content = MapRef | Const | Call | SeriesReduce | SeriesAggregate
