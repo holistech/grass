@@ -2,8 +2,8 @@
 
 datetime holds no date after 9999-12-31. A step in days past it used to raise
 OverflowError, which the core does not catch, so the tool ended with a
-traceback. The step now raises ValueError, as the step in months does, and the tool reports it as
-an error of the input.
+traceback. The step now raises ValueError, as the step in months does, and the tool
+reports it as an error of the input.
 """
 
 from datetime import datetime

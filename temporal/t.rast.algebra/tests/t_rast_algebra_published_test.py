@@ -7,9 +7,9 @@ fixture below. The paper writes the relation equals, which the algebra reads
 as another name of equal.
 
 Each expected map is derived by hand in the comment above it. The values
-equal those the reference implementation of the releases before GRASS 8.6
-computed, recorded from the reference implementation on 2026-11-11, with one
-difference under -n that the case itself describes.
+equal those the reference implementation (grass.temporal.classic before its
+removal) computed, recorded on 2026-11-11, with one difference under -n that
+the case itself describes.
 
 t_rast_algebra_paper_test.py checks the figures of the paper against their
 printed results. The caption of one figure misspells precedes; that spelling

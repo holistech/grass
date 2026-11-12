@@ -1,10 +1,13 @@
 """The algebra core on vector expressions that the classic algebra read the same way
 
-Each expression of SAME gives the outcome that the reference implementation of
-the releases before GRASS 8.6 gave (data/reference_outcomes.json), each of
-REFUSED is a syntax error in both. DIFFERENT lists the changed rules with a short form of the item
-in the list of differences in the manual and what the core gives. The registered maps are compared as
-identifier, start, end and the numbers of points, lines and areas.
+Each expression of SAME gives the outcome that the reference implementation
+gave (recorded in data/reference_outcomes.json on
+2026-11-12; the reference implementation already included the corrections
+listed in the changes page, so the values are not those of GRASS 8.5),
+each of REFUSED is a syntax error in both. DIFFERENT lists the changed rules
+with a short form of the item in the list of differences in the manual and what
+the core gives. The registered maps are compared as identifier, start, end and
+the numbers of points, lines and areas.
 """
 
 import json

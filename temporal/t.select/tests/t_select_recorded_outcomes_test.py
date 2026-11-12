@@ -1,10 +1,12 @@
 """The algebra core on t.select expressions that the classic algebra read the same way
 
-Each expression of SAME selects the maps that the reference implementation of
-the releases before GRASS 8.6 selected (data/reference_outcomes.json), from the
-datasets of conftest.py.
-DIFFERENT lists the changed rules with the item of the manual's list of
-differences from the releases before GRASS 8.6 and the outcome of the core.
+Each expression of SAME selects the maps that the reference implementation
+selected (recorded in data/reference_outcomes.json on
+2026-11-12; the reference implementation already included the corrections
+listed in the changes page, so the values are not those of GRASS 8.5),
+from the datasets of conftest.py. DIFFERENT lists the changed rules with the
+item of the manual's list of differences from the releases before GRASS 8.6 and
+the outcome of the core.
 """
 
 import itertools

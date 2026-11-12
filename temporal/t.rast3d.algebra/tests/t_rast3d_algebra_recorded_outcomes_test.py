@@ -1,10 +1,12 @@
-"""The algebra core on 3D raster expressions that the classic algebra read the same way
+"""The algebra core on 3D raster expressions the classic algebra read the same way
 
-Each expression of SAME gives the outcome that the reference implementation of
-the releases before GRASS 8.6 gave (data/reference_outcomes.json). DIFFERENT lists the
-changed rules with a short form of the item in the list of differences in the
-manual and the class of the outcome of the core, which is the class of the
-error or "maps". The registered maps are compared as start, end, minimum and
+Each expression of SAME gives the outcome that the reference implementation
+gave (recorded in data/reference_outcomes.json on
+2026-11-12; the reference implementation already included the corrections
+listed in the changes page, so the values are not those of GRASS 8.5).
+DIFFERENT lists the changed rules with a short form of the item in the list of
+differences in the manual and the class of the outcome of the core, which is
+the class of the error or "maps". The registered maps are compared as start, end, minimum and
 maximum, rounded to 6 significant digits.
 """
 

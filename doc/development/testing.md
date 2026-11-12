@@ -279,10 +279,12 @@ the library tests that came from the former gunittest files
 (`grass_temporal_algebra_legacy_*_test.py`) take their datasets and checks
 from `grass.temporal.testing.algebra_cases`.
 
-The classic implementation of the algebra, which the releases up to GRASS 8.5
-computed with, is not in the repository any more. Where a test keeps a result
-of it, the result is a value in the test or in a data file, with the date on
-which it was recorded.
+The classic implementation of the algebra is not in the repository any more.
+Where a test keeps a result of it, the result is a value in the test or in a
+data file, with the date on which it was recorded. The recorded results are
+those of the reference implementation of 2026-11-12, which already included
+the corrections listed in the changes page, so they are not the results of
+GRASS 8.5.
 
 ### Recordings of the library
 
