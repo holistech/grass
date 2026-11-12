@@ -126,6 +126,15 @@ on precedence.
     on the left of `{&&,...}` without a related map. Now **-n** registers a
     null map for each such map
     ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
+- **Blanks in operators.** A blank after a comma of an operator in curly
+    brackets, as in `aa {&,equal, l} ab` or `A {+,equal, l} B`, was a syntax
+    error. Now it is read in all algebra tools
+    ([t.vect.algebra](t.vect.algebra.md#temporal-operators)).
+- **Maps that touch under -s.** Under **-s**, a selection with the temporal
+    operator `r` or `u` took its time also from a map whose box only touches
+    the other map at a corner, which is no spatial relation. Now the time
+    comes from the maps that are related in time and in space
+    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Errors in Python and dry runs.** In Python, an expression that cannot
     be computed raised `FatalError`, and a dry run checked existing results
     only at the maps. Now the new algebra raises `ValueError` or
@@ -164,19 +173,17 @@ on precedence.
     initial value`. Now **-g** reads the names from the syntax tree, so text
     in a function and `!=` cause no error, and an expression that names no
     dataset prints a warning and computes as without **-g**, because there
-    is nothing to sample. Of 333 recorded expressions, 26 gave another
-    answer; the others are unchanged
+    is nothing to sample
     ([t.rast.algebra](t.rast.algebra.md#granularity-algebra)).
 
 ## Corrected results of the algebra
 
 In the cases below, GRASS 8.5 and the releases before it computed a wrong
 result, refused an expression that they should compute, or computed one that
-they should refuse, with a few exceptions that the entries name. GRASS 8.6
-gives the result described. Results of an earlier release that used one of
-these forms need a new run. The manuals of the algebra tools describe many of
-these corrections with examples, in their sections "Results corrected since
-GRASS 8.5".
+they should refuse. GRASS 8.6 gives the result described. Results of an
+earlier release that used one of these forms need a new run. The manuals of
+the algebra tools describe many of these corrections with examples, in their
+sections "Results corrected since GRASS 8.5".
 
 - **Unknown relations.** Unknown relations, such as `{:,bogus}` or
     `{+,nonsense}`, and operators of the wrong type gave no result without
@@ -184,8 +191,9 @@ GRASS 8.5".
     expression ([t.rast.algebra](t.rast.algebra.md#temporal-relations)).
 - **The default relation of a selection.** `{:}` and `{!:}` gave no
     result, and the default relation included the spatial relation
-    `equivalent`. Now the default relation is `equal`, `{:}` selects the
-    maps of equal time and `{!:}` gives an empty result
+    `equivalent`. Now the default relation is `equal`: `{:}` selects the maps
+    of equal time, as `:` does, and `{!:}` the maps without a map of equal
+    time, as `!:` does
     ([t.rast.algebra](t.rast.algebra.md#temporal-selection)).
 - **The simple operator + with maps of equal time.** Of several maps of
     equal time, the simple operator `+` aggregated only the last. Now it
@@ -220,11 +228,6 @@ GRASS 8.5".
     `overlap`, `in`, `contain`, `meet`) in selections, the hash operator,
     conditions and comparisons. Results computed with **-s** need a new run
     ([t.rast.algebra](t.rast.algebra.md#notes)).
-- **Blanks in overlay operators.** In *t.vect.algebra*, a blank after the
-    second comma of an overlay operator, as in `aa {&,equal, l} ab`, was a
-    syntax error. Now it is read; in the operators of the raster algebras
-    it stays a syntax error
-    ([t.vect.algebra](t.vect.algebra.md#temporal-operators)).
 - **Null maps of 3D rasters.** *t.rast3d.algebra* could not remove its null
     maps, and in Python, `run=False` crashed in the raster algebras. Now
     null maps are removed, and `run=False` only checks the syntax.
@@ -281,8 +284,9 @@ GRASS 8.5".
     absolute time ended without result and with exit code 0, and `buff_t()`
     on relative time ended with a `TypeError`, also with a number such as
     1.5. Now an increment that does not fit the temporal type is an error,
-    and no dataset is created; `buff_t(RT, 1.5)` computes on relative time
-    with the whole number 1. Correct the increment
+    and no dataset is created; a number with a fraction, such as
+    `buff_t(RT, 1.5)`, is an error on relative time as well. Correct the
+    increment
     ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **merge() with a single map.** `merge()` of a dataset with a single map
     from `tmap()` ended with the error "Space time datasets to merge must
@@ -310,7 +314,8 @@ GRASS 8.5".
     `map()`, such as `map(L) - 1 - A`, was grouped from the right, as
     `map(L) - (1 - A)`, and `A + (map(L) - 1 - 1)` was a syntax error. Now
     chains are grouped from the left, and chains after a dataset are read; a
-    chain of numbers and `map()` only stays a syntax error. Results with such
+    chain of numbers and `map()` only has no dataset to compute and ends with
+    an error. Results with such
     chains need a new run
     ([t.rast.algebra](t.rast.algebra.md#results-corrected-since-grass-85)).
 - **Precedence of td().** `A + td(A) / A` was computed as
@@ -383,14 +388,6 @@ GRASS 8.5".
     1.5e-8 became 0. Now the full value is stored. Values printed with fewer
     digits can differ in the last digit, such as 3.31662 instead of 3.31663
     ([t.info](t.info.md#the-report-of-a-map)).
-- **merge() of absolute and relative time.** `merge()` of a map of
-    absolute time from `tmap()` with a dataset of relative time ended with
-    the error "Space time datasets to merge must have the same temporal
-    type", so a relation over such a list never computed. Now maps of the
-    two temporal types are not related to each other:
-    `C = merge(tmap(sinst), RT) : RT` selects the maps of `RT` as `RT : RT`
-    does
-    ([t.rast.algebra](t.rast.algebra.md#differences-from-grass-85)).
 - **Selection of a relative time instance.** A selection on relative time
     with a time instance on the right and the temporal operator `r`, such as
     `RT {:,contains,r} tmap(rinst)`, ended with a `TypeError`. Now it gives
@@ -1355,12 +1352,11 @@ describes every module.
     use the parser classes or the package `grass.temporal.algebra`; the
     tables below list the names. The old implementation is in GRASS 8.5 and
     in the history of the source code (tag `classic-reference-corpus`).
-- **Comparisons without eval** *(upstream)*. The algebra of the releases
-    before compared values with `eval` of strings. Now it uses
-    `compare_values()`, `eval_datetime_str()` is deprecated, and a value in
-    a list of conditions that is not a Boolean raises a `TypeError`; both
-    methods are removed with the classic algebra. The
-    results are the same.
+- **Comparisons without eval** *(upstream)*. The algebra of GRASS 8.5
+    compared values with `eval` of strings; OSGeo replaced this with
+    `compare_values()` and deprecated `eval_datetime_str()`, and a value in a
+    list of conditions that is not a Boolean raises a `TypeError`. Both
+    methods are removed with that algebra. The results are the same.
 - **Parser tables.** The parser of GRASS 8.5 built its tables in each call
     of `parse()`. Now they are built once for each parser class.
 - **Directory of the SQL templates** *(upstream)*. `get_sql_template_path()`

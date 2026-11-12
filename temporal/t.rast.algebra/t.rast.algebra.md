@@ -1033,7 +1033,7 @@ with daily maps of the values 11 to 14 and RT with maps of relative time.
     `2 * map(L) + A`, `1 - 2 - 3 - A` and chains inside `if()`. Chains after a
     dataset, such as `A + (map(L) - 1 - 1)`, which ended in a syntax error, are
     read now. A chain of numbers or maps alone, as in `map(L) - 1 - 1`, has no
-    dataset to compute and stays a syntax error:
+    dataset to compute and ends with an error:
 
     ```sh
     C = map(L) - 1 - A

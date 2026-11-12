@@ -1093,7 +1093,7 @@ grouped from the left now, as in mathematics. With 0.5 in L and the values
 <code>2 * map(L) + A</code>, <code>1 - 2 - 3 - A</code> and chains inside <code>if()</code>. Chains after a
 dataset, such as <code>A + (map(L) - 1 - 1)</code>, which ended in a syntax error, are
 read now. A chain of numbers or maps alone, as in <code>map(L) - 1 - 1</code>, has no
-dataset to compute and stays a syntax error:
+dataset to compute and ends with an error:
 
 <div class="code"><pre>
 C = map(L) - 1 - A
