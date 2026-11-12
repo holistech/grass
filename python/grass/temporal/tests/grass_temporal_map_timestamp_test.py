@@ -11,6 +11,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.c_libraries_interface import CLibrariesInterface
+from grass.temporal.state import STATE
 
 
 class RecordingInterface(CLibrariesInterface):
@@ -31,6 +32,14 @@ class Messages:
 
     def error(self, text):
         self.errors.append(text)
+
+
+@pytest.fixture(autouse=True)
+def current_mapset_is_permanent(monkeypatch):
+    # Writing and removing refuse a map of another mapset than the current
+    # one, and the current mapset is process state: without this, the result
+    # depends on the session an earlier test in the same process left behind.
+    monkeypatch.setattr(STATE, "current_mapset", "PERMANENT")
 
 
 @pytest.fixture
