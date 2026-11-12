@@ -14,8 +14,7 @@ The classic function appended the relation "equals" to "start", which no map
 ever has, so "start" listed no map of the same time as a granule. "start" now
 ends with "equal". The expectations of the method lists with "start" (here and
 in data/sampling_stds_names.json) were derived again on 05.11.2026 from the
-classic sample_by_dataset() (kept in grass.temporal.testing.reference until
-then), given the
+classic sample_by_dataset() of the releases before GRASS 8.6, given the
 relation names of method_relations() as plain names, where "equal" is the
 relation the builder files; they differ from the old ones only by the maps
 a, e, p and q of equal time at the end of the granules s1 and s3.

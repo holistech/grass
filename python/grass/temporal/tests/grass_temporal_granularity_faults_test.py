@@ -7,10 +7,10 @@ start of the maps. A gap is time that no map covers: a map that ends inside a
 longer one leaves no gap behind it. The granules of a dataset reach to the
 latest end of its maps, not to the end of the map that starts last.
 
-The classic algebra keeps the old rules in copies of its own, see
-grass_temporal_classic_frozen_library_test.py. Both count a step between two
-firsts of a month over more than a year in full and the hours, minutes and
-seconds of a step only where the two times of the day differ in them.
+The releases before GRASS 8.6 had other rules for gaps; those and these count
+a step between two firsts of a month over more than a year in full and the
+hours, minutes and seconds of a step only where the two times of the day differ
+in them.
 
 The common granule of datasets whose start times differ in a finer unit than
 the granule is one unit of the finest unit in which they differ.
