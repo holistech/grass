@@ -42,7 +42,8 @@ def test_strds_and_number(algebra, expression, values):
         ("A * A", [1, 4, 9, 16]),
         ("A / A", [1, 1, 1, 1]),
         ("A % A", [0, 0, 0, 0]),
-        ("A + N", [12, 14, 16, 18]),
+        # A + N is checked by the test of section 3.1.1 of the paper in
+        # t_rast_algebra_paper_text_test.py.
         ("N - A", [10, 10, 10, 10]),
         ("A * N", [11, 24, 39, 56]),
     ],
@@ -66,7 +67,7 @@ def test_strds_and_strds(algebra, expression, values):
         ("A - 1 - 1", [-1, 0, 1, 2]),
         ("A / 2 * 2", [0, 2, 2, 4]),
         ("A * 2 % 3", [2, 1, 0, 2]),
-        ("A / A + A*A/A", [2, 3, 4, 5]),
+        # A / A + A*A/A is a case of t_rast_algebra_legacy_cases_test.py.
     ],
 )
 def test_precedence_and_parentheses(algebra, expression, values):

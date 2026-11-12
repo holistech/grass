@@ -11,10 +11,9 @@ import pytest
 
 @pytest.mark.parametrize(
     ("expression", "expected"),
+    # A + td(A), A / td(A) and A {+,equal} td(A) are cases of
+    # t_rast_algebra_legacy_cases_test.py.
     [
-        ("A + td(A)", [(1, 2, 2), (2, 3, 3), (3, 4, 4), (4, 5, 5)]),
-        ("A / td(A)", [(1, 2, 1), (2, 3, 2), (3, 4, 3), (4, 5, 4)]),
-        ("A {+,equal} td(A)", [(1, 2, 2), (2, 3, 3), (3, 4, 4), (4, 5, 5)]),
         ("A {*,equal,l} td(A)", [(1, 2, 1), (2, 3, 2), (3, 4, 3), (4, 5, 4)]),
         # td() is the number of days of the interval
         ("B + td(B)", [(1, 3, 7), (3, 5, 8)]),
@@ -218,9 +217,9 @@ def test_merged_dataset_can_be_selected(algebra):
 
 @pytest.mark.parametrize(
     ("expression", "expected"),
+    # tmap(singletmap) alone and plus 1 are cases of
+    # t_rast_algebra_legacy_cases_test.py.
     [
-        ("tmap(singletmap)", [(3, 4, 99)]),
-        ("tmap(singletmap) + 1", [(3, 4, 100)]),
         ("tmap(singletmap) * 2", [(3, 4, 198)]),
         ("A {:,equal} tmap(singletmap)", [(3, 4, 3)]),
         ("A {:,during} tmap(singletmap)", []),
@@ -252,10 +251,10 @@ def test_tmap(algebra, expression, expected):
         ("A[-2]", [(3, 4, 1), (4, 5, 2)]),
         ("A[0]", [(1, 2, 1), (2, 3, 2), (3, 4, 3), (4, 5, 4)]),
         ("A[5]", []),
-        ("A[-1] + A[1]", [(2, 3, 4), (3, 4, 6)]),
+        # A[-1] + A[1] and A[0,0,-1] + A[0,0,1] are cases of
+        # t_rast_algebra_legacy_cases_test.py.
         ("A[0,0,1]", [(1, 2, 2), (2, 3, 3), (3, 4, 4)]),
         ("A[0,0,-1]", [(2, 3, 1), (3, 4, 2), (4, 5, 3)]),
-        ("A[0,0,-1] + A[0,0,1]", [(2, 3, 4), (3, 4, 6)]),
         ("A[1] * 2 + A", [(1, 2, 5), (2, 3, 8), (3, 4, 11)]),
     ],
 )

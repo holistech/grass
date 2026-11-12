@@ -125,8 +125,8 @@ def test_default_select_is_equal(algebra, expression):
 
 @pytest.mark.parametrize(
     "expression",
+    # "A : D" is a case of t_rast_algebra_legacy_cases_test.py.
     [
-        "A : D",
         pytest.param("A {:} D"),
         "A {:,equal} D",
         "A {:,equal,l} D",
@@ -274,8 +274,8 @@ def test_relation_with_unrelated_datasets_gives_nothing(algebra):
         ("ref {#,overlaps} rel", [1]),
         ("B {#,contains} A", [2, 2]),
         ("A {#,during} B", [1, 1, 1, 1]),
-        ("C {#,contains} A", [2]),
-        ("A # D", [1, 1]),
+        # C {#,contains} A and A # D are cases of
+        # t_rast_algebra_legacy_cases_test.py.
         ("A {#,equal} A", [1, 1, 1, 1]),
     ],
 )
@@ -297,12 +297,6 @@ def test_hash_with_several_relations(algebra, relation, expected):
 def test_selection_of_multiply_related_map_appears_once(algebra):
     """A map related to several maps is selected once, not once per partner"""
     assert algebra.triples("ref {:,contains} rel") == [(10, 20, 100)]
-
-
-def test_select_with_time_extent_of_single_map(algebra):
-    """tmap() gives a single raster a time stamp so that it can be related"""
-    assert algebra.triples("A {:,equal} tmap(singletmap)") == [(3, 4, 3)]
-    assert algebra.triples("D {+,equal,l} tmap(singletmap)") == [(3, 4, 107)]
 
 
 @pytest.mark.parametrize(
