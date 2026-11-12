@@ -9,7 +9,7 @@ dataset.
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_daily_stds, create_stds
-from grass.temporal.testing.readback import list_maps, message
+from grass.temporal.testing.readback import inventory, list_maps, message
 from grass.temporal.testing.session import mapset_session, project_session
 from grass.tools import ToolError, Tools
 
@@ -64,3 +64,27 @@ def test_calendar_function_on_relative_time_message(work):
     assert text in message(error.value)
     assert not work.t_list(type="strds", where=f"name = '{output}'").stdout
     assert not work.g_list(type="raster", pattern="month*").stdout
+
+
+DATE_AND_NUMBER = (
+    "Dates and times, such as those of start_date() or start_time(), cannot be "
+    "compared with the number 10; compare them with a date or time in quotes, "
+    'such as "2001-01-03" or "12:00:00"'
+)
+
+
+@pytest.mark.parametrize(
+    ("expression", "text"),
+    [("if(start_date(A) > 10, A)", DATE_AND_NUMBER)],
+    ids=["date and number"],
+)
+def test_the_tool_reports_the_error_and_writes_nothing(work, expression, text):
+    """t.select stops with the message of the core, without a traceback,
+    before it creates a dataset"""
+    before = inventory(work)
+    with pytest.raises(ToolError) as error:
+        work.t_select(expression=f"REFUSED = {expression}", type="strds")
+
+    assert text in message(error.value)
+    assert "Traceback" not in error.value.stderr
+    assert inventory(work) == before

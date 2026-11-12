@@ -5,6 +5,7 @@ The datasets are described in the time_series fixture in conftest.py.
 
 import pytest
 
+from grass.temporal.testing.readback import inventory, message
 from grass.tools import ToolError, Tools
 
 
@@ -93,6 +94,31 @@ def test_unavailable_time_function_is_reported(time_series, expression, map_id):
         tools.t_rast_algebra(expression=f"result = {expression}", basename="result")
     assert "ERROR:" in error.value.stderr
     assert map_id in error.value.stderr
+
+
+# The messages of the core for expressions it refuses, as the tool prints them.
+DATE_AND_NUMBER = (
+    "Dates and times, such as those of start_date() or start_time(), cannot be "
+    "compared with the number 12; compare them with a date or time in quotes, "
+    'such as "2001-01-03" or "12:00:00"'
+)
+
+
+@pytest.mark.parametrize(
+    ("expression", "text"),
+    [("if(start_time(intervals) > 12, intervals)", DATE_AND_NUMBER)],
+    ids=["date and number"],
+)
+def test_the_tool_reports_the_error_and_writes_nothing(time_series, expression, text):
+    """The tool stops with the message of the core, without a traceback,
+    before it writes a map or a dataset"""
+    tools = Tools(session=time_series.session, consistent_return_value=True)
+    before = inventory(tools)
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_algebra(expression=f"refused = {expression}", basename="refused")
+    assert text in message(error.value)
+    assert "Traceback" not in error.value.stderr
+    assert inventory(tools) == before
 
 
 def duration_arithmetic(algebra, expression):

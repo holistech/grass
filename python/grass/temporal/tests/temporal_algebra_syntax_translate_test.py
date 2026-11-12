@@ -439,6 +439,40 @@ def test_text_cannot_be_compared_with_numbers(translator, text):
         run(translator, text)
 
 
+@pytest.mark.parametrize(
+    ("text", "number"),
+    [
+        ("10 < start_time(A)", "10"),
+        ("start_date(A) > 10", "10"),
+        ("start_datetime(A) == 3", "3"),
+        ("end_time(A) >= 1.5", "1.5"),
+    ],
+)
+def test_dates_and_times_are_not_compared_with_numbers(translator, text, number):
+    """Python refuses < between a time and a number with a TypeError that
+    names neither, and == gives false for every map without a word; both
+    sides and every date and time function get one message"""
+    with pytest.raises(TypeError, match="cannot be compared with the number") as error:
+        run(translator, text)
+    assert f"the number {number}; compare them with a date or time in quotes" in str(
+        error.value
+    )
+
+
+def test_numbers_of_time_functions_still_compare(translator):
+    # The maps of A last one day each, so td(A) > 0 is 1 > 0 for all four;
+    # they start on the days 1 to 4, so start_day(A) > 2 holds for 3 and 4.
+    durations = run(translator, "td(A) > 0")
+    assert [slot.content for slot in durations] == [Const(1)] * 4
+    days_after = run(translator, "start_day(A) > 2")
+    assert [slot.content for slot in days_after] == [
+        Const(0),
+        Const(0),
+        Const(1),
+        Const(1),
+    ]
+
+
 def test_logical_operators_relate_their_operands(translator, datasets):
     a, b, n = datasets["A"], datasets["B"], datasets["N"]
     left = operations.apply(">", a, 1)

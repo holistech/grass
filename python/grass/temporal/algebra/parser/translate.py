@@ -364,6 +364,8 @@ class Translator:
             left = _moment(left, right)
         if isinstance(right, str):
             right = _moment(right, left)
+        _refuse_number_with_moments(left, right)
+        _refuse_number_with_moments(right, left)
         return self._apply(symbol, left, right)
 
     def _compare_related(self, symbol, left, right, operator):
@@ -715,6 +717,31 @@ def _sample(series):
         ),
         None,
     )
+
+
+def _refuse_number_with_moments(number, other):
+    """Raise if number is a number and other a series of dates or times
+
+    Python refuses < between a date and a number with a TypeError that names
+    neither the function nor a way out, and == gives false for every map
+    without a word, so both would hide the slip. A series whose values are
+    all null gives no sample and passes, as no value is compared.
+
+    :raises TypeError: for a comparison of a number with dates or times
+    """
+    if isinstance(number, Const):
+        number = number.value
+    if isinstance(number, bool) or not isinstance(number, (int, float)):
+        return
+    if not (isinstance(other, Series) and other.sort == "scalar"):
+        return
+    if isinstance(_sample(other), (datetime.date, datetime.time)):
+        msg = (
+            "Dates and times, such as those of start_date() or start_time(), "
+            f"cannot be compared with the number {number}; compare them with a "
+            'date or time in quotes, such as "2001-01-03" or "12:00:00"'
+        )
+        raise TypeError(msg)
 
 
 def _moment(text, other):
