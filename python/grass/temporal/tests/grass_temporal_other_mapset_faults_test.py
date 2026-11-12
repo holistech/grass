@@ -473,26 +473,30 @@ def test_input_of_mapset_outside_search_path_mapcalc3d(tools):
     assert rows == ["name|min|max", "plus3_1|2.0|2.0", "plus3_2|3.0|3.0"]
 
 
+# Each case has its own output and basename: with shared names, the second
+# case on a pytest-xdist worker replaced the maps of the first one, so which
+# code path it took depended on the order of the cases.
 @pytest.mark.parametrize("in_search_path", [False, True])
 def test_qualified_name_in_expression_mapcalc(tools, in_search_path):
     """The expression may name the input as ds@first, as before"""
     if in_search_path:
         add_first(tools)
+    base = f"qual{int(in_search_path)}"
 
     tools.t_rast_mapcalc(
         inputs="ds@first",
-        output="qualified",
-        basename="qual",
+        output=f"qualified{int(in_search_path)}",
+        basename=base,
         expression="ds@first + 1",
         overwrite=True,
     )
 
-    assert listing(tools, "qualified", columns="name,min,max") == [
+    assert listing(tools, f"qualified{int(in_search_path)}", "name,min,max") == [
         "name|min|max",
-        "qual_1|2.0|2.0",
-        "qual_2|3.0|3.0",
-        "qual_3|4.0|4.0",
-        "qual_4|5.0|5.0",
+        f"{base}_1|2.0|2.0",
+        f"{base}_2|3.0|3.0",
+        f"{base}_3|4.0|4.0",
+        f"{base}_4|5.0|5.0",
     ]
 
 
@@ -500,17 +504,63 @@ def test_qualified_name_in_expression_mapcalc(tools, in_search_path):
 def test_qualified_name_in_expression_mapcalc3d(tools, in_search_path):
     if in_search_path:
         add_first(tools)
+    base = f"qual3{int(in_search_path)}"
+    output = f"qualified3{int(in_search_path)}"
 
     tools.t_rast3d_mapcalc(
         inputs="ds3@first",
-        output="qualified3",
-        basename="qual3",
+        output=output,
+        basename=base,
         expression="ds3@first + 1",
         overwrite=True,
     )
 
-    rows = lines(tools.t_rast3d_list(input="qualified3", columns="name,min,max"))
-    assert rows == ["name|min|max", "qual3_1|2.0|2.0", "qual3_2|3.0|3.0"]
+    rows = lines(tools.t_rast3d_list(input=output, columns="name,min,max"))
+    assert rows == ["name|min|max", f"{base}_1|2.0|2.0", f"{base}_2|3.0|3.0"]
+
+
+@pytest.mark.parametrize(
+    ("tool", "inputs", "lister", "expected"),
+    [
+        # ds holds the values 1 to 4, so the second run gives 11 to 14.
+        (
+            "t_rast_mapcalc",
+            "ds",
+            "t_rast_list",
+            [
+                "repl_ds_1|11.0|11.0",
+                "repl_ds_2|12.0|12.0",
+                "repl_ds_3|13.0|13.0",
+                "repl_ds_4|14.0|14.0",
+            ],
+        ),
+        # ds3 holds the values 1 and 2, so the second run gives 11 and 12.
+        (
+            "t_rast3d_mapcalc",
+            "ds3",
+            "t_rast3d_list",
+            ["repl_ds3_1|11.0|11.0", "repl_ds3_2|12.0|12.0"],
+        ),
+    ],
+    ids=["t.rast.mapcalc", "t.rast3d.mapcalc"],
+)
+def test_a_second_run_with_overwrite_replaces_the_registered_maps(
+    tools, tool, inputs, lister, expected
+):
+    """The result maps of the first run are registered; the second run with
+    overwrite removes their entries and registers the new maps once each"""
+    output = f"replaced_{inputs}"
+    for increment, overwrite in ((1, False), (10, True)):
+        getattr(tools, tool)(
+            inputs=f"{inputs}@first",
+            output=output,
+            basename=f"repl_{inputs}",
+            expression=f"{inputs}@first + {increment}",
+            overwrite=overwrite,
+        )
+
+    rows = lines(getattr(tools, lister)(input=output, columns="name,min,max"))
+    assert rows == ["name|min|max", *expected]
 
 
 def test_name_without_mapset_is_not_found_in_a_mapset_added_by_a_qualified_name(
