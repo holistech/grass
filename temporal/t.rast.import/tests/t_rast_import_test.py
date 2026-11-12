@@ -79,9 +79,9 @@ def test_import_absolute_formats(
 ):
     """Roundtrip of the absolute-time STRDS for each format and compression.
 
-    The reimported STRDS must have the same temporal type and map count as
-    the original.  The -o flag bypasses the CRS check so the test is not
-    affected by the XY project having no real CRS.
+    The reimported STRDS must have the same temporal type, map count and
+    temporal extent as the original.  The -o flag bypasses the CRS check so
+    the test is not affected by the XY project having no real CRS.
     """
     data = absolute_strds_session
     tools = Tools(session=data.session)
@@ -98,28 +98,6 @@ def test_import_absolute_formats(
     info = _strds_tinfo(tools, output)
     assert info["temporal_type"] == "absolute"
     assert info["number_of_maps"] == 6
-
-
-@pytest.mark.parametrize(("fmt", "compression"), ABSOLUTE_FORMATS)
-def test_import_absolute_formats_tinfo_times(
-    absolute_strds_session,
-    fmt: Literal["GTiff", "pack", "AAIGrid"],
-    compression: Literal["bzip2", "gzip", "no"],
-):
-    """Temporal extents are preserved in the roundtrip."""
-    data = absolute_strds_session
-    tools = Tools(session=data.session)
-    output: LiteralString = f"reimport_time_{fmt}_{compression}".lower()
-    tools.t_rast_import(
-        flags="o",
-        input=data.archives[fmt, compression],
-        output=output,
-        directory=data.archive_dir,
-        title="Reimported",
-        description="Time check",
-        overwrite=True,
-    )
-    info = _strds_tinfo(tools, output)
     assert info["start_time"] == "'2001-01-01 00:00:00'"
     assert info["end_time"] == "'2001-07-01 00:00:00'"
 
@@ -189,7 +167,11 @@ def test_import_relative_formats(
     fmt: Literal["GTiff", "pack"],
     compression: Literal["bzip2", "gzip", "no"],
 ):
-    """Roundtrip of the relative-time STRDS for each format and compression."""
+    """Roundtrip of the relative-time STRDS for each format and compression.
+
+    The reimported STRDS must have the same temporal type, map count and
+    temporal extent as the original.
+    """
     data = relative_strds_session
     tools = Tools(session=data.session)
     output: LiteralString = f"reimport_rel_{fmt}_{compression}".lower()
@@ -205,28 +187,6 @@ def test_import_relative_formats(
     info = _strds_tinfo(tools, output)
     assert info["temporal_type"] == "relative"
     assert info["number_of_maps"] == 6
-
-
-@pytest.mark.parametrize(("fmt", "compression"), RELATIVE_FORMATS)
-def test_import_relative_formats_tinfo_times(
-    relative_strds_session,
-    fmt: Literal["GTiff", "pack"],
-    compression: Literal["bzip2", "gzip", "no"],
-):
-    """Temporal extents are preserved in the relative-time roundtrip."""
-    data = relative_strds_session
-    tools = Tools(session=data.session)
-    output: LiteralString = f"reimport_rel_time_{fmt}_{compression}".lower()
-    tools.t_rast_import(
-        flags="o",
-        input=data.archives[fmt, compression],
-        output=output,
-        directory=data.archive_dir,
-        title="Reimported",
-        description="Relative time check",
-        overwrite=True,
-    )
-    info = _strds_tinfo(tools, output)
     assert info["start_time"] == "'1'"
     assert info["end_time"] == "'7'"
 
