@@ -1,10 +1,14 @@
 """The algebra core on vector expressions that the classic algebra read the same way
 
-Each expression of SAME is computed and must give maps, each of REFUSED is a
-syntax error. DIFFERENT lists the changed rules with a short form of the item
+Each expression of SAME gives the outcome that the reference implementation of
+the releases before GRASS 8.6 gave (data/reference_outcomes.json), each of
+REFUSED is a syntax error in both. DIFFERENT lists the changed rules with a short form of the item
 in the list of differences in the manual and what the core gives. The registered maps are compared as
 identifier, start, end and the numbers of points, lines and areas.
 """
+
+import json
+from pathlib import Path
 
 import pytest
 
@@ -97,19 +101,39 @@ DIFFERENT = {
 }
 
 
+# The outcome that the classic algebra gave for each expression, recorded from
+# the reference implementation on 2026-11-12 (grass.temporal.classic as it was
+# before its removal, run on the data of the fixture below). Keys are
+# "<mode>|<expression>" with the mode same. One file per tool instead
+# of a table in the test, because an outcome lists every map with its times
+# and values.
+RECORDED = json.loads(
+    Path(__file__).with_name("data").joinpath("reference_outcomes.json").read_text()
+)
+
+
 def run(expression):
     """The outcome of the core"""
     return outcomes.outcome("vector", expression, basename="fb")
 
 
 @pytest.mark.parametrize("expression", SAME)
-def test_the_core_computes_the_expression(vector_series, expression):
-    assert "error" not in run(expression)
+def test_same_result_as_the_reference(vector_series, expression):
+    core = run(expression)
+    assert (
+        outcomes.compare("vector", expression, RECORDED[f"same|{expression}"], core)
+        is None
+    )
 
 
 @pytest.mark.parametrize("expression", REFUSED)
 def test_the_core_refuses_a_number_as_a_vector_map(vector_series, expression):
-    assert run(expression)["error"] == "SyntaxError"
+    core = run(expression)
+    assert core["error"] == "SyntaxError"
+    assert (
+        outcomes.compare("vector", expression, RECORDED[f"same|{expression}"], core)
+        is None
+    )
 
 
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))

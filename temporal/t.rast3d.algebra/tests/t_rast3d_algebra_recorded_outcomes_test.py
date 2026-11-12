@@ -1,11 +1,15 @@
 """The algebra core on 3D raster expressions that the classic algebra read the same way
 
-Each expression of SAME is computed and must give maps. DIFFERENT lists the
+Each expression of SAME gives the outcome that the reference implementation of
+the releases before GRASS 8.6 gave (data/reference_outcomes.json). DIFFERENT lists the
 changed rules with a short form of the item in the list of differences in the
 manual and the class of the outcome of the core, which is the class of the
 error or "maps". The registered maps are compared as start, end, minimum and
 maximum, rounded to 6 significant digits.
 """
+
+import json
+from pathlib import Path
 
 import pytest
 
@@ -96,10 +100,36 @@ GRANULARITY_DIFFERENT = {
 }
 
 
+# The outcome that the classic algebra gave for each expression, recorded from
+# the reference implementation on 2026-11-12 (grass.temporal.classic as it was
+# before its removal, run on the data of the fixture below). Keys are
+# "<mode>|<expression>" with the modes same and gran. One file per tool instead
+# of a table in the test, because an outcome lists every map with its times
+# and values.
+RECORDED = json.loads(
+    Path(__file__).with_name("data").joinpath("reference_outcomes.json").read_text()
+)
+
+
+def without_names(result):
+    """The outcome without the names of the maps
+
+    The reference counted the maps in another order and with gaps, so the
+    names differ, as in ``merge(A, D)``; the comparison of the core with the
+    classic profile, which this test made before, did not read the names
+    either.
+    """
+    if "maps" in result:
+        result = {**result, "maps": [[None, *row[1:]] for row in result["maps"]]}
+    return result
+
+
 def run(expression, **options):
     """The outcome of the core, with the options of the tool"""
     options = {"register_null": True, **options}
-    return outcomes.outcome("raster3d", expression, basename="fb", **options)
+    return without_names(
+        outcomes.outcome("raster3d", expression, basename="fb", **options)
+    )
 
 
 def kind(core):
@@ -108,8 +138,12 @@ def kind(core):
 
 
 @pytest.mark.parametrize("expression", SAME)
-def test_the_core_computes_the_expression(series_3d, expression):
-    assert kind(run(expression)) == "maps"
+def test_same_result_as_the_reference(series_3d, expression):
+    core = run(expression)
+    assert (
+        outcomes.compare("raster3d", expression, RECORDED[f"same|{expression}"], core)
+        is None
+    )
 
 
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
@@ -118,8 +152,12 @@ def test_listed_differences_give_the_listed_outcome(series_3d, expression):
 
 
 @pytest.mark.parametrize("expression", GRANULARITY_SAME)
-def test_granularity_computes_the_expression(series_3d, expression):
-    assert kind(run(expression, granularity=True)) == "maps"
+def test_granularity_same_result_as_the_reference(series_3d, expression):
+    core = run(expression, granularity=True)
+    assert (
+        outcomes.compare("raster3d", expression, RECORDED[f"gran|{expression}"], core)
+        is None
+    )
 
 
 @pytest.mark.parametrize("expression", sorted(GRANULARITY_DIFFERENT))

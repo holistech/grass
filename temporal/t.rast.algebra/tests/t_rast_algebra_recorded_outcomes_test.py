@@ -1,11 +1,16 @@
 """The algebra core on expressions that the classic algebra read the same way
 
-Each expression of SAME is computed and planned, and must compute each result
-map with one r.mapcalc call. DIFFERENT lists the changed rules with a short form of the
+Each expression of SAME gives the outcome that the reference implementation of
+the releases before GRASS 8.6 gave (recorded in data/reference_outcomes.json),
+and computes each result map with one r.mapcalc call. DIFFERENT lists the changed rules with a short form of the
 item in the list of differences in the manual and the class of the outcome of
 the core. The registered maps are compared as start, end, minimum and maximum,
 rounded to 6 significant digits.
 """
+
+import json
+import random
+from pathlib import Path
 
 import pytest
 
@@ -163,6 +168,54 @@ GRANULARITY_DIFFERENT = {
 }
 
 
+RANDOM_DATASETS = ("A", "N", "D", "HA")
+
+
+def random_expression(generator, depth=0):
+    """Arithmetic and selections on datasets of equal intervals, where both
+    parsers must agree
+
+    The classic grammar has no rule for a dataset or a number alone, for a
+    dataset in parentheses or for abs() of a number (checked 12 October 2026
+    by parsing with run=False). The core reads all of them, so such
+    expressions would compare a result with a syntax error.
+    """
+    if depth == 3 or (depth > 0 and generator.random() < 0.3):
+        return generator.choice([*RANDOM_DATASETS, str(generator.randint(1, 5))])
+    form = generator.choice(
+        ["{} + {}", "{} - {}", "{} * {}", "({}) : {}", "abs({}) + {}"]
+    )
+    left = random_expression(generator, depth + 1)
+    right = random_expression(generator, depth + 1)
+    if not any(name in left + right for name in RANDOM_DATASETS) or (
+        form in {"({}) : {}", "abs({}) + {}"}
+        and not any(name in left for name in RANDOM_DATASETS)
+    ):
+        left = "A"
+    if form == "({}) : {}":
+        if not any(name in right for name in RANDOM_DATASETS):
+            right = "N"
+        if left in RANDOM_DATASETS:
+            form = "{} : {}"
+    return form.format(left, right)
+
+
+RANDOM = [random_expression(random.Random(seed)) for seed in range(30)]
+
+
+# The outcome that the classic algebra gave for each expression, recorded from
+# the reference implementation on 2026-11-12 (grass.temporal.classic as it was
+# before its removal, run on the data of the fixture below). Keys are
+# "<mode>|<expression>" with the modes same, gran, random, extended (the
+# equivalent spelling of an EXTENDED form) and granspatial. Map names are left
+# out of the outcomes: the reference counted the maps in another order. One
+# file per tool instead of tables in the test, because an outcome lists every
+# map with start, end, minimum and maximum.
+RECORDED = json.loads(
+    Path(__file__).with_name("data").joinpath("reference_outcomes.json").read_text()
+)
+
+
 def without_names(result):
     """The outcome without the names of the maps
 
@@ -193,17 +246,30 @@ def test_listed_differences_give_the_listed_outcome(algebra, expression):
     assert kind(run(expression)) == DIFFERENT[expression][0]
 
 
-@pytest.mark.parametrize(("expression", "equivalent"), EXTENDED.items())
-def test_extended_syntax(algebra, expression, equivalent):
-    expected = run(equivalent, basename="fa")
-    assert kind(expected) == "maps"
-    core = run(expression)
+def check(expression, key, **options):
+    """The core gives what the reference gave, with the same maps, times and
+    values"""
+    expected = RECORDED[key]
+    core = run(expression, **options)
     assert outcomes.compare("raster", expression, expected, core) is None
 
 
+@pytest.mark.parametrize(("expression", "equivalent"), EXTENDED.items())
+def test_extended_syntax(algebra, expression, equivalent):
+    """The reference refused these forms; the core gives what the reference
+    gave for the equivalent spelling"""
+    assert kind(RECORDED[f"extended|{equivalent}"]) == "maps"
+    check(expression, f"extended|{equivalent}")
+
+
 @pytest.mark.parametrize("expression", SAME)
-def test_the_core_computes_the_expression(algebra, expression):
-    assert kind(run(expression)) == "maps"
+def test_same_result_as_the_reference(algebra, expression):
+    check(expression, f"same|{expression}")
+
+
+@pytest.mark.parametrize("expression", RANDOM)
+def test_random_expressions(algebra, expression):
+    check(expression, f"random|{expression}")
 
 
 def mapcalc_calls(chain):
@@ -224,14 +290,15 @@ def test_granularity_listed_differences_give_the_listed_outcome(algebra, express
 
 
 @pytest.mark.parametrize("expression", GRANULARITY_SAME)
-def test_granularity_computes_the_expression(algebra, expression):
-    assert kind(run(expression, granularity=True)) == "maps"
+def test_granularity_same_result_as_the_reference(algebra, expression):
+    check(expression, f"gran|{expression}", granularity=True)
 
 
 def test_granularity_with_the_spatial_flag(algebra):
     """The sampled maps keep their spatial extent, so that the spatial
     relation of -s finds them"""
     assert len(run("A + B", granularity=True, spatial=True)["maps"]) == 4
+    check("A + B", "granspatial|A + B", granularity=True, spatial=True)
 
 
 @pytest.mark.parametrize("expression", GRANULARITY_SAME)

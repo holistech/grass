@@ -1,12 +1,16 @@
 """The algebra core on t.select expressions that the classic algebra read the same way
 
-Each expression of SAME selects maps from the datasets of conftest.py.
+Each expression of SAME selects the maps that the reference implementation of
+the releases before GRASS 8.6 selected (data/reference_outcomes.json), from the
+datasets of conftest.py.
 DIFFERENT lists the changed rules with the item of the manual's list of
 differences from the releases before GRASS 8.6 and the outcome of the core.
 """
 
 import itertools
+import json
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -116,10 +120,20 @@ def selection_outcome(basename, expression, stdstype="strds", **options):
     )
 
 
+# The outcome that the classic algebra gave for each expression, recorded from
+# the reference implementation on 2026-11-12 (grass.temporal.classic as it was
+# before its removal, run on the data of the fixture). Keys are "same|<expression>".
+RECORDED = json.loads(
+    Path(__file__).with_name("data").joinpath("reference_outcomes.json").read_text()
+)
+
+
 @pytest.mark.parametrize("expression", SAME)
-def test_the_core_selects_maps(series, expression):
+def test_the_core_selects_what_the_reference_selected(series, expression):
     core = selection_outcome("fb", expression)
     assert core.get("maps"), "the expression selects no map"
+    expected = RECORDED[f"same|{expression}"]
+    assert outcomes.compare("select", expression, expected, core) is None
 
 
 def outcome(expression, spatial=False):
