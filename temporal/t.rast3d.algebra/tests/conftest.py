@@ -41,6 +41,12 @@ def series_3d(tmp_path_factory):
     # The algebra parsers of the tests run in this process, which is much
     # faster than one tool call per expression. That needs the session in
     # os.environ and grass.temporal initialised, which temporal_session does.
+    # The datasets are registered in this process as well, because every
+    # test module of the directory builds them again in each xdist worker:
+    # the fixture took 6.5 s with t.create and t.register and 1.5 s so
+    # (measured 2026-11-12, median of three builds each with
+    # time.perf_counter), with the same datasets, maps and metadata in
+    # t.info -g and t.rast3d.list.
     project = tmp_path_factory.mktemp("t_rast3d_algebra") / "project"
     with temporal_session(project) as session:
         tools = Tools(session=session, overwrite=True)
@@ -51,12 +57,14 @@ def series_3d(tmp_path_factory):
             "str3ds",
             "A",
             [MapSpec(f"a{i}", i, day(i - 1), day(i)) for i in range(1, 5)],
+            via="library",
         )
         create_stds(
             tools,
             "str3ds",
             "B",
             [MapSpec(f"b{i}", 10 * i, day(i - 1), day(i)) for i in range(1, 5)],
+            via="library",
         )
         # The value of a D map is the depth of the cell, not a constant, so
         # the maps are made here and only registered.
@@ -67,12 +75,14 @@ def series_3d(tmp_path_factory):
             "str3ds",
             "D",
             [MapSpec(f"d{i}", None, day(i - 1), day(i)) for i in range(1, 4)],
+            via="library",
         )
         create_stds(
             tools,
             "str3ds",
             "W",
             [MapSpec("w1", 100, day(0), day(2)), MapSpec("w2", 200, day(2), day(4))],
+            via="library",
         )
         tools.r3_mapcalc(expression="single = 1000")
         # E lies east of A, so its maps are made in a shifted region.
@@ -85,18 +95,21 @@ def series_3d(tmp_path_factory):
             "str3ds",
             "E",
             [MapSpec("e1", 7, day(0), day(1)), MapSpec("e2", 8, day(1), day(2))],
+            via="library",
         )
         create_stds(
             tools,
             "str3ds",
             "Q",
             [MapSpec("q1", 5, day(0, hours=12), day(1, hours=12))],
+            via="library",
         )
         create_stds(
             tools,
             "str3ds",
             "Q2",
             [MapSpec("q2", 50, day(3, hours=12), day(4, hours=12))],
+            via="library",
         )
         tools.t_register(
             type="raster_3d", maps="single", start=timestamp(1), end=timestamp(2)
