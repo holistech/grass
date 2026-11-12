@@ -89,18 +89,12 @@ def register(session, name, spans, prefix, boxes):
     interval and instant maps mix freely. It is used instead of t.register
     because of the run time: the module took 291 s with one t.register file
     per map and 131 s with this in-process call (pytest --durations,
-    2026-10-14).
+    2026-10-14). For the same reason the dataset is made with the function
+    that t.create calls, with the values of t.create: the module took 0.4 s
+    per dataset (ten datasets timed one by one, 2026-11-12), about 48 s of
+    the 87 s that the 120 datasets of the series needed.
     """
-    gs.run_command(
-        "t.create",
-        type="strds",
-        temporaltype="relative",
-        output=name,
-        title="t",
-        description="t",
-        overwrite=True,
-        env=session.env,
-    )
+    tgis.open_new_stds(name, "strds", "relative", "t", "t", "mean", overwrite=True)
     for i, ((start, end), (west, south, east, north)) in enumerate(
         zip(spans, boxes, strict=True), 1
     ):
@@ -149,11 +143,8 @@ def series(sampling_session):
     """The recorded cases of one seed as datasets, built when first asked for
 
     Returns a function of the seed that gives number -> (case, sampler,
-    input). Building all three seeds at once took 87 s on every pytest-xdist
-    worker that ran a test of this module; one seed takes 27 s (pytest -n
-    auto --durations on this module alone, 2026-11-12: wall clock 98.5 s
-    before, 38.7 s after). A worker that gets every test of the module still
-    builds all three.
+    input). Each test reads the series of one seed, so a pytest-xdist worker
+    that runs only some tests of this module builds only their seeds.
     """
     made = {}
 
