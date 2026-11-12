@@ -328,20 +328,25 @@ the core:
 The safeguards
 --------------
 
-The tests below keep the algebra computing as the releases before the core
+The tests below keep the algebra computing as the releases up to GRASS 8.5
 did, except for the differences that the manuals list, and the tools on the
-core computing as they did before the core.
+core computing as they did before the core. The implementation of those
+releases is not part of GRASS any more, so the tests hold its results as
+recorded values.
 
 Tests of lists of expressions
-    The files ``*_differential_test.py`` of *t.rast.algebra*,
+    The files ``*_recorded_outcomes_test.py`` of *t.rast.algebra*,
     *t.rast3d.algebra*, *t.vect.algebra* and *t.select* compute each expression
-    of their lists on the core. Each expression of one list must give maps, and
-    each expression of the list of differences must give the outcome that the
-    list names, which the manual lists as a difference from the releases before
-    GRASS 8.6. :mod:`grass.temporal.testing.outcomes` runs them;
+    of their lists on the core. Each expression of one list must give the
+    outcome that the releases up to GRASS 8.5 gave, recorded in
+    ``data/reference_outcomes.json`` next to the test. Each expression of the
+    list of differences must give the outcome that the list names, which the
+    manual lists as a difference from the releases before GRASS 8.6.
+    :mod:`grass.temporal.testing.outcomes` runs them;
     ``t_rast_algebra_published_test.py`` and
     ``t_select_published_test.py`` hold the expressions printed in the
-    publication of the algebra (Gebbert, Leppelt and Pebesma, 2019).
+    publication of the algebra (Gebbert, Leppelt and Pebesma, 2019) with
+    fixed target values.
 
 Characterization tests
     *t.rast.aggregate*, *t.rast.aggregate.ds*, *t.rast.mapcalc*,
