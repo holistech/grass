@@ -270,10 +270,8 @@ def cached_io(storage=None):
     python/grass/temporal/tests/grass_temporal_testing_fakes_test.py, which
     compares every cached answer with the real one. A tool started as a
     subprocess is never affected by the caches, marked or not, because they
-    live in the test process. Comparisons of two implementations (core
-    against classic) run with real raster and database IO and get these two
-    caches, which both sides receive alike. Fixtures of module scope are set
-    up before the autouse fixture and therefore use the real IO.
+    live in the test process. Fixtures of module scope are set up before the
+    autouse fixture and therefore use the real IO.
     """
     storage = CacheStorage() if storage is None else storage
     with (
