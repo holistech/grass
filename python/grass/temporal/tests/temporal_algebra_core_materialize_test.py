@@ -29,8 +29,8 @@ import grass.temporal as tgis
 from grass.exceptions import CalledModuleError, FatalError
 from grass.pygrass.modules import Module
 from grass.temporal import algebra as ta
-from grass.temporal.algebra.content import Const, MapRef
-from grass.temporal.algebra.series import Series, Slot, Space
+from grass.temporal.algebra.content import Call, Const, MapRef
+from grass.temporal.algebra.series import Extent, Series, Slot, Space
 from grass.tools import Tools
 
 materialize_module = importlib.import_module("grass.temporal.algebra.materialize")
@@ -518,6 +518,105 @@ def test_temporary_maps_are_removed_when_a_call_fails(core_session, monkeypatch)
     with pytest.raises(RuntimeError, match="forced failure"):
         ta.materialize(reduced, "failing", overwrite=True)
     assert tools.g_list(type="raster", pattern="failing_*_tmp*") is None
+
+
+def test_a_failed_vector_call_is_a_fatal_error(core_session, monkeypatch):
+    """v.patch is made to fail on a missing input after v.buffer has written
+    the temporary map of its first input
+
+    Expected from the code of materialize(): _run_vector() lets the
+    CalledModuleError of the module through, materialize() turns it into the
+    FatalError that names the module and its return code, removes the
+    temporary maps in its finally clause, and creates no dataset, because
+    open_new_stds() comes after the run.
+    """
+    tools = Tools(session=core_session)
+    for name in ("vp1", "vp2"):
+        make_map(tools, "vector", name)
+    buffered = Call("buff_p", (MapRef("vp1@PERMANENT"), Const(0.5)))
+    content = Call("disor", (buffered, MapRef("vp2@PERMANENT")))
+    series = Series((Slot(Extent(day(1), day(2)), content, None, None),), "vector")
+    run_module = materialize_module._module
+
+    def failing_module(call, overwrite):
+        module = run_module(call, overwrite)
+        if call.name == "v.patch":
+            module.inputs["input"].value = "no_such_map"
+        return module
+
+    monkeypatch.setattr(materialize_module, "_module", failing_module)
+    # Without the cleanup the temporary map stays: the check can see it.
+    with monkeypatch.context() as context:
+        context.setattr(materialize_module, "_remove", lambda names, kind: None)
+        with pytest.raises(FatalError):
+            ta.materialize(series, "vfail", overwrite=True)
+        assert tools.g_list(type="vector", pattern="vfail_*_tmp*") is not None
+    tools.g_remove(type="vector", pattern="vfail_*", flags="f")
+    with pytest.raises(FatalError) as error:
+        ta.materialize(series, "vfail", overwrite=True)
+    # v.patch ends with G_fatal_error(), whose exit code is 1.
+    assert str(error.value) == (
+        "Module <v.patch> failed with return code 1, see the error output above"
+    )
+    assert isinstance(error.value.__cause__, CalledModuleError)
+    assert tools.g_list(type="vector", pattern="vfail_*") is None
+    assert not tgis.dataset_factory("stvds", "vfail@PERMANENT").is_in_db()
+
+
+def failing_on(monkeypatch, method, name):
+    """Make the method of RasterDataset raise for the map name"""
+    original = getattr(tgis.RasterDataset, method)
+
+    def fail(self, dbif=None, execute=True):
+        if self.get_name() == name:
+            msg = f"simulated failure of {method}()"
+            raise RuntimeError(msg)
+        return original(self, dbif, execute)
+
+    monkeypatch.setattr(tgis.RasterDataset, method, fail)
+
+
+def test_a_failing_insert_of_a_new_map_passes_through(core_session, monkeypatch):
+    """insert() of the second new result map fails
+
+    Expected from the code of materialize(): only the run of the modules is
+    turned into a FatalError, so the exception of _store() reaches the caller
+    unchanged. Nothing is rolled back: connection() closes the database
+    interface with a commit (db.py), so the dataset, created before the
+    registration, keeps the first map, registered before the failure, and
+    all four computed maps stay in the mapset.
+    """
+    tools = Tools(session=core_session)
+    series = ta.source("A") * 2
+    second = ta.plan(series, "inserting").register[1][0]
+    failing_on(monkeypatch, "insert", second)
+    with pytest.raises(RuntimeError, match=r"^simulated failure of insert\(\)$"):
+        ta.materialize(series, "inserting", overwrite=True)
+    assert registered("inserting") == [(day(1), day(2), 2)]
+    assert tools.g_list(type="raster", pattern="inserting_*").text.split() == [
+        f"inserting_{n}" for n in range(4)
+    ]
+
+
+def test_a_failing_update_of_an_existing_map_passes_through(core_session, monkeypatch):
+    """update_all() of the second result map fails when the run is repeated
+    with overwrite
+
+    Expected from the code of materialize(): the maps are in the temporal
+    database with the same temporal type, so _store() updates them, and the
+    exception of update_all() reaches the caller unchanged. open_new_stds()
+    has replaced the dataset by an empty one before the registration, and
+    nothing is rolled back (see above), so the dataset keeps only the first
+    map.
+    """
+    series = ta.source("A") * 2
+    ta.materialize(series, "updating", overwrite=True)
+    assert len(registered("updating")) == 4
+    second = ta.plan(series, "updating").register[1][0]
+    failing_on(monkeypatch, "update_all", second)
+    with pytest.raises(RuntimeError, match=r"^simulated failure of update_all\(\)$"):
+        ta.materialize(series, "updating", overwrite=True)
+    assert registered("updating") == [(day(1), day(2), 2)]
 
 
 def test_choose_equals_where_of_the_lifted_condition(core_session, make_series):
