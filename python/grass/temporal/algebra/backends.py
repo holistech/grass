@@ -55,7 +55,7 @@ class ModuleCall:
 
     name is the module and parameters its parameters; for r.series over a
     file, inputs are the lines to write into that file at run time: the
-    related map names, each followed by |weight in a weighted aggregation.
+    related map names, each followed by ``|weight`` in a weighted aggregation.
     """
 
     name: str
