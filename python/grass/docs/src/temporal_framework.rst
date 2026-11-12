@@ -675,20 +675,12 @@ imports it inside the function that skips a test. Its modules:
 - :mod:`~grass.temporal.testing.manual_examples` and
   :mod:`~grass.temporal.testing.manual_coverage`: reading the examples of a
   manual, running them, and checking that a manual shows every option
-- :mod:`~grass.temporal.testing.reference`,
-  :mod:`~grass.temporal.testing.differential`,
-  :mod:`~grass.temporal.testing.corpus` and
-  :mod:`~grass.temporal.testing.corpus_orphans`: running the reference
-  implementation, comparing it with the core, and the recorded results of the
-  reference that the comparisons read
 - :mod:`~grass.temporal.testing.outcomes`: running an expression on the
   algebra core and describing the maps it made
 - :mod:`~grass.temporal.testing.algebra_cases`: algebra cases with expected
   values derived by hand
-- :mod:`~grass.temporal.testing.expressions`,
-  :mod:`~grass.temporal.testing.expressions_data` and
-  :mod:`~grass.temporal.testing.expressions_generator`: seeded random
-  expressions for differential tests
+- :mod:`~grass.temporal.testing.expressions_data`: the datasets that the
+  algebra tests run expressions on
 
 The testing guide ``doc/development/testing.md`` of the repository describes
 how the tests use them.

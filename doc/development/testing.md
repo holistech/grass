@@ -264,53 +264,25 @@ Each test module gets its own session, also when several directories run in
 one pytest call. A `conftest.py` in a `tests` directory that defines a
 fixture with the same name takes precedence over the shared one.
 
-### Comparing the algebra core with the reference implementation
+### Running an expression on the algebra core
 
-The reference implementation, `grass.temporal.classic`, is the implementation
-of the temporal algebra of the releases up to GRASS 8.5. The private helper
-`grass.temporal.testing.reference` reaches it. Its function
-`run_reference(kind, expression, basename=..., **options)` computes an
-expression like the parse method of the public parser classes, for the kinds
-`raster`, `raster3d`, `vector` and `select`. Do not use it outside tests.
-
-The tests that compare the outcome of the core with that of the reference do
-not run it. The module `grass.temporal.testing.corpus` holds
-what the reference computed for each such case of the test suite, and
-`reference_outcome(kind, expression, **options)` returns the stored outcome.
-With `GRASS_TEMPORAL_REFERENCE=live` the reference runs instead, and a case
-fails where it no longer computes what the corpus holds;
-`GRASS_TEMPORAL_REFERENCE=record` records the corpus again, as the module
-docstring describes. The corpus key hangs on the node id of the test: a test
-that is renamed or moved finds no entry and fails, and its old entries stay in
-the corpus as orphans. Record the corpus again for a renamed test. To find
-orphans, run the tests with `GRASS_TEMPORAL_CORPUS_TRACE_DIR` set to an
-empty directory; then
-`python3 -m grass.temporal.testing.corpus_orphans <directory>` lists the
-entries that no test read. Tests of the reference itself, tests that check it
-against values derived by hand, and the comparisons of the planned chain and
-of the error texts in `temporal_algebra_core_plan_options_io_test.py`, which
-have no outcome to store, still run it. The algebra cases of the library
-tests that came from the former gunittest files
+The helper `grass.temporal.testing.outcomes` runs an expression on the
+algebra core. Its function `outcome(kind, expression, **options)` computes
+`R = <expression>` like the parse method of the public parser classes, for the
+kinds `raster`, `raster3d`, `vector` and `select`, and returns the error class
+or the result dataset with its maps: name, start, end, and the minimum and
+maximum (the numbers of points, lines and areas for vector maps). A test
+compares that with values it has derived by hand; `compare()` compares the
+outcomes of two spellings of one expression. `prepare(kind, session,
+directory)` creates the datasets that such tests run on. The algebra cases of
+the library tests that came from the former gunittest files
 (`grass_temporal_algebra_legacy_*_test.py`) take their datasets and checks
 from `grass.temporal.testing.algebra_cases`.
 
-The module `grass.temporal.testing.expressions` generates seeded random
-expressions, runs them with the runners of `grass.temporal.testing.differential`
-(the reference and the core) and compares the error class or the registered
-maps, with their time stamps and values. The same seed gives the same
-expression, so a difference can be reproduced from its seed alone.
-
-Run as a script, the module writes one JSON line per expression, so that a
-run before and after a change can be compared:
-
-```bash
-python3 -m grass.temporal.testing.expressions --kind raster \
-    --seeds 0-3999 --runner reference --out before.jsonl
-# change the code, run the same command with --out after.jsonl, then:
-python3 -m grass.temporal.testing.expressions --diff before.jsonl after.jsonl
-```
-
-The module docstring lists the options.
+The classic implementation of the algebra, which the releases up to GRASS 8.5
+computed with, is not in the repository any more. Where a test keeps a result
+of it, the result is a value in the test or in a data file, with the date on
+which it was recorded.
 
 ### Recordings of the library
 

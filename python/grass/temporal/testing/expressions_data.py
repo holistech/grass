@@ -1,12 +1,8 @@
-"""Datasets for the expression fuzzer
+"""Datasets for the algebra tests that run on the core with expressions
 
 ``build(kind, tools, directory)`` creates the datasets of one map type in the
 session of ``tools``; the session must come from ``temporal_session`` because
-the datasets are registered with the library. ``NAMES[kind]`` lists the
-dataset names that the generator may use, with weights. ``SINGLE[kind]`` lists
-the single maps for ``tmap()`` and ``map()``, ``FAMILY[kind]`` datasets with
-equal time stamps, which make the default relation ``equal`` find partners
-more often than a draw over all datasets.
+the datasets are registered with the library.
 
 The raster datasets cover the topologies that the expression tests of the
 algebra rely on (adjacent and overlapping intervals, instants, gaps, one time
@@ -37,55 +33,6 @@ from grass.temporal.testing.data import (
     small_region,
     square_area,
 )
-
-NAMES = {
-    "raster": {
-        "A": 10, "N": 4, "B": 6, "C": 4, "D": 5, "HA": 2, "HB": 2, "I": 4,
-        "E": 3, "Q": 4, "GP": 3, "Z": 3, "W": 3, "OV": 3, "RT": 2, "RH": 1,
-        "rel": 1, "ref": 2, "SA": 1, "PA": 1, "AF": 3,
-    },
-    "select": {
-        "A": 10, "N": 4, "B": 6, "C": 4, "D": 5, "HA": 2, "HB": 2, "I": 4,
-        "E": 3, "Q": 4, "GP": 3, "Z": 3, "W": 3, "OV": 3, "RT": 2, "RH": 1,
-        "rel": 1, "ref": 2, "AF": 3,
-    },
-    "raster3d": {
-        "A": 10, "B": 6, "W": 4, "D": 3, "E": 2, "Q": 2, "Q2": 1, "EQ": 3,
-        "Z": 3, "I": 3, "RT": 1,
-    },
-    "vector": {
-        "aa": 8, "ab": 6, "ac": 2, "pa": 4, "pb": 3, "pc": 1, "la": 2,
-        "wide": 4, "ne": 2, "eq": 3, "pi": 2, "rel": 1,
-    },
-}  # fmt: skip
-
-# The granularity mode (-g) needs a common granularity, so these datasets have
-# absolute intervals of whole days only (no instants, no relative time).
-GRANULARITY_NAMES = {
-    "raster": {
-        "A": 10, "N": 4, "B": 6, "C": 4, "D": 5, "Z": 3, "AF": 3, "W": 3,
-        "OV": 3, "GP": 3, "HA": 2, "HB": 2,
-    },
-    "raster3d": {"A": 10, "B": 6, "W": 4, "D": 3, "Z": 3, "EQ": 3},
-}  # fmt: skip
-
-GRANULARITY_FAMILY = {"raster": ["A", "N", "Z", "AF"], "raster3d": ["A", "B", "Z"]}
-
-GRANULARITY_SINGLE = {"raster": ["singletmap"], "raster3d": ["single"]}
-
-FAMILY = {
-    "raster": ["A", "N", "Z", "AF"],
-    "select": ["A", "N", "Z", "AF"],
-    "raster3d": ["A", "B", "Z"],
-    "vector": ["aa", "ab", "ac", "pa", "pb", "la"],
-}
-
-SINGLE = {
-    "raster": ["sinst", "singletmap"],
-    "select": ["sinst", "singletmap"],
-    "raster3d": ["single"],
-    "vector": ["ev"],
-}
 
 # Probe maps of the dataset "rel": (first day, last day) in January 2001 of
 # the maps p1..p13. The reference map ref1 covers days 10 to 20, so each probe

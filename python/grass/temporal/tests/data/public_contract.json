@@ -1334,12 +1334,6 @@
    },
    "origins": "repo"
   },
-  "grass.temporal.testing.corpus": {
-   "names": {
-    "reference_outcome": "repo"
-   },
-   "origins": "repo"
-  },
   "grass.temporal.testing.data": {
    "names": {
     "MapSpec": "repo",
@@ -1359,32 +1353,17 @@
    },
    "origins": "repo"
   },
-  "grass.temporal.testing.differential": {
+  "grass.temporal.testing.io_cache": {
+   "names": {},
+   "origins": "repo"
+  },
+  "grass.temporal.testing.outcomes": {
    "names": {
-    "RUNNERS": "repo",
-    "accepted_error_pair": "repo",
-    "check_difference_seen": "repo",
     "compare": "repo",
-    "compare_runs": "repo",
-    "failed_module_pair": "repo",
+    "constant_values": "repo",
     "outcome": "repo",
     "prepare": "repo"
    },
-   "origins": "repo"
-  },
-  "grass.temporal.testing.expressions": {
-   "names": {},
-   "origins": "repo"
-  },
-  "grass.temporal.testing.expressions_generator": {
-   "names": {
-    "boundary_forms": "repo",
-    "generate": "repo"
-   },
-   "origins": "repo"
-  },
-  "grass.temporal.testing.io_cache": {
-   "names": {},
    "origins": "repo"
   },
   "grass.temporal.testing.readback": {
@@ -1398,14 +1377,6 @@
     "message": "repo",
     "stds_info": "repo",
     "time_text": "repo"
-   },
-   "origins": "repo"
-  },
-  "grass.temporal.testing.reference": {
-   "names": {
-    "reference_parser": "repo",
-    "run_reference": "repo",
-    "setup_granularity": "repo"
    },
    "origins": "repo"
   },

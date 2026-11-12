@@ -2,10 +2,9 @@
 
 t.rast.mapcalc, t.rast3d.mapcalc and t.sample have no switch between the
 classic and the core algebra, so their results are those of the classic
-sample_by_dataset(), which grass.temporal.testing.reference keeps as the
-reference, except for one fixed fault (below). This module is the one place
-that reproduces its rules on the temporal algebra core, so that the tools do
-not carry diverging copies:
+sample_by_dataset() of the releases before GRASS 8.6, except for one fixed
+fault (below). This module is the one place that reproduces its rules on the
+temporal algebra core, so that the tools do not carry diverging copies:
 
 - the sampling method names expand into relation names in the order in which
   sample_by_dataset() tries them,
@@ -73,8 +72,7 @@ _PLAIN_RELATIONS = {
 # "start" never matched a map of equal time (measured 2026-10-14 in a
 # temporary project: method=equal listed an equal map, method=start printed
 # None for it). "start" here ends with "equal" instead, so that a map with the
-# same time as the granule is selected, as the name "equals" intended. The
-# reference in grass.temporal.testing.reference keeps the classic result.
+# same time as the granule is selected, as the name "equals" intended.
 _METHOD_GROUPS = {
     "start": ("overlapped", "starts", "started", "finishes", "contains", "equal"),
     "overlap": ("overlapped", "overlaps"),

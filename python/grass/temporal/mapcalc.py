@@ -9,8 +9,8 @@ replaced by the map name where it stands as a whole name, not as a part of a
 longer name and not as the name of a function, and the function tokens by
 their values. The tool has no switch between the classic and the core
 algebra, so the sampling follows the rules of the classic sample_by_dataset()
-(kept as the reference in grass.temporal.testing.reference), through
-grass.temporal.related_maps, which explains the one deliberate difference.
+of the releases before GRASS 8.6, through grass.temporal.related_maps, which
+explains the one deliberate difference.
 
 SPDX-FileCopyrightText: 2012-2013 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later

@@ -18,10 +18,6 @@ The page uses the terms of the docstring of :mod:`grass.temporal.algebra`:
 
 the core
     :mod:`grass.temporal.algebra`, the package.
-the reference implementation
-    :mod:`grass.temporal.classic`, the implementation of the algebra that is
-    older than the core and that the releases up to GRASS 8.5 computed with.
-    After its first mention it is called "the reference".
 the public parser classes
     :class:`~grass.temporal.algebra.parser.facade.TemporalRasterAlgebraParser`,
     :class:`~grass.temporal.algebra.parser.facade.TemporalRaster3DAlgebraParser`
@@ -29,7 +25,7 @@ the public parser classes
     which the tools and addons call.
 the temporal reference
     One of ``l``, ``r``, ``u``, ``i`` and ``d`` in a temporal operator such as
-    ``{+,during,l}``; it has nothing to do with the reference implementation.
+    ``{+,during,l}``.
 
 .. contents::
    :local:
@@ -336,39 +332,14 @@ The tests below keep the algebra computing as the releases before the core
 did, except for the differences that the manuals list, and the tools on the
 core computing as they did before the core.
 
-The gold corpus
-    :mod:`grass.temporal.testing.corpus` holds what the reference computed for
-    each case of the test suite that compares with it, and the comparisons read
-    the stored outcome instead of running the reference. The annotated tag
-    ``classic-reference-corpus`` of the repository marks the commit at which the
-    corpus was recorded and the comparisons started to read it; since then,
-    cases were added and a few entries recorded again, in the commits that
-    ``git log classic-reference-corpus.. -- python/grass/temporal/testing/corpus``
-    lists. The corpus key holds the node id of the test, so a test that is
-    renamed or moved finds no entry and fails, until the corpus is recorded
-    again (``GRASS_TEMPORAL_REFERENCE=record``, see the module docstring).
-
-``GRASS_TEMPORAL_REFERENCE=live``
-    runs the reference instead of reading the corpus and fails where the
-    reference no longer computes what the corpus holds ("The reference
-    implementation no longer computes what the corpus holds"). The comparisons
-    that read the corpus stay green after a change of
-    :mod:`grass.temporal.classic`, because they do not run it; this mode shows
-    the difference. Run it after any change of the reference.
-
-Unread entries
-    ``python3 -m grass.temporal.testing.corpus_orphans <directory>`` lists the
-    entries of the corpus that no test read and exits with 1 if there is one.
-    The directory is the one that ``GRASS_TEMPORAL_CORPUS_TRACE_DIR`` named
-    during a run of the tests; with a part of the tests, it lists the entries
-    of the others.
-
-Differential tests
+Tests of lists of expressions
     The files ``*_differential_test.py`` of *t.rast.algebra*,
     *t.rast3d.algebra*, *t.vect.algebra* and *t.select* compute each expression
-    of their lists with the core and the reference and compare the maps,
-    except for the differences that the manual lists.
-    :mod:`grass.temporal.testing.differential` runs them; ``t_rast_algebra_published_test.py`` and
+    of their lists on the core. Each expression of one list must give maps, and
+    each expression of the list of differences must give the outcome that the
+    list names, which the manual lists as a difference from the releases before
+    GRASS 8.6. :mod:`grass.temporal.testing.outcomes` runs them;
+    ``t_rast_algebra_published_test.py`` and
     ``t_select_published_test.py`` hold the expressions printed in the
     publication of the algebra (Gebbert, Leppelt and Pebesma, 2019).
 
