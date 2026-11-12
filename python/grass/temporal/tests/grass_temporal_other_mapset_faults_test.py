@@ -102,7 +102,8 @@ def snapshot(tools, owner):
 
     One t.list call per group of types lists the rows of the calls per type,
     with the type as a last column (compared on the datasets of this module,
-    2026-11-12); it saves eight tool calls per snapshot.
+    2026-11-12); it saves eight tool calls per snapshot. The maps are listed
+    with their times, so that a changed time stamp counts as a change.
     """
     state = []
     for session, mapset in ((tools, CURRENT), (owner, OWNER)):
@@ -110,7 +111,11 @@ def snapshot(tools, owner):
             session.g_list(type="raster,raster_3d,vector", mapset=mapset).stdout
         )
         state.append(session.t_list(type="strds,str3ds,stvds").stdout)
-        state.append(session.t_list(type="raster,raster_3d,vector").stdout)
+        state.append(
+            session.t_list(
+                type="raster,raster_3d,vector", columns="id,start_time,end_time"
+            ).stdout
+        )
     return state
 
 
