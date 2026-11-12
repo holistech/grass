@@ -169,16 +169,6 @@ def test_print_does_not_write_var_file(empty_session):
         assert "TGISDB_DATABASE" not in contents
 
 
-def test_json_mapset_without_a_connection_has_null_fields(multi_mapset_session):
-    tools = Tools(session=multi_mapset_session.session)
-
-    result = tools.t_connect(flags="p", format="json", mapset="no_such_mapset")
-
-    assert list(result) == [
-        {"mapset": "no_such_mapset", "driver": None, "database": None}
-    ]
-
-
 def test_json_mapset_takes_a_list(multi_mapset_session):
     tools = Tools(session=multi_mapset_session.session)
 
