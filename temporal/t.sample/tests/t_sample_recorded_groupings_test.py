@@ -58,9 +58,10 @@ def register(tools, name, spans, numbers, boxes):
     The map ids are numbered as given, so that the order of the ids is
     neither the order of the start times nor the order of registration. The
     maps are registered with the library because the grouping tests do not
-    test t.register. Measured 2026-11-12 with pytest -n 0 on the scenario
-    test: 65 s with t.create and t.register, 13 s for both tests of this
-    file with the library; the datasets of all 20 scenarios were identical in t.info and t.rast.list.
+    test t.register. Measured 2026-11-12 with pytest -n 0 on both tests of
+    this file, with the sources read once per scenario: 45.7 s with
+    t.create and t.register, 13.2 s with the library; the datasets of all
+    20 scenarios were identical in t.info -g and t.rast.list.
     """
     specs = []
     for number, (start, end), box in zip(numbers, spans, boxes, strict=True):
