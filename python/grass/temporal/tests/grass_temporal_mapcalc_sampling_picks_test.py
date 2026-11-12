@@ -1,16 +1,17 @@
 """The sampling of t.rast.mapcalc against the picks of the classic routine
 
 The choice of t.rast.mapcalc of the map per sampler granule must stay that of
-sample_by_dataset() of the releases up to GRASS 8.5, which their
-dataset_mapcalculator used: gap granules skipped, and per granule the
-first sample. The picks of that routine are in
-data/mapcalc_sampling_picks.json, recorded from the reference implementation
-on 2026-11-12 for 60 random cases (20 each of three kinds of series) with every
-method list, without and with the 2D spatial test. The file holds the time
-stamps and boxes of each case, so the series are rebuilt exactly and no random
-generator is involved. A pick is the number of the input map, None where no map
-relates to the granule. The sampler is always an interval series
-(sample_by_dataset requires it).
+sample_by_dataset(), which the dataset_mapcalculator of the reference
+implementation used: gap granules skipped, and per granule the first sample.
+The picks of that routine are in data/mapcalc_sampling_picks.json, recorded
+from the reference implementation of this branch on 2026-11-12, which
+already included the corrections listed in the changes page, for 60 random
+cases (20 each of three kinds of series) with every method list, without and
+with the 2D spatial test. The file holds the time stamps and boxes of each
+case, so the series are rebuilt exactly and no random generator is involved.
+A pick is the number of the input map, None where no map relates to the
+granule. The sampler is always an interval series (sample_by_dataset requires
+it).
 
 One difference is wanted: the method "start" selects a map of the same time as
 the granule, which the classic routine never did. For a list with "start" the

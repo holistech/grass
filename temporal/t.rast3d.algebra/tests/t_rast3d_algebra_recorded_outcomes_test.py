@@ -6,8 +6,8 @@ gave (recorded in data/reference_outcomes.json on
 listed in the changes page, so the values are not those of GRASS 8.5).
 DIFFERENT lists the changed rules with a short form of the item in the list of
 differences in the manual and the class of the outcome of the core, which is
-the class of the error or "maps". The registered maps are compared as start, end, minimum and
-maximum, rounded to 6 significant digits.
+the class of the error or "maps". The registered maps are compared as start,
+end, minimum and maximum, rounded to 6 significant digits.
 """
 
 import json
