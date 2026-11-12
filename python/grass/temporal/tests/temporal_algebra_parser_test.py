@@ -43,7 +43,7 @@ from grass.tools import Tools
 DAY0 = "00:00:00"
 
 
-class TemporalAlgebraParser:
+class SelectionRunner:
     """The selection of t.select: the core with the maps registered unchanged
 
     t.select calls evaluate() with ``selection=True``; this class gives the
@@ -170,7 +170,7 @@ def session(temporal_exit_session):
 
 def dry_register(expression, **kwargs):
     """Evaluate expression without creating anything, return register entries"""
-    parser = TemporalAlgebraParser(run=True, dry_run=True, **kwargs)
+    parser = SelectionRunner(run=True, dry_run=True, **kwargs)
     chain = parser.parse(expression, "strds", overwrite=True)
     # The core names a map by its full id; the tests list the bare names.
     return [
@@ -490,7 +490,8 @@ def test_time_literal_functions(session, condition, expected):
     ],
 )
 def test_combined_conditions(session, condition, expected):
-    """Conditions combine with && and || (equal precedence, left to right)"""
+    """Conditions combine with && and ||. The cases give the same result
+    whichever of the two binds stronger."""
     assert dry_register(f"R = if({condition}, A)") == maps(*expected)
 
 
@@ -646,7 +647,7 @@ def test_tsnap_of_time_instances(session):
 
 def test_run_result_dataset_metadata(session):
     """The result dataset has the temporal type, extent and map count"""
-    TemporalAlgebraParser(run=True).parse("sel2 = A !: B", "strds", overwrite=True)
+    SelectionRunner(run=True).parse("sel2 = A !: B", "strds", overwrite=True)
     result = info(session, "sel2")
     assert result["temporal_type"] == "absolute"
     assert result["number_of_maps"] == "2"
@@ -656,9 +657,7 @@ def test_run_result_dataset_metadata(session):
 
 def test_run_empty_result(session):
     """An empty selection creates an empty dataset and warns"""
-    chain = TemporalAlgebraParser(run=True).parse(
-        "sel4 = A : EMPTY", "strds", overwrite=True
-    )
+    chain = SelectionRunner(run=True).parse("sel4 = A : EMPTY", "strds", overwrite=True)
     # a dataset without maps stores no map count at all
     assert info(session, "sel4")["number_of_maps"] in {"0", "None"}
     assert info(session, "sel4")["temporal_type"] == "absolute"
@@ -667,16 +666,14 @@ def test_run_empty_result(session):
 
 def test_run_overwrite_replaces_result(session):
     """With overwrite the result dataset is replaced"""
-    TemporalAlgebraParser(run=True).parse("sel5 = A : B", "strds", overwrite=True)
-    TemporalAlgebraParser(run=True).parse("sel5 = A !: B", "strds", overwrite=True)
+    SelectionRunner(run=True).parse("sel5 = A : B", "strds", overwrite=True)
+    SelectionRunner(run=True).parse("sel5 = A !: B", "strds", overwrite=True)
     assert [row[0] for row in listed(session, "sel5")] == ["a1", "a4"]
 
 
 def test_run_time_instances(session):
     """Maps without end time are registered as instances"""
-    TemporalAlgebraParser(run=True).parse(
-        "sel7 = I {:,during} A", "strds", overwrite=True
-    )
+    SelectionRunner(run=True).parse("sel7 = I {:,during} A", "strds", overwrite=True)
     assert listed(session, "sel7") == [
         ("i1", stamp("2001-01-15"), None, 7.0, 7.0),
         ("i2", stamp("2001-03-10"), None, 8.0, 8.0),
@@ -685,7 +682,7 @@ def test_run_time_instances(session):
 
 def test_run_relative_time(session):
     """Selecting from a relative dataset yields a relative result dataset"""
-    TemporalAlgebraParser(run=True).parse("sel8 = REL : REL", "strds", overwrite=True)
+    SelectionRunner(run=True).parse("sel8 = REL : REL", "strds", overwrite=True)
     result = info(session, "sel8")
     assert result["temporal_type"] == "relative"
     assert result["number_of_maps"] == "3"
@@ -744,7 +741,7 @@ def test_copy_name_defaults_to_the_result_name(session):
 def test_run_false_parses_without_error(session, expression):
     """With run=False the expression is only parsed: nothing is evaluated,
     created or registered"""
-    parser = TemporalAlgebraParser(run=False)
+    parser = SelectionRunner(run=False)
     chain = parser.parse(expression, "strds", overwrite=True)
     assert chain == {"processes": [], "register": [], "remove": [], "STDS": {}}
 
@@ -759,12 +756,12 @@ def test_run_false_parses_without_error(session, expression):
 )
 def test_run_false_parses_nested_tmap_and_merge(session, expression):
     """run=False must accept every valid expression, also nested merge/tmap"""
-    TemporalAlgebraParser(run=False).parse(expression, "strds")
+    SelectionRunner(run=False).parse(expression, "strds")
 
 
 def test_run_false_keeps_database_untouched(session):
     """run=False does not even open the operands"""
-    chain = TemporalAlgebraParser(run=False).parse("R = nonexisting : A", "strds")
+    chain = SelectionRunner(run=False).parse("R = nonexisting : A", "strds")
     assert chain["register"] == []
 
 
@@ -794,9 +791,9 @@ def test_run_false_keeps_database_untouched(session):
     ],
 )
 def test_syntax_errors(session, expression):
-    """Invalid syntax raises SyntaxError, from the lexer or the parser"""
+    """Invalid syntax raises SyntaxError"""
     with pytest.raises(SyntaxError):
-        TemporalAlgebraParser(run=True, dry_run=True).parse(expression, "strds")
+        SelectionRunner(run=True, dry_run=True).parse(expression, "strds")
 
 
 @pytest.mark.parametrize(
@@ -818,7 +815,7 @@ def test_syntax_errors(session, expression):
 def test_unknown_dataset(session, expression):
     """An unknown dataset or map raises FatalError naming it"""
     with pytest.raises(FatalError, match="not found"):
-        TemporalAlgebraParser(run=True, dry_run=True).parse(expression, "strds")
+        SelectionRunner(run=True, dry_run=True).parse(expression, "strds")
 
 
 @pytest.mark.parametrize(
@@ -828,7 +825,7 @@ def test_unknown_dataset(session, expression):
 def test_unknown_relation_is_an_error(session, expression):
     """An unknown temporal relation must be reported, not ignored"""
     with pytest.raises(SyntaxError):
-        TemporalAlgebraParser(run=True, dry_run=True).parse(expression, "strds")
+        SelectionRunner(run=True, dry_run=True).parse(expression, "strds")
 
 
 # --- documented equivalences ------------------------------------------------

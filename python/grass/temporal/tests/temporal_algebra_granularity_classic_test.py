@@ -1,8 +1,9 @@
 """Sampling with a common granularity: the algebra core against the
 classic algebra
 
-The classic algebra samples datasets with
-AbstractSpaceTimeDataset.resample_maplist_by_granularity(), and
+The library samples datasets with
+AbstractSpaceTimeDataset.resample_maplist_by_granularity() (the function that
+the classic algebra of the releases before GRASS 8.6 called), and
 sample_by_granularity() rebuilds it from the core operations. Both get the
 same random time stamps, which have a valid temporal topology, as the
 granularity mode requires.

@@ -58,8 +58,7 @@ the public parser classes
     addons call.
 the temporal reference
     One of l, r, u, i and d in a temporal operator such as {+,during,l}: it
-    says which time stamp a result map takes. It has nothing to do with the
-    reference implementation.
+    says which time stamp a result map takes.
 
 Layers
 ------

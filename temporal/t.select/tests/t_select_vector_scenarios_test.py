@@ -276,7 +276,7 @@ def _creates(vectors, expression, name):
 @pytest.mark.parametrize("expression", EMPTY)
 def test_a_selection_without_maps_creates_an_empty_dataset(vectors, expression):
     """t.select.md: an expression that selects no map creates an empty space
-    time dataset. The reference implementation creates no vector dataset."""
+    time dataset. The classic algebra of the releases before GRASS 8.6 created no vector dataset."""
     # A name per expression, so that a dataset of an earlier case cannot pass.
     name = f"empty_{EMPTY.index(expression)}"
     assert _creates(vectors, expression, name)
