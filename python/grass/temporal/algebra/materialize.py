@@ -596,8 +596,9 @@ def _store(map_, overwrite, dbif):
     # time table of the new type matches no row, so the map gets no time
     # while the row of the old type stays behind (measured 2026-10-11 with
     # t.rast.algebra, see _store_new_map() in temporal_algebra.py of the
-    # classic algebra, which has since been removed). delete() runs on the stored copy because it resets the
-    # object, which would discard the time of map_.
+    # classic algebra, which has since been removed). delete() runs on the
+    # stored copy because it resets the object, which would discard the time
+    # of map_.
     stored.delete(dbif)
     map_.insert(dbif)
 

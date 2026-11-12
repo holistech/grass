@@ -1,10 +1,10 @@
 """The per-relation sampling of maps by granules
 
 The results of t.rast.mapcalc, t.rast3d.mapcalc and t.sample are those of
-sample_by_dataset() of the releases up to GRASS 8.5, except for one fixed
-fault (below). That function is not part of GRASS any more. This module is
-the one place that holds its rules on the temporal algebra core, so that the
-tools do not carry diverging copies:
+sample_by_dataset() of the releases up to GRASS 8.5, except for the rule of
+gaps (see with_gaps()) and one fixed fault (below). That function is not part
+of GRASS any more. This module is the one place that holds its rules on the
+temporal algebra core, so that the tools do not carry diverging copies:
 
 - the sampling method names expand into relation names in the order in which
   sample_by_dataset() tries them,
@@ -22,10 +22,10 @@ map of the first relation that has one, while gather() takes the earliest
 start over all relations. And the spatial relation of the core is not the one
 of those releases: their builder relates maps by their 2D extent, also for 3D
 rasters, as closed boxes, because it searches an R-tree that counts contact at
-an edge or a corner as intersection. The spatial relations of the core are 3D for 3D rasters and give
-no relation to boxes that share only a corner. So under spatial the temporal
-partners come from related() without a spatial part, and a closed 2D box test
-filters them (see boxes_intersect()).
+an edge or a corner as intersection. The spatial relations of the core are 3D
+for 3D rasters and give no relation to boxes that share only a corner. So
+under spatial the temporal partners come from related() without a spatial
+part, and a closed 2D box test filters them (see boxes_intersect()).
 
 Aggregation does not use this module. aggregation_core takes the union of the
 related maps in time order, which is a documented change from the order of
@@ -163,7 +163,7 @@ def related_per_granule(granules, names, inputs, *, spatial=False):
     """Per granule, the slots of inputs related through names
 
     The function of the releases up to GRASS 8.5 collected the maps relation
-    by relation in the order of names and drops duplicates. One merged
+    by relation in the order of names and dropped duplicates. One merged
     relation would return a single start-time order, which differs whenever a
     granule relates maps through more than one relation, so the relations are
     kept apart. A relation reads "granule R input", as the topology builder
