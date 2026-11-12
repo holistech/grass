@@ -20,6 +20,7 @@ FILES = {
     "GPKG": [f"{name}.gpkg" for name in MAPS],
     "pack": [f"{name}.pack" for name in MAPS],
 }
+FORMATS = ["GML", "GPKG", "pack"]
 TEXT_FILES = ["list.txt", "proj.txt", "init.txt", "readme.txt", "metadata.txt"]
 # The first bytes of a file: bzip2 and gzip signatures, and the "ustar" marker
 # of a plain tar archive at offset 257.
@@ -39,27 +40,28 @@ def _init(archive):
     return dict(line.split("=") for line in _read(archive, "init.txt").splitlines())
 
 
-# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
-@pytest.mark.slow
-@pytest.mark.parametrize("fmt", ["GML", "GPKG", "pack"])
-def test_the_archive_holds_a_file_per_map_and_the_description(
-    tools, absolute, tmp_path, fmt
-):
-    archive = tmp_path / "out"
+@pytest.fixture(scope="module")
+def archives(tools, absolute, tmp_path_factory):
+    """The uncompressed archive of the absolute dataset in each format
 
-    _export(tools, absolute, archive, format=fmt, compression="no")
+    Several tests read the same archive, so it is written once per format
+    instead of once per test.
+    """
+    directory = tmp_path_factory.mktemp("vect_archives")
+    for fmt in FORMATS:
+        _export(tools, absolute, directory / fmt, format=fmt, compression="no")
+    return {fmt: directory / fmt for fmt in FORMATS}
 
-    with tarfile.open(archive) as tar:
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_the_archive_holds_a_file_per_map_and_the_description(archives, fmt):
+    with tarfile.open(archives[fmt]) as tar:
         assert tar.getnames() == FILES[fmt] + TEXT_FILES
 
 
-# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
-@pytest.mark.slow
-@pytest.mark.parametrize("fmt", ["GML", "GPKG", "pack"])
-def test_init_and_list_describe_the_dataset(tools, absolute, tmp_path, fmt):
-    archive = tmp_path / "out"
-
-    _export(tools, absolute, archive, format=fmt, compression="no")
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_init_and_list_describe_the_dataset(archives, fmt):
+    archive = archives[fmt]
 
     # The extent is that of the points: x from 1 to 3 (map k at x = k), y from
     # 1 to 2.
@@ -94,10 +96,8 @@ def test_proj_and_metadata_come_from_the_project_and_the_dataset(
     assert "Name: ...................... vx_abs" in _read(archive, "metadata.txt")
 
 
-def test_gml_holds_the_points_and_their_attributes(tools, absolute, tmp_path):
-    archive = tmp_path / "out"
-
-    _export(tools, absolute, archive, format="GML", compression="no")
+def test_gml_holds_the_points_and_their_attributes(archives):
+    archive = archives["GML"]
 
     # Map 2 has the points (2, 1) and (2, 2) with value 21 and 22 (conftest.py)
     text = _read(archive, "vx_2.xml")
@@ -113,10 +113,8 @@ def test_gml_holds_the_points_and_their_attributes(tools, absolute, tmp_path):
         assert fragment in text
 
 
-def test_gpkg_holds_the_attributes_of_the_map(tools, absolute, tmp_path):
-    archive = tmp_path / "out"
-    _export(tools, absolute, archive, format="GPKG", compression="no")
-    with tarfile.open(archive) as tar:
+def test_gpkg_holds_the_attributes_of_the_map(archives, tmp_path):
+    with tarfile.open(archives["GPKG"]) as tar:
         tar.extract("vx_3.gpkg", tmp_path / "x", filter="data")
 
     with sqlite3.connect(tmp_path / "x" / "vx_3.gpkg") as db:
@@ -225,16 +223,10 @@ def test_the_extent_of_a_selection_is_that_of_the_selected_maps(
     ]
 
 
-# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
-@pytest.mark.slow
-def test_the_packed_maps_are_not_compressed_again(tools, absolute, tmp_path):
+def test_the_packed_maps_are_not_compressed_again(archives):
     # v.pack runs with -c, so a .pack member is a plain tar archive and the
     # outer compression of the archive does the work once.
-    archive = tmp_path / "out"
-
-    _export(tools, absolute, archive, format="pack", compression="no")
-
-    with tarfile.open(archive) as outer:
+    with tarfile.open(archives["pack"]) as outer:
         member = outer.extractfile("vx_1.pack")
         assert member.read(2) != b"\x1f\x8b"
         member.seek(0)
@@ -242,25 +234,14 @@ def test_the_packed_maps_are_not_compressed_again(tools, absolute, tmp_path):
             assert inner.getnames()
 
 
-# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
-@pytest.mark.slow
-def test_readme_names_the_files_of_the_format(tools, absolute, tmp_path):
-    archive = tmp_path / "gml"
-    _export(tools, absolute, archive, format="GML", compression="no")
-    pack = tmp_path / "pack"
-    _export(tools, absolute, pack, format="pack", compression="no")
-
-    assert "*.xml  -- Vector GML files" in _read(archive, "readme.txt")
+def test_readme_names_the_files_of_the_format(archives):
+    assert "*.xml  -- Vector GML files" in _read(archives["GML"], "readme.txt")
     assert "*.pack  -- GRASS vector files packed with v.pack" in _read(
-        pack, "readme.txt"
+        archives["pack"], "readme.txt"
     )
 
 
-def test_readme_names_the_gpkg_files_of_a_gpkg_archive(tools, absolute, tmp_path):
-    archive = tmp_path / "out"
-
-    _export(tools, absolute, archive, format="GPKG", compression="no")
-
-    text = _read(archive, "readme.txt")
+def test_readme_names_the_gpkg_files_of_a_gpkg_archive(archives):
+    text = _read(archives["GPKG"], "readme.txt")
     assert "*.gpkg  -- Vector GeoPackage files" in text
     assert "*.pack" not in text
