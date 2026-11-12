@@ -3467,22 +3467,21 @@ block names its result `PUB`, which replaces the one before.
     Copied from the publication, these quotes are a syntax error; the algebra
     reads a text in plain double or single quotes. The releases before GRASS
     8.6 read single quotes around the size of `buff_t()`, but not around a
-    date. `start_time()` is the time of day, and a date compared with it
-    counts as midnight, so it does not select by the date: for maps that
-    start at midnight, `start_time(A) >= "2001-03-01"` holds for every map,
-    and the result is `A` throughout.
+    date. `start_time()` is the time of day, so the algebra refuses a date
+    without a time of day compared with `start_time()` or `end_time()`, and
+    names `start_date()` and `end_date()` as the functions for a date.
 
     ```sh
-    t.rast.algebra --overwrite expression='PUB = if(start_time(A) >= "2001-03-01", A, F)' basename=pub
-    t.rast.list input=PUB columns=name,start_time,end_time,min,max
+    if ! t.rast.algebra --overwrite expression='PUB = if(start_time(A) >= "2001-03-01", A, F)' basename=pub 2>&1; then
+        echo "t.rast.algebra failed"
+    fi
     ```
 
     ```text
-    name|start_time|end_time|min|max
-    pub_0|2001-01-01 00:00:00|2001-02-01 00:00:00|1.5|1.5
-    pub_1|2001-02-01 00:00:00|2001-03-01 00:00:00|2.5|2.5
-    pub_2|2001-03-01 00:00:00|2001-04-01 00:00:00|3.5|3.5
-    pub_3|2001-04-01 00:00:00|2001-05-01 00:00:00|4.5|4.5
+    ERROR: '2001-03-01' is a date without a time of day, but start_time() and
+           end_time() give the time of day; compare dates with start_date() or
+           end_date(), or give a time such as '2001-03-01 00:00:00'
+    t.rast.algebra failed
     ```
 
     The comparison of the figures needs `start_date()`: the maps of `A` from
@@ -3505,8 +3504,9 @@ block names its result `PUB`, which replaces the one before.
     the time as `HH:MM:SS`, not `HH::MM:SS`; `end_datetime()` gives the
     seconds as well, `yyyy-mm-DD HH:MM:SS`, as `start_datetime()` does;
     `end_day()` is the day of month of the end time, not of the start time;
-    and `round()`, listed among the spatial functions, is no function of the
-    algebra in any release.
+    and `round()`, listed among the spatial functions of Table A2, is no
+    function of the algebra, in GRASS 8.6 as in every release before it; the
+    algebra stops with "Unknown function round()".
 
 <!-- markdownlint-enable MD046 -->
 

@@ -213,6 +213,13 @@ sections "Results corrected since GRASS 8.5".
     of the value of the function, and a function that a map does not have
     stops the tool with an error that names the map
     ([t.rast.algebra](t.rast.algebra.md#temporal-functions)).
+- **A date compared with start_time() or end_time().** `start_time()` and
+    `end_time()` give the time of day, so a date without a time of day, as in
+    `start_time(A) >= "2001-03-01"`, selects nothing by its date. GRASS 8.5
+    raised a `TypeError` or selected nothing; now the tool stops with an error
+    that names `start_date()` and `end_date()`. A text with a time of day,
+    such as `"2001-03-01 00:00:00"` or `"12:00:00"`, compares as before
+    ([t.rast.algebra](t.rast.algebra.md#temporal-functions)).
 - **Vector overlays.** *t.vect.algebra* removed the results of an overlay
     from the mapset after it had registered them, `if()` crashed, the
     operators `|`, `^`, `~` and `+` dropped pairs with separate extents, the

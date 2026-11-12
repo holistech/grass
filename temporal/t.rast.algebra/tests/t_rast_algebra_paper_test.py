@@ -7,9 +7,9 @@ name equals, the dates of Figures A2 and A3 in typographic quotes, and
 start_time compared with a date. GRASS 8.4.2 read neither equals nor a date
 in single quotes (checked 12 October 2026). The algebra now reads equals and
 a date in plain double or single quotes, but start_time is the time of day,
-so a date compared with it does not select by the date (checked 11 November
-2026; the catalog of the publication in the manual shows it). The expressions
-here use equal, double quotes and start_date, which the figures need.
+so a date alone compared with it is refused (checked 13 November 2026; the
+catalog of the publication in the manual shows it). The expressions here use
+equal, double quotes and start_date, which the figures need.
 """
 
 import pytest
