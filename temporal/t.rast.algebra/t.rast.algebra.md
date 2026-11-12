@@ -2586,10 +2586,10 @@ conclusion map, and four maps in total.
     ```
 
     ```text
-    ERROR: where() needs series with equal time stamps; they differ at slot 0:
+    ERROR: where() needs maps with equal time stamps; they differ at map 1:
            2026-03-01 00:00:00 .. 2026-03-02 00:00:00 and 2026-03-01 00:00:00
-           .. 2026-03-03 00:00:00. Relate the series with gather() or pairs()
-           first.
+           .. 2026-03-03 00:00:00. Select the maps with matching time stamps
+           first, for example B : A
     t.rast.algebra failed
     ```
 

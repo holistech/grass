@@ -114,27 +114,27 @@ def test_scalar_function_without_python_implementation_is_rejected(s):
 
 def test_series_of_different_time_stamps_are_rejected(a, make_series):
     b = make_series("b", (1, 3))
-    with pytest.raises(ValueError, match="slot 0"):
+    with pytest.raises(ValueError, match="map 1"):
         apply("+", a, b)
 
 
 def test_message_names_the_first_slot_that_differs(a, make_series):
     b = make_series("b", (1, 2), (2, 4))
-    with pytest.raises(ValueError, match=r"slot 1: .*2001-01-03.* and .*2001-01-04"):
+    with pytest.raises(ValueError, match=r"map 2: .*2001-01-03.* and .*2001-01-04"):
         apply("+", a, b)
 
 
 def test_series_of_different_length_are_rejected(a, make_series):
     b = make_series("b", (1, 2))
-    with pytest.raises(ValueError, match=r"slot 1: .*2001-01-03.* and no slot"):
+    with pytest.raises(ValueError, match=r"map 2: .*2001-01-03.* and no map"):
         apply("+", a, b)
-    with pytest.raises(ValueError, match=r"slot 1: no slot and .*2001-01-03"):
+    with pytest.raises(ValueError, match=r"map 2: no map and .*2001-01-03"):
         apply("+", b, a)
 
 
 def test_message_shows_an_instant_without_end(a, make_series):
     b = make_series("b", 1, (2, 3))
-    with pytest.raises(ValueError, match=r"and 2001-01-01 00:00:00\. Relate") as info:
+    with pytest.raises(ValueError, match=r"and 2001-01-01 00:00:00\. Select") as info:
         apply("+", a, b)
     assert "None" not in str(info.value)
 
@@ -142,10 +142,10 @@ def test_message_shows_an_instant_without_end(a, make_series):
 def test_message_shows_the_unit_of_relative_time(make_series):
     days = make_series("d", (1, 2), unit="days")
     hours = make_series("h", (1, 2), unit="hours")
-    with pytest.raises(ValueError, match=r"1 \.\. 2 days and 1 \.\. 2 hours\. Relate"):
+    with pytest.raises(ValueError, match=r"1 \.\. 2 days and 1 \.\. 2 hours\. Select"):
         apply("+", days, hours)
     instant = make_series("i", 1, unit="days")
-    with pytest.raises(ValueError, match=r"slot 0: 1 \.\. 2 days and 1 days\. Relate"):
+    with pytest.raises(ValueError, match=r"map 1: 1 \.\. 2 days and 1 days\. Select"):
         apply("+", days, instant)
 
 

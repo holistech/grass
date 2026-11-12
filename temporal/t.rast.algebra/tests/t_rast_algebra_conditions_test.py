@@ -88,6 +88,38 @@ def test_else_branch_of_other_time_is_an_error(algebra):
         algebra.run("if(A > 2, A, B)")
 
 
+def test_unequal_branches_name_the_map_and_the_selection(algebra):
+    """N > 1 and A have four daily maps, HA six; the fifth map of HA has no
+    partner. The message counts the maps from 1 and points to a selection."""
+    with pytest.raises(ValueError, match="differ at map 5") as error:
+        algebra.run("if(N > 1, A, HA)")
+    assert str(error.value) == (
+        "where() needs maps with equal time stamps; they differ at map 5: no map "
+        "and 2001-01-05 00:00:00 .. 2001-01-06 00:00:00. Select the maps with "
+        "matching time stamps first, for example B : A"
+    )
+    assert not algebra.exists()
+
+
+def test_the_selection_of_the_hint_computes(algebra):
+    # HA : N keeps ha1..ha4, whose days equal those of N and A. N holds 11 to
+    # 14, so N > 1 holds for every map and the result is A: 1, 2, 3, 4.
+    assert algebra.triples("if(N > 1, A, HA : N)") == [
+        (1, 2, 1),
+        (2, 3, 2),
+        (3, 4, 3),
+        (4, 5, 4),
+    ]
+    # N > 12 is false for n1 and n2, so those take ha1 = 1 and ha2 = 2 of the
+    # selection, and n3, n4 (13, 14) are kept: 1, 2, 13, 14.
+    assert algebra.triples("if(N > 12, N, HA : N)") == [
+        (1, 2, 1),
+        (2, 3, 2),
+        (3, 4, 13),
+        (4, 5, 14),
+    ]
+
+
 @pytest.mark.parametrize(
     ("expression", "values"),
     [

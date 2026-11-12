@@ -58,9 +58,7 @@ _COMBINE = {
 
 
 def _describe_extent(extent):
-    """The text of a time stamp in messages, "no slot" for None"""
-    if extent is None:
-        return "no slot"
+    """The text of a time stamp in messages"""
     # The unit tells apart relative times that read alike, e.g. series in
     # days and in hours.
     unit = "" if extent.unit is None else f" {extent.unit}"
@@ -332,12 +330,14 @@ def _check_aligned(first, second, name):
         ),
         min(len(times), len(others)),
     )
+    mine = _describe_extent(times[index]) if index < len(times) else "no map"
+    theirs = _describe_extent(others[index]) if index < len(others) else "no map"
+    # The tools show this message, so it speaks of maps counted from 1 and
+    # points to the selection of the expression syntax, not to gather().
     msg = (
-        f"{name}() needs series with equal time stamps; they differ at slot "
-        f"{index}: "
-        f"{_describe_extent(times[index] if index < len(times) else None)} and "
-        f"{_describe_extent(others[index] if index < len(others) else None)}. "
-        "Relate the series with gather() or pairs() first."
+        f"{name}() needs maps with equal time stamps; they differ at map "
+        f"{index + 1}: {mine} and {theirs}. Select the maps with matching time "
+        "stamps first, for example B : A"
     )
     raise ValueError(msg)
 

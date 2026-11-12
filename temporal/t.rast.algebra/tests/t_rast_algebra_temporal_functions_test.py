@@ -105,6 +105,11 @@ DATE_AND_NUMBER = (
 TD_OF_AN_INSTANCE = (
     "td() requires a time interval, but map <i1@PERMANENT> is a time instance"
 )
+UNEQUAL_BRANCHES = (
+    "where() needs maps with equal time stamps; they differ at map 1: "
+    "2001-01-01 06:00:00 .. 2001-02-01 06:00:00 and 2001-01-10 00:00:00. Select "
+    "the maps with matching time stamps first, for example B : A"
+)
 
 
 @pytest.mark.parametrize(
@@ -112,8 +117,9 @@ TD_OF_AN_INSTANCE = (
     [
         ("if(start_time(intervals) > 12, intervals)", DATE_AND_NUMBER),
         ("if(td(instants) > 0, instants)", TD_OF_AN_INSTANCE),
+        ("if(intervals > 1, intervals, instants)", UNEQUAL_BRANCHES),
     ],
-    ids=["date and number", "td of an instance"],
+    ids=["date and number", "td of an instance", "unequal branches"],
 )
 def test_the_tool_reports_the_error_and_writes_nothing(time_series, expression, text):
     """The tool stops with the message of the core, without a traceback,
