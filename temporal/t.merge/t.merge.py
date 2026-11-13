@@ -75,14 +75,8 @@ def open_inputs(input_ids, type, dbif):
     return stds_list
 
 
-def offset_text(time):
-    """Return the time zone offset of a time as +HH:MM, as t.register writes it"""
-    text = time.strftime("%z")
-    return f"{text[:3]}:{text[3:5]}"
-
-
 def refuse_mixed_time_zones(datasets, dbif):
-    """End with a message if the datasets have times of different time zones
+    """End with a message if the datasets have times of different time zone offsets
 
     t.register keeps a dataset to one time zone offset, or to none, because
     times with and without one cannot be ordered and daylight saving time is
@@ -117,6 +111,8 @@ def refuse_mixed_time_zones(datasets, dbif):
                 "or all have none: <{aware}> has one, <{naive}> has none"
             ).format(aware=aware, naive=naive)
         )
+    from grass.temporal.datetime_math import time_zone_offset_text
+
     (first, first_start), (second, second_start) = list(offsets.values())[:2]
     gs.fatal(
         _(
@@ -124,9 +120,9 @@ def refuse_mixed_time_zones(datasets, dbif):
             "<{first}> has {first_offset}, <{second}> has {second_offset}"
         ).format(
             first=first,
-            first_offset=offset_text(first_start),
+            first_offset=time_zone_offset_text(first_start),
             second=second,
-            second_offset=offset_text(second_start),
+            second_offset=time_zone_offset_text(second_start),
         )
     )
 

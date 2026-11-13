@@ -76,15 +76,16 @@ def test_datasets_with_different_offsets_are_refused(
 
 
 def test_an_existing_output_with_another_offset_is_refused(
-    tools, register_three_days, refusal_of
+    tools, register_three_days, refusal_of, prefix
 ):
     """The maps already in the output count like those of an input."""
     _first_maps, first = register_three_days("z")
     _other_maps, other = register_three_days("y", offset="+02:00")
-    tools.t_copy(input=other, output="Old")
-    before = tools.t_rast_list(input="Old", columns="name").stdout
+    old = f"{prefix}_old"
+    tools.t_copy(input=other, output=old)
+    before = tools.t_rast_list(input=old, columns="name").stdout
 
-    text = refusal_of("t.merge", inputs=first, output="Old", overwrite=True)
+    text = refusal_of("t.merge", inputs=first, output=old, overwrite=True)
 
     assert "Space time datasets to merge must have the same time zone offset" in text
-    assert tools.t_rast_list(input="Old", columns="name").stdout == before
+    assert tools.t_rast_list(input=old, columns="name").stdout == before
