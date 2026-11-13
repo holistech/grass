@@ -76,14 +76,9 @@ def test_gran_on_single_instant_names_missing_granularity(tools):
     assert "None" not in text
 
 
-@pytest.mark.timeout(10)
-@pytest.mark.parametrize("granule", ["0 days", "0 months", "-1 days"])
-def test_zero_granule_is_refused(tools, granule):
-    """A granule of 0 or less ends with a message and does not run on
-
-    Granule "0 days" never moved on, so the listing ran without end; the
-    timeout makes such a run fail the test instead of hanging it.
-    """
+@pytest.fixture(scope="module")
+def stepped(tools):
+    """Three 3D maps of one day each in absolute time"""
     create_stds(
         tools,
         "str3ds",
@@ -92,18 +87,34 @@ def test_zero_granule_is_refused(tools, granule):
             MapSpec(f"d_{k}", k, datetime(2026, 7, k), datetime(2026, 7, k + 1))
             for k in range(1, 4)
         ],
-        overwrite=True,
     )
+    return "stepped"
+
+
+# Granule "0 days" never moved on, so the listing ran without end; the
+# timeout makes such a run fail the test instead of hanging it. The datasets
+# come from fixtures and func_only leaves their setup out of the timeout, so
+# it covers the test function: the tool call and the inventory around it.
+# Under coverage that took at most 3.4 s, the tool call alone (the relative
+# test) 0.5 s: measured 2026-11-13, call phase of --durations in three runs
+# of pytest -n auto --cov --cov-context=test over this directory.
+GRANULE_TIMEOUT = pytest.mark.timeout(30, func_only=True)
+
+
+@GRANULE_TIMEOUT
+@pytest.mark.parametrize("granule", ["0 days", "0 months", "-1 days"])
+def test_zero_granule_is_refused(tools, stepped, granule):
+    """A granule of 0 or less ends with a message and does not run on"""
     before = inventory(tools)
     with pytest.raises(ToolError) as error:
-        tools.t_rast3d_list(input="stepped", method="gran", granule=granule)
+        tools.t_rast3d_list(input=stepped, method="gran", granule=granule)
     text = message(error.value)
     assert f"The granularity {granule!r} must be positive" in text
     assert "Traceback" not in text
     assert inventory(tools) == before
 
 
-@pytest.mark.timeout(10)
+@GRANULE_TIMEOUT
 def test_zero_relative_granule_is_refused(tools, model):
     """The relative granule 0 is refused as well"""
     with pytest.raises(ToolError) as error:
