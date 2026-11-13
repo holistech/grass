@@ -19,7 +19,8 @@ their tables.
 ### Datasets and region
 
 The options **input** (the STVDS) and **strds** (the STRDS) are required. Both
-datasets must have the same temporal type, absolute or relative. Every vector
+datasets must have the same temporal type, absolute or relative, and with
+absolute time both must have a time zone offset or both none. Every vector
 map of **input** must have a time interval; a map with a time instant stops the
 tool. The tool changes the tables of the vector maps, so the maps must be in the
 current mapset, and each registered layer must have an attribute table. The

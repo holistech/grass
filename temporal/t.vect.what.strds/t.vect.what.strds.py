@@ -176,6 +176,31 @@ def check_target_columns(targets, overwrite, dbif):
     return existing
 
 
+def refuse_mixed_time_zones(datasets, dbif):
+    """End with a message if one dataset has times with a time zone offset
+    and another times without one
+
+    The raster maps of a vector interval are selected by an SQL condition on
+    the stored times, which compares them as text, so times of both kinds
+    would select the wrong maps without an error. t.register keeps a dataset
+    to one kind, so its first map with a start time tells the kind.
+    """
+    from grass.temporal.topology import check_time_zones
+
+    starts = []
+    for stds in datasets:
+        rows = stds.get_registered_maps(
+            "id,start_time", "start_time IS NOT NULL", "start_time", dbif
+        )
+        if rows:
+            starts.append((rows[0]["id"], rows[0]["start_time"]))
+    try:
+        check_time_zones(starts)
+    except ValueError as error:
+        dbif.close()
+        gs.fatal(str(error))
+
+
 def open_datasets(input, strds, dbif):
     """Open the vector and the raster dataset and check that they fit
 
@@ -209,6 +234,9 @@ def open_datasets(input, strds, dbif):
                 input=sp.get_id(),
             )
         )
+
+    if sp.is_time_absolute():
+        refuse_mixed_time_zones((sp, strds_sp), dbif)
 
     # An empty dataset has no map time either; say that it is empty
     if not sp.get_registered_maps("id", None, None, dbif):
