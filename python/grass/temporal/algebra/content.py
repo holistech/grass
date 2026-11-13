@@ -318,6 +318,23 @@ def evaluate(function, values):
     return _SCALAR[function](*values)
 
 
+def _check_maps_with_moments(function, args):
+    """Raise TypeError if a map meets a constant date or time
+
+    r.mapcalc has no dates, so plan() would refuse the tree later with a
+    message that names neither the function nor a way out.
+    """
+    for arg in args:
+        if isinstance(arg, Const) and value_kind(arg.value) in MOMENT_KINDS:
+            msg = (
+                f"{function}() cannot combine maps with "
+                f"{describe_value(arg.value)}: maps hold numbers; compare time "
+                "functions with each other or with a date in quotes, or use the "
+                "numbers of time functions such as start_doy() or td()"
+            )
+            raise TypeError(msg)
+
+
 def call(function, *args):
     """Return the content of a function applied to contents
 
@@ -332,7 +349,8 @@ def call(function, *args):
     :raises ValueError: for an if with fewer than two or more than four
         arguments
     :raises TypeError: for an if whose constant condition is a date or a
-        time, and for the constants that evaluate() refuses
+        time, for a call of a map with a constant date or time, also as a
+        branch of if(), and for the constants that evaluate() refuses
     """
     if function == "if" and not 2 <= len(args) <= 4:
         msg = f"if() takes two to four arguments, got {len(args)}"
@@ -350,8 +368,10 @@ def call(function, *args):
             return NULL
         return _if(args[0].value, *args[1:])
     constant = bool(args) and all(isinstance(arg, Const) for arg in args)
-    if not constant and function in _SCALAR and NULL in args:
-        return NULL
+    if not constant:
+        _check_maps_with_moments(function, args)
+        if function in _SCALAR and NULL in args:
+            return NULL
     if constant and (function in _SCALAR or function in _NULL_AWARE):
         # evaluate() gives null for a null operand as well, but only after it
         # has checked the kinds, so that a date minus null is refused as a

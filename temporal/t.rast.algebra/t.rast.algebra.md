@@ -382,6 +382,9 @@ dates, and `start_datetime()` or `end_datetime()` to compare a date and a time.
 Two time functions are compared only if they give the same kind of value
 (numbers, dates, times of day, or dates with a time of day), as in
 `start_date(A) < end_date(A)`; `start_doy(A) > start_time(A)` is refused.
+Dates and times are only compared; arithmetic on them and a map combined with
+them are refused, and the numbers of `td()`, `start_doy()` and the other time
+functions serve for computing.
 
 #### Comparison operator
 

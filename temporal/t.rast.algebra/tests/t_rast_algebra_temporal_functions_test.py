@@ -120,6 +120,11 @@ DATE_ARITHMETIC = (
     "-() computes with numbers, not with a date (2001-01-01); use the numbers "
     "of time functions such as start_doy() or td()"
 )
+MAP_AND_DATE = (
+    ">() cannot combine maps with a date (2001-01-01): maps hold numbers; "
+    "compare time functions with each other or with a date in quotes, or use "
+    "the numbers of time functions such as start_doy() or td()"
+)
 UNEQUAL_BRANCHES = (
     "where() needs maps with equal time stamps; they differ at map 1: "
     "2001-01-01 06:00:00 .. 2001-02-01 06:00:00 and 2001-01-10 00:00:00. Select "
@@ -139,6 +144,7 @@ UNEQUAL_BRANCHES = (
             "if(start_date(intervals) - end_date(intervals) > 0, intervals)",
             DATE_ARITHMETIC,
         ),
+        ("intervals > start_date(intervals)", MAP_AND_DATE),
     ],
     ids=[
         "date and number",
@@ -147,6 +153,7 @@ UNEQUAL_BRANCHES = (
         "td of an instance",
         "unequal branches",
         "date arithmetic",
+        "map and date",
     ],
 )
 def test_the_tool_reports_the_error_and_writes_nothing(time_series, expression, text):

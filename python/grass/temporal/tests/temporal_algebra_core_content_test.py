@@ -321,6 +321,30 @@ def test_null_and_one_kind_still_compute():
     assert call("==", Const(DAY), NULL) == NULL
 
 
+MAPS_HOLD_NUMBERS = (
+    "maps hold numbers; compare time functions with each other or with a date "
+    "in quotes, or use the numbers of time functions such as start_doy() or td()"
+)
+
+
+@pytest.mark.parametrize(
+    ("function", "args", "described"),
+    [
+        (">", (A, Const(DAY)), "a date (2001-01-01)"),
+        ("+", (Const(NOON), A), "a time of day (12:00:00)"),
+        ("if", (A, Const(DAY), Const(0)), "a date (2001-01-01)"),
+        ("if", (A, Const(DAY)), "a date (2001-01-01)"),
+        ("if", (A, B, Const(NOON)), "a time of day (12:00:00)"),
+    ],
+)
+def test_call_refuses_a_map_with_a_date(function, args, described):
+    """Before, the tree was built and plan() refused it later, or r.mapcalc
+    would have been handed a Python date"""
+    message = f"{function}() cannot combine maps with {described}: {MAPS_HOLD_NUMBERS}"
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
+        call(function, *args)
+
+
 @pytest.mark.parametrize("method", ["sum", "average"])
 def test_series_reduce_refuses_dates(method):
     message = (

@@ -13,6 +13,7 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.exceptions import FatalError
+from grass.temporal.testing.readback import message
 from grass.tools import ToolError, Tools
 
 pytestmark = pytest.mark.real_io
@@ -649,6 +650,26 @@ def test_a_refused_increment_is_reported_with_the_message_of_the_library(
         error.value.stderr
     )
     assert "Function tshift()" not in error.value.stderr
+
+
+def test_a_map_combined_with_a_date_is_refused(series_3d):
+    """3D raster maps hold numbers as raster maps do; the first map of A
+    starts on 2001-01-01. Nothing is written."""
+    tools = Tools(session=series_3d.session, consistent_return_value=True)
+    with pytest.raises(ToolError) as error:
+        tools.t_rast3d_algebra(
+            expression="refused = A > start_date(A)", basename="refused"
+        )
+    assert (
+        ">() cannot combine maps with a date (2001-01-01): maps hold numbers; "
+        "compare time functions with each other or with a date in quotes, or use "
+        "the numbers of time functions such as start_doy() or td()"
+    ) in message(error.value)
+    assert "Traceback" not in error.value.stderr
+    assert not tools.t_list(type="str3ds", where="name = 'refused'").stdout.strip()
+    assert not gs.list_strings(
+        "raster_3d", pattern="refused*", env=series_3d.session.env
+    )
 
 
 def test_classic_flag_is_unknown(series_3d):

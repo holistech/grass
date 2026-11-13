@@ -541,6 +541,10 @@ def test_time_functions_of_different_kinds_are_not_compared(
 COMPUTES_WITH_NUMBERS = (
     "; use the numbers of time functions such as start_doy() or td()"
 )
+MAPS_HOLD_NUMBERS = (
+    ": maps hold numbers; compare time functions with each other or with a date "
+    "in quotes, or use the numbers of time functions such as start_doy() or td()"
+)
 # Fixture A starts on 1 January 2001 at midnight; its last two maps start
 # after day 2, so the if() below holds 0, 0 and the dates of 3 and 4 January.
 CORE_REFUSALS = [
@@ -572,6 +576,14 @@ CORE_REFUSALS = [
         ">() compares values of one kind, but got a date (2001-01-03) and a number (5)",
     ),
     (
+        "A > start_date(A)",
+        f">() cannot combine maps with a date (2001-01-01){MAPS_HOLD_NUMBERS}",
+    ),
+    (
+        "A + start_time(A)",
+        f"+() cannot combine maps with a time of day (00:00:00){MAPS_HOLD_NUMBERS}",
+    ),
+    (
         "if(start_date(A), 1, 0)",
         "choose() needs numbers as condition, not a date (2001-01-01)",
     ),
@@ -582,8 +594,8 @@ CORE_REFUSALS = [
     ("text", "message"), CORE_REFUSALS, ids=[text for text, _ in CORE_REFUSALS]
 )
 def test_the_core_refuses_dates_where_numbers_are_needed(translator, text, message):
-    """Before, these gave a TypeError that named no function or a silent
-    result"""
+    """Before, these gave a TypeError that named no function, a silent
+    result, or a tree that plan() refused later"""
     with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
         run(translator, text)
 

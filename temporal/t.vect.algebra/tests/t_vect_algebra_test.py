@@ -14,6 +14,7 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.exceptions import FatalError
+from grass.temporal.testing.readback import message
 from grass.tools import ToolError, Tools
 
 pytestmark = pytest.mark.real_io
@@ -512,6 +513,22 @@ def test_spatial_topology_flag_drops_spatially_unrelated_maps(vector_series):
 def test_spatial_topology_flag_keeps_overlapping_maps(vector_series):
     """With -s, overlay of related maps gives the same result as without"""
     assert counts(vector_series.session, "aa & ab", flags="s") == [1, 1]
+
+
+def test_a_vector_map_compared_with_a_date_keeps_the_vector_message(vector_series):
+    """Vector maps have no comparison at all, so the message about the
+    operator comes before any check of the date. Nothing is written."""
+    tools = Tools(session=vector_series.session, consistent_return_value=True)
+    with pytest.raises(ToolError) as error:
+        tools.t_vect_algebra(
+            expression="refused = aa > start_date(aa)", basename="refused"
+        )
+    assert (
+        "The operator > is not defined for vector maps; they are combined with "
+        "&, |, ^, ~ and +"
+    ) in message(error.value)
+    assert "cannot combine maps" not in message(error.value)
+    assert not tools.t_list(type="stvds", where="name = 'refused'").stdout.strip()
 
 
 def test_classic_flag_is_unknown(vector_series):
