@@ -218,7 +218,8 @@ sections "Results corrected since GRASS 8.5".
     as in `start_time(A) >= "2001-03-01"`. GRASS 8.5 raised a `TypeError` or
     selected nothing; now the tool stops with an error that names
     `start_date()`, `end_date()`, `start_datetime()` and `end_datetime()`. A
-    time of day such as `"12:00:00"` still compares. A date given together
+    time of day such as `"12:00:00"` compares with the time of day of the
+    map. A date given together
     with a time of day, such as `"2001-03-01 00:00:00"`, is not refused, but
     its date is ignored and only the time counts
     ([t.rast.algebra](t.rast.algebra.md#temporal-functions)).

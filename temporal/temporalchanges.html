@@ -220,7 +220,8 @@ stops the tool with an error that names the map
 as in <code>start_time(A) &gt;= "2001-03-01"</code>. GRASS 8.5 raised a <code>TypeError</code> or
 selected nothing; now the tool stops with an error that names
 <code>start_date()</code>, <code>end_date()</code>, <code>start_datetime()</code> and <code>end_datetime()</code>. A
-time of day such as <code>"12:00:00"</code> still compares. A date given together
+time of day such as <code>"12:00:00"</code> compares with the time of day of the
+map. A date given together
 with a time of day, such as <code>"2001-03-01 00:00:00"</code>, is not refused, but
 its date is ignored and only the time counts
 (<a href="t.rast.algebra.html#temporal-functions">t.rast.algebra</a>).</li>
