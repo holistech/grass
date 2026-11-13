@@ -19,6 +19,7 @@ from grass.temporal.algebra.content import (
     call,
     chain,
     evaluate,
+    series_aggregate,
     series_reduce,
 )
 
@@ -355,6 +356,16 @@ def test_series_reduce_refuses_dates(method):
     )
     with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
         series_reduce(method, [NULL, Const(DAY), Const(date(2001, 1, 2))])
+
+
+@pytest.mark.parametrize("method", ["average", "sum"])
+def test_series_aggregate_refuses_dates(method):
+    message = (
+        f"{method}() computes with numbers, not with a date (2001-01-01); use the "
+        "numbers of time functions such as start_doy() or td()"
+    )
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
+        series_aggregate(method, [NULL, Const(DAY), Const(date(2001, 1, 2))])
 
 
 def test_dates_with_and_without_offset_are_not_compared():

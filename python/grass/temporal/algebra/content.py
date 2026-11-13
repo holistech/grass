@@ -255,7 +255,11 @@ def check_condition(function, value):
 
 
 def _check_compared(function, values):
-    """Raise TypeError for the first value of another kind than the first"""
+    """Raise TypeError for values of two kinds or with and without time zone offset
+
+    The first value of another kind than the first is named, or the first
+    date and time with an offset and the first without.
+    """
     present = [value for value in values if value is not None]
     if not present:
         return
@@ -273,6 +277,9 @@ def _check_compared(function, values):
         v for v in present if isinstance(v, datetime.datetime) and v.tzinfo is None
     ]
     if aware and naive:
+        # Python gives False for == and True for != across the two without a
+        # word and only raises for ordering; the same refusal for every
+        # comparison keeps == from hiding the mix.
         msg = (
             f"{function}() cannot compare a date and time with a time zone "
             f"offset ({aware[0]}) with one without ({naive[0]})"
@@ -313,9 +320,10 @@ def evaluate(function, values):
     their own kind; null is no kind.
 
     :raises ScalarFunctionError: if the function has no scalar implementation
-    :raises TypeError: for a comparison of values of two kinds, for any other
-        operator or function with a value that is not a number, and for an
-        if() whose condition is a date or a time
+    :raises TypeError: for a comparison of values of two kinds or of dates
+        and times with and without a time zone offset, for any other operator
+        or function with a value that is not a number, and for an if() whose
+        condition is a date or a time
     """
     if function in _NULL_AWARE:
         _check_kinds(function, values)
@@ -450,8 +458,14 @@ def series_aggregate(method, contents, file_limit=1000, weights=None):
 
     :param weights: None, or one weight for each content
     :raises ValueError: if weights is not of the length of contents
+    :raises TypeError: if a constant is a date or a time
     """
     contents = tuple(contents)
+    # The same refusal as series_reduce(): r.series cannot aggregate dates, and
+    # without this check the node would only fail when the plan is made.
+    for content in contents:
+        if isinstance(content, Const) and value_kind(content.value) in MOMENT_KINDS:
+            _refuse_computing(method, content.value)
     if weights is not None:
         weights = tuple(weights)
         if len(weights) != len(contents):
