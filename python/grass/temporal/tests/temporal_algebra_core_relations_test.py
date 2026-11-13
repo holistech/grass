@@ -8,6 +8,7 @@ starts and finishes, contains includes started and finished.
 
 import datetime
 import random
+import re
 
 import pytest
 
@@ -257,6 +258,48 @@ def test_map_without_time_stamp_has_no_relation(make_series):
     timeless = Slot(None, MapRef("m@PERMANENT"))
     with pytest.raises(ValueError, match="without time stamp"):
         related([timeless], equal, make_series("a", (1, 2)).slots)
+
+
+PLUS_ONE = datetime.timezone(datetime.timedelta(hours=1))
+
+
+def zoned_slots(name, *days):
+    """Slots of one day each in January 2001 at the offset +01:00"""
+    return [
+        Slot(
+            Extent(
+                datetime.datetime(2001, 1, day, tzinfo=PLUS_ONE),
+                datetime.datetime(2001, 1, day + 1, tzinfo=PLUS_ONE),
+            ),
+            MapRef(f"{name}{day}@PERMANENT"),
+            None,
+            f"{name}{day}@PERMANENT",
+        )
+        for day in days
+    ]
+
+
+def test_slots_with_a_time_zone_offset_are_related():
+    assert related(zoned_slots("z", 1, 2), equal, zoned_slots("y", 1, 2)) == [
+        [0],
+        [1],
+    ]
+    assert related(zoned_slots("z", 2), relation("follows"), zoned_slots("y", 1)) == [
+        [0]
+    ]
+
+
+def test_slots_with_and_without_offset_are_refused_by_map_name(make_series):
+    """The message names the maps of the slots, not the stand-ins that
+    related() hands to the topology builder."""
+    message = (
+        "Maps with a time zone offset, such as <z1@PERMANENT>, and maps without "
+        "one, such as <a1@PERMANENT>, cannot be related in time; register all "
+        "maps with or all without an offset"
+    )
+    naive = make_series("a", (1, 2)).slots
+    with pytest.raises(ValueError, match="^" + re.escape(message) + "$"):
+        related(naive, equal, zoned_slots("z", 1))
 
 
 def boxes(count, rng):

@@ -461,13 +461,20 @@ def compute_occurrence(
     Stores the new maps in occurrence_maps by the id of their input map and
     returns the count for the next occurrence map.
     """
+    # A threshold dataset with times of the other kind than the input, with
+    # or without a time zone offset, is refused here, in the first cycle,
+    # before its first map is computed.
     if minimum_strds:
         input_maps_minimum = input_strds.get_registered_maps_as_objects(
             where=where, dbif=dbif
         )
         minimum_maps = minimum_strds.get_registered_maps_as_objects(dbif=dbif)
         minimum_topo = tgis.SpatioTemporalTopologyBuilder()
-        minimum_topo.build(input_maps_minimum, minimum_maps)
+        try:
+            minimum_topo.build(input_maps_minimum, minimum_maps)
+        except ValueError as error:
+            dbif.close()
+            gs.fatal(str(error))
 
     if maximum_strds:
         input_maps_maximum = input_strds.get_registered_maps_as_objects(
@@ -475,7 +482,11 @@ def compute_occurrence(
         )
         maximum_maps = maximum_strds.get_registered_maps_as_objects(dbif=dbif)
         maximum_topo = tgis.SpatioTemporalTopologyBuilder()
-        maximum_topo.build(input_maps_maximum, maximum_maps)
+        try:
+            maximum_topo.build(input_maps_maximum, maximum_maps)
+        except ValueError as error:
+            dbif.close()
+            gs.fatal(str(error))
 
     # Aggregate
     num_maps = len(input_maps)

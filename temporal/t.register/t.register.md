@@ -188,7 +188,9 @@ as they were. The checks end with these errors, among others:
 
 A dataset holds maps with a time zone offset or maps without one, not both: a
 map of the other kind is refused, and the error says which of the two has a
-time zone offset.
+time zone offset. Tools that relate maps in time, such as *t.sample*,
+*t.rast.algebra* and *t.select*, refuse to relate a dataset with offsets to
+one without.
 
 A wrong **separator** is not an error of its own: the whole line is read as the
 name of a map, and the map is not found.

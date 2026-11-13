@@ -27,7 +27,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 from __future__ import annotations
 
 import copy
-from datetime import datetime
+from datetime import UTC, datetime
 
 from grass.lib import gis, rtree, vector
 
@@ -405,6 +405,40 @@ def _has_start(map_) -> bool:
     return map_.get_temporal_extent_as_tuple()[0] is not None
 
 
+def check_time_zones(starts) -> bool:
+    """Tell whether absolute times have a time zone offset, refusing a mix
+
+    Python cannot order or subtract a datetime with an offset and one
+    without, so maps of both kinds have no temporal relation. t.register
+    keeps a dataset to one kind; maps of two datasets can still differ.
+
+    :param starts: Pairs of the identifier of a map and its start time; a
+                   start that is not a datetime (relative time, no time) is
+                   skipped
+    :return: True if the times have an offset, False if they have none or
+             there is no absolute time
+    :raises ValueError: if some times have an offset and others have none,
+                        naming the first map of each kind
+    """
+    aware = naive = None
+    for ident, start in starts:
+        if not isinstance(start, datetime):
+            continue
+        if start.tzinfo is None:
+            if naive is None:
+                naive = ident
+        elif aware is None:
+            aware = ident
+    if aware is not None and naive is not None:
+        msg = (
+            f"Maps with a time zone offset, such as <{aware}>, and maps without "
+            f"one, such as <{naive}>, cannot be related in time; register all "
+            "maps with or all without an offset"
+        )
+        raise ValueError(msg)
+    return aware is not None
+
+
 def reversed_map_ids(maps) -> set[str]:
     """Return the ids of the maps that end before they start, warning once each
 
@@ -514,7 +548,8 @@ class SpatioTemporalTopologyBuilder:
 
     def __init__(self) -> None:
         self._reset()
-        # 0001-01-01 00:00:00
+        # The origin of the time axis of the R-tree; build() sets it to the
+        # kind of the maps, with or without a time zone offset.
         self._timeref = datetime(1, 1, 1)
 
     def _reset(self) -> None:
@@ -699,6 +734,13 @@ class SpatioTemporalTopologyBuilder:
         it. It stays among the maps of mapsA (len(), indexing) and comes after
         the chain in the iteration, in the order of mapsA. get_first() is the
         map with the earliest start time, None if no map has one.
+
+        Absolute times with a time zone offset are related by the instant
+        they denote, so maps with different offsets can be equal.
+
+        :raises ValueError: if the maps of both lists together have absolute
+                            times with and without a time zone offset (see
+                            check_time_zones())
         """
 
         identical = False
@@ -709,6 +751,14 @@ class SpatioTemporalTopologyBuilder:
             mapsB = mapsA
             identical = True
 
+        all_maps = mapsA if identical else [*mapsA, *mapsB]
+        # Refused before any map is touched, so a refusal leaves the
+        # topology of the maps as it was.
+        zoned = check_time_zones(
+            (map_.get_id(), map_.get_temporal_extent_as_tuple()[0]) for map_ in all_maps
+        )
+        self._timeref = datetime(1, 1, 1, tzinfo=UTC if zoned else None)
+
         for map_ in mapsA:
             map_.reset_topology()
 
@@ -716,7 +766,7 @@ class SpatioTemporalTopologyBuilder:
             for map_ in mapsB:
                 map_.reset_topology()
 
-        reversed_ids = reversed_map_ids(mapsA if identical else [*mapsA, *mapsB])
+        reversed_ids = reversed_map_ids(all_maps)
 
         # A reversed map stays in the R-tree, with its lower time bound above
         # the upper one. The tree may still return it for another map, so the

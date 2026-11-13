@@ -125,14 +125,17 @@ def main():
         if granules is None:
             granules = with_gaps(source(labelled_id(sampler_stds), stds_type=samtype))
         if granules.slots:
-            columns.append(
-                related_per_granule(
+            try:
+                column = related_per_granule(
                     granules,
                     names,
                     source(labelled_id(stds), stds_type=intype),
                     spatial=spatial,
                 )
-            )
+            except ValueError as error:
+                # Datasets with and without a time zone offset cannot be related.
+                gs.fatal(str(error))
+            columns.append(column)
 
     if not columns:
         return

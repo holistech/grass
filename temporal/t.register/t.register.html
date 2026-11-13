@@ -210,7 +210,9 @@ of another kind than <b>type</b>.</li>
 <p>
 A dataset holds maps with a time zone offset or maps without one, not both: a
 map of the other kind is refused, and the error says which of the two has a
-time zone offset.
+time zone offset. Tools that relate maps in time, such as <em>t.sample</em>,
+<em>t.rast.algebra</em> and <em>t.select</em>, refuse to relate a dataset with offsets to
+one without.
 
 <p>
 A wrong <b>separator</b> is not an error of its own: the whole line is read as the

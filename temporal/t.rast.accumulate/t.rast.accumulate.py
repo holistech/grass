@@ -377,18 +377,35 @@ def granules(input_strds, start, end, granularity, count):
 
 
 def relate_granules(gran_lists, input_maps, lower_strds, upper_strds, dbif):
-    """Build the topology of the granules with the input and threshold maps"""
+    """Build the topology of the granules with the input and threshold maps
+
+    :raises ValueError: if the threshold maps have times with a time zone
+                        offset and the input maps without one, or the other
+                        way round
+    """
+    from grass.temporal.topology import check_time_zones
+
+    def check_against_input(threshold_maps):
+        # The builder would refuse the mix as well, but name a granule, which
+        # has no name the user knows.
+        check_time_zones(
+            (map_.get_id(), map_.get_temporal_extent_as_tuple()[0])
+            for map_ in (*input_maps, *threshold_maps)
+        )
+
     gran_list, gran_list_low, gran_list_up = gran_lists
     gran_topo = tgis.SpatioTemporalTopologyBuilder()
     gran_topo.build(gran_list, input_maps)
 
     if lower_strds is not None:
         lower_maps = lower_strds.get_registered_maps_as_objects(dbif=dbif)
+        check_against_input(lower_maps)
         gran_lower_topo = tgis.SpatioTemporalTopologyBuilder()
         gran_lower_topo.build(gran_list_low, lower_maps)
 
     if upper_strds is not None:
         upper_maps = upper_strds.get_registered_maps_as_objects(dbif=dbif)
+        check_against_input(upper_maps)
         gran_upper_topo = tgis.SpatioTemporalTopologyBuilder()
         gran_upper_topo.build(gran_list_up, upper_maps)
 
@@ -697,7 +714,11 @@ def main():
             continue
 
         gran_lists = granules(input_strds, cycle_start, cycle_end, granularity, count)
-        relate_granules(gran_lists, input_maps, lower_strds, upper_strds, dbif)
+        try:
+            relate_granules(gran_lists, input_maps, lower_strds, upper_strds, dbif)
+        except ValueError as error:
+            dbif.close()
+            gs.fatal(str(error))
         names = new_map_names(
             gran_lists[0],
             count,

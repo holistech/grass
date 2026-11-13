@@ -24,19 +24,21 @@ pytest.register_assert_rewrite("grass.temporal.testing")
 # The registration has to precede these imports, so they follow a statement.
 from grass.temporal.testing import postgresql  # noqa: E402
 from grass.temporal.testing.data import (  # noqa: E402
+    MAP_TYPE_OF_STDS,
     TIME_FORMAT,
     MapSpec,
     create_daily_stds,
     create_stds,
     day,
+    make_map,
 )
-from grass.temporal.testing.readback import map_info  # noqa: E402
+from grass.temporal.testing.readback import inventory, map_info, message  # noqa: E402
 from grass.temporal.testing.session import (  # noqa: E402
     mapset_session,
     project_session,
     temporal_session,
 )
-from grass.tools import Tools  # noqa: E402
+from grass.tools import ToolError, Tools  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -170,6 +172,76 @@ def make_stds(tools, prefix):
         return maps, names
 
     return make
+
+
+@pytest.fixture
+def register_three_days(tools, prefix):
+    """Function that registers three maps of one day each from 2001-01-01
+
+    make(name) creates the maps <prefix>_<name>_1 to _3 of the kind that
+    stds_type holds, map n with the value n, and registers them in the
+    dataset <prefix>_<name> as t.register does with
+    start="2001-01-01 00:00:00<offset>", increment="1 day" and -i: map n
+    lasts from day n to day n + 1 of January at that offset. offset="" gives
+    times without offset. Returns the map names and the dataset name.
+    """
+
+    def make(name, *, stds_type="strds", offset="+01:00"):
+        map_type = MAP_TYPE_OF_STDS[stds_type]
+        dataset = f"{prefix}_{name}"
+        maps = [f"{dataset}_{number}" for number in (1, 2, 3)]
+        for number, map_name in enumerate(maps, 1):
+            make_map(tools, map_type, map_name, number)
+        tools.t_create(type=stds_type, output=dataset, title=name, description=name)
+        tools.t_register(
+            type=map_type,
+            input=dataset,
+            maps=",".join(maps),
+            start=f"2001-01-01 00:00:00{offset}",
+            increment="1 day",
+            flags="i",
+        )
+        return maps, dataset
+
+    return make
+
+
+@pytest.fixture
+def refusal_of(tools):
+    """Function that runs a tool that must refuse and returns its message
+
+    refusal_of("t.sample", input=..., sample=...) checks that the run fails
+    without a Python traceback and leaves no new map and no new dataset
+    behind (inventory()), and returns the messages as one line (message()).
+    """
+
+    def run(tool, **options):
+        before = inventory(tools)
+        with pytest.raises(ToolError) as error:
+            tools.run(tool, **options)
+        assert "Traceback" not in error.value.stderr
+        assert inventory(tools) == before
+        return message(error.value)
+
+    return run
+
+
+@pytest.fixture
+def mixed_zones_message():
+    """Function that gives the refusal of maps with and without offset
+
+    mixed_zones_message(aware, naive) is the message of the topology builder
+    for the ids of the first map with and the first without offset.
+    """
+
+    def text(aware, naive):
+        return (
+            f"Maps with a time zone offset, such as <{aware}>, and maps without "
+            f"one, such as <{naive}>, cannot be related in time; register all "
+            "maps with or all without an offset"
+        )
+
+    return text
 
 
 class Labelled(NamedTuple):

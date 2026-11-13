@@ -11,7 +11,8 @@ the temporal database can hold them.
 """
 
 import itertools
-from datetime import datetime
+import re
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -148,6 +149,97 @@ def test_topology_between_two_map_lists(consecutive_maps, overlapping_maps) -> N
     assert related_ids(consecutive_maps, "contains")[3] == ["d_4@b"]
     # d_3@a covers March, which lies inside both d_2@b and d_3@b.
     assert related_ids(consecutive_maps, "during")[2] == ["d_2@b", "d_3@b"]
+
+
+PLUS_ONE = timezone(timedelta(hours=1))
+PLUS_TWO = timezone(timedelta(hours=2))
+
+
+def three_days(prefix, tzinfo=None):
+    """Three maps of one day each from 2001-01-01, as t.register -i makes them"""
+    return maps_from(
+        [
+            (
+                f"{prefix}{day}@a",
+                datetime(2001, 1, day, tzinfo=tzinfo),
+                datetime(2001, 1, day + 1, tzinfo=tzinfo),
+            )
+            for day in (1, 2, 3)
+        ]
+    )
+
+
+def test_maps_with_a_time_zone_offset_relate_like_maps_without() -> None:
+    """The offset moves all three days by the same hour, so each day still
+    ends where the next begins: they follow and precede each other only."""
+    zoned = three_days("z", PLUS_ONE)
+    naive = three_days("z")
+    SpatioTemporalTopologyBuilder().build(zoned)
+    SpatioTemporalTopologyBuilder().build(naive)
+
+    for name in ("precedes", "follows", "overlaps", "equal", "during", "contains"):
+        assert related_ids(zoned, name) == related_ids(naive, name)
+    assert related_ids(zoned, "precedes") == [["z2@a"], ["z3@a"], []]
+    assert related_ids(zoned, "follows") == [[], ["z1@a"], ["z2@a"]]
+
+
+def test_two_lists_with_a_time_zone_offset_relate() -> None:
+    zoned = three_days("z", PLUS_ONE)
+    other = three_days("y", PLUS_ONE)
+    SpatioTemporalTopologyBuilder().build(zoned, other)
+
+    assert related_ids(zoned, "equal") == [["y1@a"], ["y2@a"], ["y3@a"]]
+
+
+def test_different_offsets_of_the_same_instant_are_equal() -> None:
+    """At the change to summer time in Central Europe, 01:30 at +01:00 and
+    02:30 at +02:00 are both 00:30 UTC: the two instants are equal."""
+    winter, summer = maps_from(
+        [
+            ("w@a", datetime(2001, 3, 25, 1, 30, tzinfo=PLUS_ONE), None),
+            ("s@a", datetime(2001, 3, 25, 2, 30, tzinfo=PLUS_TWO), None),
+        ]
+    )
+    SpatioTemporalTopologyBuilder().build([winter, summer])
+
+    assert related_ids([winter, summer], "equal") == [["s@a"], ["w@a"]]
+
+
+def mixed_message(aware, naive):
+    return (
+        f"Maps with a time zone offset, such as <{aware}>, and maps without "
+        f"one, such as <{naive}>, cannot be related in time; register all "
+        "maps with or all without an offset"
+    )
+
+
+def test_one_list_mixing_offsets_and_none_is_refused() -> None:
+    naive = three_days("n")
+    zoned = three_days("z", PLUS_ONE)
+    SpatioTemporalTopologyBuilder().build(zoned)
+    with pytest.raises(
+        ValueError, match="^" + re.escape(mixed_message("z1@a", "n1@a")) + "$"
+    ):
+        SpatioTemporalTopologyBuilder().build([*naive, *zoned])
+    # The refusal comes before the topology is reset: the maps keep the
+    # relations of the build before.
+    assert related_ids(zoned, "follows") == [[], ["z1@a"], ["z2@a"]]
+    assert all(not map_.get_temporal_relations() for map_ in naive)
+
+
+def test_two_lists_mixing_offsets_and_none_are_refused() -> None:
+    with pytest.raises(ValueError, match=re.escape(mixed_message("z1@a", "n1@a"))):
+        SpatioTemporalTopologyBuilder().build(
+            three_days("z", PLUS_ONE), three_days("n")
+        )
+
+
+def test_a_map_without_time_does_not_count_as_a_map_without_offset() -> None:
+    timeless = RasterDataset(ident="t@a")
+    zoned = three_days("z", PLUS_ONE)
+    SpatioTemporalTopologyBuilder().build([*zoned, timeless])
+
+    assert related_ids(zoned, "follows") == [[], ["z1@a"], ["z2@a"]]
 
 
 @pytest.fixture

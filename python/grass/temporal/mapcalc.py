@@ -201,10 +201,18 @@ def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
 
     Warns, as the tool of GRASS 8.5 did, once per granule that relates more
     than one map. An input without registered maps gives a column of None.
+    Ends with a message if the input has times with a time zone offset and
+    the sampler times without one, or the other way round.
     """
     inputs = _read_series(name, where, stds_type, msgr)
+    try:
+        per_granule = related_per_granule(first_series, names, inputs, spatial=spatial)
+    except ValueError as error:
+        # Datasets with and without a time zone offset cannot be related; the
+        # refusal comes before the first map is computed.
+        msgr.fatal(str(error))
     column = []
-    for found in related_per_granule(first_series, names, inputs, spatial=spatial):
+    for found in per_granule:
         if len(found) > 1:
             msgr.warning(
                 _(

@@ -15,7 +15,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from dataclasses import dataclass
 
-from grass.temporal.topology import SpatioTemporalTopologyBuilder
+from grass.temporal.topology import SpatioTemporalTopologyBuilder, check_time_zones
 
 from .adapters import as_map
 
@@ -194,7 +194,8 @@ def related(left, relation_, other, *, dimension="2D"):
     :param dimension: "2D" relates the spatial extents as rectangles, "3D"
         as boxes; only used if the relation has a spatial part
     :raises ValueError: for a slot without time stamp, or without spatial
-        extent where the relation has a spatial part
+        extent where the relation has a spatial part, and for slots with
+        absolute times with and without a time zone offset
     """
     for slot in (*left, *other):
         if slot.extent is None:
@@ -203,6 +204,13 @@ def related(left, relation_, other, *, dimension="2D"):
         if relation_.spatial is not None and slot.space is None:
             msg = "A spatial relation needs the spatial extent of every map"
             raise ValueError(msg)
+    # The builder would refuse the mix as well, but it only knows the
+    # stand-ins made below; this names the maps of the slots, and a computed
+    # slot, such as a granule, by its start.
+    check_time_zones(
+        (slot.origin or str(slot.extent.start), slot.extent.start)
+        for slot in (*left, *other)
+    )
     if not left or not other:
         return [[] for _ in left]
     left_maps = [

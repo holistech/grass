@@ -150,17 +150,22 @@ def granule_samples(strds_names, first_strds, dbif):
         dbif.close()
         gs.fatal(_("The temporal map type of the sample dataset must be interval"))
 
-    mapmatrizes = tgis.sample_stds_by_stds_topology(
-        "strds",
-        "strds",
-        strds_names,
-        strds_names[0],
-        False,
-        None,
-        "equal",
-        False,
-        False,
-    )
+    try:
+        mapmatrizes = tgis.sample_stds_by_stds_topology(
+            "strds",
+            "strds",
+            strds_names,
+            strds_names[0],
+            False,
+            None,
+            "equal",
+            False,
+            False,
+        )
+    except ValueError as error:
+        # Datasets with and without a time zone offset cannot be related.
+        dbif.close()
+        gs.fatal(str(error))
 
     samples = []
     for i in range(len(mapmatrizes[0])):
