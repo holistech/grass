@@ -42,6 +42,14 @@ SPATIAL_RELATIONS = (
     "meet",
 )
 
+# The manual names both overlap relations "over". The published paper writes
+# "equals" for the relation that is called "equal"; the classic algebra
+# read it the same way. Both are second names, so that the printed
+# expressions run; relation() reads them too, so that the Python API takes
+# the names of the operators in braces. TEMPORAL_RELATIONS keeps the
+# canonical names only.
+_SHORTHANDS = {"over": ("overlaps", "overlapped"), "equals": ("equal",)}
+
 _INVERSE = {
     "equal": "equal",
     "during": "contains",
@@ -113,13 +121,29 @@ class Relation:
         return "|".join(sorted(self.temporal | (self.spatial or frozenset())))
 
 
+def relation_names(name):
+    """Return the canonical relation names that a written name stands for
+
+    ``over`` is both overlap relations and ``equals`` is ``equal``; any other
+    name stands for itself, known or not.
+    """
+    return _SHORTHANDS.get(name, (name,))
+
+
 def relation(text, *, spatial=False):
     """Return the relation of names joined with ``|``, e.g. ``during|starts``
 
-    Spatial names in the text, or spatial=True, make space count. The text
-    needs at least one temporal name.
+    Names are read in any case, and ``over`` and ``equals`` as in the
+    operators of the algebra (see relation_names()). Spatial names in the
+    text, or spatial=True, make space count. The text needs at least one
+    temporal name.
     """
-    names = {name.strip().lower() for name in text.split("|") if name.strip()}
+    names = {
+        each
+        for name in text.split("|")
+        if name.strip()
+        for each in relation_names(name.strip().lower())
+    }
     temporal = names & set(TEMPORAL_RELATIONS)
     spatial_names = names - temporal
     if spatial_names or spatial:

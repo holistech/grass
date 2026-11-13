@@ -17,19 +17,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from grass.temporal.algebra.content import COMPARISONS
-from grass.temporal.algebra.relations import SPATIAL_RELATIONS, TEMPORAL_RELATIONS
+from grass.temporal.algebra.relations import (
+    SPATIAL_RELATIONS,
+    TEMPORAL_RELATIONS,
+    relation_names,
+)
 
 SYMBOLS = (
     "!:", ":", "#", "&&", "||", "+", "-", "*", "/", "%", "&", "|", "^", "~",
     *COMPARISONS,
 )  # fmt: skip
 
-# The manual names both overlap relations "over". The published paper writes
-# "equals" for the relation that is called "equal"; the classic algebra
-# read it the same way. It is a
-# second name so that the printed expressions run. TEMPORAL_RELATIONS keeps
-# the canonical names only.
-_SHORTHANDS = {"over": ("overlaps", "overlapped"), "equals": ("equal",)}
 _TEMPORAL_REFERENCES = {
     "l": "l",
     "left": "l",
@@ -92,15 +90,6 @@ def parse_operator(text):
         msg = f"Unexpected '{rest[0]}' in the operator {text}"
         raise SyntaxError(msg)
     return TemporalOperator(symbol, relations, aggregate, temporal)
-
-
-def relation_names(name):
-    """Return the canonical relation names that a written name stands for
-
-    ``over`` is both overlap relations and ``equals`` is ``equal``; any other
-    name stands for itself, known or not.
-    """
-    return _SHORTHANDS.get(name, (name,))
 
 
 def _relations(part, text):

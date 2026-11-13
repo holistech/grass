@@ -134,6 +134,21 @@ def test_relation_text_and_union():
     assert str(relation("starts|equal")) == "equal|starts"
 
 
+@pytest.mark.parametrize(
+    ("text", "same"),
+    [
+        ("equals", "equal"),
+        ("EQUALS", "equal"),
+        ("over", "overlaps|overlapped"),
+        ("during|equals", "during|equal"),
+        ("equals|over|in", "equal|overlaps|overlapped|in"),
+    ],
+)
+def test_relation_reads_the_second_names_of_the_parser(text, same):
+    """relation() reads equals and over as the operators in braces do"""
+    assert relation(text) == relation(same)
+
+
 def test_spatial_name_alone_is_not_a_relation():
     with pytest.raises(ValueError, match=r"spatial relation.*equal\|overlap"):
         relation("overlap")
