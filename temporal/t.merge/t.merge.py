@@ -80,18 +80,21 @@ def refuse_mixed_time_zones(datasets, dbif):
     and others times without one
 
     t.register keeps a dataset to one kind, because times of both kinds
-    cannot be ordered, so one map with a start time tells the kind. Datasets
-    in relative time and those without such a map are passed over.
+    cannot be ordered, so its first map with a start time tells the kind.
+    Datasets in relative time and those without such a map are passed over.
     """
     kinds = {}
     for stds in datasets:
         if not stds.is_time_absolute():
             continue
-        maps = stds.get_registered_maps_as_objects(dbif=dbif) or ()
-        starts = (map_.get_temporal_extent_as_tuple()[0] for map_ in maps)
-        start = next((time for time in starts if time is not None), None)
-        if start is not None:
-            kinds.setdefault(start.tzinfo is not None, stds.get_id())
+        rows = stds.get_registered_maps(
+            columns="start_time",
+            where="start_time IS NOT NULL",
+            order="start_time",
+            dbif=dbif,
+        )
+        if rows:
+            kinds.setdefault(rows[0]["start_time"].tzinfo is not None, stds.get_id())
     if len(kinds) == 2:
         dbif.close()
         gs.fatal(
