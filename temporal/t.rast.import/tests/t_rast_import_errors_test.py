@@ -5,6 +5,8 @@ archive is read leaves no dataset and no map of the run behind, also when it
 comes for a later map of the archive.
 """
 
+import io
+import tarfile
 from datetime import datetime
 from pathlib import Path
 
@@ -210,3 +212,55 @@ def test_a_dotted_output_is_refused_before_the_project_is_made(
 
     assert "a dot is not allowed" in text
     assert not (gisdbase / f"{prefix}_dotted").exists()
+
+
+def _with_times(source, target, start, end):
+    """Copy the archive source to target with the times of its one map in
+    list.txt replaced by start and end"""
+    with tarfile.open(source) as old, tarfile.open(target, "w") as new:
+        for member in old.getmembers():
+            data = old.extractfile(member).read()
+            if member.name == "list.txt":
+                name = data.decode().split("|")[0]
+                data = f"{name}|{start}|{end}\n".encode()
+                member.size = len(data)
+            new.addfile(member, io.BytesIO(data))
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "expected"),
+    [
+        (
+            "2001-01-01 00:00:00+01:00",
+            "2001-02-01 00:00:00+02:00",
+            (
+                "The archive holds times with the time zone offsets +01:00 and "
+                "+02:00, but a space time dataset holds one offset and no daylight "
+                "saving time"
+            ),
+        ),
+        (
+            "2001-01-01 00:00:00+01:00",
+            "2001-02-01 00:00:00",
+            (
+                "The archive holds times with and without a time zone offset, such "
+                "as 2001-01-01 00:00:00+01:00 and 2001-02-01 00:00:00, but a space "
+                "time dataset holds only one of the two"
+            ),
+        ),
+    ],
+    ids=["two offsets", "with and without"],
+)
+def test_times_of_two_time_zones_are_refused_before_the_first_map(
+    tools, archive, prefix, tmp_path, start, end, expected
+):
+    """t.register would refuse them only after every map was imported"""
+    changed = tmp_path / "zones.tar"
+    _with_times(archive, changed, start, end)
+
+    text = _refused(
+        tools, input=str(changed), output=prefix, basename=prefix, flags="o"
+    )
+
+    assert expected in text
+    _nothing_made(tools, prefix, prefix)

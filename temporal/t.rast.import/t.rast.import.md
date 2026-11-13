@@ -102,6 +102,10 @@ numbered instead.
 An archive that lists a map more than once, as older exports wrote it for
 maps of one name from several mapsets, is refused before the first map is
 imported; a new export of the dataset names the maps with their mapset.
+An archive whose times have two time zone offsets, such as local times with
+daylight saving time, or times with and without an offset, is refused before
+the first map is imported, because a space time dataset holds one offset (see
+*t.register*).
 
 The name of the new dataset may not contain a dot. The tool checks this before
 it makes anything, so a refused name leaves no new project behind.

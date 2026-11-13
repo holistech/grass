@@ -44,6 +44,7 @@ import math
 import os
 import re
 import tarfile
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Self
 
@@ -56,6 +57,7 @@ from .state import (
     get_tgis_message_interface,
     init,
 )
+from .datetime_math import check_datetime_string, time_zone_offset_text
 from .factory import dataset_factory
 from .open_stds import check_new_stds_name
 from .register import register_maps_in_space_time_dataset
@@ -808,6 +810,46 @@ def _check_init(
     return type_, format_
 
 
+def _check_time_zones(maplist: list[dict[str, str]]) -> None:
+    """Stop before the first import if the times have two time zone offsets
+
+    A space time dataset holds times of one offset, or times without one;
+    t.register refuses any other, but only after every map was imported, so
+    the maps and an empty dataset would stay behind. The numbers of relative
+    time are passed over: check_datetime_string() gives a message for them,
+    not a datetime.
+    """
+    first = None
+    for row in maplist:
+        for text in (row["start"], row["end"]):
+            time = check_datetime_string(text) if text else None
+            if not isinstance(time, datetime):
+                continue
+            if first is None:
+                first = time
+                continue
+            aware = time.tzinfo is not None
+            if aware != (first.tzinfo is not None):
+                get_tgis_message_interface().fatal(
+                    _(
+                        "The archive holds times with and without a time zone "
+                        "offset, such as {first} and {time}, but a space time "
+                        "dataset holds only one of the two"
+                    ).format(first=first, time=time)
+                )
+            if aware and time.utcoffset() != first.utcoffset():
+                get_tgis_message_interface().fatal(
+                    _(
+                        "The archive holds times with the time zone offsets "
+                        "{first} and {time}, but a space time dataset holds one "
+                        "offset and no daylight saving time"
+                    ).format(
+                        first=time_zone_offset_text(first),
+                        time=time_zone_offset_text(time),
+                    )
+                )
+
+
 def _check_files(maplist: list[dict[str, str]], format_: str) -> None:
     """Stop with a message unless the archive holds the file of every map"""
     suffix = FORMAT_SUFFIX.get(format_)
@@ -1033,6 +1075,7 @@ def import_stds(
         init_data = _read_init_file()
         type_, format_ = _check_init(init_data, map_count, stds_type)
         _check_files(maplist, format_)
+        _check_time_zones(maplist)
 
         # We use a new list file name for map registration
         new_list_file_name = list_file_name.with_name(f"{list_file_name.stem}_new")
