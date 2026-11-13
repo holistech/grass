@@ -55,6 +55,20 @@ def test_core_finds_dataset_in_search_path(work):
     assert [row.name for row in rows] == ["a_1", "a_2"]
 
 
+def test_a_time_of_day_still_compares_with_start_time(work):
+    """start_time() against a time of day selects, unlike a date alone
+
+    Both maps of A start at 00:00:00, which is before 12:00:00, so the
+    condition holds for a_1 and a_2.
+    """
+    work.t_select(
+        expression='MORNING = if(start_time(A) < "12:00:00", A)', type="strds"
+    )
+
+    rows = list_maps(work, "strds", "MORNING")
+    assert [row.name for row in rows] == ["a_1", "a_2"]
+
+
 def test_calendar_function_on_relative_time_message(work):
     text = (
         "Temporal function start_month() is not available for map <r_1@work>: "
@@ -77,8 +91,8 @@ DATE_AND_NUMBER = (
 )
 DATE_ALONE = (
     "'2001-03-01' is a date without a time of day, but start_time() and "
-    "end_time() give the time of day; compare dates with start_date() or "
-    "end_date(), or give a time such as '2001-03-01 00:00:00'"
+    "end_time() give only the time of day; compare dates with start_date() or "
+    "end_date(), or a date and time with start_datetime() or end_datetime()"
 )
 TD_OF_AN_INSTANCE = (
     "td() requires a time interval, but map <i_1@work> is a time instance"

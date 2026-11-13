@@ -373,6 +373,13 @@ A function whose value a map does not have stops the algebra with an error
 that names the map: `td()` and the end functions of a time instance, and on
 relative time every function but `td()`.
 
+The date and time functions are compared with a date or time in quotes. A
+number is refused, also with `==` and `!=`. `start_time()` and `end_time()`
+give only the time of day: a date alone, as in
+`start_time(A) >= "2001-03-01"`, is refused, and the date part of a text that
+has a time of day is ignored. Use `start_date()` or `end_date()` to compare
+dates, and `start_datetime()` or `end_datetime()` to compare a date and a time.
+
 #### Comparison operator
 
 As mentioned above, the conditions are comparison expressions that are
@@ -3479,8 +3486,9 @@ block names its result `PUB`, which replaces the one before.
 
     ```text
     ERROR: '2001-03-01' is a date without a time of day, but start_time() and
-           end_time() give the time of day; compare dates with start_date() or
-           end_date(), or give a time such as '2001-03-01 00:00:00'
+           end_time() give only the time of day; compare dates with
+           start_date() or end_date(), or a date and time with start_datetime()
+           or end_datetime()
     t.rast.algebra failed
     ```
 

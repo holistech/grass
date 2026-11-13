@@ -104,8 +104,8 @@ DATE_AND_NUMBER = (
 )
 DATE_ALONE = (
     "'2001-03-01' is a date without a time of day, but start_time() and "
-    "end_time() give the time of day; compare dates with start_date() or "
-    "end_date(), or give a time such as '2001-03-01 00:00:00'"
+    "end_time() give only the time of day; compare dates with start_date() or "
+    "end_date(), or a date and time with start_datetime() or end_datetime()"
 )
 TD_OF_AN_INSTANCE = (
     "td() requires a time interval, but map <i1@PERMANENT> is a time instance"

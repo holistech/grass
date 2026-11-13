@@ -433,8 +433,8 @@ def test_a_date_alone_is_refused_for_a_time_of_day(translator, expression, text)
     """A date has no time of day; reading it as midnight selected by chance"""
     message = (
         f"'{text}' is a date without a time of day, but start_time() and "
-        "end_time() give the time of day; compare dates with start_date() or "
-        f"end_date(), or give a time such as '{text} 00:00:00'"
+        "end_time() give only the time of day; compare dates with start_date() or "
+        "end_date(), or a date and time with start_datetime() or end_datetime()"
     )
     with pytest.raises(ValueError, match=f"^{re.escape(message)}$"):
         run(translator, expression)

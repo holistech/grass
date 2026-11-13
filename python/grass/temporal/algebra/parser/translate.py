@@ -786,9 +786,9 @@ def _moment(text, other):
         if ":" not in text:
             msg = (
                 f"'{text}' is a date without a time of day, but start_time() "
-                "and end_time() give the time of day; compare dates with "
-                "start_date() or end_date(), or give a time such as "
-                f"'{text} 00:00:00'"
+                "and end_time() give only the time of day; compare dates with "
+                "start_date() or end_date(), or a date and time with "
+                "start_datetime() or end_datetime()"
             )
             raise ValueError(msg)
         return Const(moment.time())

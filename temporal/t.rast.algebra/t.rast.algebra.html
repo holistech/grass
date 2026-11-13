@@ -401,6 +401,14 @@ A function whose value a map does not have stops the algebra with an error
 that names the map: <code>td()</code> and the end functions of a time instance, and on
 relative time every function but <code>td()</code>.
 
+<p>
+The date and time functions are compared with a date or time in quotes. A
+number is refused, also with <code>==</code> and <code>!=</code>. <code>start_time()</code> and <code>end_time()</code>
+give only the time of day: a date alone, as in
+<code>start_time(A) &gt;= "2001-03-01"</code>, is refused, and the date part of a text that
+has a time of day is ignored. Use <code>start_date()</code> or <code>end_date()</code> to compare
+dates, and <code>start_datetime()</code> or <code>end_datetime()</code> to compare a date and a time.
+
 <h4>Comparison operator</h4>
 
 As mentioned above, the conditions are comparison expressions that are
@@ -3582,8 +3590,9 @@ fi
 
 <div class="code"><pre>
 ERROR: '2001-03-01' is a date without a time of day, but start_time() and
-       end_time() give the time of day; compare dates with start_date() or
-       end_date(), or give a time such as '2001-03-01 00:00:00'
+       end_time() give only the time of day; compare dates with
+       start_date() or end_date(), or a date and time with start_datetime()
+       or end_datetime()
 t.rast.algebra failed
 </pre></div>
 
