@@ -216,11 +216,13 @@ of the value of the function, and a function that a map does not have
 stops the tool with an error that names the map
 (<a href="t.rast.algebra.html#temporal-functions">t.rast.algebra</a>).</li>
 <li><b>A date compared with start_time() or end_time().</b> <code>start_time()</code> and
-<code>end_time()</code> give the time of day, so a date without a time of day, as in
-<code>start_time(A) &gt;= "2001-03-01"</code>, selects nothing by its date. GRASS 8.5
-raised a <code>TypeError</code> or selected nothing; now the tool stops with an error
-that names <code>start_date()</code> and <code>end_date()</code>. A text with a time of day,
-such as <code>"2001-03-01 00:00:00"</code> or <code>"12:00:00"</code>, compares as before
+<code>end_time()</code> give only the time of day, so they cannot select by a date,
+as in <code>start_time(A) &gt;= "2001-03-01"</code>. GRASS 8.5 raised a <code>TypeError</code> or
+selected nothing; now the tool stops with an error that names
+<code>start_date()</code>, <code>end_date()</code>, <code>start_datetime()</code> and <code>end_datetime()</code>. A
+time of day such as <code>"12:00:00"</code> still compares. A date given together
+with a time of day, such as <code>"2001-03-01 00:00:00"</code>, is not refused, but
+its date is ignored and only the time counts
 (<a href="t.rast.algebra.html#temporal-functions">t.rast.algebra</a>).</li>
 <li><b>Vector overlays.</b> <em>t.vect.algebra</em> removed the results of an overlay
 from the mapset after it had registered them, <code>if()</code> crashed, the
