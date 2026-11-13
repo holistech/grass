@@ -282,15 +282,20 @@ def test_relation_names_in_capitals_select_like_lower_case(
     assert result == maps(*expected)
 
 
-def test_equal_and_equals_count_once_in_capitals(session):
-    """equal and equals name one relation, so no map is selected twice
+def test_equals_in_capitals_is_the_relation_equal(session):
+    """EQUAL, EQUALS and equal select the same maps, also in a count
 
-    A and B share a2 and a3 with identical extents; the selection holds each
-    of them once whatever the spelling.
+    A and B share a2 and a3 with identical extents, so each of them has
+    exactly one equal map in B. Repeating the relation in the spelling
+    EQUAL|EQUALS does not change the count (probed 2026-11-13: dropping the
+    duplicate check of the relation list leaves this test green, because the
+    count does not see a repeated relation, so the test does not guard it).
     """
-    capitals = dry_register("R = A {:,EQUAL|EQUALS} B")
-    assert capitals == dry_register("R = A {:,equal} B")
-    assert capitals == maps("a2", "a3")
+    counted = dry_register("R = if(A {#,EQUAL|EQUALS} B == 1, A)")
+    assert counted == maps("a2", "a3")
+    selected = dry_register("R = A {:,EQUAL|EQUALS} B")
+    assert selected == dry_register("R = A {:,equal} B")
+    assert selected == maps("a2", "a3")
 
 
 @pytest.mark.parametrize(
