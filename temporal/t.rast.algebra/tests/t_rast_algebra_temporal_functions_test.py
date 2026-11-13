@@ -115,6 +115,11 @@ TWO_KINDS = (
 TD_OF_AN_INSTANCE = (
     "td() requires a time interval, but map <i1@PERMANENT> is a time instance"
 )
+# The first map of intervals starts on 2001-01-01 at 06:00.
+DATE_ARITHMETIC = (
+    "-() computes with numbers, not with a date (2001-01-01); use the numbers "
+    "of time functions such as start_doy() or td()"
+)
 UNEQUAL_BRANCHES = (
     "where() needs maps with equal time stamps; they differ at map 1: "
     "2001-01-01 06:00:00 .. 2001-02-01 06:00:00 and 2001-01-10 00:00:00. Select "
@@ -130,6 +135,10 @@ UNEQUAL_BRANCHES = (
         ("if(start_doy(intervals) > start_time(intervals), intervals)", TWO_KINDS),
         ("if(td(instants) > 0, instants)", TD_OF_AN_INSTANCE),
         ("if(intervals > 1, intervals, instants)", UNEQUAL_BRANCHES),
+        (
+            "if(start_date(intervals) - end_date(intervals) > 0, intervals)",
+            DATE_ARITHMETIC,
+        ),
     ],
     ids=[
         "date and number",
@@ -137,6 +146,7 @@ UNEQUAL_BRANCHES = (
         "two kinds",
         "td of an instance",
         "unequal branches",
+        "date arithmetic",
     ],
 )
 def test_the_tool_reports_the_error_and_writes_nothing(time_series, expression, text):

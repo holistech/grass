@@ -538,6 +538,70 @@ def test_time_functions_of_different_kinds_are_not_compared(
         run(translator, text)
 
 
+COMPUTES_WITH_NUMBERS = (
+    "; use the numbers of time functions such as start_doy() or td()"
+)
+# Fixture A starts on 1 January 2001 at midnight; its last two maps start
+# after day 2, so the if() below holds 0, 0 and the dates of 3 and 4 January.
+CORE_REFUSALS = [
+    (
+        "start_date(A) - end_date(A) > 0",
+        f"-() computes with numbers, not with a date (2001-01-01){COMPUTES_WITH_NUMBERS}",
+    ),
+    (
+        "start_date(A) - end_date(A) == 0",
+        f"-() computes with numbers, not with a date (2001-01-01){COMPUTES_WITH_NUMBERS}",
+    ),
+    (
+        "start_datetime(A) - end_datetime(A) == td(A)",
+        (
+            "-() computes with numbers, not with a date with a time of day "
+            f"(2001-01-01 00:00:00){COMPUTES_WITH_NUMBERS}"
+        ),
+    ),
+    (
+        "start_date(A) + 1 > 0",
+        f"+() computes with numbers, not with a date (2001-01-01){COMPUTES_WITH_NUMBERS}",
+    ),
+    (
+        "start_date(A) && 1",
+        f"&&() computes with numbers, not with a date (2001-01-01){COMPUTES_WITH_NUMBERS}",
+    ),
+    (
+        "if(start_doy(A) > 2, start_date(A), 0) > 5",
+        ">() compares values of one kind, but got a date (2001-01-03) and a number (5)",
+    ),
+    (
+        "if(start_date(A), 1, 0)",
+        "choose() needs numbers as condition, not a date (2001-01-01)",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("text", "message"), CORE_REFUSALS, ids=[text for text, _ in CORE_REFUSALS]
+)
+def test_the_core_refuses_dates_where_numbers_are_needed(translator, text, message):
+    """Before, these gave a TypeError that named no function or a silent
+    result"""
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
+        run(translator, text)
+
+
+def test_numbers_of_one_kind_still_compute(translator):
+    """td() gives floats and start_doy() integers, both numbers. The maps of
+    A last one day and start on the days 1 to 4: td(A) == start_doy(A) only
+    for the first map, start_doy(A) > 1 is 0, 1, 1, 1, and td(A) * 2 is
+    2 > 1 for all four."""
+    for text, expected in (
+        ("td(A) == start_doy(A)", [1, 0, 0, 0]),
+        ("(start_doy(A) > 1) + 1", [1, 2, 2, 2]),
+        ("td(A) * 2 > 1", [1, 1, 1, 1]),
+    ):
+        computed = run(translator, text)
+        assert [slot.content for slot in computed] == [Const(v) for v in expected], text
+
+
 def test_time_functions_of_one_kind_still_compare(translator):
     """Fixture A has four maps of one day each from 1 January 2001, so each
     starts before it ends, at the same time of day, and start_doy() equals

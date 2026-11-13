@@ -12,6 +12,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
+import datetime
 import math
 import operator
 from dataclasses import dataclass
@@ -193,18 +194,120 @@ class ScalarFunctionError(ValueError):
     """
 
 
+# The kinds of value_kind() that are moments in time
+MOMENT_KINDS = frozenset({"date", "time", "datetime"})
+
+_KIND_NAMES = {
+    "number": "a number",
+    "date": "a date",
+    "time": "a time of day",
+    "datetime": "a date with a time of day",
+    "other": "a value",
+}
+
+
+def value_kind(value):
+    """Return the kind of a scalar value: what the time functions can give
+
+    :returns: None for null, "datetime", "date" or "time" for the values of
+        start_datetime(), start_date() and start_time(), "number" for int,
+        float and bool, and "other" for anything else
+    """
+    if value is None:
+        return None
+    # datetime is a subclass of date, so it is checked first.
+    if isinstance(value, datetime.datetime):
+        return "datetime"
+    if isinstance(value, datetime.date):
+        return "date"
+    if isinstance(value, datetime.time):
+        return "time"
+    # bool is a subclass of int, and r.mapcalc has no truth values apart
+    # from numbers.
+    if isinstance(value, (int, float)):
+        return "number"
+    return "other"
+
+
+def describe_value(value):
+    """Return the kind and the value as the messages of the core name them
+
+    For example "a date (2001-01-01)" or "a number (5)"; not for null.
+    """
+    return f"{_KIND_NAMES[value_kind(value)]} ({value})"
+
+
+# Python refuses < between a date and a number with a TypeError that names no
+# function, gives False for == between them, and computes date - date into a
+# duration that r.mapcalc has no number for; the checks below report each of
+# these slips with the function and a way out. Null is no kind.
+
+
+def _check_condition(function, value):
+    """Raise TypeError if the condition value is a date or a time"""
+    if value_kind(value) in MOMENT_KINDS:
+        msg = f"{function}() needs a number as condition, not {describe_value(value)}"
+        raise TypeError(msg)
+
+
+def _check_compared(function, values):
+    """Raise TypeError for the first value of another kind than the first"""
+    present = [value for value in values if value is not None]
+    if not present:
+        return
+    for value in present[1:]:
+        if value_kind(value) != value_kind(present[0]):
+            msg = (
+                f"{function}() compares values of one kind, but got "
+                f"{describe_value(present[0])} and {describe_value(value)}"
+            )
+            raise TypeError(msg)
+
+
+def _refuse_computing(function, value):
+    msg = (
+        f"{function}() computes with numbers, not with {describe_value(value)}; "
+        "use the numbers of time functions such as start_doy() or td()"
+    )
+    raise TypeError(msg)
+
+
+def _check_kinds(function, values):
+    """Raise TypeError if function cannot take the kinds of values
+
+    The branches of if() and the argument of isnull() may be of any kind.
+    """
+    if function == "isnull":
+        return
+    if function == "if":
+        _check_condition(function, values[0])
+    elif function in COMPARISONS:
+        _check_compared(function, values)
+    else:
+        for value in values:
+            if value_kind(value) not in (None, "number"):
+                _refuse_computing(function, value)
+
+
 def evaluate(function, values):
     """Compute an operator or a function of r.mapcalc on scalar values
 
     An operator with more than two operands is applied from left to right.
+    Dates and times, see value_kind(), are only compared with values of
+    their own kind; null is no kind.
 
     :raises ScalarFunctionError: if the function has no scalar implementation
+    :raises TypeError: for a comparison of values of two kinds, for any other
+        operator or function with a value that is not a number, and for an
+        if() whose condition is a date or a time
     """
     if function in _NULL_AWARE:
+        _check_kinds(function, values)
         return _NULL_AWARE[function](*values)
     if function not in _SCALAR:
         msg = f"{function}() cannot be computed for scalar values"
         raise ScalarFunctionError(msg)
+    _check_kinds(function, values)
     if function in LEFT_ASSOCIATIVE and len(values) > 2:
         result = values[0]
         for value in values[1:]:
@@ -224,10 +327,12 @@ def call(function, *args):
     the branches are for a condition above zero, zero and below zero. An
     operator with a null operand is null, as in r.mapcalc. Other calls whose
     arguments are all constants are folded into a constant where Python can
-    compute them.
+    compute them, with the checks of evaluate().
 
     :raises ValueError: for an if with fewer than two or more than four
         arguments
+    :raises TypeError: for an if whose constant condition is a date or a
+        time, and for the constants that evaluate() refuses
     """
     if function == "if" and not 2 <= len(args) <= 4:
         msg = f"if() takes two to four arguments, got {len(args)}"
@@ -238,13 +343,19 @@ def call(function, *args):
         # the classic algebra, which handed if() to r.mapcalc.
         args = (*args, Const(0))
     if function == "if" and isinstance(args[0], Const):
+        # The branch is chosen here without evaluate(), which would check
+        # the condition.
+        _check_condition("if", args[0].value)
         if args[0].value is None:
             return NULL
         return _if(args[0].value, *args[1:])
-    if function in _SCALAR and NULL in args:
+    constant = bool(args) and all(isinstance(arg, Const) for arg in args)
+    if not constant and function in _SCALAR and NULL in args:
         return NULL
-    foldable = function in _SCALAR or function in _NULL_AWARE
-    if foldable and args and all(isinstance(arg, Const) for arg in args):
+    if constant and (function in _SCALAR or function in _NULL_AWARE):
+        # evaluate() gives null for a null operand as well, but only after it
+        # has checked the kinds, so that a date minus null is refused as a
+        # date minus a date is.
         return Const(evaluate(function, [arg.value for arg in args]))
     return Call(function, tuple(args))
 
@@ -284,10 +395,14 @@ def series_reduce(method, contents):
     :param contents: the Content objects to reduce, one for each map; if all
         are constants the result is folded into one constant, otherwise a
         SeriesReduce node is returned
+    :raises TypeError: if a constant is a date or a time
     """
     if not all(isinstance(content, Const) for content in contents):
         return SeriesReduce(method, tuple(contents))
     present = [content.value for content in contents if content.value is not None]
+    for value in present:
+        if value_kind(value) in MOMENT_KINDS:
+            _refuse_computing(method, value)
     if not present:
         return NULL
     total = sum(present)

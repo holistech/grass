@@ -1,10 +1,14 @@
 """Tests for apply() and the operators of series in the algebra core"""
 
+import re
+from datetime import date
+
 import pytest
 
 from grass.temporal.algebra.content import NULL, Call, Const, MapRef
-from grass.temporal.algebra.operations import apply, cell_offset, lift
+from grass.temporal.algebra.operations import apply, cell_offset, choose, lift
 from grass.temporal.algebra.series import Series, Slot
+from grass.temporal.algebra.time_functions import timevar
 
 
 def ref(name):
@@ -191,3 +195,38 @@ def test_cell_offset(a):
     ]
     with pytest.raises(ValueError, match="cell offset"):
         cell_offset(a + 1, 1, 0)
+
+
+@pytest.mark.parametrize("function", [">", "=="])
+def test_python_api_refuses_a_comparison_of_two_kinds(a, function):
+    """The parser refuses this with its own message; the Python API gets the
+    message of the core instead of a raw TypeError for > and a silent 0 for
+    ==. The first map of a starts on 1 January 2001 at midnight."""
+    message = (
+        f"{function}() compares values of one kind, but got a number (1) and a "
+        "time of day (00:00:00)"
+    )
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
+        apply(function, timevar(a, "start_doy"), timevar(a, "start_time"))
+
+
+def test_null_is_no_kind_in_the_python_api(make_series):
+    """Instances have no end, so end_date() is null and the comparison is
+    null; a series of a date and a null compares with dates"""
+    instants = make_series("i", 1, 2)
+    compared = apply(
+        "==", timevar(instants, "end_date"), timevar(instants, "start_date")
+    )
+    assert contents(compared) == [NULL, NULL]
+    some = make_series("s", 1, 2, values=[date(2001, 1, 1), None])
+    later = apply("<", some, timevar(instants, "start_date"))
+    # 1 January is not before itself; the second slot is null.
+    assert contents(later) == [Const(0), NULL]
+
+
+def test_choose_refuses_a_date_condition(a, make_series):
+    """A date is no truth value; before, every date chose its slot"""
+    condition = make_series("c", (1, 2), (2, 3), values=[None, date(2001, 1, 2)])
+    message = "choose() needs numbers as condition, not a date (2001-01-02)"
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
+        choose(condition, a)

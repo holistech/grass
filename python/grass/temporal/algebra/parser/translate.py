@@ -22,7 +22,7 @@ import functools
 
 from grass.temporal.algebra import operations, time_functions
 from grass.temporal.algebra.backends import BUFFER_TYPES, PATCH, VECTOR_FUNCTIONS
-from grass.temporal.algebra.content import COMPARISONS, NULL, Const, call
+from grass.temporal.algebra.content import COMPARISONS, NULL, Const, call, value_kind
 from grass.temporal.algebra.maptypes import OFFSET_COUNTS, STDS_TYPES
 from grass.temporal.algebra.reducers import compare, fold
 from grass.temporal.algebra.relations import TEMPORAL_RELATIONS, Relation, inverse
@@ -751,30 +751,27 @@ def _refuse_number_with_moments(number, other):
         raise TypeError(msg)
 
 
-# What a time function gives, for the message that refuses to compare two
-# kinds. datetime is a subclass of date, so it comes first.
-_VALUE_KINDS = (
-    (datetime.datetime, "dates with a time of day, such as those of start_datetime()"),
-    (datetime.date, "dates, such as those of start_date()"),
-    (datetime.time, "times of day, such as those of start_time()"),
-    ((int, float), "numbers, such as those of start_doy() or td()"),
-)
+# What a time function gives, by the kinds of value_kind(), for the message
+# that refuses to compare two kinds
+_VALUE_KINDS = {
+    "datetime": "dates with a time of day, such as those of start_datetime()",
+    "date": "dates, such as those of start_date()",
+    "time": "times of day, such as those of start_time()",
+    "number": "numbers, such as those of start_doy() or td()",
+}
 
 
 def _kinds_of_values(series):
     """The kinds of the values of a scalar series, in the order they appear
 
     Empty if the series is not scalar or all its values are null. A value of
-    another type, such as the duration of start_date(A) - end_date(A), adds
-    no kind.
+    the kind "other" adds no kind; the core refuses to compare it.
     """
     if not (isinstance(series, Series) and series.sort == "scalar"):
         return []
     kinds = []
     for value in _values(series):
-        kind = next(
-            (kind for types, kind in _VALUE_KINDS if isinstance(value, types)), None
-        )
+        kind = _VALUE_KINDS.get(value_kind(value))
         if kind is not None and kind not in kinds:
             kinds.append(kind)
     return kinds

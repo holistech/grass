@@ -4,8 +4,12 @@ Scalars are folded while a tree is built; the expected values follow
 r.mapcalc, which divides integers like C and gives null for a null operand.
 """
 
+import re
+from datetime import date, datetime, time, timedelta
+
 import pytest
 
+from grass.temporal.algebra import content
 from grass.temporal.algebra.content import (
     NULL,
     Call,
@@ -20,6 +24,8 @@ from grass.temporal.algebra.content import (
 
 A = MapRef("a1@PERMANENT")
 B = MapRef("b1@PERMANENT")
+DAY = date(2001, 1, 1)
+NOON = time(12)
 
 
 @pytest.mark.parametrize(
@@ -189,3 +195,137 @@ def test_a_null_condition_of_the_scalar_if_gives_null():
     """if() is null aware, so evaluate() hands it the null condition itself"""
     assert evaluate("if", [None, 1, 2]) is None
     assert evaluate("if", [None, 1]) is None
+
+
+@pytest.mark.parametrize(
+    ("value", "kind"),
+    [
+        (None, None),
+        (datetime(2001, 1, 1, 6), "datetime"),
+        (DAY, "date"),
+        (NOON, "time"),
+        (1, "number"),
+        (1.5, "number"),
+        (True, "number"),
+        (timedelta(days=1), "other"),
+        ("2001-01-01", "other"),
+    ],
+)
+def test_value_kind(value, kind):
+    """bool is a subclass of int and datetime one of date"""
+    assert content.value_kind(value) == kind
+    assert (kind in content.MOMENT_KINDS) == (kind in {"date", "time", "datetime"})
+
+
+@pytest.mark.parametrize(
+    ("function", "values", "first", "second"),
+    [
+        (">", [date(2001, 1, 3), 5], "a date (2001-01-03)", "a number (5)"),
+        # Python gives False for == of a time and a number, so this was 0
+        # without a word.
+        ("==", [NOON, 3], "a time of day (12:00:00)", "a number (3)"),
+        (
+            "<",
+            [DAY, datetime(2001, 1, 1)],
+            "a date (2001-01-01)",
+            "a date with a time of day (2001-01-01 00:00:00)",
+        ),
+        # Null is no kind; in a chain the first value of another kind than
+        # the first value is named.
+        ("<", [None, 5, 6, date(2001, 1, 3)], "a number (5)", "a date (2001-01-03)"),
+        ("!=", [timedelta(days=1), 1], "a value (1 day, 0:00:00)", "a number (1)"),
+    ],
+)
+def test_evaluate_refuses_a_comparison_of_two_kinds(function, values, first, second):
+    message = f"{function}() compares values of one kind, but got {first} and {second}"
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
+        evaluate(function, values)
+
+
+@pytest.mark.parametrize(
+    ("function", "values", "described"),
+    [
+        ("+", [DAY, 1], "a date (2001-01-01)"),
+        ("-", [DAY, date(2001, 1, 2)], "a date (2001-01-01)"),
+        ("*", [2, NOON], "a time of day (12:00:00)"),
+        (
+            "/",
+            [datetime(2001, 1, 1, 6), 2],
+            "a date with a time of day (2001-01-01 06:00:00)",
+        ),
+        ("%", [DAY, 2], "a date (2001-01-01)"),
+        ("neg", [DAY], "a date (2001-01-01)"),
+        ("abs", [NOON], "a time of day (12:00:00)"),
+        ("min", [1, DAY], "a date (2001-01-01)"),
+        ("max", [NOON, NOON], "a time of day (12:00:00)"),
+        ("nmin", [None, DAY], "a date (2001-01-01)"),
+        ("nmax", [DAY, None], "a date (2001-01-01)"),
+        ("&&", [DAY, 1], "a date (2001-01-01)"),
+        ("||", [0, NOON], "a time of day (12:00:00)"),
+        ("!", [DAY], "a date (2001-01-01)"),
+        # The null operand does not hide the date.
+        ("-", [DAY, None], "a date (2001-01-01)"),
+        ("+", [timedelta(days=1), 1], "a value (1 day, 0:00:00)"),
+    ],
+)
+def test_evaluate_refuses_arithmetic_on_dates_and_times(function, values, described):
+    message = (
+        f"{function}() computes with numbers, not with {described}; use the "
+        "numbers of time functions such as start_doy() or td()"
+    )
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
+        evaluate(function, values)
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [[DAY, 1, 2], [NOON, 1], [datetime(2001, 1, 1), 1, 2, 3]],
+)
+def test_evaluate_refuses_a_date_as_condition_of_if(arguments):
+    """call() decides an if with a constant condition without evaluate()"""
+    condition = arguments[0]
+    kind = {
+        date: "a date",
+        time: "a time of day",
+        datetime: "a date with a time of day",
+    }
+    message = (
+        f"if() needs a number as condition, not {kind[type(condition)]} ({condition})"
+    )
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
+        evaluate("if", arguments)
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
+        call("if", *(Const(argument) for argument in arguments))
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
+        call("if", Const(condition), A, B)
+
+
+def test_null_and_one_kind_still_compute():
+    """Null is no kind, and int, float and bool are one kind; the branches of
+    if() and the argument of isnull() may be of any kind"""
+    assert evaluate("==", [None, DAY]) is None
+    assert evaluate("<", [DAY, None, date(2001, 1, 2)]) is None
+    assert evaluate("<", [DAY, date(2001, 1, 2)]) == 1
+    assert evaluate("==", [NOON, time(12)]) == 1
+    assert evaluate(">=", [datetime(2001, 1, 2), datetime(2001, 1, 1, 6)]) == 1
+    assert evaluate("==", [1, 1.0]) == 1
+    assert evaluate("+", [True, 1]) == 2
+    assert evaluate(">", [1.5, True]) == 1
+    assert evaluate("-", [None, 1]) is None
+    assert evaluate("if", [1, DAY, 0]) == DAY
+    assert evaluate("if", [0, 0, NOON]) == NOON
+    assert evaluate("if", [None, DAY]) is None
+    assert evaluate("isnull", [DAY]) == 0
+    assert call("if", Const(1), Const(DAY), Const(0)) == Const(DAY)
+    assert call("if", Const(0), Const(DAY)) == Const(0)
+    assert call("==", Const(DAY), NULL) == NULL
+
+
+@pytest.mark.parametrize("method", ["sum", "average"])
+def test_series_reduce_refuses_dates(method):
+    message = (
+        f"{method}() computes with numbers, not with a date (2001-01-01); use the "
+        "numbers of time functions such as start_doy() or td()"
+    )
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
+        series_reduce(method, [NULL, Const(DAY), Const(date(2001, 1, 2))])

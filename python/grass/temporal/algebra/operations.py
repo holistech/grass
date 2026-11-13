@@ -30,6 +30,7 @@ from ._messages import warn
 from .adapters import as_map, extent_from
 from .backends import BUFFERS, VECTOR_FUNCTIONS
 from .content import (
+    MOMENT_KINDS,
     NULL,
     Call,
     Const,
@@ -38,6 +39,8 @@ from .content import (
     SeriesAggregate,
     SeriesReduce,
     call,
+    describe_value,
+    value_kind,
 )
 from .maptypes import DIMENSIONS, OFFSET_COUNTS
 from .relations import related as related_indices
@@ -662,7 +665,8 @@ def choose(condition, then, otherwise=None):
     :param then: the Series whose slots are kept where the condition is true
     :param otherwise: the Series whose slots are kept where the condition is
         false; None chooses nothing where the condition is false
-    :raises TypeError: if the condition is not a scalar series
+    :raises TypeError: if the condition is not a scalar series or holds a
+        date or a time
     :raises ValueError: if a time stamp has several conditions and another
         number of slots in a branch, if a timed condition meets a branch map
         without time stamp, if then and otherwise hold maps of different
@@ -678,7 +682,13 @@ def choose(condition, then, otherwise=None):
         raise TypeError(msg)
     values = defaultdict(list)
     for slot in condition.slots:
-        values[slot.extent].append(slot.content.value)
+        value = slot.content.value
+        # Every date is true in Python, so it would choose its slot without a
+        # word.
+        if value_kind(value) in MOMENT_KINDS:
+            msg = f"choose() needs numbers as condition, not {describe_value(value)}"
+            raise TypeError(msg)
+        values[slot.extent].append(value)
     branches = [then] if otherwise is None else [then, otherwise]
     slots = []
     if otherwise is not None and otherwise.kind != then.kind:
