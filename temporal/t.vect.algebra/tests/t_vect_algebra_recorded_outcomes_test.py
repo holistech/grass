@@ -112,7 +112,7 @@ def run(expression):
 
 
 @pytest.mark.parametrize("expression", SAME)
-def test_same_result_as_the_reference(vector_series, expression):
+def test_gives_the_recorded_outcome(vector_series, expression):
     core = run(expression)
     assert (
         outcomes.compare("vector", expression, RECORDED[f"same|{expression}"], core)

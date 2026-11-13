@@ -264,7 +264,7 @@ def test_extended_syntax(algebra, expression, equivalent):
 
 
 @pytest.mark.parametrize("expression", SAME)
-def test_same_result_as_the_reference(algebra, expression):
+def test_gives_the_recorded_outcome(algebra, expression):
     check(expression, f"same|{expression}")
 
 
@@ -291,7 +291,7 @@ def test_granularity_listed_differences_give_the_listed_outcome(algebra, express
 
 
 @pytest.mark.parametrize("expression", GRANULARITY_SAME)
-def test_granularity_same_result_as_the_reference(algebra, expression):
+def test_granularity_gives_the_recorded_outcome(algebra, expression):
     check(expression, f"gran|{expression}", granularity=True)
 
 

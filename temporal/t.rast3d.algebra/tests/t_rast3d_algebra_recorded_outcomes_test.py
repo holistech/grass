@@ -134,7 +134,7 @@ def kind(core):
 
 
 @pytest.mark.parametrize("expression", SAME)
-def test_same_result_as_the_reference(series_3d, expression):
+def test_gives_the_recorded_outcome(series_3d, expression):
     core = run(expression)
     assert (
         outcomes.compare("raster3d", expression, RECORDED[f"same|{expression}"], core)
@@ -148,7 +148,7 @@ def test_listed_differences_give_the_listed_outcome(series_3d, expression):
 
 
 @pytest.mark.parametrize("expression", GRANULARITY_SAME)
-def test_granularity_same_result_as_the_reference(series_3d, expression):
+def test_granularity_gives_the_recorded_outcome(series_3d, expression):
     core = run(expression, granularity=True)
     assert (
         outcomes.compare("raster3d", expression, RECORDED[f"gran|{expression}"], core)

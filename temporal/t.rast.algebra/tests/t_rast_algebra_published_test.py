@@ -391,7 +391,7 @@ def approximately(maps):
 
 
 @pytest.mark.parametrize(("expression", "options", "expected"), PUBLISHED)
-def test_the_core_computes_what_the_reference_computes(
+def test_the_printed_expressions_give_the_expected_maps(
     paper, expression, options, expected
 ):
     """Every printed expression runs in the core and gives the expected maps"""

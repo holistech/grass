@@ -117,7 +117,7 @@ RECORDED = json.loads(
 
 
 @pytest.mark.parametrize("expression", SAME)
-def test_the_core_selects_what_the_reference_selected(series, expression):
+def test_the_expression_selects_the_recorded_maps(series, expression):
     core = selection_outcome("fb", expression)
     assert core.get("maps"), "the expression selects no map"
     expected = RECORDED[f"same|{expression}"]
