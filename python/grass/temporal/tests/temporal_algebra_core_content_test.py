@@ -214,7 +214,10 @@ def test_a_null_condition_of_the_scalar_if_gives_null():
 def test_value_kind(value, kind):
     """bool is a subclass of int and datetime one of date"""
     assert content.value_kind(value) == kind
-    assert (kind in content.MOMENT_KINDS) == (kind in {"date", "time", "datetime"})
+
+
+def test_moment_kinds():
+    assert {"date", "time", "datetime"} == content.MOMENT_KINDS
 
 
 @pytest.mark.parametrize(
@@ -338,8 +341,7 @@ MAPS_HOLD_NUMBERS = (
     ],
 )
 def test_call_refuses_a_map_with_a_date(function, args, described):
-    """Before, the tree was built and plan() refused it later, or r.mapcalc
-    would have been handed a Python date"""
+    """Before, the tree was built and plan() refused it later"""
     message = f"{function}() cannot combine maps with {described}: {MAPS_HOLD_NUMBERS}"
     with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
         call(function, *args)

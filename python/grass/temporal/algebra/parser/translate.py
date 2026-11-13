@@ -776,7 +776,8 @@ def _kinds_of_values(series):
     """The kinds of the values of a scalar series, in the order they appear
 
     Empty if the series is not scalar or all its values are null. A value of
-    the kind "other" adds no kind; the core refuses to compare it.
+    the kind "other" adds no kind; the core refuses to compare it with a
+    value of another kind.
     """
     if not (isinstance(series, Series) and series.sort == "scalar"):
         return []
