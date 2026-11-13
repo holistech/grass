@@ -75,6 +75,33 @@ def open_inputs(input_ids, type, dbif):
     return stds_list
 
 
+def refuse_mixed_time_zones(datasets, dbif):
+    """End with a message if some datasets have times with a time zone offset
+    and others times without one
+
+    t.register keeps a dataset to one kind, because times of both kinds
+    cannot be ordered, so one map with a start time tells the kind. Datasets
+    in relative time and those without such a map are passed over.
+    """
+    kinds = {}
+    for stds in datasets:
+        if not stds.is_time_absolute():
+            continue
+        maps = stds.get_registered_maps_as_objects(dbif=dbif) or ()
+        starts = (map_.get_temporal_extent_as_tuple()[0] for map_ in maps)
+        start = next((time for time in starts if time is not None), None)
+        if start is not None:
+            kinds.setdefault(start.tzinfo is not None, stds.get_id())
+    if len(kinds) == 2:
+        dbif.close()
+        gs.fatal(
+            _(
+                "Space time datasets to merge must all have a time zone offset "
+                "or all have none: <{aware}> has one, <{naive}> has none"
+            ).format(aware=kinds[True], naive=kinds[False])
+        )
+
+
 def open_output(output, output_id, type, first, dbif):
     """Open the output dataset: a new one, or an existing one with --overwrite
 
@@ -164,10 +191,14 @@ def main():
     dbif.connect()
 
     stds_list = open_inputs(input_ids, type, dbif)
+    # Before open_output(), which creates a new output.
+    refuse_mixed_time_zones(stds_list, dbif)
 
     output_stds, output_exists = open_output(
         output, output_id, type, stds_list[0], dbif
     )
+    if output_exists:
+        refuse_mixed_time_zones([*stds_list, output_stds], dbif)
 
     # Maps that are already registered in an existing dataset are not
     # registered again.
