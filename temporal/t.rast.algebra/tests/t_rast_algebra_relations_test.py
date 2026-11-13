@@ -41,6 +41,17 @@ def test_single_relation_selects_the_probe(algebra, relation, expected):
     assert probes(algebra, f"rel {{:,{relation}}} ref") == expected
 
 
+def test_relation_name_in_capitals_selects_like_lower_case(algebra):
+    """A {:,DURING} B gives the same maps as A {:,during} B
+
+    Every daily map of A lies within b1 [1,3] or b2 [3,5]: a1 and a2 in b1,
+    a3 starts b2 and a4 finishes it, so the four values 1..4 are selected.
+    """
+    capitals = algebra.values("A {:,DURING} B")
+    assert capitals == algebra.values("A {:,during} B")
+    assert capitals == [1, 2, 3, 4]
+
+
 @pytest.mark.parametrize(
     ("relation", "expected"),
     [

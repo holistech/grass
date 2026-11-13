@@ -259,6 +259,41 @@ def test_selection(session, expression, expected):
 
 
 @pytest.mark.parametrize(
+    ("capitals", "lower", "expected"),
+    [
+        ("R = A {:,EQUALS} B", "R = A {:,equals} B", ["a2", "a3"]),
+        ("R = A {:,DURING} C", "R = A {:,during} C", ["a1", "a2", "a3", "a4"]),
+        ("R = A {:,During} C", "R = A {:,during} C", ["a1", "a2", "a3", "a4"]),
+        ("R = A {:,OVERLAPS} E", "R = A {:,overlaps} E", ["a1"]),
+    ],
+)
+def test_relation_names_in_capitals_select_like_lower_case(
+    session, capitals, lower, expected
+):
+    """A relation name in capitals is the same relation as in lower case
+
+    The comparison with the lower-case result is the claim; the expected
+    maps are the hand-derived ones of the lower-case rows of test_selection
+    (A during C holds for all four months, E [Jan 15, Feb 15] overlaps only
+    a1 [Jan 1, Feb 1] from the left).
+    """
+    result = dry_register(capitals)
+    assert result == dry_register(lower)
+    assert result == maps(*expected)
+
+
+def test_equal_and_equals_count_once_in_capitals(session):
+    """equal and equals name one relation, so no map is selected twice
+
+    A and B share a2 and a3 with identical extents; the selection holds each
+    of them once whatever the spelling.
+    """
+    capitals = dry_register("R = A {:,EQUAL|EQUALS} B")
+    assert capitals == dry_register("R = A {:,equal} B")
+    assert capitals == maps("a2", "a3")
+
+
+@pytest.mark.parametrize(
     ("expression", "expected"),
     [
         ("R = merge(A, B)", ["a1", "a2", "a3", "a4", "b2", "b3", "b5"]),
