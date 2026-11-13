@@ -23,6 +23,25 @@ def test_a_dataset_with_an_offset_is_accumulated(tools, register_three_days):
     ]
 
 
+def test_a_start_without_offset_is_refused(register_three_days, refusal_of):
+    _maps, name = register_three_days("z")
+
+    text = refusal_of(
+        "t.rast.accumulate",
+        input=name,
+        output="N",
+        basename="n",
+        start="2001-01-01",
+        cycle="2 days",
+        limits="0,10",
+    )
+
+    assert (
+        f"The time <2001-01-01 00:00:00> and the maps of the space time dataset "
+        f"<{name}@PERMANENT> must both have a time zone offset or both have none"
+    ) in text
+
+
 def test_a_lower_dataset_without_offset_is_refused(
     register_three_days, refusal_of, mixed_zones_message
 ):

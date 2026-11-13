@@ -332,12 +332,24 @@ def dataset_cycles(dataset, start, end, *, stop, cycle, offset, dbif):
     :param cycle: The length of a cycle as next_cycle() takes it
     :param offset: The gap between two cycles as next_cycle() takes it
     :param dbif: The database interface or None
-    :raises ValueError: when a cycle does not start after the one before it
+    :raises ValueError: when a cycle does not start after the one before it,
+                        and when start or stop has a time zone offset and
+                        the maps of dataset have none, or the other way round
     """
     data_end = _data_end(dataset, dbif)
+    absolute = dataset.is_time_absolute()
+    if absolute:
+        # Python cannot compare a datetime with an offset and one without.
+        zoned = data_end.tzinfo is not None
+        for time in (start, stop):
+            if time is not None and (time.tzinfo is not None) != zoned:
+                msg = _(
+                    "The time <{time}> and the maps of the space time dataset "
+                    "<{name}> must both have a time zone offset or both have none"
+                ).format(time=time, name=dataset.get_id())
+                raise ValueError(msg)
     if stop is None:
         stop = data_end
-    absolute = dataset.is_time_absolute()
     origin = start
     number = 0
     while data_end > start and stop > start:

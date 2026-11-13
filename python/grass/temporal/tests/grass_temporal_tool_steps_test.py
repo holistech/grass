@@ -13,7 +13,7 @@ file. The tests compute real maps in a session of the module.
 
 import itertools
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from io import StringIO
 
 import pytest
@@ -361,6 +361,20 @@ def test_the_month_cycles_count_from_the_start(monthly):
         (datetime(2001, 1, 31), datetime(2001, 2, 28)),
         (datetime(2001, 2, 28), datetime(2001, 3, 1)),
     ]
+
+
+@pytest.mark.parametrize("given", ["start", "stop"])
+def test_a_time_with_an_offset_is_refused_for_maps_without(monthly, given):
+    dataset, _maps = monthly
+    zoned = datetime(2001, 1, 1, tzinfo=timezone(timedelta(hours=1)))
+    start, stop = datetime(2001, 1, 1), None
+    if given == "start":
+        start = zoned
+    else:
+        stop = zoned
+
+    with pytest.raises(ValueError, match=r"^The time <2001-01-01 00:00:00\+01:00> and"):
+        cycles_of(dataset, start, datetime(2001, 2, 1), stop)
 
 
 @pytest.fixture(scope="module")
