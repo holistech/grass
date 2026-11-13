@@ -74,6 +74,35 @@ def test_relation_table(make_series, probes, name):
     assert hits == EXPECTED[name]
 
 
+@pytest.mark.parametrize("name", ["DURING", "During", "OVERLAPS", "EQUAL"])
+def test_relation_names_in_capitals_in_the_python_api(make_series, probes, name):
+    """relation() reads a name in capitals like its lower-case spelling
+
+    The parser lower-cases names itself; this reaches relation() directly, as
+    the Python API of the core does. The probes related to the reference
+    [10, 20] are the ones of EXPECTED: during, starts and finishes for
+    during, the single overlaps probe and the single equal probe.
+    """
+    reference = make_series("ref", (10, 20))
+    lower = name.lower()
+    assert relation(name) == relation(lower)
+    found = related(probes.slots, relation(name), reference.slots)
+    assert found == related(probes.slots, relation(lower), reference.slots)
+    names = list(PROBES)
+    hits = {
+        names[int(probes.slots[i].origin.split("@")[0][1:]) - 1]
+        for i, hit in enumerate(found)
+        if hit
+    }
+    expected = {
+        "DURING": EXPECTED["during"],
+        "During": EXPECTED["during"],
+        "OVERLAPS": EXPECTED["overlaps"],
+        "EQUAL": EXPECTED["equal"],
+    }
+    assert hits == expected[name]
+
+
 def test_instants(make_series):
     """Measured 2026-10-11 with the topology builder: an instant inside an
     interval is during it, one at its end follows it"""
