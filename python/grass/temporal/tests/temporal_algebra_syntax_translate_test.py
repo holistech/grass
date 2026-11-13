@@ -585,7 +585,7 @@ CORE_REFUSALS = [
     ),
     (
         "if(start_date(A), 1, 0)",
-        "choose() needs numbers as condition, not a date (2001-01-01)",
+        "if() needs a number as condition, not a date (2001-01-01)",
     ),
     # A condition with maps as branches is joined with != 0 before it
     # chooses; the refusal names if(), not that operator.

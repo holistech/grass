@@ -451,6 +451,11 @@ class Translator:
                 "or start_doy(), or the hash operator"
             )
             raise SyntaxError(msg)
+        # Checked here, before any dispatch: later steps join the conditions
+        # with != 0 or hand them to choose(), and would refuse a date in the
+        # name of a function the expression lacks.
+        for value in _values(condition):
+            check_condition("if", value)
         if condition.timeless:
             if relation is not None:
                 msg = "The relation of if() needs a condition with time stamps"
@@ -480,10 +485,6 @@ class Translator:
         each cell, so where() takes the joined conditions and both branches
         with the same time stamps.
         """
-        # The conditions are joined with != 0 below, so a date would be
-        # refused there in the name of an operator the expression lacks.
-        for value in _values(condition):
-            check_condition("if", value)
         operator = relation or TemporalOperator(None)
         conditions = self._conditions(first, condition, operator)
         if conditions.sort == "field":
