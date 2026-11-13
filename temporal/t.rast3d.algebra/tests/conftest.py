@@ -43,9 +43,10 @@ def series_3d(tmp_path_factory):
     # os.environ and grass.temporal initialised, which temporal_session does.
     # The datasets are registered in this process as well, because every
     # test module of the directory builds them again in each xdist worker:
-    # the fixture took 6.5 s with t.create and t.register and takes 1.5 s
-    # with the library (measured 2026-11-12, median of three builds each with
-    # time.perf_counter), with the same datasets, maps and metadata in
+    # the fixture took 6.5 s with t.create and t.register (measured
+    # 2026-11-12, median of three builds with time.perf_counter) and takes
+    # 1.0 s with the library (measured 2026-11-13, median of twelve builds
+    # with time.perf_counter), with the same datasets, maps and metadata in
     # t.info -g and t.rast3d.list.
     project = tmp_path_factory.mktemp("t_rast3d_algebra") / "project"
     with temporal_session(project) as session:
