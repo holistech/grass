@@ -20,7 +20,9 @@ does, and restarts at the beginning of every cycle.
 <ul>
 <li><b>start</b> is the beginning of the first cycle and is required. With absolute
 time it is a date such as <code>2026-03-01</code>; with relative time it is an integer
-in the unit of the dataset.</li>
+in the unit of the dataset. A <b>start</b> or <b>stop</b> with a time zone offset,
+such as <code>2026-03-01 00:00:00+01:00</code>, needs maps with an offset, and one
+without an offset needs maps without one.</li>
 <li><b>cycle</b> is the length of a cycle, such as <code>12 months</code> or <code>4 days</code>, and is
 required. With relative time it is an integer.</li>
 <li><b>offset</b> is a time that is skipped between the end of a cycle and the

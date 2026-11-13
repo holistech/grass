@@ -22,7 +22,9 @@ of every cycle the sum starts from zero again.
 
 - **start** is the beginning of the first cycle and is required. With absolute
   time it is a date such as `2026-03-01`; with relative time it is an integer
-  in the unit of the dataset.
+  in the unit of the dataset. A **start** or **stop** with a time zone offset,
+  such as `2026-03-01 00:00:00+01:00`, needs maps with an offset, and one
+  without an offset needs maps without one.
 - **stop** ends the accumulation. A cycle that reaches beyond **stop** ends at
   **stop**, and a map that starts at **stop** or later is not used. Without
   **stop**, the run ends with the input dataset; a map that is a time instant

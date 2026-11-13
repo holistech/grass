@@ -19,7 +19,9 @@ does, and restarts at the beginning of every cycle.
 
 - **start** is the beginning of the first cycle and is required. With absolute
   time it is a date such as `2026-03-01`; with relative time it is an integer
-  in the unit of the dataset.
+  in the unit of the dataset. A **start** or **stop** with a time zone offset,
+  such as `2026-03-01 00:00:00+01:00`, needs maps with an offset, and one
+  without an offset needs maps without one.
 - **cycle** is the length of a cycle, such as `12 months` or `4 days`, and is
   required. With relative time it is an integer.
 - **offset** is a time that is skipped between the end of a cycle and the

@@ -23,7 +23,9 @@ of every cycle the sum starts from zero again.
 <ul>
 <li><b>start</b> is the beginning of the first cycle and is required. With absolute
 time it is a date such as <code>2026-03-01</code>; with relative time it is an integer
-in the unit of the dataset.</li>
+in the unit of the dataset. A <b>start</b> or <b>stop</b> with a time zone offset,
+such as <code>2026-03-01 00:00:00+01:00</code>, needs maps with an offset, and one
+without an offset needs maps without one.</li>
 <li><b>stop</b> ends the accumulation. A cycle that reaches beyond <b>stop</b> ends at
 <b>stop</b>, and a map that starts at <b>stop</b> or later is not used. Without
 <b>stop</b>, the run ends with the input dataset; a map that is a time instant

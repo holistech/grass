@@ -61,6 +61,10 @@ Refusals and what they leave behind:
 - Datasets of different temporal types stop the run with the error "Space
   time datasets to merge must have the same temporal type", and no output is
   created.
+- Datasets with a time zone offset and datasets without one, or such inputs
+  and an existing output of the other kind, are refused before the first
+  write with the error "Space time datasets to merge must all have a time
+  zone offset or all have none".
 - Two datasets of relative time in different units, such as hours and years,
   cannot be merged. The error begins with "Relative time units of space time
   dataset" and ends with "are different". This is found while the maps are
