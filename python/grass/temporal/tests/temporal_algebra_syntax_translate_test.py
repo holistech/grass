@@ -587,6 +587,20 @@ CORE_REFUSALS = [
         "if(start_date(A), 1, 0)",
         "choose() needs numbers as condition, not a date (2001-01-01)",
     ),
+    # A condition with maps as branches is joined with != 0 before it
+    # chooses; the refusal names if(), not that operator.
+    (
+        "if(start_date(A), A)",
+        "if() needs a number as condition, not a date (2001-01-01)",
+    ),
+    (
+        "if(start_date(A), A, N)",
+        "if() needs a number as condition, not a date (2001-01-01)",
+    ),
+    (
+        "if({equal}, start_time(A), A)",
+        "if() needs a number as condition, not a time of day (00:00:00)",
+    ),
 ]
 
 

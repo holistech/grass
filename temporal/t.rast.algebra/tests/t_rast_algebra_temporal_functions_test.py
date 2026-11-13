@@ -125,6 +125,7 @@ MAP_AND_DATE = (
     "compare time functions with each other or with a date in quotes, or use "
     "the numbers of time functions such as start_doy() or td()"
 )
+DATE_AS_CONDITION = "if() needs a number as condition, not a date (2001-01-01)"
 UNEQUAL_BRANCHES = (
     "where() needs maps with equal time stamps; they differ at map 1: "
     "2001-01-01 06:00:00 .. 2001-02-01 06:00:00 and 2001-01-10 00:00:00. Select "
@@ -145,6 +146,7 @@ UNEQUAL_BRANCHES = (
             DATE_ARITHMETIC,
         ),
         ("intervals > start_date(intervals)", MAP_AND_DATE),
+        ("if(start_date(intervals), intervals)", DATE_AS_CONDITION),
     ],
     ids=[
         "date and number",
@@ -154,6 +156,7 @@ UNEQUAL_BRANCHES = (
         "unequal branches",
         "date arithmetic",
         "map and date",
+        "date as condition",
     ],
 )
 def test_the_tool_reports_the_error_and_writes_nothing(time_series, expression, text):

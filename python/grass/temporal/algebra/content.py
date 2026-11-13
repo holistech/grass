@@ -243,8 +243,12 @@ def describe_value(value):
 # these slips with the function and a way out. Null is no kind.
 
 
-def _check_condition(function, value):
-    """Raise TypeError if the condition value is a date or a time"""
+def check_condition(function, value):
+    """Raise TypeError if the condition value of function is a date or a time
+
+    :raises TypeError: for a date or a time, whose truth Python decides
+        without a word: every date and time of day is true
+    """
     if value_kind(value) in MOMENT_KINDS:
         msg = f"{function}() needs a number as condition, not {describe_value(value)}"
         raise TypeError(msg)
@@ -280,7 +284,7 @@ def _check_kinds(function, values):
     if function == "isnull":
         return
     if function == "if":
-        _check_condition(function, values[0])
+        check_condition(function, values[0])
     elif function in COMPARISONS:
         _check_compared(function, values)
     else:
@@ -363,7 +367,7 @@ def call(function, *args):
     if function == "if" and isinstance(args[0], Const):
         # The branch is chosen here without evaluate(), which would check
         # the condition.
-        _check_condition("if", args[0].value)
+        check_condition("if", args[0].value)
         if args[0].value is None:
             return NULL
         return _if(args[0].value, *args[1:])

@@ -22,7 +22,14 @@ import functools
 
 from grass.temporal.algebra import operations, time_functions
 from grass.temporal.algebra.backends import BUFFER_TYPES, PATCH, VECTOR_FUNCTIONS
-from grass.temporal.algebra.content import COMPARISONS, NULL, Const, call, value_kind
+from grass.temporal.algebra.content import (
+    COMPARISONS,
+    NULL,
+    Const,
+    call,
+    check_condition,
+    value_kind,
+)
 from grass.temporal.algebra.maptypes import OFFSET_COUNTS, STDS_TYPES
 from grass.temporal.algebra.reducers import compare, fold
 from grass.temporal.algebra.relations import TEMPORAL_RELATIONS, Relation, inverse
@@ -473,6 +480,10 @@ class Translator:
         each cell, so where() takes the joined conditions and both branches
         with the same time stamps.
         """
+        # The conditions are joined with != 0 below, so a date would be
+        # refused there in the name of an operator the expression lacks.
+        for value in _values(condition):
+            check_condition("if", value)
         operator = relation or TemporalOperator(None)
         conditions = self._conditions(first, condition, operator)
         if conditions.sort == "field":
