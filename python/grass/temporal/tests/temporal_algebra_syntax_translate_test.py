@@ -948,3 +948,59 @@ def test_rfc_examples(translator, datasets):
         run(translator, "if({during,|}, A > 1 && start_day(A) == 1, B, 0)").slots
         == operations.where(k, b, 0).slots
     )
+
+
+PLUS_ONE = datetime.timezone(datetime.timedelta(hours=1))
+
+
+@pytest.fixture
+def zoned(datasets, make_series):
+    """Z has the days 1 to 4 of January 2001 at +01:00, A the same without"""
+    slots = []
+    for day in (1, 2, 3, 4):
+        extent = Extent(
+            datetime.datetime(2001, 1, day, tzinfo=PLUS_ONE),
+            datetime.datetime(2001, 1, day + 1, tzinfo=PLUS_ONE),
+        )
+        ident = f"z{day}@PERMANENT"
+        slots.append(Slot(extent, MapRef(ident), None, ident))
+    datasets["Z"] = Series(tuple(slots), kind="raster", sort="field")
+    return datasets
+
+
+def test_a_text_without_offset_is_refused_for_dates_with_one(translator, zoned):
+    message = (
+        "'2001-01-02 00:00:00' has no time zone offset, but the maps have one, "
+        "such as 2001-01-01 00:00:00+01:00; write the offset into the text, "
+        'such as "2001-01-01 00:00:00+01:00"'
+    )
+    with pytest.raises(ValueError, match="^" + re.escape(message) + "$"):
+        run(translator, 'start_datetime(Z) > "2001-01-02 00:00:00"')
+
+
+def test_a_text_with_offset_is_refused_for_dates_without_one(translator, zoned):
+    message = (
+        "'2001-01-02 00:00:00+01:00' has a time zone offset, but the maps have "
+        "none; remove the offset from the text"
+    )
+    with pytest.raises(ValueError, match="^" + re.escape(message) + "$"):
+        run(translator, 'start_datetime(A) > "2001-01-02 00:00:00+01:00"')
+
+
+def test_a_text_with_offset_is_compared_with_dates_with_one(translator, zoned):
+    result = run(translator, 'start_datetime(Z) > "2001-01-02 00:00:00+01:00"')
+    assert [slot.content for slot in result] == [Const(v) for v in (0, 0, 1, 1)]
+
+
+def test_a_date_is_compared_with_dates_of_a_dataset_with_offset(translator, zoned):
+    result = run(translator, 'start_date(Z) > "2001-01-02"')
+    assert [slot.content for slot in result] == [Const(v) for v in (0, 0, 1, 1)]
+
+
+def test_a_series_cannot_mix_offsets(translator, zoned):
+    message = (
+        "A series cannot hold time stamps with and without a time zone offset, "
+        "such as 2001-01-01 00:00:00+01:00 and 2001-01-01 00:00:00"
+    )
+    with pytest.raises(ValueError, match="^" + re.escape(message) + "$"):
+        run(translator, "merge(A, Z)")

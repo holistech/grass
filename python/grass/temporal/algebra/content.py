@@ -266,6 +266,18 @@ def _check_compared(function, values):
                 f"{describe_value(present[0])} and {describe_value(value)}"
             )
             raise TypeError(msg)
+    aware = [
+        v for v in present if isinstance(v, datetime.datetime) and v.tzinfo is not None
+    ]
+    naive = [
+        v for v in present if isinstance(v, datetime.datetime) and v.tzinfo is None
+    ]
+    if aware and naive:
+        msg = (
+            f"{function}() cannot compare a date and time with a time zone "
+            f"offset ({aware[0]}) with one without ({naive[0]})"
+        )
+        raise TypeError(msg)
 
 
 def _refuse_computing(function, value):

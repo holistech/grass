@@ -758,6 +758,13 @@ creates no dataset (see the example "Catalog: select and combine maps by
 temporal relations").
 
 <p>
+Datasets with a time zone offset are related and compared like others. A
+dataset with offsets is not related to one without, and the tool stops with
+an error. A date and time in quotes that is compared with <code>start_datetime()</code>
+of a dataset with offsets needs the offset too, such as
+<code>"2001-01-02 00:00:00+01:00"</code>.
+
+<p>
 An existing result dataset without <b>--overwrite</b> stops a dry run with
 <b>-d</b> as it stops a real run.
 

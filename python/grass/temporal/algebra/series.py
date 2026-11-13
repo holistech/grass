@@ -77,6 +77,27 @@ class Slot:
     rank: int | None = field(default=None, compare=False)
 
 
+def _check_time_zones(slots):
+    """Raise ValueError if slots mix absolute times with and without an offset
+
+    Python cannot order such times, so sorted() would fail without saying why.
+    """
+    aware = naive = None
+    for slot in slots:
+        if slot.extent is None or not isinstance(slot.extent.start, datetime.datetime):
+            continue
+        if slot.extent.start.tzinfo is None:
+            naive = slot.extent.start if naive is None else naive
+        else:
+            aware = slot.extent.start if aware is None else aware
+    if aware is not None and naive is not None:
+        msg = (
+            "A series cannot hold time stamps with and without a time zone "
+            f"offset, such as {aware} and {naive}"
+        )
+        raise ValueError(msg)
+
+
 def _slot_key(slot):
     return () if slot.extent is None else slot.extent.sort_key()
 
@@ -136,6 +157,7 @@ class Series:
         if len(units) > 1:
             msg = "The slots of a series need one temporal type and unit"
             raise ValueError(msg)
+        _check_time_zones(slots)
         # sorted() is stable: slots of equal time keep their input order,
         # which is the only tie-breaker slots of equal time have.
         object.__setattr__(self, "slots", tuple(sorted(slots, key=_slot_key)))

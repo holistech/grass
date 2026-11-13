@@ -5,7 +5,7 @@ r.mapcalc, which divides integers like C and gives null for a null operand.
 """
 
 import re
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
 
@@ -355,3 +355,15 @@ def test_series_reduce_refuses_dates(method):
     )
     with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
         series_reduce(method, [NULL, Const(DAY), Const(date(2001, 1, 2))])
+
+
+def test_dates_with_and_without_offset_are_not_compared():
+    aware = datetime(2001, 1, 1, tzinfo=timezone(timedelta(hours=1)))
+    naive = datetime(2001, 1, 1)
+    for values in ([aware, naive], [naive, aware]):
+        with pytest.raises(TypeError) as error:
+            evaluate("==", values)
+        assert str(error.value) == (
+            "==() cannot compare a date and time with a time zone offset "
+            "(2001-01-01 00:00:00+01:00) with one without (2001-01-01 00:00:00)"
+        )

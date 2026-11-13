@@ -30,3 +30,45 @@ def test_a_dataset_with_an_offset_and_one_without_are_refused(
     )
 
     assert mixed_zones_message(f"{zoned[0]}@PERMANENT", f"{naive[0]}@PERMANENT") in text
+
+
+def test_a_dataset_with_an_offset_is_related_to_itself(tools, register_three_days):
+    _maps, name = register_three_days("z", stds_type="strds")
+
+    tools.t_rast_algebra(expression=f"T = {name} : {name}", basename="t")
+
+    rows = tools.t_rast_list(input="T", columns="start_time").stdout
+    assert rows.splitlines()[1:] == [
+        "2001-01-01 00:00:00+01:00",
+        "2001-01-02 00:00:00+01:00",
+        "2001-01-03 00:00:00+01:00",
+    ]
+
+
+def test_a_time_with_offset_selects_by_start_datetime(tools, register_three_days):
+    """Only the third map starts after 2001-01-02 00:00:00+01:00; it holds 3."""
+    _maps, name = register_three_days("z", stds_type="strds")
+
+    tools.t_rast_algebra(
+        expression=f'U = if(start_datetime({name}) > "2001-01-02 00:00:00+01:00", {name})',
+        basename="u",
+    )
+
+    rows = tools.t_rast_list(input="U", columns="start_time,min").stdout
+    assert rows.splitlines()[1:] == ["2001-01-03 00:00:00+01:00|3.0"]
+
+
+def test_a_time_without_offset_is_refused_for_dates_with_one(
+    tools, register_three_days, refusal_of
+):
+    _maps, name = register_three_days("z", stds_type="strds")
+
+    text = refusal_of(
+        "t.rast.algebra",
+        expression=f'V = if(start_datetime({name}) > "2001-01-02 00:00:00", {name})',
+        basename="v",
+    )
+
+    assert (
+        "'2001-01-02 00:00:00' has no time zone offset, but the maps have one" in text
+    )

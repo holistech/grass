@@ -815,6 +815,29 @@ def _refuse_values_of_different_kinds(left, right):
     raise TypeError(msg)
 
 
+def _check_offset(text, moment, sample):
+    """Raise ValueError if a text and the dates it is compared with disagree
+
+    They disagree if only one of them has a time zone offset.
+
+    Python cannot compare a datetime with an offset with one without. The
+    text is not given an offset on the way, as the zone it would take is the
+    reader's to name.
+    """
+    if sample.tzinfo is not None and moment.tzinfo is None:
+        msg = (
+            f"'{text}' has no time zone offset, but the maps have one, such "
+            f'as {sample}; write the offset into the text, such as "{sample}"'
+        )
+        raise ValueError(msg)
+    if sample.tzinfo is None and moment.tzinfo is not None:
+        msg = (
+            f"'{text}' has a time zone offset, but the maps have none; "
+            "remove the offset from the text"
+        )
+        raise ValueError(msg)
+
+
 def _moment(text, other):
     """Read a date, a time or both for a comparison with a time function
 
@@ -825,8 +848,9 @@ def _moment(text, other):
     start_time() and both for start_datetime().
 
     :raises TypeError: if other is not a series of dates or times
-    :raises ValueError: if the text is no date or time, or a date alone is
-        compared with a time of day
+    :raises ValueError: if the text is no date or time, a date alone is
+        compared with a time of day, or the text and the dates of a datetime
+        series differ in having a time zone offset
     """
     if not (isinstance(other, Series) and other.sort == "scalar"):
         msg = (
@@ -850,6 +874,8 @@ def _moment(text, other):
     if not isinstance(moment, datetime.datetime):
         msg = f"'{text}' is not a date or time: {moment}"
         raise ValueError(msg)
+    if isinstance(sample, datetime.datetime):
+        _check_offset(text, moment, sample)
     if isinstance(sample, datetime.time):
         # A text without a colon has no time of day. Reading it as midnight
         # made "start_time(A) >= '2001-03-01'" hold for every map that starts

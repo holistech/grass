@@ -704,6 +704,12 @@ types cannot be related in one expression: the tool stops with an error and
 creates no dataset (see the example "Catalog: select and combine maps by
 temporal relations").
 
+Datasets with a time zone offset are related and compared like others. A
+dataset with offsets is not related to one without, and the tool stops with
+an error. A date and time in quotes that is compared with `start_datetime()`
+of a dataset with offsets needs the offset too, such as
+`"2001-01-02 00:00:00+01:00"`.
+
 An existing result dataset without **--overwrite** stops a dry run with
 **-d** as it stops a real run.
 
