@@ -2,7 +2,7 @@
 
 t.register keeps the times of a dataset to one kind, with or without an
 offset, because times of both kinds cannot be ordered against each other;
-t.merge keeps the merged dataset to one kind as well.
+t.merge keeps the merged dataset to one kind as well, and to one offset.
 """
 
 import pytest
@@ -49,4 +49,42 @@ def test_an_existing_output_without_offset_is_refused(
     text = refusal_of("t.merge", inputs=with_offset, output="Old", overwrite=True)
 
     assert "Space time datasets to merge must all have a time zone offset" in text
+    assert tools.t_rast_list(input="Old", columns="name").stdout == before
+
+
+@pytest.mark.parametrize(
+    "offset",
+    [
+        "+02:00",
+        # +00:00 is an offset of length zero, still an offset of its own.
+        "+00:00",
+    ],
+)
+def test_datasets_with_different_offsets_are_refused(
+    register_three_days, refusal_of, offset
+):
+    """A dataset holds one offset, so the merged one would hold two"""
+    _first_maps, first = register_three_days("z")
+    _other_maps, other = register_three_days("y", offset=offset)
+
+    text = refusal_of("t.merge", inputs=f"{first},{other}", output="N")
+
+    assert (
+        "Space time datasets to merge must have the same time zone offset: "
+        f"<{first}@PERMANENT> has +01:00, <{other}@PERMANENT> has {offset}"
+    ) in text
+
+
+def test_an_existing_output_with_another_offset_is_refused(
+    tools, register_three_days, refusal_of
+):
+    """The maps already in the output count like those of an input."""
+    _first_maps, first = register_three_days("z")
+    _other_maps, other = register_three_days("y", offset="+02:00")
+    tools.t_copy(input=other, output="Old")
+    before = tools.t_rast_list(input="Old", columns="name").stdout
+
+    text = refusal_of("t.merge", inputs=first, output="Old", overwrite=True)
+
+    assert "Space time datasets to merge must have the same time zone offset" in text
     assert tools.t_rast_list(input="Old", columns="name").stdout == before

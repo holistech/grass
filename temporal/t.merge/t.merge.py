@@ -75,15 +75,22 @@ def open_inputs(input_ids, type, dbif):
     return stds_list
 
 
-def refuse_mixed_time_zones(datasets, dbif):
-    """End with a message if some datasets have times with a time zone offset
-    and others times without one
+def offset_text(time):
+    """Return the time zone offset of a time as +HH:MM, as t.register writes it"""
+    text = time.strftime("%z")
+    return f"{text[:3]}:{text[3:5]}"
 
-    t.register keeps a dataset to one kind, because times of both kinds
-    cannot be ordered, so its first map with a start time tells the kind.
-    Datasets in relative time and those without such a map are passed over.
+
+def refuse_mixed_time_zones(datasets, dbif):
+    """End with a message if the datasets have times of different time zones
+
+    t.register keeps a dataset to one time zone offset, or to none, because
+    times with and without one cannot be ordered and daylight saving time is
+    not supported; so the first map of a dataset with a start time tells its
+    offset. Datasets in relative time and those without such a map are passed
+    over.
     """
-    kinds = {}
+    offsets = {}
     for stds in datasets:
         if not stds.is_time_absolute():
             continue
@@ -94,15 +101,34 @@ def refuse_mixed_time_zones(datasets, dbif):
             dbif=dbif,
         )
         if rows:
-            kinds.setdefault(rows[0]["start_time"].tzinfo is not None, stds.get_id())
-    if len(kinds) == 2:
-        dbif.close()
+            start = rows[0]["start_time"]
+            offsets.setdefault(start.utcoffset(), (stds.get_id(), start))
+    if len(offsets) < 2:
+        return
+    dbif.close()
+    if None in offsets:
+        naive = offsets[None][0]
+        aware = next(
+            ident for offset, (ident, _start) in offsets.items() if offset is not None
+        )
         gs.fatal(
             _(
                 "Space time datasets to merge must all have a time zone offset "
                 "or all have none: <{aware}> has one, <{naive}> has none"
-            ).format(aware=kinds[True], naive=kinds[False])
+            ).format(aware=aware, naive=naive)
         )
+    (first, first_start), (second, second_start) = list(offsets.values())[:2]
+    gs.fatal(
+        _(
+            "Space time datasets to merge must have the same time zone offset: "
+            "<{first}> has {first_offset}, <{second}> has {second_offset}"
+        ).format(
+            first=first,
+            first_offset=offset_text(first_start),
+            second=second,
+            second_offset=offset_text(second_start),
+        )
+    )
 
 
 def open_output(output, output_id, type, first, dbif):
