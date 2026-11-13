@@ -64,7 +64,11 @@ def cube_geometry(sp):
     if unit in {"months", "month"}:
         return unit, float((start.year - 1900) * 12 + start.month), granularity
 
-    bottom = float(tgis.time_delta_to_relative_time(start - datetime(1900, 1, 1)))
+    # The years and months above come from the clock time of the start, so
+    # the days count from 1900-01-01 at the offset of the start as well: a
+    # start at midnight gives a whole number of days whatever its offset.
+    origin = datetime(1900, 1, 1, tzinfo=start.tzinfo)
+    bottom = float(tgis.time_delta_to_relative_time(start - origin))
     days = 0.0
     hours = 0.0
     minutes = 0.0
