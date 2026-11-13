@@ -10,7 +10,7 @@ environment of the tools.
 import pytest
 
 from grass.temporal.testing.data import make_map, register_file
-from grass.temporal.testing.readback import list_maps, stds_info
+from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.temporal.testing.session import project_session
 from grass.tools import ToolError, Tools
 
@@ -138,8 +138,22 @@ def test_file_with_start_times_and_offsets(zone_tools, prefix, tmp_path):
     ]
 
 
-def test_file_with_start_and_end_in_different_zones(zone_tools, prefix, tmp_path):
-    # Start in +01:00, end in -01:00: both offsets are kept as written.
+def other_offset_message(map_id, name, offset, other):
+    """The refusal of a time whose offset is not that of the dataset"""
+    return (
+        f"Unable to register raster map <{map_id}>. Its time has the time zone "
+        f"offset {offset}, the times of the space time dataset <{name}> have "
+        f"{other}. A space time dataset holds one offset and no daylight saving "
+        "time; write all times with one offset, such as that of standard time or "
+        "+00:00."
+    )
+
+
+def test_file_with_start_and_end_in_different_zones_is_refused(
+    zone_tools, prefix, tmp_path
+):
+    """Start in +01:00, end in -01:00: a dataset holds one offset, so nothing
+    is written"""
     maps, name = _maps_and_dataset(zone_tools, prefix, 2)
     file = register_file(
         tmp_path / "maps.txt",
@@ -149,11 +163,85 @@ def test_file_with_start_and_end_in_different_zones(zone_tools, prefix, tmp_path
         ],
     )
 
-    zone_tools.t_register(type="raster", input=name, file=file)
+    with pytest.raises(ToolError) as error:
+        zone_tools.t_register(type="raster", input=name, file=file)
 
-    assert _rows(zone_tools, name) == [
-        (maps[0], "2001-01-01 12:00:00+01:00", "2001-04-01 14:00:00-01:00"),
-        (maps[1], "2001-04-01 12:00:00+01:00", "2001-07-01 14:00:00-01:00"),
+    assert other_offset_message(
+        f"{maps[0]}@PERMANENT", name, "-01:00", "+01:00"
+    ) in message(error.value)
+    assert "Traceback" not in error.value.stderr
+    assert list_maps(zone_tools, "strds", name) == []
+
+
+def test_a_day_into_summer_time_is_refused(zone_tools, prefix, tmp_path):
+    """The day of the change from +01:00 to +02:00 lasts 23 hours; the map
+    after it is refused as well, and no map of the file is written"""
+    maps, name = _maps_and_dataset(zone_tools, prefix, 3)
+    file = register_file(
+        tmp_path / "maps.txt",
+        [
+            (maps[0], "2001-03-24 00:00:00 +01:00", "2001-03-25 00:00:00 +01:00"),
+            (maps[1], "2001-03-25 00:00:00 +01:00", "2001-03-26 00:00:00 +02:00"),
+            (maps[2], "2001-03-26 00:00:00 +02:00", "2001-03-27 00:00:00 +02:00"),
+        ],
+    )
+
+    with pytest.raises(ToolError) as error:
+        zone_tools.t_register(type="raster", input=name, file=file)
+
+    assert other_offset_message(
+        f"{maps[1]}@PERMANENT", name, "+02:00", "+01:00"
+    ) in message(error.value)
+    assert list_maps(zone_tools, "strds", name) == []
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "offset", "other"),
+    [
+        ("+01:00", "+02:00", "+02:00", "+01:00"),
+        # +00:00 is an offset of length zero, still an offset of its own.
+        ("+01:00", "+00:00", "+00:00", "+01:00"),
+        ("+00:00", "-05:00", "-05:00", "+00:00"),
+    ],
+)
+def test_another_offset_than_that_of_the_dataset_is_refused(
+    zone_tools, prefix, first, second, offset, other
+):
+    maps, name = _maps_and_dataset(zone_tools, prefix, 2)
+    zone_tools.t_register(
+        type="raster", input=name, maps=maps[0], start=f"2001-01-01 10:00:00{first}"
+    )
+
+    with pytest.raises(ToolError) as error:
+        zone_tools.t_register(
+            type="raster",
+            input=name,
+            maps=maps[1],
+            start=f"2001-01-02 10:00:00{second}",
+        )
+
+    assert other_offset_message(f"{maps[1]}@PERMANENT", name, offset, other) in message(
+        error.value
+    )
+    assert _rows(zone_tools, name) == [(maps[0], f"2001-01-01 10:00:00{first}", None)]
+    # The refused map got no time stamp either (r.timestamp fails without one).
+    with pytest.raises(ToolError):
+        zone_tools.r_timestamp(map=maps[1])
+
+
+def test_the_same_offset_with_another_spelling_is_registered(zone_tools, prefix):
+    maps, name = _maps_and_dataset(zone_tools, prefix, 2)
+    zone_tools.t_register(
+        type="raster", input=name, maps=maps[0], start="2001-01-01 10:00:00+01:00"
+    )
+
+    zone_tools.t_register(
+        type="raster", input=name, maps=maps[1], start="2001-01-02 10:00:00 +0100"
+    )
+
+    assert [row[1] for row in _rows(zone_tools, name)] == [
+        "2001-01-01 10:00:00+01:00",
+        "2001-01-02 10:00:00+01:00",
     ]
 
 

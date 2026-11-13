@@ -104,9 +104,10 @@ class _Run:
     option_end: str | None
     # The unit of the first map checked, for a dataset that holds no map yet
     run_unit: str | None = None
-    # Whether the times of the dataset have a time zone; unknown for an
-    # empty dataset until the first new map is seen
-    zone_aware: bool | None = None
+    # A time of the dataset, whose time zone offset, or lack of one, every
+    # other time must share; unknown for an empty dataset until the first
+    # new map is seen
+    zone_time: datetime | None = None
     # The maps to enter into the temporal database, with whether they are
     # there already and the semantic label of the input file
     to_write: list = field(default_factory=list)
@@ -291,8 +292,8 @@ def _map_rows(maps, file, fs, sp, type, increment, interval):
     return rows
 
 
-def _dataset_zone(sp, dbif):
-    """Whether the times of the maps in an absolute dataset have a time zone
+def _dataset_zone_time(sp, dbif):
+    """Return a time of the maps in an absolute dataset, for its time zone
 
     The start time of the dataset itself loses its time zone, so the first
     registered map is looked at instead. None for a dataset without maps.
@@ -304,8 +305,14 @@ def _dataset_zone(sp, dbif):
     if isinstance(dataset_start, str):
         dataset_start = check_datetime_string(dataset_start)
     if isinstance(dataset_start, datetime):
-        return dataset_start.tzinfo is not None
+        return dataset_start
     return None
+
+
+def _offset_text(time):
+    """Return the time zone offset of a time as +HH:MM"""
+    text = time.strftime("%z")
+    return f"{text[:3]}:{text[3:5]}"
 
 
 def _check_exists(run, map_object):
@@ -468,21 +475,31 @@ def _reload_known_map(run, map_object):
 
 
 def _check_zone_consistency(run, map_object):
-    """Refuse a time with a time zone in a dataset without one, and back
+    """Refuse a time whose time zone offset differs from that of the dataset
 
     A dataset cannot hold times with and without a time zone, because their
-    extent cannot be computed. Refuse before any map is written, as the
+    extent cannot be computed. Nor does it hold two offsets, so daylight
+    saving time is refused: in a dataset with a day from +01:00 to +02:00,
+    t.rast.list method=gran left that map out (measured 13.11.2026). Start
+    and end are both checked. Refuse before any map is written, as the
     refusal would otherwise come after the maps were registered.
     """
     if not (run.name and run.sp.is_time_absolute()):
         return
-    start_time = map_object.temporal_extent.get_start_time()
-    if not isinstance(start_time, datetime):
-        return
-    aware = start_time.tzinfo is not None
-    if run.zone_aware is None:
-        run.zone_aware = aware
-    elif run.zone_aware != aware:
+    extent = map_object.temporal_extent
+    for time in (extent.get_start_time(), extent.get_end_time()):
+        if not isinstance(time, datetime):
+            continue
+        if run.zone_time is None:
+            run.zone_time = time
+            continue
+        _refuse_other_zone(run, map_object, time)
+
+
+def _refuse_other_zone(run, map_object, time):
+    """Refuse a time without the time zone offset of run.zone_time"""
+    aware = time.tzinfo is not None
+    if aware != (run.zone_time.tzinfo is not None):
         get_tgis_message_interface().fatal(
             _(
                 "Unable to register {t} map <{mid}>. Its time "
@@ -495,6 +512,22 @@ def _check_zone_consistency(run, map_object):
                 name=run.name,
                 with_or_without=_("has a") if aware else _("has no"),
                 other=_("has none") if aware else _("has one"),
+            )
+        )
+    if aware and time.utcoffset() != run.zone_time.utcoffset():
+        get_tgis_message_interface().fatal(
+            _(
+                "Unable to register {t} map <{mid}>. Its time has the time "
+                "zone offset {offset}, the times of the space time dataset "
+                "<{name}> have {other}. A space time dataset holds one offset "
+                "and no daylight saving time; write all times with one "
+                "offset, such as that of standard time or +00:00."
+            ).format(
+                t=map_object.get_type(),
+                mid=map_object.get_map_id(),
+                name=run.name,
+                offset=_offset_text(time),
+                other=_offset_text(run.zone_time),
             )
         )
 
@@ -764,7 +797,7 @@ def register_maps_in_space_time_dataset(
             option_end=end,
         )
         if name and sp.is_time_absolute():
-            run.zone_aware = _dataset_zone(sp, dbif)
+            run.zone_time = _dataset_zone_time(sp, dbif)
 
         msgr.debug(2, "Gathering map information...")
 

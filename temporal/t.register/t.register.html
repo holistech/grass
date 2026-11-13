@@ -210,7 +210,11 @@ of another kind than <b>type</b>.</li>
 <p>
 A dataset holds maps with a time zone offset or maps without one, not both: a
 map of the other kind is refused, and the error says which of the two has a
-time zone offset. Tools that relate maps in time, such as <em>t.sample</em>,
+time zone offset. A dataset with offsets holds one offset, for the start and
+the end times of all its maps: a time with another offset is refused before
+the first map is registered, and the error names both offsets. Daylight saving
+time is not supported; write all times in standard time or with <code>+00:00</code>.
+Tools that relate maps in time, such as <em>t.sample</em>,
 <em>t.rast.algebra</em> and <em>t.select</em>, refuse to relate a dataset with offsets to
 one without.
 
