@@ -30,7 +30,7 @@ from grass.temporal.testing.data import (
     vector_points,
 )
 from grass.temporal.testing.readback import list_maps
-from grass.temporal.testing.session import temporal_session
+from grass.temporal.testing.session import mapset_session, temporal_session
 from grass.tools import Tools
 
 MAP_KIND = {"strds": "raster", "str3ds": "raster_3d", "stvds": "vector"}
@@ -73,9 +73,14 @@ def test_intervals_rejects_unknown_granularity():
 # reads the session from os.environ, so they carry needs_solo_run
 # (doc/development/testing.md).
 @pytest.fixture(scope="module")
-def tools(tmp_path_factory):
+def session(tmp_path_factory):
     with temporal_session(tmp_path_factory.mktemp("data") / "project") as session:
-        yield Tools(session=session)
+        yield session
+
+
+@pytest.fixture(scope="module")
+def tools(session):
+    return Tools(session=session)
 
 
 def _specs(stds_type, case):
@@ -148,6 +153,36 @@ def test_both_routes_give_the_same_rows(tools, stds_type):
         # The map names differ by route; times and values must not.
         results.append([row._replace(name=row.name[-1]) for row in rows])
     assert results[0] == results[1]
+
+
+@pytest.mark.needs_solo_run
+def test_library_route_registers_a_map_of_another_mapset(session, tools):
+    # The library route names the maps of the current mapset itself and
+    # leaves any other name to the library, which searches the search path.
+    with mapset_session(session, "elsewhere") as other:
+        make_map(Tools(session=other), "raster", "far_1", 1)
+    make_map(tools, "raster", "near_1", 2)
+    tools.g_mapsets(operation="add", mapset="elsewhere")
+    try:
+        register_stds(
+            tools,
+            "strds",
+            "mixed",
+            [
+                MapSpec("far_1", 1, day(0), day(1)),
+                MapSpec("near_1", 2, day(1), day(2)),
+            ],
+            via="library",
+        )
+    finally:
+        tools.g_mapsets(operation="remove", mapset="elsewhere")
+
+    result = tools.t_rast_list(input="mixed", columns="id", format="json")
+
+    assert [row["id"] for row in result.json["data"]] == [
+        "far_1@elsewhere",
+        "near_1@PERMANENT",
+    ]
 
 
 def test_make_map_values(tools):

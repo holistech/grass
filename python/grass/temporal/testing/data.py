@@ -205,12 +205,12 @@ def register_stds(
     again; both routes honour it.
 
     The tool route is the default because it works in every session and
-    needs no mirrored os.environ. The library route is about twice as fast:
-    measured 2026-10-15 with time.perf_counter around register_stds() for 12
-    existing raster maps of monthly intervals in an XY project under
+    needs no mirrored os.environ. The library route is about twenty times as
+    fast: measured 2026-11-13 with time.perf_counter around register_stds()
+    for 12 existing raster maps of monthly intervals in an XY project under
     temporal_session(), fresh maps for each of 5 runs per route: tool
-    0.97 s median (0.968 to 0.974 s), library 0.47 s median (0.463 to
-    0.473 s).
+    1.00 s median (0.99 to 1.01 s), library 0.045 s median (0.042 to
+    0.049 s).
     """
     maps = list(maps)
     map_type = MAP_TYPE_OF_STDS[stds_type]
@@ -229,14 +229,10 @@ def register_stds(
             overwrite=overwrite,
         )
         if maps:
-            rows = [
-                (spec.name, spec.start) + (() if spec.end is None else (spec.end,))
-                for spec in maps
-            ]
             options = {} if unit is None else {"unit": unit}
             # t.register opens the file itself, so it cannot read stdin.
             with TemporaryDirectory() as directory:
-                file = register_file(Path(directory) / "maps.txt", rows)
+                file = register_file(Path(directory) / "maps.txt", _rows(maps))
                 tools.t_register(
                     type=map_type, input=name, file=file, overwrite=overwrite, **options
                 )
@@ -250,19 +246,8 @@ def register_stds(
             "mean",
             overwrite=overwrite,
         )
-        for spec in maps:
-            options = (
-                {"end": _text(spec.end, temporaltype)} if spec.end is not None else {}
-            )
-            if unit is not None:
-                options["unit"] = unit
-            tgis.register_maps_in_space_time_dataset(
-                map_type,
-                name,
-                spec.name,
-                start=_text(spec.start, temporaltype),
-                **options,
-            )
+        if maps:
+            _register_with_library(stds_type, name, maps, unit)
     else:
         msg = f"Unknown route {via!r}, expected 'tool' or 'library'"
         raise ValueError(msg)
@@ -288,11 +273,69 @@ def create_daily_stds(tools, stds_type, names, count, *, map_prefix):
     return [spec.name for spec in specs]
 
 
-def _text(value, temporaltype):
-    """A time as t.register reads it: a date and time, or a plain number"""
-    if temporaltype == "relative":
-        return str(value)
-    return value.strftime(TIME_FORMAT)
+def _rows(maps):
+    """The rows of the register file for maps, an iterable of MapSpec"""
+    return [
+        (spec.name, spec.start) + (() if spec.end is None else (spec.end,))
+        for spec in maps
+    ]
+
+
+def _register_with_library(stds_type, name, maps, unit):
+    """Register maps, a list of MapSpec, in the dataset name in this process
+
+    All maps go into one call of register_maps_in_space_time_dataset(), which
+    opens the database and updates the dataset once, and a map of the
+    current mapset is passed as name@mapset, which spares the library the
+    lookup on the search path. With one call per map and no mapset, registering
+    the 89 maps of the 20 datasets of the algebra fixture of t.rast.algebra
+    took 3.1 s of its 4.5 s build, now 0.75 s of 2.1 s (measured 2026-11-13
+    with time.perf_counter around the build and around register_stds()).
+    cProfile of the old route showed 1.7 s in g.findfile and 1.0 s in the
+    t.connect behind each database connection.
+
+    The command history still gets one entry per map, as one call per map
+    wrote it, so the database holds the same as before; the recorded image
+    of grass.temporal.testing.database_image compares that history.
+    """
+    map_type = MAP_TYPE_OF_STDS[stds_type]
+    rows = [(_id_in_current_mapset(map_type, row[0]), *row[1:]) for row in _rows(maps)]
+    with TemporaryDirectory() as directory:
+        file = register_file(Path(directory) / "maps.txt", rows)
+        tgis.register_maps_in_space_time_dataset(
+            map_type, name, file=str(file), unit=unit
+        )
+    dbif = tgis.SQLDatabaseInterfaceConnection(mapsets=tgis.get_current_mapset())
+    dbif.connect()
+    try:
+        dataset = tgis.open_old_stds(name, stds_type, dbif)
+        for _ in maps[1:]:
+            dataset.update_command_string(dbif=dbif)
+    finally:
+        dbif.close()
+
+
+def _id_in_current_mapset(map_type, name):
+    """name@mapset for a map of the current mapset, else name unchanged
+
+    The library looks a name without a mapset up with g.findfile, one process
+    per map. The current mapset comes first in every search path, so a map
+    found there gets the id that g.findfile gives; the C library interface
+    answers without a process. Any other name is left to the library, which
+    also reports a map that does not exist.
+    """
+    if "@" in name:
+        return name
+    interface = tgis.get_tgis_c_library_interface()
+    exists = {
+        "raster": interface.raster_map_exists,
+        "raster_3d": interface.raster3d_map_exists,
+        "vector": interface.vector_map_exists,
+    }[map_type]
+    mapset = tgis.get_current_mapset()
+    if exists(name.partition(":")[0], mapset):
+        return f"{name}@{mapset}"
+    return name
 
 
 def register_file(path, rows, *, separator="|"):
