@@ -190,8 +190,11 @@ A dataset holds maps with a time zone offset or maps without one, not both: a
 map of the other kind is refused, and the error says which of the two has a
 time zone offset. A dataset with offsets holds one offset, for the start and
 the end times of all its maps: a time with another offset is refused before
-the first map is registered, and the error names both offsets. Daylight saving
-time is not supported; write all times in standard time or with `+00:00`.
+the first map is registered, and the error names both offsets. This holds as
+well for a map already in the temporal database that is added to a dataset, and
+for a new time given with **--overwrite**, which must fit every dataset that
+holds the map. Daylight saving time is not supported; write all times in
+standard time or with `+00:00`.
 Tools that relate maps in time, such as *t.sample*,
 *t.rast.algebra* and *t.select*, refuse to relate a dataset with offsets to
 one without.

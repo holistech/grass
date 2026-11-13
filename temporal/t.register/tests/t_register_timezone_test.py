@@ -142,10 +142,9 @@ def other_offset_message(map_id, name, offset, other):
     """The refusal of a time whose offset is not that of the dataset"""
     return (
         f"Unable to register raster map <{map_id}>. Its time has the time zone "
-        f"offset {offset}, the times of the space time dataset <{name}> have "
-        f"{other}. A space time dataset holds one offset and no daylight saving "
-        "time; write all times with one offset, such as that of standard time or "
-        "+00:00."
+        f"offset {offset}, the space time dataset <{name}> has {other}. A space "
+        "time dataset holds one offset and no daylight saving time; write the "
+        f"times with the offset {other}."
     )
 
 
@@ -227,6 +226,72 @@ def test_another_offset_than_that_of_the_dataset_is_refused(
     # The refused map got no time stamp either (r.timestamp fails without one).
     with pytest.raises(ToolError):
         zone_tools.r_timestamp(map=maps[1])
+
+
+def test_known_maps_with_another_offset_are_refused(zone_tools, prefix):
+    """Maps entered without a dataset keep their times; added to a dataset
+    later, those are checked as new times are"""
+    maps, name = _maps_and_dataset(zone_tools, prefix, 2)
+    zone_tools.t_register(
+        type="raster", maps=maps[0], start="2001-03-24 00:00:00 +01:00"
+    )
+    zone_tools.t_register(
+        type="raster", maps=maps[1], start="2001-03-26 00:00:00 +02:00"
+    )
+
+    with pytest.raises(ToolError) as error:
+        zone_tools.t_register(type="raster", input=name, maps=",".join(maps))
+
+    assert other_offset_message(
+        f"{maps[1]}@PERMANENT", name, "+02:00", "+01:00"
+    ) in message(error.value)
+    assert list_maps(zone_tools, "strds", name) == []
+
+
+def test_a_new_time_with_another_offset_is_refused_for_the_datasets_of_the_map(
+    zone_tools, prefix
+):
+    """--overwrite without input updates the datasets that hold the map"""
+    maps, name = _maps_and_dataset(zone_tools, prefix, 2)
+    zone_tools.t_register(
+        type="raster",
+        input=name,
+        maps=",".join(maps),
+        start="2001-01-01 00:00:00 +01:00",
+        increment="1 day",
+        flags="i",
+    )
+    before = _rows(zone_tools, name)
+
+    with pytest.raises(ToolError) as error:
+        zone_tools.t_register(
+            type="raster",
+            maps=maps[1],
+            start="2001-01-02 00:00:00 +02:00",
+            overwrite=True,
+        )
+
+    assert other_offset_message(
+        f"{maps[1]}@PERMANENT", f"{name}@PERMANENT", "+02:00", "+01:00"
+    ) in message(error.value)
+    assert _rows(zone_tools, name) == before
+
+
+def test_the_only_map_of_a_dataset_takes_another_offset(zone_tools, prefix):
+    """The old time of the map is replaced, so it does not count"""
+    maps, name = _maps_and_dataset(zone_tools, prefix, 1)
+    zone_tools.t_register(
+        type="raster", input=name, maps=maps[0], start="2001-01-01 00:00:00 +01:00"
+    )
+
+    zone_tools.t_register(
+        type="raster",
+        maps=maps[0],
+        start="2001-01-01 00:00:00 +02:00",
+        overwrite=True,
+    )
+
+    assert _rows(zone_tools, name) == [(maps[0], "2001-01-01 00:00:00+02:00", None)]
 
 
 def test_the_same_offset_with_another_spelling_is_registered(zone_tools, prefix):

@@ -34,8 +34,14 @@ from .datetime_math import (
     check_datetime_string,
     increment_datetime_by_string,
     string_to_datetime,
+    time_zone_offset_text,
 )
-from .db import SQLDatabaseInterfaceConnection, connection, refuse_time_zone
+from .db import (
+    SQLDatabaseInterfaceConnection,
+    connection,
+    refuse_time_zone,
+    sql_literal,
+)
 from .factory import dataset_factory
 from .kinds import MAP_ALIASES, find_kind, stds_kind_of
 from .open_stds import open_old_stds
@@ -292,13 +298,17 @@ def _map_rows(maps, file, fs, sp, type, increment, interval):
     return rows
 
 
-def _dataset_zone_time(sp, dbif):
+def _dataset_zone_time(sp, dbif, without=None):
     """Return a time of the maps in an absolute dataset, for its time zone
 
     The start time of the dataset itself loses its time zone, so the first
-    registered map is looked at instead. None for a dataset without maps.
+    registered map with a start time is looked at instead. without is the id
+    of a map to pass over. None for a dataset without such a map.
     """
-    rows = sp.get_registered_maps("start_time", None, "start_time", dbif)
+    where = "start_time IS NOT NULL"
+    if without is not None:
+        where += f" AND id != {sql_literal(without)}"
+    rows = sp.get_registered_maps("start_time", where, "start_time", dbif)
     if not rows:
         return None
     dataset_start = rows[0]["start_time"]
@@ -307,12 +317,6 @@ def _dataset_zone_time(sp, dbif):
     if isinstance(dataset_start, datetime):
         return dataset_start
     return None
-
-
-def _offset_text(time):
-    """Return the time zone offset of a time as +HH:MM"""
-    text = time.strftime("%z")
-    return f"{text[:3]}:{text[3:5]}"
 
 
 def _check_exists(run, map_object):
@@ -493,13 +497,41 @@ def _check_zone_consistency(run, map_object):
         if run.zone_time is None:
             run.zone_time = time
             continue
-        _refuse_other_zone(run, map_object, time)
+        _refuse_other_zone(map_object, time, run.zone_time, run.name)
 
 
-def _refuse_other_zone(run, map_object, time):
-    """Refuse a time without the time zone offset of run.zone_time"""
+def _check_zone_of_other_datasets(run, map_object):
+    """Refuse a new time of a known map against the datasets it is in
+
+    t.register --overwrite updates every dataset that holds the map, also
+    without input, so each must keep its one offset. The map itself is
+    passed over, as its old time is replaced.
+    """
+    own = run.sp.get_id() if run.name else None
+    for stds_id in map_object.get_registered_stds(run.dbif, run.mapset) or ():
+        if not stds_id or stds_id == own:
+            continue
+        sp = dataset_factory(stds_kind_of(run.type).name, stds_id)
+        sp.select(run.dbif)
+        if not sp.is_time_absolute():
+            continue
+        reference = _dataset_zone_time(sp, run.dbif, without=map_object.get_id())
+        if reference is None:
+            continue
+        extent = map_object.temporal_extent
+        for time in (extent.get_start_time(), extent.get_end_time()):
+            if isinstance(time, datetime):
+                _refuse_other_zone(map_object, time, reference, stds_id)
+
+
+def _refuse_other_zone(map_object, time, reference, name):
+    """Refuse a time without the time zone offset of reference
+
+    reference is a time of the space time dataset name, which the message
+    names.
+    """
     aware = time.tzinfo is not None
-    if aware != (run.zone_time.tzinfo is not None):
+    if aware != (reference.tzinfo is not None):
         get_tgis_message_interface().fatal(
             _(
                 "Unable to register {t} map <{mid}>. Its time "
@@ -509,25 +541,24 @@ def _refuse_other_zone(run, map_object, time):
             ).format(
                 t=map_object.get_type(),
                 mid=map_object.get_map_id(),
-                name=run.name,
+                name=name,
                 with_or_without=_("has a") if aware else _("has no"),
                 other=_("has none") if aware else _("has one"),
             )
         )
-    if aware and time.utcoffset() != run.zone_time.utcoffset():
+    if aware and time.utcoffset() != reference.utcoffset():
         get_tgis_message_interface().fatal(
             _(
                 "Unable to register {t} map <{mid}>. Its time has the time "
-                "zone offset {offset}, the times of the space time dataset "
-                "<{name}> have {other}. A space time dataset holds one offset "
-                "and no daylight saving time; write all times with one "
-                "offset, such as that of standard time or +00:00."
+                "zone offset {offset}, the space time dataset <{name}> has "
+                "{other}. A space time dataset holds one offset and no "
+                "daylight saving time; write the times with the offset {other}."
             ).format(
                 t=map_object.get_type(),
                 mid=map_object.get_map_id(),
-                name=run.name,
-                offset=_offset_text(time),
-                other=_offset_text(run.zone_time),
+                name=name,
+                offset=time_zone_offset_text(time),
+                other=time_zone_offset_text(reference),
             )
         )
 
@@ -595,6 +626,7 @@ def _validate_map(run, count, row):
                 run.run_unit = _refuse_other_time(
                     run.sp, map_object, run.dbif, run.run_unit
                 )
+                _check_zone_consistency(run, map_object)
                 run.stds_maps.append(map_object)
             return
         _reload_known_map(run, map_object)
@@ -636,6 +668,8 @@ def _validate_map(run, count, row):
 
     _check_time_zone_fits_database(run, map_object)
     _check_zone_consistency(run, map_object)
+    if is_in_db:
+        _check_zone_of_other_datasets(run, map_object)
 
     # The dataset refuses a map of another temporal type or relative unit
     # when it registers it, which is after the map was written. The same

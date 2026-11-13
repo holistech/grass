@@ -587,6 +587,16 @@ def string_to_datetime(time_string: str) -> datetime | None:
     return time_object
 
 
+def time_zone_offset_text(time: datetime) -> str:
+    """Return the time zone offset of a time as +HH:MM, as t.register writes it
+
+    The time must have an offset; the messages that name the offset of a
+    space time dataset use this form.
+    """
+    text = time.strftime("%z")
+    return f"{text[:3]}:{text[3:5]}"
+
+
 def option_to_datetime(text: str, option: str) -> datetime:
     """Convert the value of a tool option to a datetime
 
