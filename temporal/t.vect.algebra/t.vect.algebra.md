@@ -292,6 +292,9 @@ end_minute(A)            The minute of the end time [0 - 59]
 end_second(A)            The second of the end time [0 - 59]
 ```
 
+A temporal variable that a map does not have, such as `end_doy()` of a time
+instance, is an error that names the map.
+
 The "Conditions" example evaluates `start_date()`, `start_month()`,
 `start_day()` and `td()`.
 
