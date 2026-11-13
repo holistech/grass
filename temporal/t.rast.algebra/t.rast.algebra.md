@@ -709,7 +709,10 @@ Datasets with a time zone offset are related and compared like others. A
 dataset with offsets is not related to one without, and the tool stops with
 an error. A date and time in quotes that is compared with `start_datetime()`
 of a dataset with offsets needs the offset too, such as
-`"2001-01-02 00:00:00+01:00"`.
+`"2001-01-02 00:00:00+01:00"`. A result dataset holds one offset, as *t.register*
+keeps it: a result whose maps would have two offsets, such as `merge()` of a
+dataset at `+01:00` and one at `+02:00`, stops the tool with an error before
+any map is written.
 
 An existing result dataset without **--overwrite** stops a dry run with
 **-d** as it stops a real run.

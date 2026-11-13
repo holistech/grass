@@ -24,7 +24,7 @@ from grass.temporal.algebra.content import (
 from grass.temporal.algebra.materialize import plan
 from grass.temporal.algebra.operations import gather, where
 from grass.temporal.algebra.relations import contains
-from grass.temporal.algebra.series import Series, Slot
+from grass.temporal.algebra.series import Extent, Series, Slot
 from grass.temporal.algebra.time_functions import retime, timevar
 
 A1 = MapRef("a1@PERMANENT")
@@ -553,6 +553,41 @@ def test_a_date_as_result_is_refused_with_a_way_out(
         f"R cannot be computed: its maps would hold {described}, but maps hold "
         "numbers; use the numbers of time functions such as start_doy() or td()"
     )
+
+
+def at(day, hours):
+    """Midnight of a day in January 2001 at the offset of hours"""
+    zone = datetime.timezone(datetime.timedelta(hours=hours))
+    return datetime.datetime(2001, 1, day, tzinfo=zone)
+
+
+def test_times_of_two_offsets_are_refused():
+    """A space time dataset holds one offset, as t.register keeps it"""
+    series = Series(
+        (
+            Slot(Extent(at(1, 1), at(2, 1)), A1),
+            Slot(Extent(at(2, 1), at(3, 2)), A2),
+        ),
+        kind="raster",
+    )
+    with pytest.raises(ValueError, match="time zone offsets") as error:
+        plan(series, "R")
+    assert str(error.value) == (
+        "R cannot be computed: its maps would have the time zone offsets +01:00 "
+        "and +02:00, but a space time dataset holds one offset; register the "
+        "input datasets with the same offset"
+    )
+
+
+def test_times_of_one_offset_are_planned():
+    series = Series(
+        (
+            Slot(Extent(at(1, 0), at(2, 0)), A1),
+            Slot(Extent(at(2, 0), at(3, 0)), A2),
+        ),
+        kind="raster",
+    )
+    assert [m.name for m in plan(series, "R").maps] == ["R_0", "R_1"]
 
 
 def test_numbers_of_time_functions_are_planned(make_series):

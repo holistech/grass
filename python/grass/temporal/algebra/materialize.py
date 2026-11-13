@@ -7,6 +7,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
+import datetime
 import inspect
 from dataclasses import dataclass, replace
 
@@ -17,6 +18,7 @@ from grass.temporal.datetime_math import (
     create_numeric_suffix,
     create_suffix_from_datetime,
     create_time_suffix,
+    time_zone_offset_text,
 )
 from grass.temporal.db import connection
 from grass.temporal.factory import dataset_factory
@@ -267,6 +269,32 @@ def _refuse_moments(series, name):
             raise TypeError(msg)
 
 
+def _refuse_two_offsets(series, name):
+    """Raise ValueError if the times of the result have two time zone offsets
+
+    A space time dataset holds one offset (t.register refuses another), but
+    merge() of datasets with different offsets, or a temporal operator that
+    takes the start of one map and the end of another, would give the
+    result times of both, the dataset that t.register refuses to build.
+    """
+    first = None
+    for slot in series.slots:
+        for time in (slot.extent.start, slot.extent.end):
+            if not isinstance(time, datetime.datetime) or time.tzinfo is None:
+                continue
+            if first is None:
+                first = time
+            elif time.utcoffset() != first.utcoffset():
+                msg = (
+                    f"{name} cannot be computed: its maps would have the time "
+                    f"zone offsets {time_zone_offset_text(first)} and "
+                    f"{time_zone_offset_text(time)}, but a space time dataset "
+                    "holds one offset; register the input datasets with the "
+                    "same offset"
+                )
+                raise ValueError(msg)
+
+
 def plan(
     series,
     name,
@@ -315,7 +343,8 @@ def plan(
         the number of slots has
     :raises TypeError: for a slot that holds a date or a time, such as the
         result of start_date(), which maps cannot hold
-    :raises ValueError: for a map without time stamp, a name or basename with
+    :raises ValueError: for times with two time zone offsets, which a space
+        time dataset cannot hold, a map without time stamp, a name or basename with
         "@" (or a name with "." for a raster dataset), an unknown time_suffix,
         maps that would get the same name, names that do not match the
         slots, are illegal, equal an input map or are combined with selection
@@ -340,6 +369,7 @@ def plan(
         msg = "A map without time stamp cannot be registered in a space time dataset"
         raise ValueError(msg)
     _refuse_moments(series, name)
+    _refuse_two_offsets(series, name)
     result_type = series.temporal_type or "absolute"
     if selection:
         return _plan_selection(series, name, basename or name, stds_type, result_type)

@@ -77,3 +77,21 @@ def test_a_time_without_offset_is_refused_for_dates_with_one(
         "such as 2001-01-01 00:00:00+01:00; write the offset into the text, "
         'such as "2001-01-01 00:00:00+01:00"'
     ) in text
+
+
+def test_a_result_with_two_offsets_is_refused(register_three_days, refusal_of):
+    """merge() of datasets at +01:00 and -01:00 would give a dataset of two
+    offsets, which t.register refuses; the first map is that of +01:00, which
+    starts two hours earlier"""
+    _first_maps, first = register_three_days("z", stds_type="strds")
+    _other_maps, other = register_three_days("y", stds_type="strds", offset="-01:00")
+
+    text = refusal_of(
+        "t.rast.algebra", expression=f"M = merge({first}, {other})", basename="m"
+    )
+
+    assert (
+        "M cannot be computed: its maps would have the time zone offsets +01:00 "
+        "and -01:00, but a space time dataset holds one offset; register the "
+        "input datasets with the same offset"
+    ) in text
