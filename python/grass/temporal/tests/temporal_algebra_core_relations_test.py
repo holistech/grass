@@ -6,6 +6,7 @@ Ferguson 1994 which grass.temporal.temporal_extent cites. during includes
 starts and finishes, contains includes started and finished.
 """
 
+import dataclasses
 import datetime
 import random
 import re
@@ -401,3 +402,18 @@ def test_fractional_relative_time_is_rejected(extent):
     [0.2, 0.8] and [0.5, 0.9] equal"""
     with pytest.raises(ValueError, match="integral"):
         as_map(extent)
+
+
+def test_computed_slots_with_and_without_offset_name_time_stamps(make_series):
+    """A slot without origin, such as a granule, is no map, so the message
+    names time stamps."""
+    message = (
+        "Time stamps with a time zone offset, such as 2001-01-01 00:00:00+01:00, "
+        "and time stamps without one, such as 2001-01-01 00:00:00, cannot be "
+        "related in time; register all maps with or all without an offset"
+    )
+    computed = [dataclasses.replace(slot, origin=None) for slot in zoned_slots("z", 1)]
+    naive = make_series("a", (1, 2)).slots
+    for left, other in ((computed, naive), (naive, computed)):
+        with pytest.raises(ValueError, match="^" + re.escape(message) + "$"):
+            related(left, equal, other)

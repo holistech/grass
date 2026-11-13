@@ -13,6 +13,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
+import datetime
 from dataclasses import dataclass
 
 from grass.temporal.topology import SpatioTemporalTopologyBuilder, check_time_zones
@@ -181,6 +182,37 @@ def _partners(topology, names, index):
     }
 
 
+def _check_time_zones(left, other):
+    """Raise ValueError if the slots mix times with and without an offset
+
+    The builder would refuse the mix as well, but it only knows the stand-ins
+    made by related(). The message names the maps of the first slot of each
+    kind. A slot without origin, such as a granule, is no map, so if either
+    has none, the message names the time stamps instead.
+    """
+    aware = naive = None
+    for slot in (*left, *other):
+        start = slot.extent.start
+        if not isinstance(start, datetime.datetime):
+            continue
+        if start.tzinfo is None:
+            naive = slot if naive is None else naive
+        else:
+            aware = slot if aware is None else aware
+    if aware is None or naive is None:
+        return
+    if aware.origin and naive.origin:
+        # Raises, as the two starts differ in their offset.
+        check_time_zones((slot.origin, slot.extent.start) for slot in (aware, naive))
+    first, second = aware.extent.start, naive.extent.start
+    msg = (
+        f"Time stamps with a time zone offset, such as {first}, and time "
+        f"stamps without one, such as {second}, cannot be related in time; "
+        "register all maps with or all without an offset"
+    )
+    raise ValueError(msg)
+
+
 def related(left, relation_, other, *, dimension="2D"):
     """Return, per slot l of left, the indices of the slots x with "l R x"
 
@@ -204,13 +236,7 @@ def related(left, relation_, other, *, dimension="2D"):
         if relation_.spatial is not None and slot.space is None:
             msg = "A spatial relation needs the spatial extent of every map"
             raise ValueError(msg)
-    # The builder would refuse the mix as well, but it only knows the
-    # stand-ins made below; this names the maps of the slots, and a computed
-    # slot, such as a granule, by its start.
-    check_time_zones(
-        (slot.origin or str(slot.extent.start), slot.extent.start)
-        for slot in (*left, *other)
-    )
+    _check_time_zones(left, other)
     if not left or not other:
         return [[] for _ in left]
     left_maps = [
