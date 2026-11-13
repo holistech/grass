@@ -411,9 +411,10 @@ dates, and <code>start_datetime()</code> or <code>end_datetime()</code> to compa
 Two time functions are compared only if they give the same kind of value
 (numbers, dates, times of day, or dates with a time of day), as in
 <code>start_date(A) &lt; end_date(A)</code>; <code>start_doy(A) &gt; start_time(A)</code> is refused.
-Dates and times are only compared; arithmetic on them and a map combined with
-them are refused, and the numbers of <code>td()</code>, <code>start_doy()</code> and the other time
-functions serve for computing.
+Dates and times are only compared; arithmetic on them, a map combined with
+them and a date or time as the value of a map, as in <code>R = start_date(A)</code>, are
+refused, and the numbers of <code>td()</code>, <code>start_doy()</code> and the other time functions
+serve for computing.
 
 <h4>Comparison operator</h4>
 

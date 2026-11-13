@@ -652,6 +652,21 @@ def test_a_refused_increment_is_reported_with_the_message_of_the_library(
     assert "Function tshift()" not in error.value.stderr
 
 
+def test_a_date_as_result_is_refused(series_3d):
+    """3D raster maps cannot hold the date of start_date() either; the first
+    map of A starts on 2001-01-01. Nothing is written."""
+    tools = Tools(session=series_3d.session, consistent_return_value=True)
+    with pytest.raises(ToolError) as error:
+        tools.t_rast3d_algebra(expression="refused = start_date(A)", basename="refused")
+    assert (
+        "refused cannot be computed: its maps would hold a date (2001-01-01), but "
+        "maps hold numbers; use the numbers of time functions such as start_doy() "
+        "or td()"
+    ) in message(error.value)
+    assert "Traceback" not in error.value.stderr
+    assert not tools.t_list(type="str3ds", where="name = 'refused'").stdout.strip()
+
+
 def test_a_map_combined_with_a_date_is_refused(series_3d):
     """3D raster maps hold numbers as raster maps do; the first map of A
     starts on 2001-01-01. Nothing is written."""

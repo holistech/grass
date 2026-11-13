@@ -532,6 +532,35 @@ def test_nested_condition_stays_one_call_per_map(make_series):
     )
 
 
+@pytest.mark.parametrize(
+    ("name", "described"),
+    [
+        ("start_date", "a date (2001-01-01)"),
+        ("start_time", "a time of day (00:00:00)"),
+        ("start_datetime", "a date with a time of day (2001-01-01 00:00:00)"),
+    ],
+)
+@pytest.mark.parametrize("selection", [False, True])
+def test_a_date_as_result_is_refused_with_a_way_out(
+    make_series, name, described, selection
+):
+    """Through the Python API as through the parser; the backends would name
+    the Python form of the value, a selection a slot that is no map"""
+    a = make_series("a", (1, 2), (2, 3))
+    with pytest.raises(TypeError) as error:
+        plan(timevar(a, name), "R", selection=selection)
+    assert str(error.value) == (
+        f"R cannot be computed: its maps would hold {described}, but maps hold "
+        "numbers; use the numbers of time functions such as start_doy() or td()"
+    )
+
+
+def test_numbers_of_time_functions_are_planned(make_series):
+    a = make_series("a", (1, 2))
+    chain = plan(timevar(a, "start_doy"), "R")
+    assert chain.processes[0].parameters["expression"] == '"R_0"=1'
+
+
 def test_a_dot_is_rejected_in_the_name_but_not_in_the_basename(make_series):
     a = make_series("a", (1, 2))
     assert [m.name for m in plan(a * 1, "R", basename="a.b").maps] == ["a.b_0"]

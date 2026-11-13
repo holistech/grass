@@ -27,7 +27,16 @@ from grass.temporal.temporal_granularity import compute_absolute_time_granularit
 
 from .adapters import as_map
 from .backends import ModuleCall, backend_for, describe
-from .content import Call, MapRef, SeriesAggregate, SeriesReduce
+from .content import (
+    MOMENT_KINDS,
+    Call,
+    Const,
+    MapRef,
+    SeriesAggregate,
+    SeriesReduce,
+    describe_value,
+    value_kind,
+)
 from .maptypes import ELEMENTS, KINDS_OF_STDS, MAP_CLASSES, STDS_TYPES
 
 TIME_SUFFIXES = (None, "gran", "time")
@@ -240,6 +249,24 @@ def _check_name(label, value, stds_type):
             raise ValueError(msg)
 
 
+def _refuse_moments(series, name):
+    """Raise TypeError if a slot of the result holds a date or a time
+
+    call() refuses a map combined with a date, so a date reaches a slot only
+    as its whole content, such as R = start_date(A). The backends would
+    refuse it with the Python form of the value and no way out.
+    """
+    for slot in series.slots:
+        content = slot.content
+        if isinstance(content, Const) and value_kind(content.value) in MOMENT_KINDS:
+            msg = (
+                f"{name} cannot be computed: its maps would hold "
+                f"{describe_value(content.value)}, but maps hold numbers; use "
+                "the numbers of time functions such as start_doy() or td()"
+            )
+            raise TypeError(msg)
+
+
 def plan(
     series,
     name,
@@ -286,6 +313,8 @@ def plan(
     :param digits: the number of digits of a numbered map name, as the
         suffix "num%NN" of the tools gives it; None takes as many digits as
         the number of slots has
+    :raises TypeError: for a slot that holds a date or a time, such as the
+        result of start_date(), which maps cannot hold
     :raises ValueError: for a map without time stamp, a name or basename with
         "@" (or a name with "." for a raster dataset), an unknown time_suffix,
         maps that would get the same name, names that do not match the
@@ -310,6 +339,7 @@ def plan(
     if series.timeless:
         msg = "A map without time stamp cannot be registered in a space time dataset"
         raise ValueError(msg)
+    _refuse_moments(series, name)
     result_type = series.temporal_type or "absolute"
     if selection:
         return _plan_selection(series, name, basename or name, stds_type, result_type)
