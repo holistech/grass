@@ -476,6 +476,9 @@ def test_text_cannot_be_compared_with_numbers(translator, text):
         ("start_date(A) > 10", "10"),
         ("start_datetime(A) == 3", "3"),
         ("end_time(A) >= 1.5", "1.5"),
+        # The last two maps of A start after day 2, so the series holds the
+        # numbers 1 and 2 and then two dates.
+        ("if(start_doy(A) > 2, start_date(A), start_doy(A)) > 5", "5"),
     ],
 )
 def test_dates_and_times_are_not_compared_with_numbers(translator, text, number):
@@ -487,6 +490,67 @@ def test_dates_and_times_are_not_compared_with_numbers(translator, text, number)
     assert f"the number {number}; compare them with a date or time in quotes" in str(
         error.value
     )
+
+
+NUMBERS = "numbers, such as those of start_doy() or td()"
+DATES = "dates, such as those of start_date()"
+TIMES = "times of day, such as those of start_time()"
+DATETIMES = "dates with a time of day, such as those of start_datetime()"
+
+
+DIFFERENT_KINDS = [
+    ("start_doy(A) > start_time(A)", NUMBERS, TIMES),
+    ("start_time(A) == start_date(A)", TIMES, DATES),
+    ("start_date(A) < start_datetime(A)", DATES, DATETIMES),
+    ("start_datetime(A) == start_date(A)", DATETIMES, DATES),
+    ("start_doy(A) != start_date(A)", NUMBERS, DATES),
+    ("td(A) >= end_datetime(A)", NUMBERS, DATETIMES),
+    ("start_datetime(A) > start_time(A)", DATETIMES, TIMES),
+    ("start_time(A) {<,equal} start_date(N)", TIMES, DATES),
+    ("start_doy(A) {==,equal} start_time(N)", NUMBERS, TIMES),
+    # The first two maps of A start before day 3, so the left series
+    # holds two dates and then two times of day.
+    (
+        "if(start_doy(A) < 3, start_date(A), start_time(A)) == end_date(A)",
+        DATES,
+        TIMES,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("text", "left", "right"),
+    DIFFERENT_KINDS,
+    ids=[text for text, _, _ in DIFFERENT_KINDS],
+)
+def test_time_functions_of_different_kinds_are_not_compared(
+    translator, text, left, right
+):
+    """Python refuses < between a number, a date, a time of day and a date
+    with time with a TypeError that names neither function, and == gives
+    false for every map without a word; both get one message"""
+    message = (
+        f"{left[0].upper()}{left[1:]}, cannot be compared with {right}; compare "
+        "time functions that give the same kind of value, such as start_date() "
+        "with end_date()"
+    )
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
+        run(translator, text)
+
+
+def test_time_functions_of_one_kind_still_compare(translator):
+    """Fixture A has four maps of one day each from 1 January 2001, so each
+    starts before it ends, at the same time of day, and start_doy() equals
+    start_day() in January"""
+    for text in (
+        "start_date(A) < end_date(A)",
+        "start_datetime(A) < end_datetime(A)",
+        "start_time(A) == end_time(A)",
+        "start_doy(A) == start_day(A)",
+        "td(A) < start_doy(A) + 1",
+    ):
+        compared = run(translator, text)
+        assert [slot.content for slot in compared] == [Const(1)] * 4, text
 
 
 def test_numbers_of_time_functions_still_compare(translator):

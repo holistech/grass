@@ -366,6 +366,7 @@ class Translator:
             right = _moment(right, left)
         _refuse_number_with_moments(left, right)
         _refuse_number_with_moments(right, left)
+        _refuse_values_of_different_kinds(left, right)
         return self._apply(symbol, left, right)
 
     def _compare_related(self, symbol, left, right, operator):
@@ -382,6 +383,7 @@ class Translator:
                 "time datasets"
             )
             raise SyntaxError(msg)
+        _refuse_values_of_different_kinds(left, right)
         return self._combine(
             symbol, left, right, operator, compare(symbol, operator.aggregate)
         )
@@ -707,16 +709,18 @@ def _constant_like(series, value):
     )
 
 
+def _values(series):
+    """The values of a scalar series that are not null, in time order"""
+    return (
+        slot.content.value
+        for slot in series
+        if isinstance(slot.content, Const) and slot.content.value is not None
+    )
+
+
 def _sample(series):
     """The first value of a scalar series that is not null"""
-    return next(
-        (
-            slot.content.value
-            for slot in series
-            if isinstance(slot.content, Const) and slot.content.value is not None
-        ),
-        None,
-    )
+    return next(_values(series), None)
 
 
 def _refuse_number_with_moments(number, other):
@@ -724,8 +728,9 @@ def _refuse_number_with_moments(number, other):
 
     Python refuses < between a date and a number with a TypeError that names
     neither the function nor a way out, and == gives false for every map
-    without a word, so both would hide the slip. A series whose values are
-    all null gives no sample and passes, as no value is compared.
+    without a word, so both would hide the slip. Every value counts, as
+    if() can join a date function and a number in one series. A series whose
+    values are all null passes, as no value is compared.
 
     :raises TypeError: for a comparison of a number with dates or times
     """
@@ -735,13 +740,70 @@ def _refuse_number_with_moments(number, other):
         return
     if not (isinstance(other, Series) and other.sort == "scalar"):
         return
-    if isinstance(_sample(other), (datetime.date, datetime.time)):
+    if any(
+        isinstance(value, (datetime.date, datetime.time)) for value in _values(other)
+    ):
         msg = (
             "Dates and times, such as those of start_date() or start_time(), "
             f"cannot be compared with the number {number}; compare them with a "
             'date or time in quotes, such as "2001-01-03" or "12:00:00"'
         )
         raise TypeError(msg)
+
+
+# What a time function gives, for the message that refuses to compare two
+# kinds. datetime is a subclass of date, so it comes first.
+_VALUE_KINDS = (
+    (datetime.datetime, "dates with a time of day, such as those of start_datetime()"),
+    (datetime.date, "dates, such as those of start_date()"),
+    (datetime.time, "times of day, such as those of start_time()"),
+    ((int, float), "numbers, such as those of start_doy() or td()"),
+)
+
+
+def _kinds_of_values(series):
+    """The kinds of the values of a scalar series, in the order they appear
+
+    Empty if the series is not scalar or all its values are null. A value of
+    another type, such as the duration of start_date(A) - end_date(A), adds
+    no kind.
+    """
+    if not (isinstance(series, Series) and series.sort == "scalar"):
+        return []
+    kinds = []
+    for value in _values(series):
+        kind = next(
+            (kind for types, kind in _VALUE_KINDS if isinstance(value, types)), None
+        )
+        if kind is not None and kind not in kinds:
+            kinds.append(kind)
+    return kinds
+
+
+def _refuse_values_of_different_kinds(left, right):
+    """Raise if two time functions give different kinds of values
+
+    Python refuses < between any two of a number, a date, a time of day and
+    a date with time with a TypeError that names neither function, and ==
+    gives false for every map without a word; _refuse_number_with_moments()
+    refuses a number and a date for the same reason. Every value counts, as
+    if() can join two time functions in one series.
+
+    :raises TypeError: for a comparison of two different kinds
+    """
+    left_kinds, right_kinds = _kinds_of_values(left), _kinds_of_values(right)
+    if not (left_kinds and right_kinds):
+        return
+    first = left_kinds[0]
+    second = next((kind for kind in right_kinds + left_kinds if kind != first), None)
+    if second is None:
+        return
+    msg = (
+        f"{first[0].upper()}{first[1:]}, cannot be compared with {second}; "
+        "compare time functions that give the same kind of value, such as "
+        "start_date() with end_date()"
+    )
+    raise TypeError(msg)
 
 
 def _moment(text, other):

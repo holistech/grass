@@ -408,6 +408,9 @@ give only the time of day: a date alone, as in
 <code>start_time(A) &gt;= "2001-03-01"</code>, is refused, and the date part of a text that
 has a time of day is ignored. Use <code>start_date()</code> or <code>end_date()</code> to compare
 dates, and <code>start_datetime()</code> or <code>end_datetime()</code> to compare a date and a time.
+Two time functions are compared only if they give the same kind of value
+(numbers, dates, times of day, or dates with a time of day), as in
+<code>start_date(A) &lt; end_date(A)</code>; <code>start_doy(A) &gt; start_time(A)</code> is refused.
 
 <h4>Comparison operator</h4>
 

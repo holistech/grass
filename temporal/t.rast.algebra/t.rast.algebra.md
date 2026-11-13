@@ -379,6 +379,9 @@ give only the time of day: a date alone, as in
 `start_time(A) >= "2001-03-01"`, is refused, and the date part of a text that
 has a time of day is ignored. Use `start_date()` or `end_date()` to compare
 dates, and `start_datetime()` or `end_datetime()` to compare a date and a time.
+Two time functions are compared only if they give the same kind of value
+(numbers, dates, times of day, or dates with a time of day), as in
+`start_date(A) < end_date(A)`; `start_doy(A) > start_time(A)` is refused.
 
 #### Comparison operator
 

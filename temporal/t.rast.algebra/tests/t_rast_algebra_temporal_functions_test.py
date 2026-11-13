@@ -107,6 +107,11 @@ DATE_ALONE = (
     "end_time() give only the time of day; compare dates with start_date() or "
     "end_date(), or a date and time with start_datetime() or end_datetime()"
 )
+TWO_KINDS = (
+    "Numbers, such as those of start_doy() or td(), cannot be compared with "
+    "times of day, such as those of start_time(); compare time functions that "
+    "give the same kind of value, such as start_date() with end_date()"
+)
 TD_OF_AN_INSTANCE = (
     "td() requires a time interval, but map <i1@PERMANENT> is a time instance"
 )
@@ -122,10 +127,17 @@ UNEQUAL_BRANCHES = (
     [
         ("if(start_time(intervals) > 12, intervals)", DATE_AND_NUMBER),
         ('if(start_time(intervals) >= "2001-03-01", intervals)', DATE_ALONE),
+        ("if(start_doy(intervals) > start_time(intervals), intervals)", TWO_KINDS),
         ("if(td(instants) > 0, instants)", TD_OF_AN_INSTANCE),
         ("if(intervals > 1, intervals, instants)", UNEQUAL_BRANCHES),
     ],
-    ids=["date and number", "date alone", "td of an instance", "unequal branches"],
+    ids=[
+        "date and number",
+        "date alone",
+        "two kinds",
+        "td of an instance",
+        "unequal branches",
+    ],
 )
 def test_the_tool_reports_the_error_and_writes_nothing(time_series, expression, text):
     """The tool stops with the message of the core, without a traceback,
