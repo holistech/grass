@@ -193,8 +193,10 @@ the end times of all its maps: a time with another offset is refused before
 the first map is registered, and the error names both offsets. This holds as
 well for a map already in the temporal database that is added to a dataset, and
 for a new time given with **--overwrite**, which must fit every dataset that
-holds the map. Daylight saving time is not supported; write all times in
-standard time or with `+00:00`.
+holds the map; to move all maps of a dataset to another offset, unregister them
+and register them again. Daylight saving time is not supported: write the times
+of a new dataset in standard time or with `+00:00`, and those of an existing
+dataset with its offset.
 Tools that relate maps in time, such as *t.sample*,
 *t.rast.algebra* and *t.select*, refuse to relate a dataset with offsets to
 one without.

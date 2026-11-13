@@ -84,6 +84,9 @@ def refuse_mixed_time_zones(datasets, dbif):
     offset. Datasets in relative time and those without such a map are passed
     over.
     """
+    # Imported here like grass.temporal in main(), see there.
+    from grass.temporal.datetime_math import time_zone_offset_text
+
     offsets = {}
     for stds in datasets:
         if not stds.is_time_absolute():
@@ -111,8 +114,6 @@ def refuse_mixed_time_zones(datasets, dbif):
                 "or all have none: <{aware}> has one, <{naive}> has none"
             ).format(aware=aware, naive=naive)
         )
-    from grass.temporal.datetime_math import time_zone_offset_text
-
     (first, first_start), (second, second_start) = list(offsets.values())[:2]
     gs.fatal(
         _(
