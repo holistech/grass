@@ -2,7 +2,9 @@
 
 The maps of register_three_days hold 1, 2 and 3 and last one day each at +01:00.
 In "Z + Z" each map is equal only to itself, so the result has three maps
-with the times of Z and the values 2, 4 and 6.
+with the times of Z and the values 2, 4 and 6. The other tests relate the
+dataset to itself, select by a start time with an offset, and refuse
+datasets and times of the two kinds mixed.
 """
 
 
@@ -69,6 +71,9 @@ def test_a_time_without_offset_is_refused_for_dates_with_one(
         basename="v",
     )
 
+    # The first map starts 2001-01-01 at +01:00.
     assert (
-        "'2001-01-02 00:00:00' has no time zone offset, but the maps have one" in text
-    )
+        "'2001-01-02 00:00:00' has no time zone offset, but the maps have one, "
+        "such as 2001-01-01 00:00:00+01:00; write the offset into the text, "
+        'such as "2001-01-01 00:00:00+01:00"'
+    ) in text

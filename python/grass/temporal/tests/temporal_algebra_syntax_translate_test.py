@@ -954,7 +954,7 @@ PLUS_ONE = datetime.timezone(datetime.timedelta(hours=1))
 
 
 @pytest.fixture
-def zoned(datasets, make_series):
+def zoned(datasets):
     """Z has the days 1 to 4 of January 2001 at +01:00, A the same without"""
     slots = []
     for day in (1, 2, 3, 4):
