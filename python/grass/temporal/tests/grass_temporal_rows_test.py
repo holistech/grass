@@ -25,6 +25,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.base import BaseRow, RegisterRow
+from grass.temporal.metadata import MetadataRow
 from grass.temporal.rows import Column, DictSQLSerializer, Row
 from grass.temporal.spatial_extent import SpatialExtentRow
 from grass.temporal.temporal_extent import AbsoluteTimeRow, RelativeTimeRow
@@ -465,3 +466,63 @@ def test_the_statements_by_identifier_refuse_a_table_that_is_not_plain(statement
     row = Row("tab; DROP TABLE raster_base", "a@PERMANENT")
     with pytest.raises(ValueError, match="identifier"):
         getattr(row, statement)()
+
+
+SETTER_KEYWORDS = json.loads(
+    Path(__file__).with_name("data").joinpath("setter_keywords.json").read_text()
+)
+_SETTER_CLASSES = {
+    "BaseRow": BaseRow,
+    "MetadataRow": MetadataRow,
+    "SpatialExtentRow": SpatialExtentRow,
+    "AbsoluteTimeRow": AbsoluteTimeRow,
+    "RelativeTimeRow": RelativeTimeRow,
+    "RegisterRow": RegisterRow,
+}
+
+
+def setter_case_id(entry):
+    return f"{entry['kind']}_{entry['class']}_{entry['setter']}"
+
+
+@pytest.mark.parametrize("entry", SETTER_KEYWORDS, ids=setter_case_id)
+def test_setter_keywords_of_main_are_accepted(entry):
+    positional = _SETTER_CLASSES[entry["class"]](KINDS[entry["kind"]], ident="a@b")
+    by_keyword = _SETTER_CLASSES[entry["class"]](KINDS[entry["kind"]], ident="a@b")
+    getter = "get_" + entry["setter"].removeprefix("set_")
+
+    getattr(positional, entry["setter"])(3)
+    getattr(by_keyword, entry["setter"])(**{entry["keyword"]: 3})
+
+    assert getattr(by_keyword, getter)() == getattr(positional, getter)()
+    assert getattr(by_keyword, getter)() == 3
+
+
+def test_unknown_setter_keyword_is_refused():
+    row = BaseRow(KINDS["raster"], ident="a@b")
+
+    with pytest.raises(TypeError, match=r"set_name\(\) got an unexpected keyword"):
+        row.set_name(nom="a")
+
+    assert row.D["name"] == "a"  # unchanged: ident a@b gave the name
+
+
+def test_setter_with_value_and_keyword_is_refused():
+    row = BaseRow(KINDS["raster"], ident="a@b")
+
+    with pytest.raises(TypeError, match=r"set_name\(\) got multiple values"):
+        row.set_name("a", name="b")
+
+
+def test_setter_without_value_is_refused():
+    row = BaseRow(KINDS["raster"], ident="a@b")
+
+    with pytest.raises(TypeError, match=r"set_name\(\) missing"):
+        row.set_name()
+
+
+def test_setter_keywords_record_matches_main():
+    for entry in SETTER_KEYWORDS:
+        row = _SETTER_CLASSES[entry["class"]](KINDS[entry["kind"]], ident="a@b")
+        assert callable(getattr(row, entry["setter"], None)), setter_case_id(entry)
+    assert len({setter_case_id(e) for e in SETTER_KEYWORDS}) == len(SETTER_KEYWORDS)

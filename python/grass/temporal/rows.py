@@ -551,6 +551,10 @@ class Column:
                   the column, such as ctime for creation_time
     :param convert: Applied to a value before it is stored, such as float
                     for an edge of a spatial extent; None passes the value on
+    :param keyword: The name under which the generated setter takes its value
+                    as a keyword argument when it is not the name of the
+                    accessor, as OSGeo main named the parameter of
+                    ``set_3d_info`` ``is_3d``
     :param doc: What the column holds, for the docstrings of the accessors
     :param writable: False for a value the database computes, which gets a
                      getter and a read-only property but no setter
@@ -563,6 +567,7 @@ class Column:
     name: str
     alias: str | None = None
     convert: Callable[[object], object] | None = None
+    keyword: str | None = None
     doc: str | None = None
     writable: bool = True
     init: bool | Callable[[], bool] = True
@@ -572,6 +577,9 @@ class Column:
     def accessor(self) -> str:
         """The name that ``get_``, ``set_`` and the property are built from"""
         return self.alias or self.name
+
+
+_NO_VALUE = object()
 
 
 def _generate_accessors(cls: type, column: Column) -> None:
@@ -586,11 +594,32 @@ def _generate_accessors(cls: type, column: Column) -> None:
     accessor = column.accessor
     what = column.doc or f"the {column.name.replace('_', ' ')}"
     key, convert = column.name, column.convert
+    parameter = column.keyword or accessor
 
     def getter(self):
         return self.D.get(key)
 
-    def setter(self, value) -> None:
+    setter_name = f"set_{accessor}"
+
+    def setter(self, value=_NO_VALUE, /, **keyword) -> None:
+        refusal = None
+        if keyword:
+            # The setters on OSGeo main were written by hand, each with the
+            # name of its value as parameter, and addons call them as
+            # set_name(name=...). Only that name is accepted, so that a typo
+            # is an error and not silently dropped.
+            unexpected = [name for name in keyword if name != parameter]
+            if unexpected:
+                refusal = f"got an unexpected keyword argument '{unexpected[0]}'"
+            elif value is not _NO_VALUE:
+                refusal = f"got multiple values for argument '{parameter}'"
+            else:
+                value = keyword[parameter]
+        elif value is _NO_VALUE:
+            refusal = f"missing 1 required argument: '{parameter}'"
+        if refusal:
+            message = f"{setter_name}() {refusal}"
+            raise TypeError(message)
         self.D[key] = value if convert is None else convert(value)
 
     accessors = [

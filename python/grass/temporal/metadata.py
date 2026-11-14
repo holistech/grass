@@ -587,6 +587,7 @@ _CLASSES: dict[str, type[MetadataRow]] = {
             Column(
                 "is_3d",
                 alias="3d_info",
+                keyword="is_3d",
                 default=False,
                 doc="whether the vector map is three dimensional",
             ),
