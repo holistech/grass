@@ -16,6 +16,9 @@ Extended statistics (**-e**) adds median, 1st and 3rd quartiles, and
 
 ## NOTES
 
+NULL values of the attribute column are counted (**nnull**) but are not part of
+the population, also not for the quartiles and percentiles of the **-e** flag.
+
 When using the **-d** flag, univariate statistics of distances between
 vector features are calculated. The distances from all features to all
 other features are used. Since the distance from feature A to feature B
