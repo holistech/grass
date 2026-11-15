@@ -86,6 +86,7 @@ static int Rast3d_writeTileUncompressed(RASTER3D_Map *map, int nofNum)
 
 static int Rast3d_writeTileCompressed(RASTER3D_Map *map, int nofNum)
 {
+    Rast3d_fpcompress_swap_for_packing(map, xdr, nofNum);
     if (!Rast3d_fpcompress_write_xdr_nums(map->data_fd, xdr, nofNum,
                                           map->precision, tmpCompress,
                                           map->type == FCELL_TYPE)) {
