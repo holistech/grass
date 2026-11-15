@@ -13,12 +13,11 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import os
-import shutil
 from pathlib import Path
 
 import pytest
 
-import grass.script as gs
+from grass.temporal.testing.session import project_session
 from grass.tools import Tools
 
 
@@ -34,23 +33,11 @@ def session(tmp_path_factory):
         session: active GRASS session with the prepared project and STRDS.
 
     """
-    # Create a single temporary project directory once per module
     tmp_path = tmp_path_factory.mktemp("raster_time_series")
 
-    # Remove if exists (defensive cleanup)
-    if tmp_path.exists():
-        shutil.rmtree(tmp_path)
-
-    gs.create_project(tmp_path)
-
-    with gs.setup.init(
-        tmp_path.parent,
-        location=tmp_path.name,
-        env=os.environ.copy(),
-    ) as session:
+    with project_session(tmp_path / "project") as session:
         tools = Tools(session=session)
         tools.g_mapset(mapset="perc", flags="c")
-        tools.g_gisenv(set="TGIS_USE_CURRENT_MAPSET=1")
         tools.g_region(s=0, n=80, w=0, e=120, b=0, t=50, res=10, res3=10)
         register_strings = []
         for i in range(1, 4):
