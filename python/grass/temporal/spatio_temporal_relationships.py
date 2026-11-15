@@ -1,7 +1,7 @@
 """Former module of the topology builder, which now lives in topology.py
 
-The old temporal algebra and the old aggregate_by_topology() still import
-the builder from here; the module goes with them.
+The old temporal algebra still imports the builder from here; the module
+goes with it.
 """
 
 from .topology import (

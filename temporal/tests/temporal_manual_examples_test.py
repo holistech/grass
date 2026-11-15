@@ -50,8 +50,12 @@ from grass.temporal.testing.nc_dataset import (
 # The manuals rewritten so far; each tool stage that rewrites manuals replaces
 # this file with a longer list, the last one with the final version.
 REVIEWED_MANUALS = (
+    "t.rast.aggregate",
+    "t.rast.aggregate.ds",
     "t.rast.mapcalc",
+    "t.rast.univar",
     "t.rast3d.mapcalc",
+    "t.rast3d.univar",
     "t.sample",
 )
 

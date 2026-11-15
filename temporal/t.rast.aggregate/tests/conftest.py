@@ -1,0 +1,244 @@
+"""Fixtures for the characterization tests of t.rast.aggregate
+
+The datasets are built once per module with library registration, as the
+t.rast.algebra fixtures do. Measured 2026-10-14 by registering 30 maps in a
+temporary XY project: 1.16 s with register_maps_in_space_time_dataset, 12.18 s
+with one t.register call per map.
+"""
+
+from datetime import datetime
+from types import SimpleNamespace
+
+import pytest
+
+import grass.temporal as tgis
+from grass.temporal.testing.data import MapSpec, create_stds
+from grass.temporal.testing.readback import list_maps
+from grass.tools import Tools
+
+
+class Reader:
+    """Run t.rast.aggregate and read its result back"""
+
+    def __init__(self, session):
+        self.tools = Tools(session=session, overwrite=True)
+        self.capturing = Tools(
+            session=session,
+            overwrite=True,
+            capture_stderr=True,
+            consistent_return_value=True,
+        )
+        self.capturing_errors = Tools(
+            session=session,
+            overwrite=True,
+            capture_stderr=True,
+            consistent_return_value=True,
+            errors="ignore",
+        )
+        self.refusing = Tools(
+            session=session,
+            overwrite=False,
+            capture_stderr=True,
+            consistent_return_value=True,
+            errors="ignore",
+        )
+
+    def refused(self, output, **options):
+        """The result of a run without overwrite, which may fail"""
+        return self.refusing.t_rast_aggregate(output=output, basename=output, **options)
+
+    def messages(self, output, **options):
+        """The standard error output of one t.rast.aggregate run"""
+        result = self.capturing.t_rast_aggregate(
+            output=output, basename=output, **options
+        )
+        return result.stderr
+
+    def aggregate(self, output, **options):
+        self.tools.t_rast_aggregate(output=output, basename=output, **options)
+        return self.rows(output)
+
+    def rows(self, dataset):
+        """The maps of dataset; relative times are text, as the tests compare"""
+        return [
+            row._replace(
+                start=str(row.start), end=None if row.end is None else str(row.end)
+            )
+            for row in list_maps(self.tools, "strds", dataset)
+        ]
+
+    def datatype(self, raster):
+        return self.tools.r_info(map=raster, flags="g").keyval["datatype"]
+
+    def first_color(self, raster):
+        return self.tools.r_colors_out(map=raster).text.strip().splitlines()[0]
+
+
+def _spec(name, value, start, end=None):
+    """A MapSpec whose times are "YYYY-MM-DD[ HH:MM:SS]" text, or numbers"""
+    if isinstance(start, str):
+        start = datetime.fromisoformat(start)
+        end = None if end is None else datetime.fromisoformat(end)
+    return MapSpec(name, value, start, end)
+
+
+def _library(tools, name, rows, **options):
+    """Create the maps of (name, value, start, end) rows and register them"""
+    create_stds(
+        tools,
+        "strds",
+        name,
+        [_spec(*row) for row in rows],
+        via="library",
+        **options,
+    )
+
+
+@pytest.fixture(scope="module")
+def aggregate_data(temporal_module_session):
+    """Session with the datasets of the characterization tests
+
+    - cells: CELL maps m1=1, m2=3, m3=5 on 12 hour intervals of days 1, 2, 3
+      of January 2001; m1 has a grey color table. One map per day for the
+      g.copy case, two maps in a two day granule for the r.series case.
+    - nulls: na1=1, na2=2 on days 1 and 2, nz1 and nz2 null on day 3, so that
+      a daily granule of day 3 aggregates to an all null map.
+    - instants: ip1=1, ip2=2, ip3=3 as time instants on days 1, 2, 3.
+    - relative: rx1..rx4 = 1..4 as relative day intervals [0,1]..[3,4].
+    - ordering: oz=3 over [day 1, day 30], oa1=5 over [day 3, day 15], oa2=1
+      over [day 4, day 15] and oa3=9 over [day 6, day 7]; oz fixes the grid
+      start at day 1 without being related to the first granule.
+    - tail: tl_long=7 over [day 1, day 30] and the instant tl_inst=2 on day 3.
+    - months: mo1=1, mo2=2, mo3=3 over days 10 to 20 of January, February
+      and March 2001, one map per monthly granule.
+    - hours: hr1=1, hr2=2, hr3=3 over the first half hour of 06:00, 07:00
+      and 08:00 on 2001-01-01, one map per hourly granule.
+    - semantic: the maps of cells in a dataset of semantic type "sum", to
+      tell a copied semantic type from the default "mean".
+    - clash: q=1 over day 1, o_2001_01_03=99 over days 2 to 3 and r=2 over
+      day 3. With a two day granularity the second granule is named
+      o_2001_01_03 although it contains only r.
+    - labeled: lb1=1 (label A) and lb2=3 (label B) on 12 hour intervals of
+      day 1, lb3=5 (label A) on day 2.
+    - probes: p-maps whose value is the probe number, with the time spans of
+      the algebra PROBES, for the sampling list.
+    """
+    session = temporal_module_session
+    tools = Tools(session=session, overwrite=True)
+    tools.g_region(n=3, s=0, e=3, w=0, res=1)
+    cells = [
+        ("m1", 1, "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
+        ("m2", 3, "2001-01-02 06:00:00", "2001-01-02 18:00:00"),
+        ("m3", 5, "2001-01-03 06:00:00", "2001-01-03 18:00:00"),
+    ]
+    _library(tools, "cells", cells)
+    tools.r_colors(map="m1", color="grey")
+    _library(
+        tools,
+        "nulls",
+        [
+            ("na1", 1, "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
+            ("na2", 2, "2001-01-02 06:00:00", "2001-01-02 18:00:00"),
+            ("nz1", "null()", "2001-01-03 06:00:00", "2001-01-03 12:00:00"),
+            ("nz2", "null()", "2001-01-03 13:00:00", "2001-01-03 18:00:00"),
+        ],
+    )
+    _library(
+        tools,
+        "instants",
+        [
+            ("ip1", 1, "2001-01-01", None),
+            ("ip2", 2, "2001-01-02", None),
+            ("ip3", 3, "2001-01-03", None),
+        ],
+    )
+    _library(
+        tools,
+        "relative",
+        [("rx1", 1, 0, 1), ("rx2", 2, 1, 2), ("rx3", 3, 2, 3), ("rx4", 4, 3, 4)],
+        temporaltype="relative",
+        unit="days",
+    )
+    _library(
+        tools,
+        "ordering",
+        [
+            ("oz", 3, "2001-01-01", "2001-01-30"),
+            ("oa1", 5, "2001-01-03", "2001-01-15"),
+            ("oa2", 1, "2001-01-04", "2001-01-15"),
+            ("oa3", 9, "2001-01-06", "2001-01-07"),
+        ],
+    )
+    _library(
+        tools,
+        "tail",
+        [
+            ("tl_long", 7, "2001-01-01", "2001-01-30"),
+            ("tl_inst", 2, "2001-01-03", None),
+        ],
+    )
+    # The semantic type is not an option of the shared helpers, so this
+    # dataset is registered here; its maps are those of cells.
+    tgis.open_new_stds(
+        "semantic", "strds", "absolute", "semantic", "semantic", "sum", overwrite=True
+    )
+    for name, _, start, end in cells:
+        tgis.register_maps_in_space_time_dataset(
+            "raster", "semantic", name, start=start, end=end
+        )
+    _library(
+        tools,
+        "months",
+        [
+            ("mo1", 1, "2001-01-10", "2001-01-20"),
+            ("mo2", 2, "2001-02-10", "2001-02-20"),
+            ("mo3", 3, "2001-03-10", "2001-03-20"),
+        ],
+    )
+    _library(
+        tools,
+        "hours",
+        [
+            ("hr1", 1, "2001-01-01 06:00:00", "2001-01-01 06:30:00"),
+            ("hr2", 2, "2001-01-01 07:00:00", "2001-01-01 07:30:00"),
+            ("hr3", 3, "2001-01-01 08:00:00", "2001-01-01 08:30:00"),
+        ],
+    )
+    _library(
+        tools,
+        "clash",
+        [
+            ("q", 1, "2001-01-01", "2001-01-02"),
+            ("o_2001_01_03", 99, "2001-01-02", "2001-01-04"),
+            ("r", 2, "2001-01-03", "2001-01-04"),
+        ],
+    )
+    create_stds(
+        tools,
+        "strds",
+        "labeled",
+        [
+            MapSpec("lb1", 1, datetime(2001, 1, 1, 6), datetime(2001, 1, 1, 18), "A"),
+            MapSpec("lb2", 3, datetime(2001, 1, 1, 6), datetime(2001, 1, 1, 18), "B"),
+            MapSpec("lb3", 5, datetime(2001, 1, 2, 6), datetime(2001, 1, 2, 18), "A"),
+        ],
+        via="library",
+    )
+    probes = {
+        3: (5, 25),
+        5: (10, 25),
+        7: (5, 20),
+        10: (5, 15),
+        11: (15, 25),
+        1: (10, 20),
+        2: (12, 18),
+    }
+    _library(
+        tools,
+        "probes",
+        [
+            (f"p{v}", v, f"2001-01-{a:02d}", f"2001-01-{b:02d}")
+            for v, (a, b) in probes.items()
+        ],
+    )
+    return SimpleNamespace(session=session, read=Reader(session))
