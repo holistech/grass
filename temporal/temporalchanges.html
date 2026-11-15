@@ -1366,11 +1366,16 @@ as another coordinate system, and <b>-o</b> allows the import
 the rows of the table instead of the features. Now NULL is left out, and
 the values come from the features; a category of two features counts
 twice (<a href="v.univar.html">v.univar</a>).</li>
-<li><b>Integer and floating point options.</b> An integer or floating point
-option took text behind the number, such as <code>5abc</code> or <code>2.5abc</code>. Now such
-text is refused (blanks are allowed, an underflow is valid, an overflow
-refused), and each value of a tuple is checked. Correct such values
-(<a href="g.parser.html">g.parser</a>).</li>
+<li><b>Integer and floating point options.</b> An integer option read only the
+leading digits of its value, so <code>2.5</code>, <code>5.0</code>, <code>1e3</code> and <code>0x10</code> worked
+before as truncated values (2, 5, 1 and 0), <code>5abc</code> as 5, and a value
+outside the integer range was read as a different number. A floating
+point option took text behind the number, such as <code>2.5abc</code>, and read an
+overflow such as <code>1e400</code> as infinity. Now all of these are refused
+(blanks around the number are allowed, an underflow of a floating point
+value is valid), and each value of a tuple is checked. Pass whole
+numbers to integer options, for example <code>nprocs=4</code> instead of
+<code>nprocs=4.0</code> (<a href="g.parser.html">g.parser</a>).</li>
 <li><b>The temporal database.</b> The PostgreSQL back end did not work
 throughout, new SQLite databases had 27 indices that repeat the primary
 key, and the C library set up a new environment in each call. Now

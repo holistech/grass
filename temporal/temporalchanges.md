@@ -1286,11 +1286,16 @@ sections "Results corrected since GRASS 8.5".
     the rows of the table instead of the features. Now NULL is left out, and
     the values come from the features; a category of two features counts
     twice ([v.univar](v.univar.md)).
-- **Integer and floating point options.** An integer or floating point
-    option took text behind the number, such as `5abc` or `2.5abc`. Now such
-    text is refused (blanks are allowed, an underflow is valid, an overflow
-    refused), and each value of a tuple is checked. Correct such values
-    ([g.parser](g.parser.md)).
+- **Integer and floating point options.** An integer option read only the
+    leading digits of its value, so `2.5`, `5.0`, `1e3` and `0x10` worked
+    before as truncated values (2, 5, 1 and 0), `5abc` as 5, and a value
+    outside the integer range was read as a different number. A floating
+    point option took text behind the number, such as `2.5abc`, and read an
+    overflow such as `1e400` as infinity. Now all of these are refused
+    (blanks around the number are allowed, an underflow of a floating point
+    value is valid), and each value of a tuple is checked. Pass whole
+    numbers to integer options, for example `nprocs=4` instead of
+    `nprocs=4.0` ([g.parser](g.parser.md)).
 - **The temporal database.** The PostgreSQL back end did not work
     throughout, new SQLite databases had 27 indices that repeat the primary
     key, and the C library set up a new environment in each call. Now
