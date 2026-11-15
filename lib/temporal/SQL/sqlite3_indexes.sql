@@ -1,55 +1,32 @@
---#############################################################################
--- This SQL script generates the sqlite3 indexes
+-- Create the indexes of the temporal database on SQLite
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
+-- SPDX-FileCopyrightText: 2013-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
 
--- Indexes for space time datasets
-
-CREATE INDEX strds_base_index ON strds_base (id);
-CREATE INDEX strds_relative_time_index ON strds_relative_time (id);
-CREATE INDEX strds_absolute_time_index ON strds_absolute_time (id);
-CREATE INDEX strds_spatial_extent_index ON strds_spatial_extent (id);
-
-CREATE INDEX str3ds_base_index ON str3ds_base (id);
-CREATE INDEX str3ds_relative_time_index ON str3ds_relative_time (id);
-CREATE INDEX str3ds_absolute_time_index ON str3ds_absolute_time (id);
-CREATE INDEX str3ds_spatial_extent_index ON str3ds_spatial_extent (id);
-
-CREATE INDEX stvds_base_index ON stvds_base (id);
-CREATE INDEX stvds_relative_time_index ON stvds_relative_time (id);
-CREATE INDEX stvds_absolute_time_index ON stvds_absolute_time (id);
-CREATE INDEX stvds_spatial_extent_index ON stvds_spatial_extent (id);
-
-CREATE INDEX str3ds_metadata_index ON str3ds_metadata (id);
-CREATE INDEX strds_metadata_index ON strds_metadata (id);
-CREATE INDEX stvds_metadata_index ON stvds_metadata (id);
+-- SQLite indexes every primary key itself, so only indexes on more columns
+-- than the key are created here. Older databases also have an index on id
+-- alone for most tables; they keep it.
+--
+-- The time indexes start with the id: they cover the join of a time table with
+-- the other tables of a map on the id, they do not serve a condition on the time
+-- alone, which scans the table (checked 31.10.2026 with EXPLAIN QUERY PLAN on
+-- raster_absolute_time). PostgreSQL indexes (start_time, end_time) without
+-- the id.
 
 -- Indexes for raster, vector and 3D raster maps
 
-CREATE INDEX raster_base_index ON raster_base (id);
 CREATE INDEX raster_relative_time_index ON raster_relative_time (id, start_time, end_time);
 CREATE INDEX raster_absolute_time_index ON raster_absolute_time (id, start_time, end_time);
-CREATE INDEX raster_spatial_extent_index ON raster_spatial_extent (id);
 CREATE INDEX raster_spatial_extent_index_bbox ON raster_spatial_extent (id, north, south, east, west);
-CREATE INDEX raster_stds_register_index ON raster_stds_register (id);
 
-
-CREATE INDEX raster3d_base_index ON raster3d_base (id);
 CREATE INDEX raster3d_relative_time_index ON raster3d_relative_time (id, start_time, end_time);
 CREATE INDEX raster3d_absolute_time_index ON raster3d_absolute_time (id, start_time, end_time);
-CREATE INDEX raster3d_spatial_extent_index ON raster3d_spatial_extent (id);
 CREATE INDEX raster3d_spatial_extent_index_bbox ON raster3d_spatial_extent (id, north, south, east, west, top, bottom);
-CREATE INDEX raster3d_stds_register_index ON raster3d_stds_register (id);
 
-CREATE INDEX vector_base_index ON vector_base (id);
 CREATE INDEX vector_relative_time_index ON vector_relative_time (id, start_time, end_time);
 CREATE INDEX vector_absolute_time_index ON vector_absolute_time (id, start_time, end_time);
-CREATE INDEX vector_spatial_extent_index ON vector_spatial_extent (id);
 CREATE INDEX vector_spatial_extent_index_bbox ON vector_spatial_extent (id, north, south, east, west, top, bottom);
-CREATE INDEX vector_stds_register_index ON vector_stds_register (id);
 
-CREATE INDEX raster3d_metadata_index ON raster3d_metadata (id);
-CREATE INDEX raster_metadata_index ON raster_metadata (id);
 CREATE INDEX raster_metadata_index_semantic_label ON raster_metadata (id, semantic_label);
-CREATE INDEX vector_metadata_index ON vector_metadata (id);

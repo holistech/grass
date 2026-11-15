@@ -1,5 +1,5 @@
 /*!
-   \file lib/db/dbmi_base/default_name.c
+   \file lib/temporal/lib/default_name.c
 
    \brief Temporal GIS Library (base) - default settings
 
@@ -12,11 +12,9 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+
 #include <grass/gis.h>
 #include <grass/temporal.h>
-#include <grass/glocale.h>
 
 /*!
    \brief Get default TGIS driver name
@@ -48,25 +46,23 @@ char *tgis_get_default_database_name(void)
 /*!
    \brief Sets up TGIS database connection settings using GRASS default
 
+   Writes the default driver and the default database name, which still
+   contains the unexpanded variables $GISDBASE, $LOCATION_NAME and $MAPSET, to
+   the VAR file of the current mapset. Replaces a connection that exists.
+
    \return returns DB_OK
  */
 int tgis_set_default_connection(void)
 {
-    dbConnection connection;
-    char db_name[2048];
-    char *tmp = tgis_get_default_database_name();
+    dbConnection connection = {0};
+    char *driver_name = G_store(tgis_get_default_driver_name());
+    char *db_name = tgis_get_default_database_name();
 
-    snprintf(db_name, 2048, "%s", tmp);
-    G_free(tmp);
-
-    if (strcmp(TGISDB_DEFAULT_DRIVER, "sqlite") == 0) {
-        connection.driverName = "sqlite";
-        connection.databaseName = db_name;
-        tgis_set_connection(&connection);
-    }
-    else
-        G_fatal_error(
-            _("Programmer error - only SQLite driver is currently supported"));
+    connection.driverName = driver_name;
+    connection.databaseName = db_name;
+    tgis_set_connection(&connection);
+    G_free(driver_name);
+    G_free(db_name);
 
     return DB_OK;
 }
