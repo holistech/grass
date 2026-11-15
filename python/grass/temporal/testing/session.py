@@ -21,14 +21,9 @@ from pathlib import Path
 
 import grass.script as gs
 import grass.temporal as tgis
+from grass.temporal.state import get_raise_on_error, set_raise_on_error
 from grass.grassdb.create import create_mapset
 from grass.pygrass.messages import get_msgr
-
-# core holds these flags until the database layer; the fallback goes with that layer.
-try:
-    from grass.temporal.state import get_raise_on_error, set_raise_on_error
-except ImportError:
-    from grass.temporal.core import get_raise_on_error, set_raise_on_error
 
 
 def add_mapset(session, name):
