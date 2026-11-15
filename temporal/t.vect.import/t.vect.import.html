@@ -1,68 +1,1033 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.vect.import</em> imports a space time vector dataset archive that
-was exported with <a href="t.vect.export.html">t.vect.export</a>.
+<em>t.vect.import</em> imports an archive that <em><a href="t.vect.export.html">t.vect.export</a></em>
+wrote: it unpacks the archive, imports the vector maps and registers them in a
+new space time vector dataset with the times of the archive. The archive moves
+a dataset from another project or computer into the current project (see
+the notes for archives of another coordinate reference system). See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. The tool for space time raster datasets is
+<em><a href="t.rast.import.html">t.rast.import</a></em>; <em>t.vect.import</em> refuses the archive of a
+raster dataset.
+
+<p>
+The option <b>input</b> names the archive, and <b>output</b> the new space time vector
+dataset, which is made in the current mapset. The compression of the archive
+(<code>bzip2</code>, <code>gzip</code> or none) and the format of the maps in it (<code>GML</code>, <code>GPKG</code> or
+<code>pack</code>) are found out from the archive. The maps of a <code>GML</code> or <code>GPKG</code> archive
+are imported with <em><a href="v.in.ogr.html">v.in.ogr</a></em>, those of a <code>pack</code> archive with
+<em><a href="v.unpack.html">v.unpack</a></em>. The temporal type, the unit of relative time and the
+times of the maps come from the archive, too. The options <b>title</b> and
+<b>description</b> set the title and the description of the new dataset.
+
+<h3>Names of the maps</h3>
+
+Without <b>basename</b>, each map keeps the name it has in the archive. The
+option <b>basename</b> names the maps <code>basename_1</code>, <code>basename_2</code> and so on, with
+a numerical suffix in the order of the maps in the archive. This is the way to
+import a dataset into the project it was exported from, where the names of the
+archive are taken. A map of the same name in the current mapset is refused (see
+the notes).
+
+<h3>Projection and new projects</h3>
+
+The option <b>project</b> makes a new project with the coordinate reference system
+of the archive in the GRASS database of the session and imports into it. When
+the import is over, the session is in the
+project and mapset it was in before. The flag <b>-c</b> makes the project and
+imports nothing; the archive is needed even then, because the new project takes
+its coordinate reference system from it.
+
+<p>
+The tool compares the coordinate reference system of the archive with that of
+the project, as <em>t.rast.import</em> does, and stops with the error <code>Projection
+information does not match. Aborting.</code> if they differ, before it imports a map.
+The names of the coordinate reference systems are not compared, and a
+coordinate reference system that a project made from the archive writes
+differently is the same one. The flag <b>-o</b> assumes that the archive has the
+coordinate reference system of the current project: the tool warns <code>Projection
+information does not match. Proceeding...</code> and imports the maps without
+reprojecting them. They keep their coordinates (see the example "Import into a
+project with another coordinate reference system"). The tool does not
+reproject, so <b>-o</b> is the only way to import the maps of another coordinate
+reference system, and it is for archives whose coordinates fit the project.
+
+<p>
+The flag <b>-e</b> extends the region to the imported maps: it grows the current
+region until it covers them (see the example "Extend the region to the
+imported maps"). In the mapset <code>PERMANENT</code> it also extends the default region
+of the project, so use it with care in a project that you share. The maps of a
+<code>pack</code> archive extend the region as well as those of a <code>GML</code> or <code>GPKG</code>
+archive. A project that <b>project</b> makes gets the region of the imported
+maps, not the region of the maps and the placeholder region of a new project
+(one cell at the origin), with and without <b>-e</b>; the cells keep the size of
+the placeholder.
+
+<h3>Files and layers</h3>
+
+The option <b>directory</b> names the directory that the archive is extracted to.
+Without it, the archive is extracted to a temporary directory of the session
+(<code>.tmp</code> in the current mapset). A directory that is given must exist, and the
+extracted files stay in it. For a <code>GML</code> archive these are the files that
+<em>v.in.ogr</em> reads (see the example with the archive formats).
+
+<p>
+A vector map of a <code>GML</code> archive has one layer, which is layer 1 of the imported
+map. A <code>pack</code> archive holds the whole map with all its layers, and
+the dataset registers the layer that the exported dataset registered (see the
+last example).
+
+<p>
+An existing dataset <b>output</b> is refused unless <b>--overwrite</b> is given.
+With <b>--overwrite</b>, the dataset is made again from the archive and maps of
+the same names are replaced.
 
 <h2>NOTES</h2>
 
-Optionally a base map name can be provided to avoid that existing
-vector maps are overwritten by the map names that are used in the STRDS
-archive.
+The attribute table of a <code>pack</code> archive comes back as it was. A <code>GML</code> archive
+adds the columns of the GML file: <em>v.in.ogr</em> reads the feature id as the field
+<code>gml_id</code>, makes a new key column <code>cat</code> and renames the field <code>cat</code> of the
+archive to <code>cat_</code>. The example with the archive formats shows the columns.
+
 <p>
-The <b>directory</b> is used as work directory in case of import but
-can also be used as a data directory when using GML for the data
-exchange.
+A map that the archive names <code>name@mapset</code>, which
+<em><a href="t.vect.export.html">t.vect.export</a></em> writes for maps of one name from several
+mapsets, is imported as <code>name_mapset</code>; every character of the mapset other than
+a letter, a digit or an underscore becomes an underscore, so <code>dup@my.set</code> is
+imported as <code>dup_my_set</code>. If two maps of the archive would get one name this
+way, for example <code>dup@other</code> and a map <code>dup_other</code>, the import stops before the
+first map is imported; with <b>basename</b> the maps are numbered instead. An
+archive that lists a map more than once, as older exports wrote it for maps of
+one name from several mapsets, is refused before the first map is imported; a
+new export of the dataset names the maps with their mapset.
 
-<h2>EXAMPLE</h2>
+<p>
+A project without a coordinate reference system, the project <code>XY</code>, has none to
+match the archive's, so an archive of a project with one is imported there with
+<b>-o</b> only, in every format. The archive of a project without a coordinate
+reference system matches the project <code>XY</code>. The last blocks of the example with
+another coordinate reference system show it.
 
-In this example, five vector maps are created and registered in a single space time
-vector dataset named <em>random_locations</em>. Each vector map represents
-random locations within the boundary of the state taken at 1 month intervals.
-The space time dataset is then exported and re-imported.
+<p>
+The dataset and the maps are made in the current mapset. A map of the same
+name in another mapset is no clash, as the last example shows.
+
+<p>
+The tool checks the archive and the names before it imports the first map,
+so a refusal does not leave part of the maps behind:
+
+<ul>
+<li><code>Space time stvds dataset ... is already in the database</code> for an existing
+dataset;</li>
+<li><code>... exists. To overwrite, use the --overwrite flag</code> for an existing map of
+the current mapset;</li>
+<li><code>Space time vector dataset archive ... not found</code> for a missing <b>input</b>;</li>
+<li><code>Projection information does not match. Aborting.</code> for an archive of
+another coordinate reference system, without <b>-o</b>;</li>
+<li><code>Extraction directory ... not found</code> for a missing <b>directory</b>;</li>
+<li><code>The archive file is of wrong space time dataset type</code> for an archive of
+raster maps;</li>
+<li><code>Number of maps mismatch in init and list file.</code> if <code>number_of_maps</code> in
+"init.txt" differs from the number of maps in "list.txt".</li>
+</ul>
+
+<p>
+Blank lines in "list.txt" and "init.txt" are skipped, so an archive edited
+by hand may contain them. A line of "init.txt" without an equals sign stops
+the import with an error; a value is everything after the first equals
+sign.
+
+<h2>EXAMPLES</h2>
+
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_vect_import</code>, sets the computational region to
+North Carolina with cells of 1 km, generates a dataset of three monthly
+vector maps and imports the archive that <em><a href="t.vect.export.html">t.vect.export</a></em>
+wrote from it; the later examples work in this mapset and with this archive.
+The example with several layers creates a second mapset with the same region.
+The new projects of the examples are made in the GRASS database of the
+session, next to the dataset, and the dataset itself stays as it is. Where a
+command names the project <code>nc_spm_08_grass7</code>, use the name of the project you
+opened.
+
+<h3>Import an archive under new names</h3>
+
+The dataset <code>stations_monthly</code> has three vector maps for January to March 2020.
+Each map is a copy of the 136 climate stations of the dataset, with the column
+<code>precipitation</code>, which holds the normal of the month in millimeters, rounded to
+a whole number. These are normals of the stations, not measurements of these
+months; the dates only place the maps on the time axis. The maps are copies in
+the current mapset, so the dataset stays as it is. Each map is an interval of
+one month. The first block creates the dataset.
+
+<p>
+The second block writes the archive <code>stations.tar</code> with
+<em><a href="t.vect.export.html">t.vect.export</a></em> and imports it into the same project. The
+maps of the archive carry the names of the maps that exist already, so
+<b>basename</b> names the new maps <code>imported_1</code> to <code>imported_3</code>. The archive is
+extracted to the existing directory <code>work</code>, which keeps the pack files.
+<b>title</b> and <b>description</b> are set; <em>t.info</em> prints them. The map
+<code>imported_2</code> has the stations of <code>stations_monthly_2020_02</code>; the commands print
+the first three of them.
+
+<p>
+The third block imports the archive again under the same names. <b>--overwrite</b>
+replaces the dataset and its maps.
+
+<p>Command line:</p>
 
 <div class="code"><pre>
-db.connect -d
-
-for i in `seq 1 5` ; do
-    v.random output=map_$i n=500 restrict=boundary_state@PERMANENT
-    echo map_$i &gt;&gt; map_list.txt
+g.mapset -c mapset=t_vect_import
+g.region raster=elev_state_500m res=1000 -a
+for entry in 01:jan 02:feb 03:mar; do
+    v.extract --quiet input=precip_30ynormals \
+        output=stations_monthly_2020_${entry%:*}
+    v.db.addcolumn --quiet map=stations_monthly_2020_${entry%:*} \
+        columns="precipitation integer"
+    v.db.update --quiet map=stations_monthly_2020_${entry%:*} \
+        column=precipitation query_column="round(${entry#*:})"
 done
+t.create type=stvds output=stations_monthly title="Precipitation" \
+    description="Monthly precipitation normal in mm at the climate stations"
+t.register -i type=vector input=stations_monthly \
+    maps=$(g.list type=vector pattern="stations_monthly_*" mapset=. separator=comma) \
+    start=2020-01-01 increment="1 month"
+</pre></div>
 
-t.create type=stvds temporaltype=absolute \
-         output=random_locations \
-         title="Random locations" \
-         description="Vector test dataset with random locations"
+<div class="code"><pre>
+t.vect.export input=stations_monthly output=stations.tar format=pack \
+    compression=no
+mkdir work
+t.vect.import input=stations.tar output=copy basename=imported \
+    directory=work title="Copy of stations" \
+    description="Imported from the archive"
+t.vect.list input=copy columns=name,layer,start_time,end_time
+v.db.select map=imported_2 columns=cat,station,precipitation \
+    where="cat &lt;= 3"
+t.info type=stvds input=copy | grep -A3 "Title:"
+ls work | grep pack
+</pre></div>
 
-t.register -i type=vector input=random_locations \
-           file=map_list.txt start="2012-01-01" increment="1 months"
+<div class="code"><pre>
+name|layer|start_time|end_time
+imported_1|1|2020-01-01 00:00:00|2020-02-01 00:00:00
+imported_2|1|2020-02-01 00:00:00|2020-03-01 00:00:00
+imported_3|1|2020-03-01 00:00:00|2020-04-01 00:00:00
+cat|station|precipitation
+1|310090|92
+2|310184|155
+3|310241|88
+ | Title:
+ | Copy of stations
+ | Description:
+ | Imported from the archive
+stations_monthly_2020_01.pack
+stations_monthly_2020_02.pack
+stations_monthly_2020_03.pack
+</pre></div>
 
-t.vect.list random_locations
+<div class="code"><pre>
+t.vect.import --overwrite input=stations.tar output=copy basename=imported \
+    directory=work
+t.vect.list input=copy columns=name,start_time
+</pre></div>
 
-t.vect.export input=random_locations output=random_locations.tar.gz \
-              compression=gzip
+<div class="code"><pre>
+name|start_time
+imported_1|2020-01-01 00:00:00
+imported_2|2020-02-01 00:00:00
+imported_3|2020-03-01 00:00:00
+</pre></div>
 
-t.vect.import input=random_locations.tar.gz output=new_random_locations \
-              basename=new_map directory=/tmp
+<p>Python (grass.tools):</p>
 
-t.vect.list new_random_locations
-id|name|layer|mapset|start_time|end_time
-new_map_1@user1|new_map_1|None|user1|2012-01-01 00:00:00|2012-02-01 00:00:00
-new_map_2@user1|new_map_2|None|user1|2012-02-01 00:00:00|2012-03-01 00:00:00
-new_map_3@user1|new_map_3|None|user1|2012-03-01 00:00:00|2012-04-01 00:00:00
-new_map_4@user1|new_map_4|None|user1|2012-04-01 00:00:00|2012-05-01 00:00:00
-new_map_5@user1|new_map_5|None|user1|2012-05-01 00:00:00|2012-06-01 00:00:00
+<div class="code"><pre>
+from pathlib import Path
+
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_mapset(flags="c", mapset="t_vect_import")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+for month, column in enumerate(("jan", "feb", "mar"), start=1):
+    name = f"stations_monthly_2020_{month:02d}"
+    tools.v_extract(input="precip_30ynormals", output=name)
+    tools.v_db_addcolumn(map=name, columns="precipitation integer")
+    tools.v_db_update(map=name, column="precipitation", query_column=f"round({column})")
+tools.t_create(
+    type="stvds",
+    output="stations_monthly",
+    title="Precipitation",
+    description="Monthly precipitation normal in mm at the climate stations",
+)
+tools.t_register(
+    type="vector",
+    input="stations_monthly",
+    maps=",".join(f"stations_monthly_2020_{month:02d}" for month in (1, 2, 3)),
+    start="2020-01-01",
+    increment="1 month",
+    flags="i",
+)
+</pre></div>
+
+<div class="code"><pre>
+tools.t_vect_export(
+    input="stations_monthly", output="stations.tar", format="pack", compression="no"
+)
+Path("work").mkdir()
+tools.t_vect_import(
+    input="stations.tar",
+    output="copy",
+    basename="imported",
+    directory="work",
+    title="Copy of stations",
+    description="Imported from the archive",
+)
+print(tools.t_vect_list(input="copy", columns="name,layer,start_time,end_time").text)
+print(
+    tools.v_db_select(
+        map="imported_2", columns="cat,station,precipitation", where="cat &lt;= 3"
+    ).text
+)
+info = tools.t_info(type="stvds", input="copy").stdout.splitlines()
+first = next(index for index, line in enumerate(info) if "Title:" in line)
+print("\n".join(info[first : first + 4]))
+print("\n".join(sorted(path.name for path in Path("work").glob("*.pack"))))
+</pre></div>
+
+<div class="code"><pre>
+name|layer|start_time|end_time
+imported_1|1|2020-01-01 00:00:00|2020-02-01 00:00:00
+imported_2|1|2020-02-01 00:00:00|2020-03-01 00:00:00
+imported_3|1|2020-03-01 00:00:00|2020-04-01 00:00:00
+cat|station|precipitation
+1|310090|92
+2|310184|155
+3|310241|88
+ | Title:
+ | Copy of stations
+ | Description:
+ | Imported from the archive
+stations_monthly_2020_01.pack
+stations_monthly_2020_02.pack
+stations_monthly_2020_03.pack
+</pre></div>
+
+<div class="code"><pre>
+tools.t_vect_import(
+    input="stations.tar",
+    output="copy",
+    basename="imported",
+    directory="work",
+    overwrite=True,
+)
+print(tools.t_vect_list(input="copy", columns="name,start_time").text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+imported_1|2020-01-01 00:00:00
+imported_2|2020-02-01 00:00:00
+imported_3|2020-03-01 00:00:00
+</pre></div>
+
+<h3>Choose the format of the archive</h3>
+
+<em><a href="t.vect.export.html">t.vect.export</a></em> writes the maps as GML (the default),
+GeoPackage (<code>GPKG</code>) or <code>pack</code> files. The archives here are compressed with
+<code>gzip</code> and <code>bzip2</code>; the import finds the compression and the format itself.
+The first block imports a GML archive, with the names <code>gml_1</code> to <code>gml_3</code>. The
+directory <code>gml_files</code> keeps the GML files that <em>v.in.ogr</em> read. The table of
+<code>gml_1</code> has the columns of the GML file besides those of the stations: the
+commands print the three that the import adds or renames, <code>cat</code>, the new key
+column, <code>gml_id</code>, the feature id, and <code>cat_</code>, the field <code>cat</code> of the archive,
+which <em>v.in.ogr</em> renamed because it made a new key column <code>cat</code>. The second
+block imports a GeoPackage archive and prints the precipitation of the first
+three stations of <code>gpkg_2</code>, which are those of <code>stations_monthly_2020_02</code>.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.vect.export input=stations_monthly output=stations_gml.tar.gz format=GML \
+    compression=gzip
+mkdir gml_files
+t.vect.import input=stations_gml.tar.gz output=gml_copy basename=gml \
+    directory=gml_files
+t.vect.list input=gml_copy columns=name,layer,start_time
+db.columns table=gml_1 | grep -E "^(cat|gml_id|cat_)$"
+ls gml_files | grep xml
+</pre></div>
+
+<div class="code"><pre>
+name|layer|start_time
+gml_1|None|2020-01-01 00:00:00
+gml_2|None|2020-02-01 00:00:00
+gml_3|None|2020-03-01 00:00:00
+cat
+gml_id
+cat_
+stations_monthly_2020_01.xml
+stations_monthly_2020_02.xml
+stations_monthly_2020_03.xml
+</pre></div>
+
+<div class="code"><pre>
+t.vect.export input=stations_monthly output=stations_gpkg.tar.bz2 \
+    format=GPKG compression=bzip2
+mkdir gpkg_files
+t.vect.import input=stations_gpkg.tar.bz2 output=gpkg_copy basename=gpkg \
+    directory=gpkg_files
+t.vect.list input=gpkg_copy columns=name,layer,start_time
+v.db.select map=gpkg_2 columns=station,precipitation where="cat_ &lt;= 3"
+</pre></div>
+
+<div class="code"><pre>
+name|layer|start_time
+gpkg_1|None|2020-01-01 00:00:00
+gpkg_2|None|2020-02-01 00:00:00
+gpkg_3|None|2020-03-01 00:00:00
+station|precipitation
+310090|92
+310184|155
+310241|88
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_vect_export(
+    input="stations_monthly",
+    output="stations_gml.tar.gz",
+    format="GML",
+    compression="gzip",
+)
+Path("gml_files").mkdir()
+tools.t_vect_import(
+    input="stations_gml.tar.gz",
+    output="gml_copy",
+    basename="gml",
+    directory="gml_files",
+)
+print(tools.t_vect_list(input="gml_copy", columns="name,layer,start_time").text)
+columns = tools.db_columns(table="gml_1").text.splitlines()
+print("\n".join(name for name in columns if name in ("cat", "gml_id", "cat_")))
+print("\n".join(sorted(path.name for path in Path("gml_files").glob("*.xml"))))
+</pre></div>
+
+<div class="code"><pre>
+name|layer|start_time
+gml_1|None|2020-01-01 00:00:00
+gml_2|None|2020-02-01 00:00:00
+gml_3|None|2020-03-01 00:00:00
+cat
+gml_id
+cat_
+stations_monthly_2020_01.xml
+stations_monthly_2020_02.xml
+stations_monthly_2020_03.xml
+</pre></div>
+
+<div class="code"><pre>
+tools.t_vect_export(
+    input="stations_monthly",
+    output="stations_gpkg.tar.bz2",
+    format="GPKG",
+    compression="bzip2",
+)
+Path("gpkg_files").mkdir()
+tools.t_vect_import(
+    input="stations_gpkg.tar.bz2",
+    output="gpkg_copy",
+    basename="gpkg",
+    directory="gpkg_files",
+)
+print(tools.t_vect_list(input="gpkg_copy", columns="name,layer,start_time").text)
+print(
+    tools.v_db_select(
+        map="gpkg_2", columns="station,precipitation", where="cat_ &lt;= 3"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+name|layer|start_time
+gpkg_1|None|2020-01-01 00:00:00
+gpkg_2|None|2020-02-01 00:00:00
+gpkg_3|None|2020-03-01 00:00:00
+station|precipitation
+310090|92
+310184|155
+310241|88
+</pre></div>
+
+<h3>Import into a new project</h3>
+
+With <b>project</b>, the tool makes a new project with the coordinate reference
+system of the archive, imports into it and goes back to the project it was
+called in. The new project is made in the GRASS database of the session, so it
+lies next to the project <code>nc_spm_08_grass7</code>. The maps keep their names, because
+the new project has none of them. The first block imports the <code>pack</code> archive.
+It switches to the new project to look at it and back to the mapset of these
+examples. The commands print the dataset and the bounds of the first map,
+which are those of the stations in the project of the examples, and the default
+region of the new project, which covers the maps. The second block does the
+same for the GML archive of the previous example.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.vect.import input=stations.tar output=stations project=archive_copy \
+    directory=work
+g.mapset project=archive_copy mapset=PERMANENT
+t.vect.list input=stations columns=name,start_time
+v.info format=shell map=stations_monthly_2020_01 | grep -E "^(north|south|east|west)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
+g.region -dg | grep -E "^(n|s|e|w)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
+g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
+v.info format=shell map=stations_monthly_2020_01 | grep -E "^(north|south|east|west)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+stations_monthly_2020_01|2020-01-01 00:00:00
+stations_monthly_2020_02|2020-02-01 00:00:00
+stations_monthly_2020_03|2020-03-01 00:00:00
+north=306222
+south=27607
+east=917005
+west=151769
+n=306222
+s=27607
+w=151769
+e=917006
+north=306222
+south=27607
+east=917005
+west=151769
+</pre></div>
+
+<div class="code"><pre>
+t.vect.import input=stations_gml.tar.gz output=stations project=archive_gml \
+    directory=gml_files
+g.mapset project=archive_gml mapset=PERMANENT
+t.vect.list input=stations columns=name,layer,start_time
+g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
+</pre></div>
+
+<div class="code"><pre>
+name|layer|start_time
+stations_monthly_2020_01|None|2020-01-01 00:00:00
+stations_monthly_2020_02|None|2020-02-01 00:00:00
+stations_monthly_2020_03|None|2020-03-01 00:00:00
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+def print_bounds(name):
+    info = tools.v_info(map=name, format="shell").keyval
+    keys = ("north", "south", "east", "west")
+    print("\n".join(f"{key}={info[key]:.0f}" for key in keys))
+
+
+def print_extent(flags):
+    region = tools.g_region(flags=flags).keyval
+    print("\n".join(f"{key}={region[key]:.0f}" for key in ("n", "s", "w", "e")))
+
+
+tools.t_vect_import(
+    input="stations.tar", output="stations", project="archive_copy", directory="work"
+)
+tools.g_mapset(project="archive_copy", mapset="PERMANENT")
+print(tools.t_vect_list(input="stations", columns="name,start_time").text)
+print_bounds("stations_monthly_2020_01")
+print_extent("dg")
+tools.g_mapset(project="nc_spm_08_grass7", mapset="t_vect_import")
+print_bounds("stations_monthly_2020_01")
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+stations_monthly_2020_01|2020-01-01 00:00:00
+stations_monthly_2020_02|2020-02-01 00:00:00
+stations_monthly_2020_03|2020-03-01 00:00:00
+north=306222
+south=27607
+east=917005
+west=151769
+n=306222
+s=27607
+w=151769
+e=917006
+north=306222
+south=27607
+east=917005
+west=151769
+</pre></div>
+
+<div class="code"><pre>
+tools.t_vect_import(
+    input="stations_gml.tar.gz",
+    output="stations",
+    project="archive_gml",
+    directory="gml_files",
+)
+tools.g_mapset(project="archive_gml", mapset="PERMANENT")
+print(tools.t_vect_list(input="stations", columns="name,layer,start_time").text)
+tools.g_mapset(project="nc_spm_08_grass7", mapset="t_vect_import")
+</pre></div>
+
+<div class="code"><pre>
+name|layer|start_time
+stations_monthly_2020_01|None|2020-01-01 00:00:00
+stations_monthly_2020_02|None|2020-02-01 00:00:00
+stations_monthly_2020_03|None|2020-03-01 00:00:00
+</pre></div>
+
+<h3>Create a project without importing</h3>
+
+The flag <b>-c</b> makes the project and imports nothing. The commands switch to
+the new project and show that it has no vector map and no dataset, and that
+its default region is one cell.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.vect.import -c input=stations.tar output=stations project=empty_project \
+    directory=work
+g.mapset project=empty_project mapset=PERMANENT
+g.list type=vector | wc -l
+t.list type=stvds | wc -l
+g.region -dg | grep -E "^(n|s|e|w)="
+g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
+</pre></div>
+
+<div class="code"><pre>
+0
+0
+n=1
+s=0
+w=0
+e=1
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_vect_import(
+    input="stations.tar",
+    output="stations",
+    project="empty_project",
+    directory="work",
+    flags="c",
+)
+tools.g_mapset(project="empty_project", mapset="PERMANENT")
+for result in (tools.g_list(type="vector"), tools.t_list(type="stvds")):
+    print(len(result.text.splitlines()) if result else 0)
+print_extent("dg")
+tools.g_mapset(project="nc_spm_08_grass7", mapset="t_vect_import")
+</pre></div>
+
+<div class="code"><pre>
+0
+0
+n=1
+s=0
+w=0
+e=1
+</pre></div>
+
+<h3>Extend the region to the imported maps</h3>
+
+The flag <b>-e</b> grows the current region until it covers the imported maps. The
+first command moves the region to a small window; the import then grows it to
+the extent of the stations, in cells of 1 km, from the north and west edges
+of the stations. The maps of a <code>pack</code> archive extend the region as well as
+those of a GML or GeoPackage archive.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=250000 s=240000 w=500000 e=510000 res=1000
+g.region -g | grep -E "^(n|s|e|w)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
+t.vect.import -e input=stations.tar output=extended basename=extended \
+    directory=work
+g.region -g | grep -E "^(n|s|e|w)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
+g.region raster=elev_state_500m res=1000 -a
+</pre></div>
+
+<div class="code"><pre>
+n=250000
+s=240000
+w=500000
+e=510000
+n=306222
+s=27222
+w=151769
+e=917769
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_region(n=250000, s=240000, w=500000, e=510000, res=1000)
+print_extent("g")
+tools.t_vect_import(
+    input="stations.tar",
+    output="extended",
+    basename="extended",
+    directory="work",
+    flags="e",
+)
+print_extent("g")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+</pre></div>
+
+<div class="code"><pre>
+n=250000
+s=240000
+w=500000
+e=510000
+n=306222
+s=27222
+w=151769
+e=917769
+</pre></div>
+
+<h3>Import into a project with another coordinate reference system</h3>
+
+The archive <code>stations.tar</code> has the coordinate reference system of the dataset,
+EPSG:3358. The project <code>utm</code> made here has EPSG:32632. The first block imports
+the archive into it without <b>-o</b>: the tool stops with the error before it
+imports a map. The second block imports it with <b>-o</b> under other names. The
+maps are not reprojected: they keep their coordinates, and the bounds of
+<code>again_1</code> are those printed in the example with the new project.
+
+<p>
+The project <code>flat</code> is made with <code>grass -c XY</code> and has no coordinate reference
+system. The <code>pack</code> archive and the GML archive of the second example are
+refused there as well, and are imported with <b>-o</b>; the second import keeps
+the names of the maps, so the first one uses a <b>basename</b> (the block with the
+GML archive needs the GML driver).
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.proj -c project=utm epsg=32632
+g.mapset project=utm mapset=PERMANENT
+if ! (t.vect.import input=stations.tar output=stations directory=work 2&gt;&amp;1 |
+    sed -n '/^ERROR/,$p'); then
+    echo "t.vect.import failed"
+fi
+t.list type=stvds | wc -l
+t.vect.import -o input=stations.tar output=again basename=again \
+    directory=work
+t.vect.list input=again columns=name,start_time
+v.info format=shell map=again_1 | grep -E "^(north|south|east|west)=" | awk -F= '{printf "%s=%.0f\n", $1, $2}'
+g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
+</pre></div>
+
+<div class="code"><pre>
+ERROR: Projection information does not match. Aborting.
+t.vect.import failed
+0
+name|start_time
+again_1|2020-01-01 00:00:00
+again_2|2020-02-01 00:00:00
+again_3|2020-03-01 00:00:00
+north=306222
+south=27607
+east=917005
+west=151769
+</pre></div>
+
+<div class="code"><pre>
+grass -c XY "$(g.gisenv get=GISDBASE)/flat" --exec true
+g.mapset project=flat mapset=PERMANENT
+mkdir flat_files
+if ! (t.vect.import input=stations.tar output=stations directory=flat_files 2&gt;&amp;1 |
+    sed -n '/^ERROR/,$p'); then
+    echo "t.vect.import failed"
+fi
+t.vect.import -o input=stations.tar output=stations basename=pack \
+    directory=flat_files
+t.vect.list input=stations columns=name,start_time
+</pre></div>
+
+<div class="code"><pre>
+ERROR: Projection information does not match. Aborting.
+t.vect.import failed
+name|start_time
+pack_1|2020-01-01 00:00:00
+pack_2|2020-02-01 00:00:00
+pack_3|2020-03-01 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+mkdir flat_gml_files
+t.vect.import -o input=stations_gml.tar.gz output=flat_stations \
+    directory=flat_gml_files
+t.vect.list input=flat_stations columns=name,layer,start_time
+g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
+</pre></div>
+
+<div class="code"><pre>
+name|layer|start_time
+stations_monthly_2020_01|None|2020-01-01 00:00:00
+stations_monthly_2020_02|None|2020-02-01 00:00:00
+stations_monthly_2020_03|None|2020-03-01 00:00:00
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import ToolError
+
+tools.g_proj(flags="c", project="utm", epsg=32632)
+tools.g_mapset(project="utm", mapset="PERMANENT")
+try:
+    tools.t_vect_import(input="stations.tar", output="stations", directory="work")
+except ToolError as error:
+    lines = error.stderr.strip().splitlines()
+    first = [line.startswith("ERROR") for line in lines].index(True)
+    print("\n".join(lines[first:]))
+    print("t.vect.import failed")
+result = tools.t_list(type="stvds")
+print(len(result.text.splitlines()) if result else 0)
+tools.t_vect_import(
+    input="stations.tar",
+    output="again",
+    basename="again",
+    directory="work",
+    flags="o",
+)
+print(tools.t_vect_list(input="again", columns="name,start_time").text)
+print_bounds("again_1")
+tools.g_mapset(project="nc_spm_08_grass7", mapset="t_vect_import")
+</pre></div>
+
+<div class="code"><pre>
+ERROR: Projection information does not match. Aborting.
+t.vect.import failed
+0
+name|start_time
+again_1|2020-01-01 00:00:00
+again_2|2020-02-01 00:00:00
+again_3|2020-03-01 00:00:00
+north=306222
+south=27607
+east=917005
+west=151769
+</pre></div>
+
+<div class="code"><pre>
+import subprocess
+
+gisdbase = tools.g_gisenv(get="GISDBASE").stdout.strip()
+subprocess.run(["grass", "-c", "XY", f"{gisdbase}/flat", "--exec", "true"], check=True)
+tools.g_mapset(project="flat", mapset="PERMANENT")
+Path("flat_files").mkdir()
+try:
+    tools.t_vect_import(input="stations.tar", output="stations", directory="flat_files")
+except ToolError as error:
+    lines = error.stderr.strip().splitlines()
+    first = [line.startswith("ERROR") for line in lines].index(True)
+    print("\n".join(lines[first:]))
+    print("t.vect.import failed")
+tools.t_vect_import(
+    input="stations.tar",
+    output="stations",
+    basename="pack",
+    directory="flat_files",
+    flags="o",
+)
+print(tools.t_vect_list(input="stations", columns="name,start_time").text)
+</pre></div>
+
+<div class="code"><pre>
+ERROR: Projection information does not match. Aborting.
+t.vect.import failed
+name|start_time
+pack_1|2020-01-01 00:00:00
+pack_2|2020-02-01 00:00:00
+pack_3|2020-03-01 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+Path("flat_gml_files").mkdir()
+tools.t_vect_import(
+    input="stations_gml.tar.gz",
+    output="flat_stations",
+    directory="flat_gml_files",
+    flags="o",
+)
+print(tools.t_vect_list(input="flat_stations", columns="name,layer,start_time").text)
+tools.g_mapset(project="nc_spm_08_grass7", mapset="t_vect_import")
+</pre></div>
+
+<div class="code"><pre>
+name|layer|start_time
+stations_monthly_2020_01|None|2020-01-01 00:00:00
+stations_monthly_2020_02|None|2020-02-01 00:00:00
+stations_monthly_2020_03|None|2020-03-01 00:00:00
+</pre></div>
+
+<h3>Import a map with several layers</h3>
+
+The map <code>layered</code> has the stations of <code>stations_monthly_2020_01</code> in two layers
+with the same categories. Layer 2 has its own table, <code>layered_2</code>, in which the
+precipitation is 100 mm higher. The dataset <code>layered</code> registers layer 2 of the
+map as <code>layered:2</code>.
+
+<p>
+A <code>pack</code> archive holds the whole map, so the import into the new mapset
+<code>t_vect_import_2</code> has both layers, and the dataset registers layer 2 as before.
+The values of layer 2 of the first three stations are 211, 282 and 200 mm.
+The GML archive holds the registered layer as the only layer of the map: the
+imported map <code>lgml_1</code> has layer 1, and its table has the values of layer 2.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+v.category --quiet input=stations_monthly_2020_01 output=layered \
+    option=transfer layer=1,2
+db.copy from_table=layered to_table=layered_2
+v.db.connect --quiet map=layered table=layered_2 layer=2 key=cat
+db.execute sql="UPDATE layered_2 SET precipitation = precipitation + 100"
+t.create type=stvds output=layered title="Layers" \
+    description="A map with two layers"
+t.register type=vector input=layered maps=layered:2 \
+    start=2020-01-01 end=2020-02-01
+t.vect.export input=layered output=layered.tar format=pack compression=no
+mkdir layer_files
+g.mapset -c mapset=t_vect_import_2
+g.region raster=elev_state_500m res=1000 -a
+t.vect.import input=layered.tar output=layered_copy directory=layer_files
+t.vect.list input=layered_copy columns=name,layer,mapset
+v.category input=layered@t_vect_import_2 option=layers
+v.db.select map=layered@t_vect_import_2 layer=2 \
+    columns=cat,station,precipitation where="cat &lt;= 3"
+g.mapset mapset=t_vect_import
+</pre></div>
+
+<div class="code"><pre>
+name|layer|mapset
+layered|2|t_vect_import_2
+1
+2
+cat|station|precipitation
+1|310090|211
+2|310184|282
+3|310241|200
+</pre></div>
+
+<div class="code"><pre>
+t.vect.export input=layered output=layered_gml.tar format=GML \
+    compression=no
+mkdir layer_gml_files
+t.vect.import input=layered_gml.tar output=layered_gml basename=lgml \
+    directory=layer_gml_files
+t.vect.list input=layered_gml columns=name,layer
+v.category input=lgml_1 option=layers
+v.db.select map=lgml_1 columns=station,precipitation where="cat_ &lt;= 3"
+</pre></div>
+
+<div class="code"><pre>
+name|layer
+lgml_1|None
+1
+station|precipitation
+310090|211
+310184|282
+310241|200
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.v_category(
+    input="stations_monthly_2020_01", output="layered", option="transfer", layer="1,2"
+)
+tools.db_copy(from_table="layered", to_table="layered_2")
+tools.v_db_connect(map="layered", table="layered_2", layer=2, key="cat")
+tools.db_execute(sql="UPDATE layered_2 SET precipitation = precipitation + 100")
+tools.t_create(
+    type="stvds", output="layered", title="Layers", description="A map with two layers"
+)
+tools.t_register(
+    type="vector",
+    input="layered",
+    maps="layered:2",
+    start="2020-01-01",
+    end="2020-02-01",
+)
+tools.t_vect_export(
+    input="layered", output="layered.tar", format="pack", compression="no"
+)
+Path("layer_files").mkdir()
+tools.g_mapset(mapset="t_vect_import_2", flags="c")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+tools.t_vect_import(input="layered.tar", output="layered_copy", directory="layer_files")
+print(tools.t_vect_list(input="layered_copy", columns="name,layer,mapset").text)
+print(tools.v_category(input="layered@t_vect_import_2", option="layers").text)
+print(
+    tools.v_db_select(
+        map="layered@t_vect_import_2",
+        layer=2,
+        columns="cat,station,precipitation",
+        where="cat &lt;= 3",
+    ).text
+)
+tools.g_mapset(mapset="t_vect_import")
+</pre></div>
+
+<div class="code"><pre>
+name|layer|mapset
+layered|2|t_vect_import_2
+1
+2
+cat|station|precipitation
+1|310090|211
+2|310184|282
+3|310241|200
+</pre></div>
+
+<div class="code"><pre>
+tools.t_vect_export(
+    input="layered", output="layered_gml.tar", format="GML", compression="no"
+)
+Path("layer_gml_files").mkdir()
+tools.t_vect_import(
+    input="layered_gml.tar",
+    output="layered_gml",
+    basename="lgml",
+    directory="layer_gml_files",
+)
+print(tools.t_vect_list(input="layered_gml", columns="name,layer").text)
+print(tools.v_category(input="lgml_1", option="layers").text)
+print(
+    tools.v_db_select(
+        map="lgml_1", columns="station,precipitation", where="cat_ &lt;= 3"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+name|layer
+lgml_1|None
+1
+station|precipitation
+310090|211
+310184|282
+310241|200
 </pre></div>
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="t.vect.export.html">t.vect.export</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="v.in.ogr.html">v.in.ogr</a>,
-<a href="v.pack.html">v.pack</a>,
-<a href="t.rast.import.html">t.rast.import</a>
-</em>
+<em><a href="g.region.html">g.region</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast.import.html">t.rast.import</a>, <a href="t.vect.export.html">t.vect.export</a>,
+<a href="v.in.ogr.html">v.in.ogr</a>, <a href="v.pack.html">v.pack</a>, <a href="v.unpack.html">v.unpack</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 
