@@ -1178,34 +1178,3 @@ class CLibrariesInterface(RPCServerBase):
         :returns: Name of the current mapset
         """
         return self.call("get_mapset")
-
-
-# The old test of the registration functions still calls the per-kind
-# methods; they go when that test moves to pytest.
-def _old_ciface_method(function, kind, *names):
-    def method(self, *args, **kwargs):
-        values = dict(zip(names, args, strict=False))
-        values.update(kwargs)
-        return self.call(function, kind, **values)
-
-    return method
-
-
-for _kind in ("raster", "raster3d", "vector"):
-    for _old, _function, _names in (
-        ("has_{}_timestamp", "has_timestamp", ("name", "mapset", "layer")),
-        ("read_{}_timestamp", "read_timestamp", ("name", "mapset", "layer")),
-        ("remove_{}_timestamp", "remove_timestamp", ("name", "mapset", "layer")),
-        (
-            "write_{}_timestamp",
-            "write_timestamp",
-            ("name", "mapset", "timestring", "layer"),
-        ),
-        ("read_{}_info", "read_info", ("name", "mapset")),
-        ("read_{}_history", "read_history", ("name", "mapset")),
-    ):
-        setattr(
-            CLibrariesInterface,
-            _old.format(_kind),
-            _old_ciface_method(_function, _kind, *_names),
-        )
