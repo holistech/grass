@@ -74,7 +74,11 @@
  * \author Soeren Gebbert added Dec. 2009 WPS process_description document
  */
 
+#include <ctype.h>
 #include <errno.h>
+#include <limits.h>
+#include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1312,6 +1316,7 @@ void check_opts(void)
 {
     struct Option *opt;
     int ans;
+    char *err;
 
     if (!st->n_opts)
         return;
@@ -1320,8 +1325,25 @@ void check_opts(void)
     while (opt) {
         /* Check answer against options if any */
 
-        if (opt->answer) {
-            if (opt->multiple == 0)
+        /* A script has no seed function of its own to check the answer
+         * of G_OPT_M_SEED, so the parser checks it as a seed, with the
+         * message of G_random_seed_from_option(). */
+        if (opt->answer && opt->answer_left_to_tool) {
+            int64_t seed;
+            const char *problem = G_random_parse_seed(opt->answer, &seed);
+
+            if (problem) {
+                G_asprintf(&err, _("Invalid random seed <%s> for %s=: %s"),
+                           opt->answer, opt->key, problem);
+                append_error(err);
+            }
+        }
+        else if (opt->answer) {
+            /* An option with a tuple as key_desc, such as rows,columns, is
+               not multiple but its answer holds several numbers. */
+            if (opt->multiple == 0 &&
+                !((opt->type == TYPE_INTEGER || opt->type == TYPE_DOUBLE) &&
+                  opt->key_desc && strchr(opt->key_desc, ',')))
                 check_an_opt(opt->key, opt->type, opt->options, opt->opts,
                              &opt->answer);
             else {
@@ -1406,6 +1428,8 @@ void check_an_opt(const char *key, int type, const char *options,
 int check_int(const char *ans, const char **opts)
 {
     int d, i;
+    char *end;
+    long value;
 
     /* "-" is reserved for standard input */
     if (strcmp(ans, "-") == 0)
@@ -1414,8 +1438,19 @@ int check_int(const char *ans, const char **opts)
     if (!ans || !*ans)
         return MISSING_VALUE;
 
-    if (sscanf(ans, "%d", &d) != 1)
+    /* sscanf("%d") stops at the first character that is no digit, so "2.5"
+       and "3abc" were read as 2 and 3. The whole answer must be the number;
+       spaces around it are allowed, as sscanf() and strtol() skip leading
+       ones and a list such as "1, 2 ,3" has both kinds. */
+    errno = 0;
+    value = strtol(ans, &end, 10);
+    if (end == ans)
         return INVALID_VALUE;
+    while (isspace((unsigned char)*end))
+        end++;
+    if (*end != '\0' || errno == ERANGE || value < INT_MIN || value > INT_MAX)
+        return INVALID_VALUE;
+    d = (int)value;
 
     if (!opts)
         return 0;
@@ -1457,6 +1492,7 @@ int check_double(const char *ans, const char **opts)
 {
     double d;
     int i;
+    char *end;
 
     /* "-" is reserved for standard input */
     if (strcmp(ans, "-") == 0)
@@ -1465,7 +1501,19 @@ int check_double(const char *ans, const char **opts)
     if (!ans || !*ans)
         return MISSING_VALUE;
 
-    if (sscanf(ans, "%lf", &d) != 1)
+    /* sscanf("%lf") stops at the first character that cannot belong to the
+       number, so "2.5abc" was read as 2.5 and "1e400" as infinity. As in
+       check_int(), the whole answer must be the number and spaces around it
+       are allowed. strtod() sets ERANGE also on underflow ("1e-400" gives 0,
+       "1e-310" a subnormal number); sscanf() accepted those values, so only
+       an overflow to HUGE_VAL is refused. */
+    errno = 0;
+    d = strtod(ans, &end);
+    if (end == ans)
+        return INVALID_VALUE;
+    while (isspace((unsigned char)*end))
+        end++;
+    if (*end != '\0' || (errno == ERANGE && (d == HUGE_VAL || d == -HUGE_VAL)))
         return INVALID_VALUE;
 
     if (!opts)

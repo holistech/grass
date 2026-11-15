@@ -28,7 +28,7 @@ double MaxDist, MaxDistSq;
 FLAG *Cells;
 CELLSORTER *DoNext;
 CELL **Out, *CellBuffer;
-int Seed, OutFD;
+int OutFD;
 int MaxCellsNum;
 struct Flag *Verbose;
 struct Option *Distance;
