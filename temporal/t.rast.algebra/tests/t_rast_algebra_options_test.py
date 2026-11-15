@@ -1,0 +1,521 @@
+"""Test the options and flags of the t.rast.algebra tool
+
+The tool is run as a subprocess here, in contrast to the expression tests
+that call the library. The datasets are described in the algebra fixture in
+conftest.py.
+"""
+
+import datetime
+
+import pytest
+
+import grass.temporal as tgis
+from grass.temporal.testing.data import MapSpec, create_stds, day
+from grass.temporal.testing.readback import message
+from grass.tools import ToolError, Tools
+
+pytestmark = pytest.mark.real_io
+
+
+@pytest.fixture
+def tool(algebra):
+    """Tools object that returns a result also for tools without output"""
+    return Tools(session=algebra.session, consistent_return_value=True)
+
+
+def list_maps(tool, dataset, columns="name,start_time,end_time,min,max"):
+    """Return the rows of t.rast.list as dictionaries"""
+    return tool.t_rast_list(input=dataset, columns=columns, format="json").json["data"]
+
+
+def values(tool, dataset):
+    """Return the minimum value of the maps of a dataset in temporal order"""
+    return [row["min"] for row in list_maps(tool, dataset)]
+
+
+def test_result_dataset_description(algebra, tool):
+    """The result is a STRDS of the temporal type of its inputs, covering the
+    result maps, with the granularity of the maps"""
+    tool.t_rast_algebra(expression="OPT_BASIC = A * 2", basename="opt_basic")
+    info = tool.t_info(input="OPT_BASIC", flags="g").keyval
+    assert info["temporal_type"] == "absolute"
+    assert info["number_of_maps"] == 4
+    assert info["start_time"].strip("'") == "2001-01-01 00:00:00"
+    assert info["end_time"].strip("'") == "2001-01-05 00:00:00"
+    assert info["granularity"].strip("'") == "1 day"
+    assert (info["min_min"], info["max_max"]) == (2, 8)
+    assert values(tool, "OPT_BASIC") == [2, 4, 6, 8]
+
+
+@pytest.mark.parametrize(
+    ("suffix", "names"),
+    [
+        (None, ["opt_x_0", "opt_x_1", "opt_x_2", "opt_x_3"]),
+        ("num", ["opt_x_0", "opt_x_1", "opt_x_2", "opt_x_3"]),
+        (
+            "gran",
+            [
+                "opt_x_2001_01_01",
+                "opt_x_2001_01_02",
+                "opt_x_2001_01_03",
+                "opt_x_2001_01_04",
+            ],
+        ),
+        (
+            "time",
+            [
+                "opt_x_2001_01_01T00_00_00",
+                "opt_x_2001_01_02T00_00_00",
+                "opt_x_2001_01_03T00_00_00",
+                "opt_x_2001_01_04T00_00_00",
+            ],
+        ),
+    ],
+)
+def test_basename_and_suffix(algebra, tool, suffix, names):
+    """The maps are named basename plus a number, the granule or the time"""
+    options = {} if suffix is None else {"suffix": suffix}
+    tool.t_rast_algebra(
+        expression="OPT_NAMES = A * 2", basename="opt_x", overwrite=True, **options
+    )
+    assert [row["name"] for row in list_maps(tool, "OPT_NAMES")] == names
+
+
+def test_result_dataset_is_registered_under_basename(algebra, tool):
+    """The result maps are real raster maps that carry the computed values"""
+    tool.t_rast_algebra(expression="OPT_RAS = A + 1", basename="opt_ras")
+    stats = tool.r_univar(map="opt_ras_2", flags="g").keyval
+    assert (stats["min"], stats["max"], stats["n"]) == (4, 4, 9)
+
+
+def test_overwrite_is_required(algebra, tool):
+    """A second run fails without --overwrite and leaves the result unchanged"""
+    name, basename = "OPT_OW", "opt_ow"
+    tool.t_rast_algebra(expression=f"{name} = A * 2", basename=basename)
+    with pytest.raises(ToolError, match="Use the overwrite"):
+        tool.t_rast_algebra(expression=f"{name} = A * 3", basename=basename)
+    assert values(tool, name) == [2, 4, 6, 8]
+    tool.t_rast_algebra(expression=f"{name} = A * 3", basename=basename, overwrite=True)
+    assert values(tool, name) == [3, 6, 9, 12]
+
+
+def test_existing_dataset_with_new_basename_is_not_overwritten(algebra, tool):
+    """The result dataset exists: refuse even if the map names are new"""
+    name, basename = "OPT_OW2", "opt_ow2"
+    tool.t_rast_algebra(expression=f"{name} = A * 2", basename=basename)
+    with pytest.raises(ToolError, match=r"exists\. Use the overwrite"):
+        tool.t_rast_algebra(expression=f"{name} = A * 3", basename=f"{basename}_other")
+    assert values(tool, name) == [2, 4, 6, 8]
+
+
+def test_dry_run_creates_nothing(algebra, tool):
+    """-d prints the planned r.mapcalc calls and creates neither maps nor dataset"""
+    result = tool.t_rast_algebra(
+        expression="OPT_DRY = A * 2", basename="opt_dry", flags="d"
+    )
+    assert "r.mapcalc" in result.stdout
+    # The algebra quotes the names and parenthesizes every operation.
+    assert '"opt_dry_0"=("a1@PERMANENT" * 2)' in result.stdout
+    assert '"opt_dry_3"=("a4@PERMANENT" * 2)' in result.stdout
+    assert "OPT_DRY" in result.stdout
+    with pytest.raises(ToolError):
+        tool.t_info(input="OPT_DRY")
+    assert not tool.g_list(type="raster", pattern="opt_dry_*").stdout.strip()
+
+
+def test_dry_run_requires_overwrite_as_the_real_run(algebra, tool):
+    """-d fails without --overwrite where the run would fail"""
+    name, basename = "OPT_DRY_OW", "opt_dry_ow"
+    tool.t_rast_algebra(expression=f"{name} = A * 2", basename=basename)
+    with pytest.raises(ToolError, match="Use the overwrite"):
+        tool.t_rast_algebra(expression=f"{name} = A * 3", basename=basename, flags="d")
+    result = tool.t_rast_algebra(
+        expression=f"{name} = A * 3", basename=basename, flags="d", overwrite=True
+    )
+    assert "r.mapcalc" in result.stdout
+
+
+def test_classic_flag_is_unknown(algebra, tool):
+    """-c is no flag of the tool: the parser refuses it before anything is made"""
+    with pytest.raises(ToolError) as error:
+        tool.t_rast_algebra(
+            expression="OPT_NO_C = A * 2", basename="opt_no_c", flags="c"
+        )
+    assert "<c>" in error.value.stderr
+    assert not tool.t_list(type="strds", where="name = 'OPT_NO_C'").stdout.strip()
+
+
+def test_algebra_variable_has_no_effect(algebra, tool):
+    """GRASS_TEMPORAL_ALGEBRA=classic computes what the tool computes without it
+
+    A selection with r gives one map per related pair: b1 contains a1 and a2,
+    b2 contains a3 and a4, so four maps. The releases before GRASS 8.6 gave
+    one map per left map, two.
+    """
+    env = {**algebra.session.env, "GRASS_TEMPORAL_ALGEBRA": "classic"}
+    Tools(env=env).t_rast_algebra(
+        expression="OPT_VARIABLE = B {:,contains,r} A", basename="opt_variable"
+    )
+    tool.t_rast_algebra(
+        expression="OPT_PLAIN = B {:,contains,r} A", basename="opt_plain"
+    )
+    with_variable = list_maps(tool, "OPT_VARIABLE")
+    without = list_maps(tool, "OPT_PLAIN")
+    assert len(without) == 4
+    # The names differ only in the basename; times and values must be equal.
+    for row in with_variable:
+        row["name"] = row["name"].replace("opt_variable", "opt_plain", 1)
+    assert with_variable == without
+
+
+@pytest.mark.parametrize("nprocs", [1, 2, 4])
+def test_nprocs_gives_same_result(algebra, tool, nprocs):
+    """Parallel r.mapcalc processes give the same maps as a single process"""
+    tool.t_rast_algebra(
+        expression="OPT_NPROCS = A * 2 + N",
+        basename="opt_nprocs",
+        nprocs=nprocs,
+        overwrite=True,
+    )
+    assert list_maps(tool, "OPT_NPROCS") == [
+        {
+            "name": f"opt_nprocs_{number}",
+            "start_time": f"2001-01-0{number + 1} 00:00:00",
+            "end_time": f"2001-01-0{number + 2} 00:00:00",
+            "min": 3 * (number + 1) + 10,
+            "max": 3 * (number + 1) + 10,
+        }
+        for number in range(4)
+    ]
+
+
+def test_register_null_maps(algebra, tool):
+    """Maps without any valid cell are registered only with -n"""
+    expression = "OPT_NULL = if(A > 2, A, null())"
+    tool.t_rast_algebra(expression=expression, basename="opt_null")
+    assert values(tool, "OPT_NULL") == [3, 4]
+    tool.t_rast_algebra(
+        expression=expression, basename="opt_null", flags="n", overwrite=True
+    )
+    assert values(tool, "OPT_NULL") == [None, None, 3, 4]
+
+
+def test_granularity_algebra_samples_datasets(algebra, tool):
+    """-g samples the datasets with their common granularity: the two-day maps
+    of B are repeated for each day, so that A + B has one result per day"""
+    tool.t_rast_algebra(expression="OPT_GRAN = A + B", basename="opt_gran", flags="g")
+    assert values(tool, "OPT_GRAN") == [6, 7, 9, 10]
+    maps = list_maps(tool, "OPT_GRAN")
+    assert maps[0]["start_time"] == "2001-01-01 00:00:00"
+    assert maps[0]["end_time"] == "2001-01-02 00:00:00"
+    assert maps[3]["end_time"] == "2001-01-05 00:00:00"
+
+
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        # N != 1.5 holds for n1..n4 (11..14), so every day takes the map of B
+        # sampled on it: b1 = 5 on days 1 and 2, b2 = 6 on days 3 and 4.
+        ("if(N != 1.5, B, A)", [5, 5, 6, 6]),
+        # n2 = 12 fails the condition, so day 2 takes a2 = 2 instead.
+        ("if(N != 12, B, A)", [5, 2, 6, 6]),
+    ],
+)
+def test_granularity_flag_computes_not_equal(algebra, tool, expression, expected):
+    """-g finds the datasets of an expression with !=
+
+    N and A have daily maps on days 1 to 4, B maps of two days from day 1, so
+    the common granularity is one day and every dataset has a map on each of
+    the four days.
+    """
+    tool.t_rast_algebra(
+        expression=f"OPT_GRAN_NE = {expression}",
+        basename="opt_gran_ne",
+        flags="g",
+        overwrite=True,
+    )
+    maps = list_maps(tool, "OPT_GRAN_NE")
+    assert [row["min"] for row in maps] == expected
+    assert [row["start_time"] for row in maps] == [
+        f"2001-01-0{number} 00:00:00" for number in range(1, 5)
+    ]
+
+
+def test_granularity_flag_without_dataset(algebra, tool):
+    """An expression of single maps has nothing to sample: -g computes it as
+    without the flag, with a warning
+
+    singletmap (99) is time stamped 3 to 4 January, so the result is one map
+    of these days with the value 2 * 99 = 198.
+    """
+    result = tool.t_rast_algebra(
+        expression="OPT_GRAN_NONE = tmap(singletmap) * 2",
+        basename="opt_gran_none",
+        flags="g",
+        overwrite=True,
+    )
+    assert (
+        "The expression names no space time dataset; it is computed without "
+        "granularity sampling"
+    ) in message(result)
+    assert "Traceback" not in result.stderr
+    assert list_maps(tool, "OPT_GRAN_NONE") == [
+        {
+            "name": "opt_gran_none_0",
+            "start_time": "2001-01-03 00:00:00",
+            "end_time": "2001-01-04 00:00:00",
+            "min": 198,
+            "max": 198,
+        }
+    ]
+
+
+def test_without_granularity_unrelated_datasets_give_nothing(algebra, tool):
+    """The same expression without -g relates only equal maps: none here"""
+    tool.t_rast_algebra(expression="OPT_NOGRAN = A + B", basename="opt_nogran")
+    assert list_maps(tool, "OPT_NOGRAN") == []
+
+
+def test_granularity_algebra_rejects_topological_operators(algebra, tool):
+    """Spatio-temporal operators with a relation do not exist in -g mode"""
+    with pytest.raises(ToolError, match="topological operators are not supported"):
+        tool.t_rast_algebra(
+            expression="OPT_GRAN3 = A {+,during} B", basename="opt_gran3", flags="g"
+        )
+
+
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        ("A * 2", [2, 4, 6, 8]),
+        ("if(A > 2, A, 0)", [0, 0, 3, 4]),
+    ],
+)
+def test_granularity_flag_does_not_change_regular_results(
+    algebra, tool, expression, expected
+):
+    """For datasets that are already regular, -g gives the usual maps"""
+    tool.t_rast_algebra(
+        expression=f"OPT_GRAN2 = {expression}",
+        basename="opt_gran2",
+        flags="g",
+        overwrite=True,
+    )
+    assert values(tool, "OPT_GRAN2") == expected
+
+
+@pytest.mark.parametrize(
+    ("relations", "flags", "expected"),
+    [
+        # spa<i> and spb<i> have the same extent
+        ("equal|equivalent", "s", [2, 4, 6, 8]),
+        # spa2 [20,50] contains spb3 [25,40]
+        ("equal|contain", "s", [5]),
+        # spa3 overlaps spb1 and spa4 overlaps spb2; the sums of spa1 and
+        # spa2 with several maps are empty
+        ("equal|overlap", "s", [4, 6]),
+        ("equal|overlap", "sn", [None, None, 4, 6]),
+    ],
+)
+def test_spatial_topology(algebra, tool, large_region, relations, flags, expected):
+    """-s combines only maps with the given spatial relation. The maps have
+    equal time stamps, so that the spatial relation decides"""
+    tool.t_rast_algebra(
+        expression=f"OPT_SPATIAL = SA {{+,{relations},l}} SB",
+        basename="opt_spatial",
+        flags=flags,
+        overwrite=True,
+    )
+    assert sorted(values(tool, "OPT_SPATIAL"), key=lambda value: value or 0) == expected
+
+
+@pytest.mark.parametrize(
+    ("spatial", "expected"),
+    [
+        (False, [4, 4, 4, 4]),
+        # spa1: spb1, spb2, spb3; spa2: all four; spa3: spb1, spb2, spb3
+        # (spb4 touches it only at the corner 40,40); spa4: spb2, spb4
+        # (spb3 touches it only at the corner). SpatialExtent.meet_2d() is False
+        # and disjoint_2d() True for both corner pairs, so the topology builder
+        # is right (checked 2026-10-11). Equal time stamps: sorted by value.
+        (True, [2, 3, 3, 4]),
+    ],
+)
+def test_spatial_option_counts_only_spatially_related_maps(
+    algebra, large_region, spatial, expected
+):
+    """With spatial=True the temporal relation alone is not enough: the maps
+    must also be related in space, even if no spatial relation is given.
+
+    The expected counts are 2, 3, 3, 4 and not 3, 3, 4, 4: maps that touch
+    only at a corner are not related, see the comment at the parameters."""
+    assert algebra.values("SA # SB", spatial=spatial) == expected
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "OPT_ERR == A + A",
+        "OPT_ERR = A +",
+        "OPT_ERR = A {+,during} ",
+        "OPT_ERR = (A + A",
+        "OPT_ERR = A {+,during,x} A",
+        "OPT_ERR = A $ A",
+        "A + A",
+    ],
+)
+def test_syntax_error_fails(algebra, tool, expression):
+    """A malformed expression ends the tool with an error and creates nothing"""
+    with pytest.raises(ToolError):
+        tool.t_rast_algebra(expression=expression, basename="opt_err")
+    with pytest.raises(ToolError):
+        tool.t_info(input="OPT_ERR")
+
+
+@pytest.mark.parametrize("nprocs", [1, 2])
+def test_a_failed_module_is_reported_without_traceback(algebra, tool, nprocs):
+    """A module that fails at run time ends the tool with a message that
+    names the module, not with a traceback. The temporal database still
+    lists the second map after its raster map was removed, so planning
+    cannot see the failure; r.mapcalc finds the map missing."""
+    dataset, result = f"OPT_GONE{nprocs}", f"OPT_GONE_RESULT{nprocs}"
+    maps = [MapSpec(f"opt_gone{nprocs}_{i}", i, day(i), day(i + 1)) for i in range(3)]
+    create_stds(tool, "strds", dataset, maps)
+    tool.g_remove(type="raster", name=maps[1].name, flags="f")
+    with pytest.raises(ToolError) as error:
+        tool.t_rast_algebra(
+            expression=f"{result} = {dataset} * 2",
+            basename=result.lower(),
+            nprocs=nprocs,
+        )
+    # r.mapcalc ends with G_fatal_error(), whose exit code is 1, and so does
+    # the tool with gs.fatal().
+    assert error.value.returncode == 1
+    assert "Module <r.mapcalc> failed with return code 1" in message(error.value)
+    assert "Traceback" not in error.value.stderr
+    assert result not in tool.t_list(type="strds", columns="name").stdout.split()
+
+
+def test_unknown_dataset_is_named_in_the_error(algebra, tool):
+    """The error message names the missing dataset"""
+    with pytest.raises(ToolError, match="NoSTRDS"):
+        tool.t_rast_algebra(expression="OPT_ERR = NoSTRDS + NoSTRDS", basename="x")
+
+
+def test_strds_function_is_not_available_in_raster_algebra(algebra, tool):
+    """strds() is reserved for the other temporal algebras"""
+    with pytest.raises(ToolError):
+        tool.t_rast_algebra(expression="OPT_ERR = strds(A) + strds(B)", basename="x")
+
+
+def test_missing_basename_fails(algebra, tool):
+    """basename is required"""
+    with pytest.raises(ToolError, match="basename"):
+        tool.t_rast_algebra(expression="OPT_ERR = A + A")
+
+
+def test_missing_expression_fails(algebra, tool):
+    """expression is required"""
+    with pytest.raises(ToolError, match="expression"):
+        tool.t_rast_algebra(basename="x")
+
+
+@pytest.mark.parametrize("expression", ["OPT_ERR = 1 + 1", "OPT_ERR = A +"])
+def test_syntax_error_is_reported_without_traceback(algebra, tool, expression):
+    """Users get a GRASS error message, not a Python traceback"""
+    with pytest.raises(ToolError) as error:
+        tool.t_rast_algebra(expression=expression, basename="x")
+    assert "Traceback" not in error.value.stderr
+
+
+def test_overwrite_error_is_reported_without_traceback(algebra, tool):
+    """The request to use --overwrite is a plain message"""
+    tool.t_rast_algebra(expression="OPT_OW3 = A * 2", basename="opt_ow3")
+    with pytest.raises(ToolError) as error:
+        tool.t_rast_algebra(expression="OPT_OW3 = A * 2", basename="opt_ow3")
+    assert "Traceback" not in error.value.stderr
+
+
+def test_empty_result_gives_a_warning(algebra, tool):
+    """A result without any map is reported (warning or error)"""
+    try:
+        result = tool.t_rast_algebra(expression="OPT_EMPTY = A + B", basename="x")
+    except ToolError:
+        return
+    assert "WARNING" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "expression",
+    ["A + A", "A {+,equal,l} A", "(A + A) * 2", "if(A > 1, A)", "A[1]", "A : B"],
+)
+def test_parse_without_run_creates_nothing(algebra, expression):
+    """With run=False the expression is only checked, no dataset is created"""
+    algebra.remove("R")
+    parser = tgis.TemporalRasterAlgebraParser(run=False, debug=False)
+    parser.parse(f"R = {expression}", "r", True)
+    assert not algebra.exists("R")
+
+
+@pytest.mark.parametrize(
+    ("basename", "first", "second", "count", "start"),
+    [
+        ("typeswitch_rel", "A + N", "RT * 2", 3, 0),
+        ("typeswitch_abs", "RT * 2", "A + N", 4, datetime.datetime(2001, 1, 1)),
+    ],
+)
+def test_overwrite_result_maps_of_other_temporal_type(
+    algebra, basename, first, second, count, start
+):
+    """Result maps registered with the other temporal type are replaced
+
+    Each case has its own basename. With a shared one the second case would
+    find the maps of the first and could pass on them.
+    """
+    algebra.run(first, basename=basename)
+    rows = algebra.run(second, basename=basename)
+    assert len(rows) == count
+    starts = []
+    for number in range(count):
+        stored = tgis.RasterDataset(f"{basename}_{number}@PERMANENT")
+        stored.select()
+        assert stored.is_time_absolute() is isinstance(start, datetime.datetime)
+        starts.append(stored.temporal_extent.get_start_time())
+    assert min(starts) == start
+
+
+def run_with_debug(algebra, expression, run):
+    """Parse "R = <expression>" with debug=True and the given run"""
+    algebra.remove("R")
+    parser = tgis.TemporalRasterAlgebraParser(run=run, debug=True, dry_run=True)
+    parser.parse(f"R = {expression}", "r", True)
+
+
+def test_debug_output_of_a_run(algebra, capsys):
+    """debug=True prints each planned module call as a command line"""
+    run_with_debug(algebra, "(A + A) * 2", run=True)
+    output = capsys.readouterr().out
+    assert (
+        'r.mapcalc expression="r_0"=(("a1@PERMANENT" + "a1@PERMANENT") * 2)' in output
+    )
+
+
+def test_debug_output_without_run(algebra, capsys):
+    """With run=False only the syntax is checked, so nothing is planned and
+    debug=True prints nothing"""
+    run_with_debug(algebra, "(A + A) * 2", run=False)
+    assert not capsys.readouterr().out
+
+
+def test_the_algebra_refuses_a_dot_output(algebra, tool):
+    """A dot in the name of the result is refused and no dataset is made
+
+    The algebra does not reach the name check of new datasets: the parser
+    stops at the dot first. The refusal is what a dot gave before the name check
+    was added, so this test keeps it from turning into a silent label.
+    """
+    with pytest.raises(ToolError):
+        tool.t_rast_algebra(expression="OPT_DOT.X = A * 2", basename="opt_dot")
+
+    names = tool.t_list(type="strds", columns="name").stdout.split()
+    assert not [name for name in names if name.startswith("OPT_DOT")]
