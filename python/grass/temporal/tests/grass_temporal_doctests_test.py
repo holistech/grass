@@ -60,16 +60,6 @@ MODULES = [
     "topology",
 ]
 
-# The modules of the old temporal algebra have doctests that no test ran
-# before; they stay out until the algebra core replaces them.
-OLD_ALGEBRA = {
-    "temporal_algebra",
-    "temporal_operator",
-    "temporal_raster_algebra",
-    "temporal_raster_base_algebra",
-    "temporal_vector_algebra",
-}
-
 # doctest name: (failed examples, reason). Empty: every doctest of the library
 # passes; whoever breaks one fixes the docstring or the code.
 KNOWN_FAILURES = {}
@@ -133,4 +123,4 @@ def test_every_module_with_doctests_is_run():
         and "testing" not in path.parts
         and "tests" not in path.parts
     }
-    assert found - OLD_ALGEBRA == set(MODULES)
+    assert found == set(MODULES)
