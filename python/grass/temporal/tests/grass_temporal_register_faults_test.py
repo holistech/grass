@@ -27,6 +27,11 @@ def test_known_map_with_a_start_of_zero_warns(tmp_path, capfd, start):
         tgis.register_maps_in_space_time_dataset(
             "raster", "two", maps="m", start=start, unit="days"
         )
+        # The messenger server writes the warning from its own process, which
+        # may not have done so yet; stop() waits for it to end. Without this,
+        # 5 of 30 runs failed under CPU load (measured 2026-11-15, 24 busy
+        # loops, pytest -n 8).
+        tgis.stop_subprocesses()
 
         assert "already registered" in capfd.readouterr().err
 
