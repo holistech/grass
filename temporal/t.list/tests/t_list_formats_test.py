@@ -167,6 +167,8 @@ def test_t_list_mapset_explicit(space_time_dataset):
     assert space_time_dataset.raster_dataset2 in names
 
 
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
 def test_t_list_empty_database(empty_session):
     """Verify that t.list handles a missing TGIS database without creating one."""
     tools = Tools(session=empty_session.session)
@@ -215,14 +217,18 @@ def test_t_list_multiple_types_json(space_time_dataset):
 def test_t_list_multiple_types_line_error(space_time_dataset):
     """Check that line format with multiple dataset types raises an error."""
     tools = Tools(session=space_time_dataset.session)
-    with pytest.raises(ToolError, match="Only one type is allowed for line format"):
+    with pytest.raises(
+        ToolError, match=r"Only\s+one\s+type\s+is\s+allowed\s+for\s+line\s+format"
+    ):
         tools.t_list(type="strds,stvds", columns="id", format="line")
 
 
 def test_t_list_line_columns_all_error(space_time_dataset):
     """Check that line format with columns=all raises an error."""
     tools = Tools(session=space_time_dataset.session)
-    with pytest.raises(ToolError, match="Only one column is allowed for line format"):
+    with pytest.raises(
+        ToolError, match=r"Only\s+one\s+column\s+is\s+allowed\s+for\s+line\s+format"
+    ):
         tools.t_list(type="strds", format="line", columns="all")
 
 
@@ -231,7 +237,7 @@ def test_t_list_cross_category_types_error(space_time_dataset):
     tools = Tools(session=space_time_dataset.session)
     with pytest.raises(
         ToolError,
-        match="Combinations across space time datasets and time stamped maps",
+        match=r"Combinations\s+across\s+space\s+time\s+datasets\s+and\s+time\s+stamped\s+maps",
     ):
         tools.t_list(type="strds,raster", columns="id")
 
@@ -250,3 +256,101 @@ def test_t_list_multiple_types_csv(space_time_dataset):
     # Header should NOT include dataset-specific columns
     assert "raster_register" not in header
     assert "vector_register" not in header
+
+
+@pytest.mark.parametrize(("output_format", "flags"), [("csv", ""), ("plain", "c")])
+def test_the_column_names_are_printed_once_over_all_mapsets(
+    space_time_dataset, output_format, flags
+):
+    """The rows of both mapsets follow one line of column names"""
+    tools = Tools(session=space_time_dataset.session)
+
+    result = tools.t_list(
+        type="strds", mapset="*", columns="name", format=output_format, flags=flags
+    )
+
+    lines = result.stdout.splitlines()
+    assert lines[0] == "name"
+    assert sorted(lines[1:]) == sorted(
+        [space_time_dataset.raster_dataset1, space_time_dataset.raster_dataset2]
+    )
+
+
+# The first lines of a listing with matches, measured on 29.10.2026 with
+# t.list -c format=plain mapset=. in the datasets of space_time_dataset.
+HEADERS = [
+    pytest.param("strds", None, "id", id="strds-default"),
+    pytest.param("strds", "name", "name", id="strds-name"),
+    pytest.param("strds,stvds", None, "id|type", id="two-types-default"),
+    pytest.param("strds,stvds", "name", "name|type", id="two-types-name"),
+]
+NO_MATCH = "name LIKE 'zzz%'"
+
+
+def stdout_of(result):
+    """Return the standard output, which Tools reports as None when empty"""
+    return "" if result is None else result.stdout
+
+
+@pytest.mark.parametrize(("stds_type", "columns", "header"), HEADERS)
+def test_plain_with_c_without_matches_prints_the_header(
+    space_time_dataset, stds_type, columns, header
+):
+    """The header of a listing without matches is that of one with matches"""
+    tools = Tools(session=space_time_dataset.session)
+    options = {"type": stds_type, "mapset": ".", "flags": "c"}
+    if columns:
+        options["columns"] = columns
+
+    listed = tools.t_list(**options)
+    empty = tools.t_list(**options, where=NO_MATCH)
+
+    assert listed.stdout.splitlines()[0] == header
+    assert stdout_of(empty) == f"{header}\n"
+
+
+def test_plain_with_c_without_matches_prints_the_header_with_a_separator(
+    space_time_dataset,
+):
+    tools = Tools(session=space_time_dataset.session)
+
+    result = tools.t_list(
+        type="strds,stvds",
+        mapset=".",
+        columns="name,id",
+        separator=";",
+        flags="c",
+        where=NO_MATCH,
+    )
+
+    assert stdout_of(result) == "name;id;type\n"
+
+
+def test_plain_with_c_without_matches_writes_the_header_to_the_file(
+    space_time_dataset, tmp_path
+):
+    tools = Tools(session=space_time_dataset.session)
+    path = tmp_path / "plain_empty.txt"
+
+    result = tools.t_list(
+        type="strds,stvds",
+        mapset=".",
+        columns="name",
+        flags="c",
+        where=NO_MATCH,
+        output=str(path),
+    )
+
+    assert path.read_text() == "name|type\n"
+    assert stdout_of(result) == ""
+
+
+@pytest.mark.parametrize("stds_type", ["strds", "strds,stvds"])
+def test_plain_without_c_and_without_matches_prints_nothing(
+    space_time_dataset, stds_type
+):
+    tools = Tools(session=space_time_dataset.session)
+
+    result = tools.t_list(type=stds_type, mapset=".", columns="name", where=NO_MATCH)
+
+    assert stdout_of(result) == ""
