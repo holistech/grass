@@ -1,6 +1,7 @@
 """
-The abstract_dataset module provides the AbstractDataset class
-that is the base class for all map layer and Space Time Datasets.
+Base class of all datasets: map layers and space time datasets.
+
+The abstract_dataset module provides the AbstractDataset class.
 
 SPDX-FileCopyrightText: 2011-2013 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -12,35 +13,38 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 
-from .core import get_current_mapset, get_tgis_message_interface, init_dbif
-from .spatial_topology_dataset_connector import SpatialTopologyDatasetConnector
-from .temporal_topology_dataset_connector import TemporalTopologyDatasetConnector
+from .db import connection
+from .state import get_current_mapset, get_tgis_message_interface
+from .topology import (
+    TopologyLinks,
+    print_spatial_topology_info,
+    print_spatial_topology_shell_info,
+    print_temporal_topology_info,
+    print_temporal_topology_shell_info,
+)
 
-###############################################################################
 
+class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
+    """Base class of all datasets.
 
-class AbstractDataset(
-    SpatialTopologyDatasetConnector, TemporalTopologyDatasetConnector
-):
-    """This is the base class for all datasets
-    (raster, vector, raster3d, strds, stvds, str3ds)"""
-
-    __metaclass__ = ABCMeta
+    The datasets are raster, vector, raster3d, strds, stvds and str3ds.
+    """
 
     def __init__(self) -> None:
-        SpatialTopologyDatasetConnector.__init__(self)
-        TemporalTopologyDatasetConnector.__init__(self)
-        self.msgr = get_tgis_message_interface()
+        super().__init__()
 
-    def reset_topology(self) -> None:
-        """Reset any information about temporal topology"""
+    @property
+    def msgr(self):
+        """The messenger of the current session
 
-        self.reset_spatial_topology()
-        self.reset_temporal_topology()
+        Fetched at each use: a session change replaces the messenger server,
+        and an object that kept the one of its construction would talk to
+        the stopped server.
+        """
+        return get_tgis_message_interface()
 
     def get_number_of_relations(self):
-        """Return a dictionary in which the keys are the relation names and the
-        value are the number of relations.
+        """Return the number of related maps per spatial and temporal relation name.
 
         The following relations are available:
 
@@ -74,17 +78,13 @@ class AbstractDataset(
         :return: The dictionary with relations as keys and number as values or
                  None in case the topology wasn't built
         """
-        if self.is_temporal_topology_build() and not self.is_spatial_topology_build():
-            return self.get_number_of_temporal_relations()
-        if self.is_spatial_topology_build() and not self.is_temporal_topology_build():
-            self.get_number_of_spatial_relations()
-        else:
-            return (
-                self.get_number_of_temporal_relations()
-                + self.get_number_of_spatial_relations()
-            )
-
-        return None
+        temporal = self.get_number_of_temporal_relations()
+        spatial = self.get_number_of_spatial_relations()
+        if temporal is None:
+            return spatial
+        if spatial is None:
+            return temporal
+        return {**temporal, **spatial}
 
     def set_topology_build_true(self) -> None:
         """Use this method when the spatio-temporal topology was build"""
@@ -108,16 +108,18 @@ class AbstractDataset(
         }
 
     def print_topology_info(self) -> None:
+        """Print the temporal and the spatial topology in human readable style"""
         if self.is_temporal_topology_build():
-            self.print_temporal_topology_info()
+            print_temporal_topology_info(self)
         if self.is_spatial_topology_build():
-            self.print_spatial_topology_info()
+            print_spatial_topology_info(self)
 
     def print_topology_shell_info(self) -> None:
+        """Print the temporal and the spatial topology in shell style"""
         if self.is_temporal_topology_build():
-            self.print_temporal_topology_shell_info()
+            print_temporal_topology_shell_info(self)
         if self.is_spatial_topology_build():
-            self.print_spatial_topology_shell_info()
+            print_spatial_topology_shell_info(self)
 
     @abstractmethod
     def reset(self, ident):
@@ -131,11 +133,11 @@ class AbstractDataset(
 
         .. code-block:: python
 
-            self.base = VectorBase(ident=ident)
-            self.absolute_time = VectorAbsoluteTime(ident=ident)
-            self.relative_time = VectorRelativeTime(ident=ident)
-            self.spatial_extent = VectorSpatialExtent(ident=ident)
-            self.metadata = VectorMetadata(ident=ident)
+            self.base = BaseRow(KINDS["vector"], ident=ident)
+            self.absolute_time = AbsoluteTimeRow(KINDS["vector"], ident=ident)
+            self.relative_time = RelativeTimeRow(KINDS["vector"], ident=ident)
+            self.spatial_extent = SpatialExtentRow(KINDS["vector"], ident=ident)
+            self.metadata = MetadataRow(KINDS["vector"], ident=ident)
 
         :param ident: The identifier of the dataset that  "name@mapset" or
                       in case of vector maps "name:layer@mapset"
@@ -175,8 +177,9 @@ class AbstractDataset(
 
     @abstractmethod
     def spatial_intersection(self, dataset):
-        """Return the spatial intersection as spatial_extent
-        object or None in case no intersection was found.
+        """Return the spatial intersection as a spatial_extent object.
+
+        The result is None if the extents have no intersection.
 
         :param dataset: The abstract dataset to intersect with
         :return: The intersection spatial extent
@@ -184,8 +187,9 @@ class AbstractDataset(
 
     @abstractmethod
     def spatial_union(self, dataset):
-        """Return the spatial union as spatial_extent
-        object or None in case the extents does not overlap or meet.
+        """Return the spatial union as a spatial_extent object.
+
+        The result is None if the extents do not overlap or meet.
 
         :param dataset: The abstract dataset to create a union with
         :return: The union spatial extent
@@ -263,8 +267,7 @@ class AbstractDataset(
         return (start, end)
 
     def get_absolute_time(self):
-        """Returns the start time, the end
-        time of the map as tuple
+        """Returns the start time, the end time of the map as tuple
 
         The start time is of type datetime.
 
@@ -280,8 +283,7 @@ class AbstractDataset(
         return (start, end)
 
     def get_relative_time(self):
-        """Returns the start time, the end
-        time and the temporal unit of the dataset as tuple
+        """Return the start time, end time and temporal unit of the dataset as a tuple
 
         The start time is of type integer.
 
@@ -305,8 +307,9 @@ class AbstractDataset(
         return self.relative_time.get_unit()
 
     def check_relative_time_unit(self, unit) -> bool:
-        """Check if unit is of type  year(s), month(s), day(s), hour(s),
-        minute(s) or second(s)
+        """Check that the unit is a valid time unit.
+
+        Valid units are year(s), month(s), day(s), hour(s), minute(s) and second(s).
 
         :param unit: The unit string
         :return: True if success, False otherwise
@@ -352,8 +355,7 @@ class AbstractDataset(
         return self.spatial_extent
 
     def select(self, dbif=None, mapset=None) -> None:
-        """Select temporal dataset entry from database and fill
-        the internal structure
+        """Select temporal dataset entry from database and fill the internal structure
 
         The content of every dataset is stored in the temporal database.
         This method must be used to fill this object with the content
@@ -363,21 +365,17 @@ class AbstractDataset(
         :param mapset: The dbif connection to be used
         """
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            # default mapset is mapset of this instance
+            if mapset is None:
+                mapset = self.get_mapset()
 
-        # default mapset is mapset of this instance
-        if mapset is None:
-            mapset = self.get_mapset()
-
-        self.base.select(dbif, mapset=mapset)
-        self.temporal_extent.select(dbif, mapset=mapset)
-        self.spatial_extent.select(dbif, mapset=mapset)
-        self.metadata.select(dbif, mapset=mapset)
-        if self.is_stds() is False:
-            self.stds_register.select(dbif, mapset=mapset)
-
-        if connection_state_changed:
-            dbif.close()
+            self.base.select(dbif, mapset=mapset)
+            self.temporal_extent.select(dbif, mapset=mapset)
+            self.spatial_extent.select(dbif, mapset=mapset)
+            self.metadata.select(dbif, mapset=mapset)
+            if self.is_stds() is False:
+                self.stds_register.select(dbif, mapset=mapset)
 
     def is_in_db(self, dbif=None, mapset=None):
         """Check if the dataset is registered in the database
@@ -407,36 +405,32 @@ class AbstractDataset(
         # mapset in the temporal database of the current mapset
         # the temporal database must be in the current mapset
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            self.msgr.debug(2, "AbstractDataset.insert...")
 
-        self.msgr.debug(2, "AbstractDataset.insert...")
+            # only modify database in current mapset
+            mapset = get_current_mapset()
 
-        # only modify database in current mapset
-        mapset = get_current_mapset()
+            # Build the INSERT SQL statement
+            statement = self.base.get_insert_statement_mogrified(dbif)
+            statement += self.temporal_extent.get_insert_statement_mogrified(dbif)
+            statement += self.spatial_extent.get_insert_statement_mogrified(dbif)
+            statement += self.metadata.get_insert_statement_mogrified(dbif)
+            if self.is_stds() is False:
+                statement += self.stds_register.get_insert_statement_mogrified(dbif)
 
-        # Build the INSERT SQL statement
-        statement = self.base.get_insert_statement_mogrified(dbif)
-        statement += self.temporal_extent.get_insert_statement_mogrified(dbif)
-        statement += self.spatial_extent.get_insert_statement_mogrified(dbif)
-        statement += self.metadata.get_insert_statement_mogrified(dbif)
-        if self.is_stds() is False:
-            statement += self.stds_register.get_insert_statement_mogrified(dbif)
+            self.msgr.debug(2, f"insert with {statement}")
+            if execute:
+                # database to be modified must be in the current mapset
+                dbif.execute_transaction(statement, mapset=mapset)
+                return ""
 
-        self.msgr.debug(2, "insert with %s" % statement)
-        if execute:
-            # database to be modified must be in the current mapset
-            dbif.execute_transaction(statement, mapset=mapset)
-            if connection_state_changed:
-                dbif.close()
-            return ""
-
-        if connection_state_changed:
-            dbif.close()
-        return statement
+            return statement
 
     def update(self, dbif=None, execute: bool = True, ident=None):
-        """Update the dataset entry in the database from the internal structure
-        excluding None variables
+        """Update the dataset entry in the database from the internal structure.
+
+        Variables that are None are excluded from the update.
 
         :param dbif: The database interface to be used
         :param execute: If True the SQL statements will be executed.
@@ -447,64 +441,61 @@ class AbstractDataset(
                  empty string otherwise
         """
 
-        dbif, connection_state_changed = init_dbif(dbif)
-
-        # Build the UPDATE SQL statement
-        statement = self.base.get_update_statement_mogrified(dbif, ident)
-        statement += self.temporal_extent.get_update_statement_mogrified(dbif, ident)
-        statement += self.spatial_extent.get_update_statement_mogrified(dbif, ident)
-        statement += self.metadata.get_update_statement_mogrified(dbif, ident)
-
-        if self.is_stds() is False:
-            statement += self.stds_register.get_update_statement_mogrified(dbif, ident)
-
-        if execute:
-            dbif.execute_transaction(statement)
-            if connection_state_changed:
-                dbif.close()
-            return ""
-
-        if connection_state_changed:
-            dbif.close()
-        return statement
-
-    def update_all(self, dbif=None, execute: bool = True, ident=None):
-        """Update the dataset entry in the database from the internal structure
-        and include None variables.
-
-        :param dbif: The database interface to be used
-        :param execute: If True the SQL statements will be executed.
-                        If False the prepared SQL statements are returned
-                        and must be executed by the caller.
-        :param ident: The identifier to be updated, useful for renaming
-        :return: The SQL update statement in case execute=False, or an
-                 empty string otherwise
-        """
-
-        dbif, connection_state_changed = init_dbif(dbif)
-
-        # Build the UPDATE SQL statement
-        statement = self.base.get_update_all_statement_mogrified(dbif, ident)
-        statement += self.temporal_extent.get_update_all_statement_mogrified(
-            dbif, ident
-        )
-        statement += self.spatial_extent.get_update_all_statement_mogrified(dbif, ident)
-        statement += self.metadata.get_update_all_statement_mogrified(dbif, ident)
-
-        if self.is_stds() is False:
-            statement += self.stds_register.get_update_all_statement_mogrified(
+        with connection(dbif) as dbif:
+            # Build the UPDATE SQL statement
+            statement = self.base.get_update_statement_mogrified(dbif, ident)
+            statement += self.temporal_extent.get_update_statement_mogrified(
                 dbif, ident
             )
+            statement += self.spatial_extent.get_update_statement_mogrified(dbif, ident)
+            statement += self.metadata.get_update_statement_mogrified(dbif, ident)
 
-        if execute:
-            dbif.execute_transaction(statement)
-            if connection_state_changed:
-                dbif.close()
-            return ""
+            if self.is_stds() is False:
+                statement += self.stds_register.get_update_statement_mogrified(
+                    dbif, ident
+                )
 
-        if connection_state_changed:
-            dbif.close()
-        return statement
+            if execute:
+                dbif.execute_transaction(statement)
+                return ""
+
+            return statement
+
+    def update_all(self, dbif=None, execute: bool = True, ident=None):
+        """Update the dataset entry in the database from the internal structure.
+
+        Variables that are None are included in the update.
+
+        :param dbif: The database interface to be used
+        :param execute: If True the SQL statements will be executed.
+                        If False the prepared SQL statements are returned
+                        and must be executed by the caller.
+        :param ident: The identifier to be updated, useful for renaming
+        :return: The SQL update statement in case execute=False, or an
+                 empty string otherwise
+        """
+
+        with connection(dbif) as dbif:
+            # Build the UPDATE SQL statement
+            statement = self.base.get_update_all_statement_mogrified(dbif, ident)
+            statement += self.temporal_extent.get_update_all_statement_mogrified(
+                dbif, ident
+            )
+            statement += self.spatial_extent.get_update_all_statement_mogrified(
+                dbif, ident
+            )
+            statement += self.metadata.get_update_all_statement_mogrified(dbif, ident)
+
+            if self.is_stds() is False:
+                statement += self.stds_register.get_update_all_statement_mogrified(
+                    dbif, ident
+                )
+
+            if execute:
+                dbif.execute_transaction(statement)
+                return ""
+
+            return statement
 
     def is_time_absolute(self) -> bool | None:
         """Return True in case the temporal type is absolute
@@ -542,8 +533,9 @@ class AbstractDataset(
         return self.temporal_extent.temporal_relation(dataset.temporal_extent)
 
     def temporal_intersection(self, dataset):
-        """Intersect self with the provided dataset and
-        return a new temporal extent with the new start and end time
+        """Intersect self with the provided dataset.
+
+        Return a new temporal extent with the new start and end time.
 
         :param dataset: The abstract dataset to temporal intersect with
         :return: The new temporal extent with start and end time,
@@ -552,8 +544,9 @@ class AbstractDataset(
         return self.temporal_extent.intersect(dataset.temporal_extent)
 
     def temporal_union(self, dataset):
-        """Creates a union with the provided dataset and
-        return a new temporal extent with the new start and end time.
+        """Create a union of self with the provided dataset.
+
+        Return a new temporal extent with the new start and end time.
 
         :param dataset: The abstract dataset to create temporal union with
         :return: The new temporal extent with start and end time,
@@ -562,8 +555,9 @@ class AbstractDataset(
         return self.temporal_extent.union(dataset.temporal_extent)
 
     def temporal_disjoint_union(self, dataset):
-        """Creates a union with the provided dataset and
-        return a new temporal extent with the new start and end time.
+        """Create a disjoint union of self with the provided dataset.
+
+        Return a new temporal extent with the new start and end time.
 
         :param dataset: The abstract dataset to create temporal union with
         :return: The new temporal extent with start and end time
@@ -571,12 +565,8 @@ class AbstractDataset(
         return self.temporal_extent.disjoint_union(dataset.temporal_extent)
 
 
-###############################################################################
-
-
 class AbstractDatasetComparisonKeyStartTime:
-    """This comparison key can be used to sort lists of abstract datasets
-    by start time
+    """This comparison key can be used to sort lists of abstract datasets by start time
 
     :Example:
       .. code-block:: python
@@ -622,12 +612,8 @@ class AbstractDatasetComparisonKeyStartTime:
         return startA != startB
 
 
-###############################################################################
-
-
 class AbstractDatasetComparisonKeyEndTime:
-    """This comparison key can be used to sort lists of abstract datasets
-    by end time
+    """This comparison key can be used to sort lists of abstract datasets by end time
 
     :Example:
       .. code-block:: python
@@ -671,11 +657,3 @@ class AbstractDatasetComparisonKeyEndTime:
         startA, endA = self.obj.get_temporal_extent_as_tuple()
         startB, endB = other.obj.get_temporal_extent_as_tuple()
         return endA != endB
-
-
-###############################################################################
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()
