@@ -41,6 +41,7 @@ pytestmark = pytest.mark.real_io
 MODULES = [
     "abstract_map_dataset",
     "abstract_space_time_dataset",
+    "algebra.content",
     "base",
     "c_libraries_interface",
     "datetime_math",
