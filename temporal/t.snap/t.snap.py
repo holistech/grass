@@ -46,7 +46,21 @@ def main():
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
 
-    stds = tgis.open_old_stds(name, type, dbif)
+    stds = tgis.open_old_stds(name, type, dbif, for_writing=True)
+    # snap() leaves a dataset without maps as it is, but the user is told that
+    # nothing happened, as in t.shift. A dataset of another mapset is refused
+    # by snap(), so the refusal does not depend on its content.
+    if stds.get_mapset() == tgis.get_current_mapset() and not (
+        stds.get_registered_maps_as_objects(dbif=dbif)
+    ):
+        dbif.close()
+        gs.message(
+            _("Space time dataset <{}> has no maps, nothing to snap").format(
+                stds.get_id()
+            )
+        )
+        return
+
     stds.snap(dbif=dbif)
 
     stds.update_command_string(dbif=dbif)

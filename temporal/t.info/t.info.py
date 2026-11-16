@@ -91,20 +91,33 @@ def main():
                 print("%s='%s'" % (row[0], row[1]))
         return
 
-    if not system and not name:
-        gs.fatal(_("Please specify %s=") % ("name"))
+    # With -d alone the report ends above; -d with -h asks for the history of
+    # a dataset and needs the input like every other case.
+    if not name:
+        gs.fatal(_("Please specify %s=") % ("input"))
 
-    id_ = name if name.find("@") >= 0 else name + "@" + gs.gisenv()["MAPSET"]
+    if type_ in {"strds", "stvds", "str3ds"}:
+        # A dataset is searched in the current mapset and the search path, as
+        # in the other tools; a map is looked for in the current mapset.
+        id_ = tgis.open_stds.find_stds_id(name, type_, dbif)
+    else:
+        id_ = name if name.find("@") >= 0 else name + "@" + gs.gisenv()["MAPSET"]
     dataset = tgis.dataset_factory(type_, id_)
 
+    # The database of the mapset of the dataset is read by default. A map of
+    # another mapset can be registered in the current mapset only, so the
+    # current mapset is the second place to look.
+    mapset = None
     if not dataset.is_in_db(dbif):
-        gs.fatal(
-            _("Dataset <{n}> of type <{t}> not found in temporal database").format(
-                n=id_, t=type_
+        mapset = tgis.get_current_mapset()
+        if not dataset.is_in_db(dbif, mapset=mapset):
+            gs.fatal(
+                _("Dataset <{n}> of type <{t}> not found in temporal database").format(
+                    n=id_, t=type_
+                )
             )
-        )
 
-    dataset.select(dbif)
+    dataset.select(dbif, mapset=mapset)
 
     if history and type_ in {"strds", "stvds", "str3ds"}:
         dataset.print_history()
