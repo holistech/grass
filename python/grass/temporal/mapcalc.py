@@ -1,5 +1,15 @@
-"""
-Raster and 3d raster mapcalculation functions
+"""Raster and 3D raster map calculation on the temporal algebra core
+
+t.rast.mapcalc samples its inputs by the first input and runs one r.mapcalc
+per sampler granule. The inputs and the temporal relations between their maps
+come from grass.temporal.algebra (source()), timevar() gives td() and the
+calendar functions, and the start_time()/end_time() offsets are computed from
+the slot extents. The expression itself stays a text: a dataset name is
+replaced by the map name where it stands as a whole name, not as a part of a
+longer name and not as the name of a function, and the function tokens by
+their values. The sampling follows the rules of sample_by_dataset() of the
+releases up to GRASS 8.5, through grass.temporal.related_maps, which explains
+the one deliberate difference.
 
 SPDX-FileCopyrightText: 2012-2013 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -7,26 +17,356 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
-import copy
-import sys
-from datetime import datetime
+import re
+from functools import partial
 
 import grass.script as gs
-from grass.exceptions import CalledModuleError
-from grass.script.utils import _get_multiprocessing_context
+from grass.exceptions import FatalError
+from grass.script.utils import _get_multiprocessing_context, get_num_suffix
 
-from .core import (
-    SQLDatabaseInterfaceConnection,
-    get_current_mapset,
-    get_tgis_message_interface,
-)
+from .algebra.content import Const
+from .algebra.series import Series, Slot
+from .algebra.sources import source
+from .algebra.time_functions import timevar
+from .batches import run_in_batches, run_mapcalc
+from .db import SQLDatabaseInterfaceConnection, SQLStatementError, connection
+from .state import get_current_mapset, get_tgis_message_interface
+from .tool_steps import mapcalc_name
 from .datetime_math import time_delta_to_relative_time
+from .factory import dataset_factory
+from .kinds import KINDS, stds_kind_of
 from .open_stds import check_new_stds, open_new_stds, open_old_stds
+from .related_maps import method_relations, related_per_granule, sampler_refusal
 
-_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME = (
-    "The temporal operators <%s> support only absolute time."
+# The calendar tokens need absolute time, as in the tool of GRASS 8.5.
+_CALENDAR_TOKENS = tuple(
+    f"{side}_{field}"
+    for side in ("start", "end")
+    for field in (
+        "doy",
+        "dow",
+        "year",
+        "month",
+        "week",
+        "day",
+        "hour",
+        "minute",
+        "second",
+    )
 )
-############################################################################
+_TIME_TOKENS = ("td", "start_time", "end_time", *_CALENDAR_TOKENS)
+
+# A name in an r.mapcalc expression is made of word characters, and a raster
+# map name may hold dots and an "@" before the mapset. A dataset name is
+# replaced only where no word character or dot comes before it and no word
+# character or dot after it, so "day" stays in "start_day()" and "soil" stays
+# in "soil_deep". The mapset of the dataset that was found may follow, as in
+# "ds@first", and is replaced together with the name, because mapcalc_name()
+# writes a map of another mapset with its mapset already.
+# An "@" before the name is refused only when a name character precedes it,
+# as in the mapset of "map@ds": a leading "@" is the label operator of
+# r.mapcalc, so "@ds" reads the category labels of the map of ds.
+_NAME_BEFORE = r"(?<![\w.])(?<![\w.]@)"
+_NAME_AFTER = r"(?![\w.])"
+# The tokens of the temporal functions, with blanks allowed around the
+# parentheses as r.mapcalc allows them
+_TIME_TOKEN_PATTERNS = {
+    name: re.compile(_NAME_BEFORE + re.escape(name) + r"\s*\(\s*\)")
+    for name in _TIME_TOKENS
+}
+
+
+def _time_token_value(name, first_extent, extent, is_absolute, msgr):
+    """The value of a temporal-function token for one granule, as a string
+
+    start_time()/end_time() are the offset of the granule from the start of the
+    first granule, in days for absolute time and in the unit for relative time;
+    timevar() has no such offset, so it is computed here, with
+    time_delta_to_relative_time() so that the float form (90.0, not 90) is
+    kept. td() and the calendar functions come from timevar(). A calendar token
+    on relative time is fatal, as in the tool of GRASS 8.5. A value that does
+    not exist, such as the end of an instant, becomes "null()".
+    """
+    if name in ("start_time", "end_time"):
+        stamp = extent.start if name == "start_time" else extent.end
+        if stamp is None:
+            return "null()"
+        if is_absolute:
+            return str(time_delta_to_relative_time(stamp - first_extent.start))
+        return str(stamp - first_extent.start)
+    if name in _CALENDAR_TOKENS and not is_absolute:
+        side = "start_*" if name.startswith("start") else "end_*"
+        msgr.fatal(
+            _("The temporal operators <{}> support only absolute time.").format(side)
+        )
+    if name == "td" and extent.end is None:
+        # timevar() refuses td() of an instant, as the algebra does; this tool
+        # has always written null() for it.
+        return "null()"
+    value = timevar(Series((Slot(extent, Const(None)),)), name).slots[0].content.value
+    return "null()" if value is None else str(value)
+
+
+def _substitute_time_tokens(expr, first_extent, extent, is_absolute, msgr):
+    """Replace every temporal-function token in expr by its value"""
+    for name, pattern in _TIME_TOKEN_PATTERNS.items():
+        if pattern.search(expr):
+            value = _time_token_value(name, first_extent, extent, is_absolute, msgr)
+            expr = pattern.sub(lambda _match, value=value: value, expr)
+    return expr
+
+
+def _dataset_name_pattern(names):
+    """A pattern that matches each name where it stands as a dataset name
+
+    names holds pairs of a dataset name without the mapset and the mapset of
+    the dataset; a match is the name, optionally followed by "@" and that
+    mapset. A name followed by "(" (blanks allowed) is the name of a function,
+    such as a dataset "td" in "td()", and stays. Longer names come first in
+    the alternation, so that "x.label" wins over "x" at the same place.
+    """
+    alternatives = "|".join(
+        f"{re.escape(name)}(?:@{re.escape(mapset)})?"
+        for name, mapset in sorted(
+            set(names), key=lambda pair: len(pair[0]), reverse=True
+        )
+    )
+    return re.compile(rf"{_NAME_BEFORE}(?:{alternatives}){_NAME_AFTER}(?!\s*\()")
+
+
+def _qualified(name, dataset):
+    """The name with the mapset of the dataset that open_old_stds() found for it
+
+    With the mapset source() looks in that mapset only, where it tries a name
+    with a dot whole before it reads the text after the dot as a semantic
+    label, as open_old_stds() does, so both read the same dataset.
+    """
+    return name if "@" in name else f"{name}@{dataset.get_mapset()}"
+
+
+# Each type has a message of its own rather than one with the name of the
+# type inserted, so that translators can inflect the whole sentence. The
+# raster text is the one of t.rast.series.
+def _where_selects_nothing(stds_type):
+    return {
+        "strds": _(
+            "The where condition selects no map of space time raster dataset <{}>"
+        ),
+        "str3ds": _(
+            "The where condition selects no map of space time 3D raster dataset <{}>"
+        ),
+    }[stds_type]
+
+
+def _warn_nothing_selected(dataset, where, stds_type, empty_text, msgr):
+    """Warn that an input gives no map to compute with
+
+    A warning, not an error, so that a script that computes possibly empty
+    selections keeps running, as with t.rast.series. With a where condition
+    the warning names it, because the dataset itself may have maps;
+    otherwise it is empty_text. The dataset is named with its semantic label,
+    which also selects the maps.
+    """
+    if where:
+        msgr.warning(
+            _where_selects_nothing(stds_type).format(
+                f"{dataset.get_name()}@{dataset.get_mapset()}"
+            )
+        )
+    else:
+        msgr.warning(empty_text)
+
+
+def _read_series(name, where, stds_type, msgr):
+    """source() of the name; a dataset that source() does not find ends the run
+
+    source() raises FatalError for a missing dataset, which a tool would show
+    as a traceback; the message goes to msgr.fatal() instead.
+    """
+    try:
+        return source(name, where=where, stds_type=stds_type)
+    except FatalError as error:
+        msgr.fatal(str(error))
+
+
+def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
+    """The input name's first related map per sampler granule
+
+    Returns a list with one entry per granule: the map used as mapcalc_name()
+    writes it, or None where none relates.
+
+    The map used is the one sample_by_dataset() of the releases up to GRASS
+    8.5 took, the first of the first relation in names that has one;
+    related_maps explains why gather() does not do that.
+
+    Warns, as the tool of GRASS 8.5 did, once per granule that relates more
+    than one map. An input without registered maps gives a column of None.
+    Ends with a message if the input has times with a time zone offset and
+    the sampler times without one, or the other way round.
+    """
+    inputs = _read_series(name, where, stds_type, msgr)
+    try:
+        per_granule = related_per_granule(first_series, names, inputs, spatial=spatial)
+    except ValueError as error:
+        # Datasets with and without a time zone offset cannot be related; the
+        # refusal comes before the first map is computed.
+        msgr.fatal(str(error))
+    column = []
+    for found in per_granule:
+        if len(found) > 1:
+            msgr.warning(
+                _(
+                    "Found more than a single map in a sample granule. Only "
+                    "the first map is used for computation. Use "
+                    "t.rast.aggregate.ds to create synchronous raster "
+                    "datasets."
+                )
+            )
+        column.append(mapcalc_name(found[0].content.ident) if found else None)
+
+    return column
+
+
+def _open_inputs(names, stds_type):
+    """Open the input datasets and tell whether they are to be sampled
+
+    No sampling when the inputs reduce to a single dataset, deduplicated by
+    name without the semantic label, as in the tool of GRASS 8.5. The
+    expression refers to a dataset by the name it has without the mapset,
+    which can differ from what was typed in inputs, so that name is what is
+    substituted.
+    Two inputs with the same such name, as in "x,x" or "x,x@other", are
+    refused, because the expression cannot tell them apart.
+
+    :return: the datasets and their display names by the name in inputs, and
+        whether more than one dataset is left
+    """
+    msgr = get_tgis_message_interface()
+    uniq = []
+    display_names = {}
+    datasets = {}
+    for name in names:
+        # Opened as strds / str3ds because only that type reads "name.label".
+        dataset = open_old_stds(name, stds_type)
+        if dataset.get_name() in display_names.values():
+            msgr.fatal(
+                _(
+                    "The name <{}> stands more than once in inputs, so the "
+                    "expression cannot tell the inputs apart"
+                ).format(dataset.get_name())
+            )
+        datasets[name] = dataset
+        display_names[name] = dataset.get_name()
+        if dataset.get_name(semantic_label=False) not in uniq:
+            uniq.append(dataset.get_name(semantic_label=False))
+    return datasets, display_names, len(uniq) > 1
+
+
+def _semantic_labels(first_dataset, first_series, where, map_kind):
+    """Return the semantic label of the sampler granule of each slot
+
+    The sampler granule carries the time stamp and, for raster, the semantic
+    label of the result map, as in the tool of GRASS 8.5. The label is read from
+    the registered maps of the sampler, where t.register stored it: select()
+    on a single map does not return it (measured 2026-10-14 with a map
+    labelled by r.support before t.register), load() reads the GRASS map
+    instead of the temporal database. 3D rasters have no semantic label
+    (the 3D raster metadata has no semantic label), so it is only read for
+    raster; the shared function serves both types.
+    """
+    labels = {}
+    if map_kind == "raster":
+        for registered in (
+            first_dataset.get_registered_maps_as_objects(
+                where=where, order="start_time"
+            )
+            or []
+        ):
+            labels[registered.get_id()] = registered.metadata.get_semantic_label()
+    return [labels.get(slot.content.ident) for slot in first_series.slots]
+
+
+def _plan_statements(
+    expression,
+    base,
+    id_list,
+    columns,
+    display_names,
+    mapsets,
+    first_series,
+    labels,
+    map_kind,
+    dbif,
+    msgr,
+):
+    """Make the result maps and the r.mapcalc statements of the granules
+
+    A granule for which an input has no map is skipped. A result map that is
+    already registered is replaced only with overwrite. mapsets holds the
+    mapset of the dataset of each name in inputs, which the expression may
+    write after the dataset name.
+
+    :return: the new maps, with their time and label, and their statements
+    """
+    mapset = get_current_mapset()
+    names_in_expression = _dataset_name_pattern(
+        (display_names[dataset_name], mapsets[dataset_name]) for dataset_name in id_list
+    )
+    is_absolute = first_series.temporal_type == "absolute"
+    first_extent = first_series.slots[0].extent
+    sample_extents = [slot.extent for slot in first_series.slots]
+    num = len(sample_extents)
+    result_maps = []
+    statements = []
+    count = 0
+    for i in range(num):
+        count += 1
+        map_name = f"{base}_{get_num_suffix(count, num)}"
+        maps_in_slot = {
+            display_names[name]: columns[name][i] if i < len(columns[name]) else None
+            for name in id_list
+        }
+        if None in maps_in_slot.values():
+            continue
+        # One pass over the expression, so that a map name that was put in
+        # is not read as a dataset name again. A display name holds no "@",
+        # so the match without its mapset is the key.
+        expr = names_in_expression.sub(
+            lambda match, maps=maps_in_slot: maps[match.group().partition("@")[0]],
+            expression,
+        )
+        expr = _substitute_time_tokens(
+            expr, first_extent, sample_extents[i], is_absolute, msgr
+        )
+        statement = f"{map_name}={expr}"
+        map_id = f"{map_name}@{mapset}"
+        new_map = dataset_factory(map_kind, map_id)
+        # A result map that is already registered is replaced only with
+        # overwrite, and its entry must go first or insert() fails.
+        if new_map.is_in_db(dbif):
+            if gs.overwrite():
+                new_map.delete(dbif)
+                new_map = dataset_factory(map_kind, map_id)
+            else:
+                # The batches run after this loop, so nothing is computed
+                # and the result dataset is not made yet.
+                msgr.fatal(
+                    _(
+                        "Map <{}> is already in temporal database, "
+                        "use overwrite flag to overwrite"
+                    ).format(map_id)
+                )
+        extent = sample_extents[i]
+        if is_absolute:
+            new_map.set_absolute_time(extent.start, extent.end)
+        else:
+            new_map.set_relative_time(extent.start, extent.end, extent.unit)
+        if labels[i] is not None:
+            new_map.set_semantic_label(labels[i])
+        result_maps.append(new_map)
+        msgr.verbose(_('Apply mapcalc expression: "{}"').format(statement))
+        statements.append(statement)
+    return result_maps, statements
 
 
 def dataset_mapcalculator(
@@ -41,306 +381,202 @@ def dataset_mapcalculator(
     spatial: bool = False,
     where=None,
 ):
-    """Perform map-calculations of maps from different space time
-    raster/raster3d datasets, using a specific sampling method
-    to select temporal related maps.
+    """Perform map calculations on temporally sampled maps.
 
-    A mapcalc expression must be provided to process the temporal
-    selected maps. Temporal operators are available in addition to
-    the r.mapcalc operators:
+    The maps belong to space time raster or 3D raster datasets.
 
-    Supported operators for relative and absolute time are:
+    The first input is the sampler; every other input is sampled by it with the
+    given method, and one r.mapcalc expression is run per sampler granule. The
+    sampling and the temporal functions are computed on the algebra core; see
+    the module docstring.
 
-    - td() - the time delta of the current interval in days
-             and fractions of days or the unit in case of relative time
-    - start_time() - The start time of the interval from the begin of
-                     the time series in days and fractions of days or the
-                     unit in case of relative time
-    - end_time() - The end time of the current interval from the begin of
-                   the time series in days and fractions of days or the
-                   unit in case of relative time
+    Temporal operators in the expression, besides the r.mapcalc operators:
+    td(), start_time(), end_time() (the latter two as the offset from the first
+    granule, in days or units), and for absolute time the calendar functions
+    start_doy()/dow()/year()/month()/week()/day()/hour()/minute()/second() and
+    their end_* counterparts.
 
-    Supported operators for absolute time:
-
-    - start_doy() - Day of year (doy) from the start time [1 - 366]
-    - start_dow() - Day of week (dow) from the start time [1 - 7],
-                    the start of the week is monday == 1
-    - start_year() - The year of the start time [0 - 9999]
-    - start_month() - The month of the start time [1 - 12]
-    - start_week() - Week of year of the start time [1 - 54]
-    - start_day() - Day of month from the start time [1 - 31]
-    - start_hour() - The hour of the start time [0 - 23]
-    - start_minute() - The minute of the start time [0 - 59]
-    - start_second() - The second of the start time [0 - 59]
-
-    - end_doy() - Day of year (doy) from the end time [1 - 366]
-    - end_dow() - Day of week (dow) from the end time [1 - 7],
-                  the start of the week is monday == 1
-    - end_year() - The year of the end time [0 - 9999]
-    - end_month() - The month of the end time [1 - 12]
-    - end_week() - Week of year of the end time [1 - 54]
-    - end_day() - Day of month from the end time [1 - 31]
-    - end_hour() - The hour of the end time [0 - 23]
-    - end_minute() - The minute of the end time [0 - 59]
-    - end_second() - The minute of the end time [0 - 59]
-
-    :param inputs: The names of the input space time raster/raster3d datasets
-    :param output: The name of the extracted new space time raster(3d) dataset
-    :param type: The type of the dataset: "raster" or "raster3d"
-    :param expression: The r(3).mapcalc expression
-    :param base: The base name of the new created maps in case a
-           mapcalc expression is provided
-    :param method: The method to be used for temporal sampling
-    :param nprocs: The number of parallel processes to be used for
-           mapcalc processing
-    :param register_null: Set this number True to register empty maps
-    :param spatial: Check spatial overlap
-    :param where: Temporal WHERE condition to filter input STRDS
+    :param inputs: comma-separated names of the input datasets
+    :param output: the new output dataset
+    :param type: "raster" or "raster3d"
+    :param expression: the r(3).mapcalc expression
+    :param base: the basename of the result maps
+    :param method: list of sampling method names
+    :param nprocs: number of parallel r.mapcalc processes
+    :param register_null: keep (register) null result maps
+    :param spatial: also require the 2D extents of related maps to touch or
+        overlap
+    :param where: SQL WHERE on the registered maps of every input
     """
-
-    # We need a database interface for fast computation
-    dbif = SQLDatabaseInterfaceConnection()
-    dbif.connect()
-
-    mapset = get_current_mapset()
     msgr = get_tgis_message_interface()
+    names = inputs.split(",")
+    stds_type = stds_kind_of(type).name
+    map_kind = KINDS[stds_kind_of(type).map_kind].name
 
-    input_name_list = inputs.split(",")
+    datasets, display_names, do_sampling = _open_inputs(names, stds_type)
+    first_dataset = datasets[names[0]]
 
-    first_input = open_old_stds(input_name_list[0], type, dbif)
+    # Fail before any computation if the output cannot be created.
+    check_new_stds(output, type, None, gs.overwrite())
 
-    # skip sampling when only one dataset specified (with different
-    # band filters)
-    input_name_list_uniq = []
-    for input_name in input_name_list:
-        ds = open_old_stds(input_name, type, dbif)
-        ds_name = ds.get_name(semantic_label=False)
-        if ds_name not in input_name_list_uniq:
-            input_name_list_uniq.append(ds_name)
-    do_sampling = len(input_name_list_uniq) > 1
+    # The extra inputs in reverse sorted order, as in the tool of GRASS 8.5: the
+    # order decides which refusal or warning comes first.
+    others = sorted(names[1:])
+    others.reverse()
 
-    # All additional inputs in reverse sorted order to avoid
-    # wrong name substitution
-    input_name_list = input_name_list[1:]
-    input_name_list.sort()
-    input_name_list.reverse()
-    input_list = []
-
-    for input in input_name_list:
-        sp = open_old_stds(input, type, dbif)
-        input_list.append(copy.copy(sp))
-
-    new_sp = check_new_stds(output, type, dbif, gs.overwrite())
-
-    # Sample all inputs by the first input and create a sample matrix
     if spatial:
         msgr.message(_("Starting spatio-temporal sampling..."))
     else:
         msgr.message(_("Starting temporal sampling..."))
-    map_matrix = []
-    id_list = []
-    sample_map_list = []
 
-    if len(input_list) > 0 and do_sampling:
-        # First entry is the first dataset id
-        id_list.append(first_input.get_name())
-
-        has_samples = False
-        for dataset in input_list:
-            list = dataset.sample_by_dataset(
-                stds=first_input, method=method, spatial=spatial, dbif=dbif, where=where
+    try:
+        first_series = _read_series(
+            _qualified(names[0], first_dataset), where, stds_type, msgr
+        )
+    except SQLStatementError as error:
+        msgr.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+    if len(first_series.slots) == 0:
+        if not do_sampling:
+            _warn_nothing_selected(
+                first_dataset,
+                where,
+                stds_type,
+                _("No maps registered in input dataset <{}>").format(
+                    display_names[names[0]]
+                ),
+                msgr,
             )
+            return 0
+        # A sampler without registered maps has no map time (get_map_time()
+        # gives None), which the interval check would refuse as time instants.
+        # A sampler that where emptied still has its maps and keeps the check.
+        refusal = sampler_refusal(
+            first_dataset,
+            datasets[others[0]],
+            check_map_time=first_dataset.get_map_time() is not None,
+        )
+        if refusal is not None:
+            msgr.fatal(refusal)
+        _warn_nothing_selected(
+            first_dataset,
+            where,
+            stds_type,
+            _("No samples found for map calculation"),
+            msgr,
+        )
+        return 0
 
-            # In case samples are not found
-            if not list or len(list) == 0:
-                dbif.close()
-                msgr.message(_("No samples found for map calculation"))
-                return 0
+    id_list = [names[0], *others]
+    columns = {
+        names[0]: [mapcalc_name(slot.content.ident) for slot in first_series.slots]
+    }
 
-            # The fist entries are the samples
-            map_name_list = []
-            if not has_samples:
-                for entry in list:
-                    granule = entry["granule"]
-                    # Do not consider gaps
-                    if granule.get_id() is None:
-                        continue
-                    sample_map_list.append(granule)
-                    map_name_list.append(granule.get_name())
-                # Attach the map names
-                map_matrix.append(copy.copy(map_name_list))
-                has_samples = True
+    # The sampler granule carries the time stamp and, for raster, the semantic
+    # label of the result map, as in the tool of GRASS 8.5. The label is read from
+    # the registered maps of the sampler, where t.register stored it: select()
+    # on a single map does not return it (measured 2026-10-14 with a map
+    # labelled by r.support before t.register), load() reads the GRASS map
+    # instead of the temporal database. 3D rasters have no semantic label
+    # (the 3D raster metadata has no semantic label), so it is only read for
+    # raster; the shared function serves both types.
+    labels = _semantic_labels(first_dataset, first_series, where, map_kind)
 
-            map_name_list = []
-            for entry in list:
-                maplist = entry["samples"]
-                granule = entry["granule"]
-
-                # Do not consider gaps in the sampler
-                if granule.get_id() is None:
-                    continue
-
-                if len(maplist) > 1:
-                    msgr.warning(
-                        _(
-                            "Found more than a single map in a sample "
-                            "granule. Only the first map is used for "
-                            "computation. Use t.rast.aggregate.ds to "
-                            "create synchronous raster datasets."
-                        )
-                    )
-
-                # Store all maps! This includes non existent maps,
-                # identified by id == None
-                map_name_list.append(maplist[0].get_name())
-
-            # Attach the map names
-            map_matrix.append(copy.copy(map_name_list))
-
-            id_list.append(dataset.get_name())
-
+    if do_sampling:
+        method_names = method_relations(method)
+        for name in others:
+            # A refusal ends the run with an error, so that a script sees
+            # that nothing was computed.
+            refusal = sampler_refusal(first_dataset, datasets[name])
+            if refusal is not None:
+                msgr.fatal(refusal)
+            columns[name] = _sample_column(
+                first_series,
+                _qualified(name, datasets[name]),
+                method_names,
+                spatial,
+                where,
+                stds_type,
+                msgr,
+            )
     else:
-        input_list.insert(0, first_input)
-        for dataset in input_list:
-            list = dataset.get_registered_maps_as_objects(where=where, dbif=dbif)
-
-            if list is None or len(list) < 1:
-                dbif.close()
-                msgr.message(
+        # Inputs that name one dataset with different semantic labels
+        # (x.B4,x.B8) are not sampled: the n-th map of each is used with the
+        # n-th map of the first, as in the tool of GRASS 8.5.
+        for name in others:
+            other_series = _read_series(
+                _qualified(name, datasets[name]), where, stds_type, msgr
+            )
+            if len(other_series.slots) == 0:
+                _warn_nothing_selected(
+                    datasets[name],
+                    where,
+                    stds_type,
                     _("No maps registered in input dataset <{}>").format(
-                        dataset.get_name()
-                    )
+                        display_names[name]
+                    ),
+                    msgr,
                 )
                 return 0
+            columns[name] = [
+                mapcalc_name(slot.content.ident) for slot in other_series.slots
+            ]
 
-            map_name_list = []
-            for map in list:
-                map_name_list.append(map.get_name())
-                sample_map_list.append(map)
+    msgr.message(_("Starting mapcalc computation..."))
 
-            # Attach the map names
-            map_matrix.append(copy.copy(map_name_list))
-
-            id_list.append(dataset.get_name())
-
-    # Needed for map registration
-    map_list = []
-
-    if len(map_matrix) > 0:
-        msgr.message(_("Starting mapcalc computation..."))
-
-        count = 0
-        # Get the number of samples
-        num = len(map_matrix[0])
-
-        # Parallel processing
+    dbif = SQLDatabaseInterfaceConnection()
+    dbif.connect()
+    try:
         ctx = _get_multiprocessing_context()
-        proc_list = []
-        proc_count = 0
+        num = len(first_series.slots)
+        # r3.mapcalc is left to decide its number of threads, as it always was
+        runner = partial(
+            run_mapcalc,
+            KINDS[map_kind].mapcalc_module,
+            nprocs=1 if map_kind == "raster" else None,
+        )
+        result_maps, statements = _plan_statements(
+            expression,
+            base,
+            id_list,
+            columns,
+            display_names,
+            {name: datasets[name].get_mapset() for name in id_list},
+            first_series,
+            labels,
+            map_kind,
+            dbif,
+            msgr,
+        )
+        if not run_in_batches(
+            ctx,
+            runner,
+            statements,
+            nprocs,
+            progress=lambda done, total: msgr.percent(done, total, 10),
+        ):
+            msgr.fatal(_("Error while mapcalc computation"))
+    finally:
+        dbif.close()
 
-        # For all samples
-        for i in range(num):
-            count += 1
-            msgr.percent(count, num, 10)
+    _register_results(output, type, names[0], result_maps, register_null, num)
+    return 0
 
-            # Create the r.mapcalc statement for the current time step
-            map_name = "{base}_{suffix}".format(
-                base=base, suffix=gs.get_num_suffix(count, num)
-            )
-            # Remove spaces and new lines
-            expr = expression.replace(" ", "")
 
-            # Check that all maps are in the sample
-            valid_maps = True
-            # Replace all dataset names with their map names of the
-            # current time step
-            for j in range(len(map_matrix)):
-                if map_matrix[j][i] is None:
-                    valid_maps = False
-                    break
-                # Substitute the dataset name with the map name
-                expr = expr.replace(id_list[j], map_matrix[j][i])
+def _register_results(output, type, first_name, result_maps, register_null, num):
+    """Register the computed maps, removing null maps unless register_null
 
-            # Proceed with the next sample
-            if not valid_maps:
-                continue
-
-            # Create the new map id and check if the map is already
-            # in the database
-            map_id = map_name + "@" + mapset
-
-            new_map = first_input.get_new_map_instance(map_id)
-
-            # Check if new map is in the temporal database
-            if new_map.is_in_db(dbif):
-                if gs.overwrite():
-                    # Remove the existing temporal database entry
-                    new_map.delete(dbif)
-                    new_map = first_input.get_new_map_instance(map_id)
-                else:
-                    msgr.error(
-                        _(
-                            "Map <%s> is already in temporal database, "
-                            "use overwrite flag to overwrite"
-                        )
-                    )
-                    continue
-
-            # Set the time stamp
-            if sample_map_list[i].is_time_absolute():
-                start, end = sample_map_list[i].get_absolute_time()
-                new_map.set_absolute_time(start, end)
-            else:
-                start, end, unit = sample_map_list[i].get_relative_time()
-                new_map.set_relative_time(start, end, unit)
-
-            # Set the semantic label
-            semantic_label = sample_map_list[i].metadata.get_semantic_label()
-            if semantic_label is not None:
-                new_map.set_semantic_label(semantic_label)
-
-            # Parse the temporal expressions
-            expr = _operator_parser(expr, sample_map_list[0], sample_map_list[i])
-            # Add the output map name
-            expr = "%s=%s" % (map_name, expr)
-
-            map_list.append(new_map)
-
-            msgr.verbose(_('Apply mapcalc expression: "%s"') % expr)
-
-            # Start the parallel r.mapcalc computation
-            if type == "raster":
-                proc_list.append(ctx.Process(target=_run_mapcalc2d, args=(expr,)))
-            else:
-                proc_list.append(ctx.Process(target=_run_mapcalc3d, args=(expr,)))
-            proc_list[proc_count].start()
-            proc_count += 1
-
-            if proc_count not in {nprocs, num} and count != num:
-                continue
-            proc_count = 0
-            exitcodes = 0
-            for proc in proc_list:
-                proc.join()
-                exitcodes += proc.exitcode
-
-            if exitcodes != 0:
-                dbif.close()
-                msgr.fatal(_("Error while mapcalc computation"))
-
-            # Empty process list
-            proc_list = []
-
-        # Register the new maps in the output space time dataset
-        msgr.message(_("Starting map registration in temporal database..."))
-
-        (
-            temporal_type,
-            semantic_type,
-            title,
-            description,
-        ) = first_input.get_initial_values()
-
+    num is the number of sampler granules, the denominator of the progress
+    that is reported while the maps are registered.
+    """
+    msgr = get_tgis_message_interface()
+    msgr.message(_("Starting map registration in temporal database..."))
+    with connection() as dbif:
+        # The name may carry a semantic label, which only strds reads.
+        stds_type = stds_kind_of(type).name
+        first_stds = open_old_stds(first_name, stds_type, dbif)
+        temporal_type, semantic_type, title, description = (
+            first_stds.get_initial_values()
+        )
         new_sp = open_new_stds(
             output,
             type,
@@ -351,391 +587,31 @@ def dataset_mapcalculator(
             dbif,
             gs.overwrite(),
         )
-        count = 0
-
-        # collect empty maps to remove them
         empty_maps = []
-
-        # Insert maps in the temporal database and in the new space time
-        # dataset
-        for new_map in map_list:
-            count += 1
+        for count, new_map in enumerate(result_maps, 1):
             msgr.percent(count, num, 10)
-
-            # Read the map data
             new_map.load()
-
-            # In case of a null map continue, do not register null maps
             if (
                 new_map.metadata.get_min() is None
                 and new_map.metadata.get_max() is None
-            ):
-                if not register_null:
-                    empty_maps.append(new_map)
-                    continue
-
-            # Insert map in temporal database
+            ) and not register_null:
+                empty_maps.append(new_map)
+                continue
             new_map.insert(dbif)
-
             new_sp.register_map(new_map, dbif)
-
-        # Update the spatio-temporal extent and the metadata table entries
         new_sp.update_from_registered_maps(dbif)
-
-        # Remove empty maps
-        if len(empty_maps) > 0:
-            n_empty, n_tot = len(empty_maps), len(map_list)
+        if empty_maps:
+            n_empty, n_tot = len(empty_maps), len(result_maps)
             msgr.warning(
                 _("Removing {}/{} ({}%) maps because empty...").format(
                     n_empty, n_tot, n_empty * 100.0 / n_tot
                 )
             )
-            names = ""
-            count = 0
-            for map in empty_maps:
-                if count == 0:
-                    names += "%s" % (map.get_name())
-                else:
-                    names += ",%s" % (map.get_name())
-                count += 1
-            if type == "raster":
-                gs.run_command(
-                    "g.remove", flags="f", type="raster", name=names, quiet=True
-                )
-            elif type == "raster3d":
-                gs.run_command(
-                    "g.remove", flags="f", type="raster_3d", name=names, quiet=True
-                )
-
-    dbif.close()
-
-
-###############################################################################
-
-
-def _run_mapcalc2d(expr) -> None:
-    """Helper function to run r.mapcalc in parallel"""
-    try:
-        gs.run_command(
-            "r.mapcalc", expression=expr, nprocs=1, overwrite=gs.overwrite(), quiet=True
-        )
-    except CalledModuleError:
-        sys.exit(1)
-
-
-###############################################################################
-
-
-def _run_mapcalc3d(expr) -> None:
-    """Helper function to run r3.mapcalc in parallel"""
-    try:
-        gs.run_command(
-            "r3.mapcalc", expression=expr, overwrite=gs.overwrite(), quiet=True
-        )
-    except CalledModuleError:
-        sys.exit(1)
-
-
-###############################################################################
-
-
-def _operator_parser(expr, first, current):
-    """This method parses the expression string and substitutes
-    the temporal operators with numerical values.
-
-    Supported operators for relative and absolute time are:
-
-    - td() - the time delta of the current interval in days
-      and fractions of days or the unit in case of relative time
-    - start_time() - The start time of the interval from the begin of the
-                     time series in days and fractions of days or the unit
-                     in case of relative time
-    - end_time() - The end time of the current interval from the begin of
-                   the time series in days and fractions of days or the
-                   unit in case of relative time
-
-    Supported operators for absolute time:
-
-    - start_doy() - Day of year (doy) from the start time [1 - 366]
-    - start_dow() - Day of week (dow) from the start time [1 - 7],
-                    the start of the week is monday == 1
-    - start_year() - The year of the start time [0 - 9999]
-    - start_month() - The month of the start time [1 - 12]
-    - start_week() - Week of year of the start time [1 - 54]
-    - start_day() - Day of month from the start time [1 - 31]
-    - start_hour() - The hour of the start time [0 - 23]
-    - start_minute() - The minute of the start time [0 - 59]
-    - start_second() - The second of the start time [0 - 59]
-    - end_doy() - Day of year (doy) from the end time [1 - 366]
-    - end_dow() - Day of week (dow) from the end time [1 - 7],
-                  the start of the week is monday == 1
-    - end_year() - The year of the end time [0 - 9999]
-    - end_month() - The month of the end time [1 - 12]
-    - end_week() - Week of year of the end time [1 - 54]
-    - end_day() - Day of month from the end time [1 - 31]
-    - end_hour() - The hour of the end time [0 - 23]
-    - end_minute() - The minute of the end time [0 - 59]
-    - end_second() - The minute of the end time [0 - 59]
-
-    The modified expression is returned.
-
-    """
-    is_time_absolute = first.is_time_absolute()
-
-    expr = _parse_td_operator(expr, is_time_absolute, first, current)
-    expr = _parse_start_time_operator(expr, is_time_absolute, first, current)
-    expr = _parse_end_time_operator(expr, is_time_absolute, first, current)
-    expr = _parse_start_operators(expr, is_time_absolute, current)
-    return _parse_end_operators(expr, is_time_absolute, current)
-
-
-###############################################################################
-
-
-def _parse_start_operators(expr, is_time_absolute: bool, current):
-    """
-    Supported operators for absolute time:
-    - start_doy() - Day of year (doy) from the start time [1 - 366]
-    - start_dow() - Day of week (dow) from the start time [1 - 7],
-                    the start of the week is monday == 1
-    - start_year() - The year of the start time [0 - 9999]
-    - start_month() - The month of the start time [1 - 12]
-    - start_week() - Week of year of the start time [1 - 54]
-    - start_day() - Day of month from the start time [1 - 31]
-    - start_hour() - The hour of the start time [0 - 23]
-    - start_minute() - The minute of the start time [0 - 59]
-    - start_second() - The second of the start time [0 - 59]
-    """
-
-    start, end = current.get_absolute_time()
-    msgr = get_tgis_message_interface()
-
-    if expr.find("start_year()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("start_*"))
-        expr = expr.replace("start_year()", str(start.year))
-
-    if expr.find("start_month()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("start_*"))
-        expr = expr.replace("start_month()", str(start.month))
-
-    if expr.find("start_week()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("start_*"))
-        expr = expr.replace("start_week()", str(start.isocalendar()[1]))
-
-    if expr.find("start_day()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("start_*"))
-        expr = expr.replace("start_day()", str(start.day))
-
-    if expr.find("start_hour()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("start_*"))
-        expr = expr.replace("start_hour()", str(start.hour))
-
-    if expr.find("start_minute()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("start_*"))
-        expr = expr.replace("start_minute()", str(start.minute))
-
-    if expr.find("start_second()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("start_*"))
-        expr = expr.replace("start_second()", str(start.second))
-
-    if expr.find("start_dow()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("start_*"))
-        expr = expr.replace("start_dow()", str(start.isoweekday()))
-
-    if expr.find("start_doy()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("start_*"))
-        year = datetime(start.year, 1, 1)
-        delta = start - year
-
-        expr = expr.replace("start_doy()", str(delta.days + 1))
-
-    return expr
-
-
-###############################################################################
-
-
-def _parse_end_operators(expr, is_time_absolute: bool, current):
-    """
-    Supported operators for absolute time:
-    - end_doy() - Day of year (doy) from the end time [1 - 366]
-    - end_dow() - Day of week (dow) from the end time [1 - 7],
-                  the start of the week is monday == 1
-    - end_year() - The year of the end time [0 - 9999]
-    - end_month() - The month of the end time [1 - 12]
-    - end_week() - Week of year of the end time [1 - 54]
-    - end_day() - Day of month from the end time [1 - 31]
-    - end_hour() - The hour of the end time [0 - 23]
-    - end_minute() - The minute of the end time [0 - 59]
-    - end_second() - The minute of the end time [0 - 59]
-
-    In case of time instances the end* expression will be replaced by
-    null()
-    """
-
-    start, end = current.get_absolute_time()
-    msgr = get_tgis_message_interface()
-
-    if expr.find("end_year()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("end_*"))
-        if not end:
-            expr = expr.replace("end_year()", "null()")
-        else:
-            expr = expr.replace("end_year()", str(end.year))
-
-    if expr.find("end_month()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("end_*"))
-        if not end:
-            expr = expr.replace("end_month()", "null()")
-        else:
-            expr = expr.replace("end_month()", str(end.month))
-
-    if expr.find("end_week()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("end_*"))
-        if not end:
-            expr = expr.replace("end_week()", "null()")
-        else:
-            expr = expr.replace("end_week()", str(end.isocalendar()[1]))
-
-    if expr.find("end_day()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("end_*"))
-        if not end:
-            expr = expr.replace("end_day()", "null()")
-        else:
-            expr = expr.replace("end_day()", str(end.day))
-
-    if expr.find("end_hour()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("end_*"))
-        if not end:
-            expr = expr.replace("end_hour()", "null()")
-        else:
-            expr = expr.replace("end_hour()", str(end.hour))
-
-    if expr.find("end_minute()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("end_*"))
-        if not end:
-            expr = expr.replace("end_minute()", "null()")
-        else:
-            expr = expr.replace("end_minute()", str(end.minute))
-
-    if expr.find("end_second()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("end_*"))
-        if not end:
-            expr = expr.replace("end_second()", "null()")
-        else:
-            expr = expr.replace("end_second()", str(end.second))
-
-    if expr.find("end_dow()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("end_*"))
-        if not end:
-            expr = expr.replace("end_dow()", "null()")
-        else:
-            expr = expr.replace("end_dow()", str(end.isoweekday()))
-
-    if expr.find("end_doy()") >= 0:
-        if not is_time_absolute:
-            msgr.fatal(_(_TEMPORAL_OPERATOR_SUPPORTS_ONLY_ABSOLUTE_TIME) % ("end_*"))
-        if not end:
-            expr = expr.replace("end_doy()", "null()")
-        else:
-            year = datetime(end.year, 1, 1)
-            delta = end - year
-
-            expr = expr.replace("end_doy()", str(delta.days + 1))
-
-    return expr
-
-
-###############################################################################
-
-
-def _parse_td_operator(expr, is_time_absolute: bool, first, current):
-    """Parse the time delta operator td(). This operator
-    represents the size of the current sample time interval
-    in days and fraction of days for absolute time,
-    and in relative units in case of relative time.
-
-    In case of time instances, the td() operator will be of type null().
-    """
-    if expr.find("td()") >= 0:
-        td = "null()"
-        if is_time_absolute:
-            start, end = current.get_absolute_time()
-            if end is not None:
-                td = time_delta_to_relative_time(end - start)
-        else:
-            start, end, unit = current.get_relative_time()
-            if end is not None:
-                td = end - start
-        expr = expr.replace("td()", str(td))
-
-    return expr
-
-
-###############################################################################
-
-
-def _parse_start_time_operator(expr, is_time_absolute: bool, first, current):
-    """Parse the start_time() operator. This operator represent
-    the time difference between the start time of the sample space time
-    raster dataset and the start time of the current sample interval or
-    instance. The time is measured  in days and fraction of days for absolute
-    time, and in relative units in case of relative time."""
-    if expr.find("start_time()") >= 0:
-        if is_time_absolute:
-            start1, end = first.get_absolute_time()
-            start, end = current.get_absolute_time()
-            x = time_delta_to_relative_time(start - start1)
-        else:
-            start1, end, unit = first.get_relative_time()
-            start, end, unit = current.get_relative_time()
-            x = start - start1
-        expr = expr.replace("start_time()", str(x))
-
-    return expr
-
-
-###############################################################################
-
-
-def _parse_end_time_operator(expr, is_time_absolute: bool, first, current):
-    """Parse the end_time() operator. This operator represent
-    the time difference between the start time of the sample space time
-    raster dataset and the end time of the current sample interval. The time
-    is measured  in days and fraction of days for absolute time,
-    and in relative units in case of relative time.
-
-    The end_time() will be represented by null() in case of a time instance.
-    """
-    if expr.find("end_time()") >= 0:
-        x = "null()"
-        if is_time_absolute:
-            start1, end = first.get_absolute_time()
-            start, end = current.get_absolute_time()
-            if end:
-                x = time_delta_to_relative_time(end - start1)
-        else:
-            start1, end, unit = first.get_relative_time()
-            start, end, unit = current.get_relative_time()
-            if end:
-                x = end - start1
-        expr = expr.replace("end_time()", str(x))
-
-    return expr
+            element = KINDS[stds_kind_of(type).map_kind].remove_type
+            gs.run_command(
+                "g.remove",
+                flags="f",
+                type=element,
+                name=",".join(m.get_name() for m in empty_maps),
+                quiet=True,
+            )
