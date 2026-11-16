@@ -1,0 +1,21 @@
+[
+ "Creating temporal database: %s",
+ "Run t.upgrade command to upgrade your temporal database.\nConsider creating a backup of your temporal database to avoid losing data in case something goes wrong.\n",
+ "Temporal database connection for mapset <%s> defined as:\n %s\nBut database file does not exist.",
+ "Temporal database version mismatch detected.\n{backup}Supported temporal database version is: {tdb}\nYour existing temporal database version: {ctdb}\nCurrent temporal database info: {info}",
+ "The format of your actual temporal database is not supported any more. {m}",
+ "The limit of open files ({}) was reached ({}). The module r.series will be run with flag z, to avoid open files limit exceeding.",
+ "Unable to check table. {reason}",
+ "Unable to connect to %(db)s database: %(string)s\nException: \"%(ex)s\"\nPlease use t.connect to set a read- and writable temporal database backend",
+ "Unable to create SQLite temporal database\nException: %s\nPlease use t.connect to set a read- and writable temporal database path",
+ "Unable to execute sql statement. {reason}",
+ "Unable to execute transaction. {reason}",
+ "Unable to fetch all. {reason}",
+ "Unable to fetch one. {reason}",
+ "Unable to initialize the temporal DBMI interface. Please use t.connect to specify the driver and the database string",
+ "Unable to mogrify sql statement. {reason}",
+ "Unable to receive temporal database metadata.\nCurrent temporal database info:%(info)s",
+ "Unsupported TGIS DB upgrade scenario: from version %s to %s",
+ "Unsupported temporal database: version mismatch.\n %(backup)s Supported temporal API version is: %(api)i.\nPlease update your GRASS installation.\nCurrent temporal database info:%(info)s",
+ "Upgrading temporal database <%s> from version %s to %s..."
+]
