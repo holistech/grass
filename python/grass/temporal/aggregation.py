@@ -7,8 +7,8 @@ Usage:
 
     import grass.temporal as tgis
 
-    tgis.aggregate_raster_maps(
-        dataset, mapset, inputs, base, start, end, count, method, register_null, dbif
+    new_map = tgis.aggregate_raster_maps(
+        inputs, base, start, end, count, method, register_null, dbif
     )
 
 SPDX-FileCopyrightText: 2012-2013 GRASS Development Team
@@ -20,19 +20,12 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
-from .core import get_current_mapset, get_tgis_message_interface, init_dbif
-from .datetime_math import (
-    create_numeric_suffix,
-    create_suffix_from_datetime,
-    create_time_suffix,
-)
+from .series_limits import exceeded_series_limit, series_limit_warning
 from .space_time_datasets import RasterDataset
-from .spatio_temporal_relationships import (
-    SpatioTemporalTopologyBuilder,
+from .topology import (
     create_temporal_relation_sql_where_statement,
 )
-
-###############################################################################
+from .state import get_current_mapset, get_tgis_message_interface
 
 
 def collect_map_names(sp, dbif, start, end, sampling):
@@ -102,14 +95,7 @@ def collect_map_names(sp, dbif, start, end, sampling):
     if not rows:
         return None
 
-    names = []
-    for row in rows:
-        names.append(row["id"])
-
-    return names
-
-
-###############################################################################
+    return [row["id"] for row in rows]
 
 
 def aggregate_raster_maps(
@@ -124,6 +110,7 @@ def aggregate_raster_maps(
     offset: int = 0,
     *,
     nprocs: int = 0,
+    quantile: float | None = None,
 ):
     """Aggregate a list of raster input maps with r.series
 
@@ -140,13 +127,21 @@ def aggregate_raster_maps(
                          time raster dataset, if false not
     :param dbif: The temporal database interface to use
     :param offset: Offset to be added to the map counter to create the map ids
-    :param nprocs: Number of cores to use for processing (0 means use all available cores)
+    :param nprocs: Number of threads r.series is given. 0 lets r.series use
+                  the OpenMP default (OMP_NUM_THREADS, else all usable cores)
+                  and NPROCS of the session does not count. It also decides
+                  how many open files the maps need: r.series runs with flag
+                  z when 2 x threads x maps + 64 exceeds the open files of
+                  the process, or when there are more than 1000 maps
+    :param quantile: The quantile for the method quantile, from 0 to 1.
+                     Without it r.series takes the quantile 0, the smallest
+                     value
     """
 
     msgr = get_tgis_message_interface()
 
-    msgr.verbose(_("Aggregating %s raster maps") % (len(inputs)))
-    output = "%s_%i" % (base, int(offset) + count)
+    msgr.verbose(_("Aggregating {} raster maps").format(len(inputs)))
+    output = f"{base}_{int(offset) + count}"
 
     mapset = get_current_mapset()
     map_id = output + "@" + mapset
@@ -177,232 +172,42 @@ def aggregate_raster_maps(
     filename = gs.tempfile(True)
     with open(filename, "w") as out_file:
         for name in inputs:
-            string = "%s\n" % (name)
+            string = f"{name}\n"
             out_file.write(string)
+
+    # r.series holds every map open once per thread; -z reads row by row. The
+    # limit is checked with the nprocs passed on, because that decides the
+    # threads, and 1000 maps stay the limit whatever the process allows.
+    limit = exceeded_series_limit(len(inputs), file_limit=1000, nprocs=nprocs)
+    if limit is not None:
+        msgr.warning(series_limit_warning(limit, len(inputs)))
 
     # Run r.series
     try:
-        if len(inputs) > 1000:
-            gs.run_command(
-                "r.series",
-                nprocs=nprocs,
-                flags="z",
-                file=filename,
-                output=output,
-                overwrite=gs.overwrite(),
-                method=method,
-            )
-        else:
-            gs.run_command(
-                "r.series",
-                nprocs=nprocs,
-                file=filename,
-                output=output,
-                overwrite=gs.overwrite(),
-                method=method,
-            )
+        gs.run_command(
+            "r.series",
+            nprocs=nprocs,
+            flags="z" if limit is not None else "",
+            file=filename,
+            output=output,
+            overwrite=gs.overwrite(),
+            method=method,
+            quantile=quantile,
+        )
 
     except CalledModuleError:
-        dbif.close()
         msgr.fatal(_("Error occurred in r.series computation"))
 
     # Read the raster map data
     new_map.load()
 
     # In case of a null map continue, do not register null maps
-    if new_map.metadata.get_min() is None and new_map.metadata.get_max() is None:
-        if not register_null:
-            gs.run_command("g.remove", flags="f", type="raster", name=output)
-            return None
+    if (
+        new_map.metadata.get_min() is None
+        and new_map.metadata.get_max() is None
+        and not register_null
+    ):
+        gs.run_command("g.remove", flags="f", type="raster", name=output)
+        return None
 
     return new_map
-
-
-##############################################################################
-
-
-def aggregate_by_topology(
-    granularity_list,
-    granularity,
-    map_list,
-    topo_list,
-    basename,
-    time_suffix,
-    offset: int = 0,
-    method="average",
-    nprocs: int = 1,
-    spatial=None,
-    dbif=None,
-    overwrite: bool = False,
-    file_limit: int = 1000,
-):
-    """Aggregate a list of raster input maps with r.series
-
-    :param granularity_list: A list of AbstractMapDataset objects.
-                             The temporal extents of the objects are used
-                             to build the spatio-temporal topology with the
-                             map list objects
-    :param granularity: The granularity of the granularity list
-    :param map_list: A list of RasterDataset objects that contain the raster
-                     maps that should be aggregated
-    :param topo_list: A list of strings of topological relations that are
-                      used to select the raster maps for aggregation
-    :param basename: The basename of the new generated raster maps
-    :param time_suffix: Use the granularity truncated start time of the
-                        actual granule to create the suffix for the basename
-    :param offset: Use a numerical offset for suffix generation
-                   (overwritten by time_suffix)
-    :param method: The aggregation method of r.series (average,min,max, ...)
-    :param nprocs: The number of processes used for parallel computation
-    :param spatial: This indicates if the spatial topology is created as
-                    well: spatial can be None (no spatial topology), "2D"
-                    using west, east, south, north or "3D" using west,
-                    east, south, north, bottom, top
-    :param dbif: The database interface to be used
-    :param overwrite: Overwrite existing raster maps
-    :param file_limit: The maximum number of raster map layers that
-                       should be opened at once by r.series
-    :return: A list of RasterDataset objects that contain the new map names
-             and the temporal extent for map registration
-    """
-    import copy
-
-    import grass.pygrass.modules as pymod
-
-    msgr = get_tgis_message_interface()
-
-    dbif, connection_state_changed = init_dbif(dbif)
-
-    topo_builder = SpatioTemporalTopologyBuilder()
-    topo_builder.build(mapsA=granularity_list, mapsB=map_list, spatial=spatial)
-
-    # The module queue for parallel execution
-    process_queue = pymod.ParallelModuleQueue(int(nprocs))
-
-    # Dummy process object that will be deep copied
-    # and be put into the process queue
-    r_series = pymod.Module(
-        "r.series",
-        output="spam",
-        nprocs=1,
-        method=[method],
-        overwrite=overwrite,
-        quiet=True,
-        run_=False,
-        finish_=False,
-    )
-    g_copy = pymod.Module(
-        "g.copy", raster=["spam", "spamspam"], quiet=True, run_=False, finish_=False
-    )
-    output_list = []
-    count = 0
-
-    for granule in granularity_list:
-        msgr.percent(count, len(granularity_list), 1)
-        count += 1
-
-        aggregation_list = []
-
-        if "equal" in topo_list and granule.equal:
-            for map_layer in granule.equal:
-                aggregation_list.append(map_layer.get_name())
-        if "contains" in topo_list and granule.contains:
-            for map_layer in granule.contains:
-                aggregation_list.append(map_layer.get_name())
-        if "during" in topo_list and granule.during:
-            for map_layer in granule.during:
-                aggregation_list.append(map_layer.get_name())
-        if "starts" in topo_list and granule.starts:
-            for map_layer in granule.starts:
-                aggregation_list.append(map_layer.get_name())
-        if "started" in topo_list and granule.started:
-            for map_layer in granule.started:
-                aggregation_list.append(map_layer.get_name())
-        if "finishes" in topo_list and granule.finishes:
-            for map_layer in granule.finishes:
-                aggregation_list.append(map_layer.get_name())
-        if "finished" in topo_list and granule.finished:
-            for map_layer in granule.finished:
-                aggregation_list.append(map_layer.get_name())
-        if "overlaps" in topo_list and granule.overlaps:
-            for map_layer in granule.overlaps:
-                aggregation_list.append(map_layer.get_name())
-        if "overlapped" in topo_list and granule.overlapped:
-            for map_layer in granule.overlapped:
-                aggregation_list.append(map_layer.get_name())
-
-        if aggregation_list:
-            msgr.verbose(
-                _("Aggregating %(len)i raster maps from %(start)s to %(end)s")
-                % (
-                    {
-                        "len": len(aggregation_list),
-                        "start": str(granule.temporal_extent.get_start_time()),
-                        "end": str(granule.temporal_extent.get_end_time()),
-                    }
-                )
-            )
-
-            if granule.is_time_absolute() is True and time_suffix == "gran":
-                suffix = create_suffix_from_datetime(
-                    granule.temporal_extent.get_start_time(), granularity
-                )
-                output_name = "{ba}_{su}".format(ba=basename, su=suffix)
-            elif granule.is_time_absolute() is True and time_suffix == "time":
-                suffix = create_time_suffix(granule)
-                output_name = "{ba}_{su}".format(ba=basename, su=suffix)
-            else:
-                output_name = create_numeric_suffix(
-                    basename, count + int(offset), time_suffix
-                )
-
-            map_layer = RasterDataset("%s@%s" % (output_name, get_current_mapset()))
-            map_layer.set_temporal_extent(granule.get_temporal_extent())
-
-            if map_layer.map_exists() is True and overwrite is False:
-                msgr.fatal(
-                    _(
-                        "Unable to perform aggregation. Output raster "
-                        "map <%(name)s> exists and overwrite flag was "
-                        "not set"
-                    )
-                    % ({"name": output_name})
-                )
-
-            output_list.append(map_layer)
-
-            if len(aggregation_list) > 1:
-                # Create the r.series input file
-                filename = gs.tempfile(True)
-                with open(filename, "w") as out_file:
-                    for name in aggregation_list:
-                        string = "%s\n" % (name)
-                        out_file.write(string)
-
-                mod = copy.deepcopy(r_series)
-                mod(file=filename, output=output_name)
-                if len(aggregation_list) > int(file_limit):
-                    msgr.warning(
-                        _(
-                            "The limit of open files (%i) was "
-                            "reached (%i). The module r.series will "
-                            "be run with flag z, to avoid open "
-                            "files limit exceeding."
-                        )
-                        % (int(file_limit), len(aggregation_list))
-                    )
-                    mod(flags="z")
-                process_queue.put(mod)
-            else:
-                mod = copy.deepcopy(g_copy)
-                mod(raster=[aggregation_list[0], output_name])
-                process_queue.put(mod)
-
-    process_queue.wait()
-
-    if connection_state_changed:
-        dbif.close()
-
-    msgr.percent(1, 1, 1)
-
-    return output_list
