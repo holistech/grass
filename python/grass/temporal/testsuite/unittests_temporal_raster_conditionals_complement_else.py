@@ -12,6 +12,10 @@ from grass.gunittest.main import test
 
 import grass.temporal as tgis
 
+# The old algebra under test: the package exports the parser of the algebra
+# core from now on. The file goes with the old algebra.
+from grass.temporal.temporal_raster_algebra import TemporalRasterAlgebraParser
+
 
 class TestTemporalRasterAlgebraConditionalComplements(TestCase):
     @classmethod
@@ -93,7 +97,7 @@ class TestTemporalRasterAlgebraConditionalComplements(TestCase):
         r4 = a6            # 6
 
         """
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="R = if({equal|contains}, B {#,contains,r} A == 2, B {+,contains,l} A, A)",
             basename="r",
@@ -132,7 +136,7 @@ class TestTemporalRasterAlgebraConditionalComplements(TestCase):
         r5 = a6            # 6
 
         """
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="R = if({equal|contains|during}, B {#,contains,r} A == 2, B {+,contains,r} A, A)",
             basename="r",
