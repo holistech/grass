@@ -72,6 +72,8 @@ REVIEWED_MANUALS = (
     "t.rast.univar",
     "t.rast.what",
     "t.rast3d.algebra",
+    "t.rast3d.extract",
+    "t.rast3d.list",
     "t.rast3d.mapcalc",
     "t.rast3d.univar",
     "t.register",
@@ -86,6 +88,12 @@ REVIEWED_MANUALS = (
     "t.unregister",
     "t.upgrade",
     "t.vect.algebra",
+    "t.vect.db.select",
+    "t.vect.extract",
+    "t.vect.list",
+    "t.vect.observe.strds",
+    "t.vect.univar",
+    "t.vect.what.strds",
 )
 
 # The algebras, whose manuals list their expressions with the result of each.

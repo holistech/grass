@@ -1,51 +1,958 @@
 <h2>DESCRIPTION</h2>
 
-The module <em>t.vect.db.select</em> prints attributes of vector maps
-registered in a space time vector dataset.
+<em>t.vect.db.select</em> prints the attribute tables of the vector maps that are
+registered in a space time vector dataset. It runs
+<em><a href="v.db.select.html">v.db.select</a></em> on each map, in the order of the start times of
+the maps, and puts the start and end time of the map in front of every row. Use
+it to see the attributes of a whole time series at once, or to find the rows of
+all maps that meet one condition. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. <em><a href="t.vect.list.html">t.vect.list</a></em> lists the maps themselves, and
+<em><a href="t.vect.univar.html">t.vect.univar</a></em> calculates statistics of their attributes.
 
-<h2>EXAMPLE</h2>
+<p>
+The option <b>input</b> names the space time vector dataset. A dataset of another
+mapset can be named with its mapset, <code>name@mapset</code>; a name without a mapset is
+searched in the current mapset and then in the mapsets of the search path. The
+last example shows both forms. The maps are read from their own mapsets.
 
-The example is querying the <em>shoreline</em> space time dataset:
+<h3>Select maps and rows</h3>
+
+The option <b>t_where</b> selects maps of the dataset. It takes an SQL condition on
+the columns of the registered maps, the columns that <em>t.vect.list</em> offers, such
+as <code>start_time &gt;= '2026-02-01'</code> or <code>name = 'normals_2026_02'</code>. Without
+<b>t_where</b>, all maps are used. The option <b>where</b> selects rows. It takes an
+SQL condition on the columns of the attribute table, such as
+<code>precipitation &gt; 100</code>, and is applied to the table of each selected map. Both
+options leave out the word <code>where</code>, and they can be combined: a row is printed
+if its map meets <b>t_where</b> and the row meets <b>where</b>.
+
+<p>
+The option <b>layer</b> (default <code>1</code>) is the layer whose table is printed. A map
+that is registered in the dataset with a layer, as <code>name:2</code>, always uses that
+layer, and the option <b>layer</b> applies to every map registered without one,
+whatever the maps before it were registered with. The layer example shows both.
+
+<h3>Select columns</h3>
+
+The option <b>columns</b> takes the names of the table columns to print, separated
+by commas, in the order in which they are given. Without <b>columns</b>, all
+columns of the table are printed in the order of the table. The names are
+compared without regard to case, as the database does. Besides plain names,
+<b>columns</b> takes the star and SQL expressions such as <code>precipitation * 2</code>, which
+<em>v.db.select</em> evaluates for each row.
+
+<h3>Output</h3>
+
+Every row starts with two columns, <code>start_time</code> and <code>end_time</code>, the times of the
+map that the row comes from; the other columns are those of the attribute table.
+A map registered as a time instant has no end time: the column is empty in the
+formats <code>plain</code> and <code>csv</code> and <code>null</code> in <code>json</code>. With relative time, the times
+are numbers in the unit of the dataset.
+
+<p>
+The option <b>format</b> chooses the form of the output:
+
+<ul>
+<li><code>plain</code> (the default) prints one header line with the column names and then
+one line per row. The columns are separated by <code>|</code>.</li>
+<li><code>csv</code> prints the same lines, separated by a comma. Text values are put in
+double quotes.</li>
+<li><code>json</code> prints a single list that holds one object per row, with the keys
+<code>start_time</code> and <code>end_time</code> first and then the columns. Numbers stay numbers
+and text values are strings.</li>
+</ul>
+
+<p>
+The option <b>separator</b> replaces the separator of the columns in <code>plain</code> and
+<code>csv</code>. It takes a character or a name such as <code>comma</code>, as the example shows.
+In <code>csv</code> the separator must be a single character. <code>json</code> does not take a
+separator.
+
+<h3>Several maps</h3>
+
+The header line is printed before the rows of the first map. When the next map
+has other columns, the header is printed again before its rows, so each block of
+lines has the header that belongs to it. Maps with the same columns share one
+header. A map without a row that meets <b>where</b> adds no line, except a header
+if its columns differ. The format <code>json</code> has no headers. Its list holds the rows
+of all maps.
+
+<h2>NOTES</h2>
+
+All maps are checked before the first line is printed, for their attribute
+table and for the columns named in <b>columns</b>. If a map has no attribute table
+in the layer used for it, or lacks such a column, the module ends with an error
+that lists the maps and prints nothing. The star and SQL expressions in
+<b>columns</b> are not checked; <em>v.db.select</em> evaluates them in the table of each
+map. A column of <b>where</b> is not checked in advance. An error in <b>where</b> ends
+the module with the message of <em>v.db.select</em>, for example "incomplete input",
+and a column that the table of a later map lacks stops the module at that map,
+after the lines of the earlier maps have been printed.
+
+<p>
+If <b>t_where</b> selects no map, the module prints a warning and ends
+successfully: the output is empty, or <code>[]</code> for the JSON format. An error in
+<b>t_where</b> ends the module with the message "Invalid t_where condition".
+
+<p>
+A separator longer than one character with the format <code>csv</code>, and any separator
+with the format <code>json</code>, are refused.
+
+<p>
+A map is read with the layer it is registered with. A map that is registered
+without a layer is read with the option <b>layer</b>, also if an earlier map in the
+dataset was registered with a layer: that layer belongs to its map only.
+
+<h2>EXAMPLES</h2>
+
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_vect_db_select</code> and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset
+and region. <em>t.vect.db.select</em> reads attribute tables, so the maps are copies of
+the climate stations <code>precip_30ynormals</code> or of small sketches in the coordinate
+system of the dataset, and the datasets carry times of 2026.
+
+<h3>Print the attributes of the maps of a dataset</h3>
+
+The dataset <code>normals</code> has three point maps for the months from January to March
+2026. Map <code>normals_2026_k</code> is a copy of the first three climate stations of
+<code>precip_30ynormals</code>, the stations 310090, 310184 and 310241, with the 30-year
+normal of the month <code>k</code> as the column <code>precipitation</code> in mm: the column <code>jan</code>
+of the stations for January, <code>feb</code> for February and <code>mar</code> for March, rounded to
+whole millimeters. The values are normals of the stations, not measurements of
+2026; the dates only place the maps on the time axis. The column <code>terrain</code> is
+<code>upland</code> for a station above 300 m and <code>lowland</code> for the others. The copy keeps
+the columns <code>cat</code>, <code>station</code> and <code>elev</code> of the stations, so the table of each
+map has the columns <code>cat</code>, <code>station</code>, <code>elev</code>, <code>precipitation</code> and <code>terrain</code>.
+
+<p>
+The first block prints the whole table of the three maps, nine rows. Each row
+starts with the start and end time of its map. The second block prints the two
+columns <code>precipitation</code> and <code>cat</code> only; the columns come in the order of
+<b>columns</b>.
+
+<p>Command line:</p>
 
 <div class="code"><pre>
-t.vect.db.select input=shoreline
-start_time|end_time|cat|DESCR|SOURCE|DATE
-1849|1873|1|T-736|NOAA/USGS|01/01/1858
-1849|1873|2|T-657|NOAA/USGS|01/01/1857
-1849|1873|3|T-381(2)|NOAA/USGS|01/01/1852
-1849|1873|4|T-381(1)|NOAA/USGS|01/01/1852
-1849|1873|5|T-381(1)|NOAA/USGS|01/01/1852
-...
-2009||44|2009 USDA NAIP|2009-07-11|VA, SAND, Wet / Dry
-2009||45|2009 USDA NAIP|2009-07-11|Carolina Beach, SAND, Wet / Dry
-2009||46|2009 USDA NAIP|2009-07-11|Carolina Beach, REVETMENT-ROCK, Hard Structure
-2009||47|2009 USDA NAIP|2009-07-11|Fort Fisher, REVETMENT-ROCK, Hard Structure
+g.mapset -c mapset=t_vect_db_select
+g.region raster=elev_state_500m res=1000 -a
+for month in 01:jan 02:feb 03:mar; do
+    map=normals_2026_${month%:*}
+    v.extract input=precip_30ynormals output=$map where="cat &lt;= 3"
+    v.db.addcolumn map=$map columns="precipitation integer, terrain text"
+    v.db.update map=$map column=precipitation query_column="round(${month#*:})"
+    v.db.update map=$map column=terrain \
+        query_column="CASE WHEN elev &gt; 300 THEN 'upland' ELSE 'lowland' END"
+    v.db.dropcolumn map=$map \
+        columns=lat,long,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec,annual
+done
+t.create type=stvds output=normals title="Precipitation normals" \
+    description="30-year normals in mm at three stations"
+t.register -i type=vector input=normals \
+    maps=normals_2026_01,normals_2026_02,normals_2026_03 \
+    start=2026-01-01 increment="1 month"
+t.vect.db.select input=normals
 </pre></div>
 
-In the following example it print only DATE and SOURCE columns for data
-before 1900-01-01.
+<div class="code"><pre>
+start_time|end_time|cat|station|elev|precipitation|terrain
+2026-01-01 00:00:00|2026-02-01 00:00:00|1|310090|185.928|111|lowland
+2026-01-01 00:00:00|2026-02-01 00:00:00|2|310184|533.0952|182|upland
+2026-01-01 00:00:00|2026-02-01 00:00:00|3|310241|100.584|100|lowland
+2026-02-01 00:00:00|2026-03-01 00:00:00|1|310090|185.928|92|lowland
+2026-02-01 00:00:00|2026-03-01 00:00:00|2|310184|533.0952|155|upland
+2026-02-01 00:00:00|2026-03-01 00:00:00|3|310241|100.584|88|lowland
+2026-03-01 00:00:00|2026-04-01 00:00:00|1|310090|185.928|123|lowland
+2026-03-01 00:00:00|2026-04-01 00:00:00|2|310184|533.0952|177|upland
+2026-03-01 00:00:00|2026-04-01 00:00:00|3|310241|100.584|113|lowland
+</pre></div>
 
 <div class="code"><pre>
-t.vect.db.select input=shoreline column=DATE,SOURCE t_where="start_time &lt; 1900"
-start_time|end_time|DATE|SOURCE
-1849|1873|01/01/1858|NOAA/USGS
-1849|1873|01/01/1857|NOAA/USGS
-1849|1873|01/01/1852|NOAA/USGS
-1849|1873|01/01/1852|NOAA/USGS
-...
-1849|1873|01/01/1860|NOAA/USGS
-1849|1873|01/01/1860|NOAA/USGS
-1849|1873|01/01/1873|Coastal Carolina University
-1849|1873|01/01/1873|Coastal Carolina University
-1849|1873|01/01/1873|Coastal Carolina University
+t.vect.db.select input=normals columns=precipitation,cat
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|precipitation|cat
+2026-01-01 00:00:00|2026-02-01 00:00:00|111|1
+2026-01-01 00:00:00|2026-02-01 00:00:00|182|2
+2026-01-01 00:00:00|2026-02-01 00:00:00|100|3
+2026-02-01 00:00:00|2026-03-01 00:00:00|92|1
+2026-02-01 00:00:00|2026-03-01 00:00:00|155|2
+2026-02-01 00:00:00|2026-03-01 00:00:00|88|3
+2026-03-01 00:00:00|2026-04-01 00:00:00|123|1
+2026-03-01 00:00:00|2026-04-01 00:00:00|177|2
+2026-03-01 00:00:00|2026-04-01 00:00:00|113|3
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_mapset(flags="c", mapset="t_vect_db_select")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+unused = "lat,long,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec,annual"
+for number, column in (("01", "jan"), ("02", "feb"), ("03", "mar")):
+    name = f"normals_2026_{number}"
+    tools.v_extract(input="precip_30ynormals", output=name, where="cat &lt;= 3")
+    tools.v_db_addcolumn(map=name, columns="precipitation integer, terrain text")
+    tools.v_db_update(map=name, column="precipitation", query_column=f"round({column})")
+    tools.v_db_update(
+        map=name,
+        column="terrain",
+        query_column="CASE WHEN elev &gt; 300 THEN 'upland' ELSE 'lowland' END",
+    )
+    tools.v_db_dropcolumn(map=name, columns=unused)
+tools.t_create(
+    type="stvds",
+    output="normals",
+    title="Precipitation normals",
+    description="30-year normals in mm at three stations",
+)
+tools.t_register(
+    type="vector",
+    input="normals",
+    maps="normals_2026_01,normals_2026_02,normals_2026_03",
+    start="2026-01-01",
+    increment="1 month",
+    flags="i",
+)
+print(tools.t_vect_db_select(input="normals").text)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|station|elev|precipitation|terrain
+2026-01-01 00:00:00|2026-02-01 00:00:00|1|310090|185.928|111|lowland
+2026-01-01 00:00:00|2026-02-01 00:00:00|2|310184|533.0952|182|upland
+2026-01-01 00:00:00|2026-02-01 00:00:00|3|310241|100.584|100|lowland
+2026-02-01 00:00:00|2026-03-01 00:00:00|1|310090|185.928|92|lowland
+2026-02-01 00:00:00|2026-03-01 00:00:00|2|310184|533.0952|155|upland
+2026-02-01 00:00:00|2026-03-01 00:00:00|3|310241|100.584|88|lowland
+2026-03-01 00:00:00|2026-04-01 00:00:00|1|310090|185.928|123|lowland
+2026-03-01 00:00:00|2026-04-01 00:00:00|2|310184|533.0952|177|upland
+2026-03-01 00:00:00|2026-04-01 00:00:00|3|310241|100.584|113|lowland
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_vect_db_select(input="normals", columns="precipitation,cat").text)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|precipitation|cat
+2026-01-01 00:00:00|2026-02-01 00:00:00|111|1
+2026-01-01 00:00:00|2026-02-01 00:00:00|182|2
+2026-01-01 00:00:00|2026-02-01 00:00:00|100|3
+2026-02-01 00:00:00|2026-03-01 00:00:00|92|1
+2026-02-01 00:00:00|2026-03-01 00:00:00|155|2
+2026-02-01 00:00:00|2026-03-01 00:00:00|88|3
+2026-03-01 00:00:00|2026-04-01 00:00:00|123|1
+2026-03-01 00:00:00|2026-04-01 00:00:00|177|2
+2026-03-01 00:00:00|2026-04-01 00:00:00|113|3
+</pre></div>
+
+<h3>Select rows and maps</h3>
+
+The first block prints the stations with a precipitation above 100 mm from every
+map. The condition <b>where</b> is applied to each table: the first map has two
+such stations, the second one and the third all three. The second block selects
+the maps that start on 1 February or later and prints all their rows. The third
+block combines both: the station with the category 2 of the maps that start on
+1 February or later.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.vect.db.select input=normals columns=cat,precipitation \
+    where="precipitation &gt; 100"
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|precipitation
+2026-01-01 00:00:00|2026-02-01 00:00:00|1|111
+2026-01-01 00:00:00|2026-02-01 00:00:00|2|182
+2026-02-01 00:00:00|2026-03-01 00:00:00|2|155
+2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
+2026-03-01 00:00:00|2026-04-01 00:00:00|2|177
+2026-03-01 00:00:00|2026-04-01 00:00:00|3|113
+</pre></div>
+
+<div class="code"><pre>
+t.vect.db.select input=normals columns=cat,precipitation \
+    t_where="start_time &gt;= '2026-02-01'"
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|precipitation
+2026-02-01 00:00:00|2026-03-01 00:00:00|1|92
+2026-02-01 00:00:00|2026-03-01 00:00:00|2|155
+2026-02-01 00:00:00|2026-03-01 00:00:00|3|88
+2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
+2026-03-01 00:00:00|2026-04-01 00:00:00|2|177
+2026-03-01 00:00:00|2026-04-01 00:00:00|3|113
+</pre></div>
+
+<div class="code"><pre>
+t.vect.db.select input=normals columns=cat,precipitation \
+    where="cat = 2" t_where="start_time &gt;= '2026-02-01'"
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|precipitation
+2026-02-01 00:00:00|2026-03-01 00:00:00|2|155
+2026-03-01 00:00:00|2026-04-01 00:00:00|2|177
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+print(
+    tools.t_vect_db_select(
+        input="normals", columns="cat,precipitation", where="precipitation &gt; 100"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|precipitation
+2026-01-01 00:00:00|2026-02-01 00:00:00|1|111
+2026-01-01 00:00:00|2026-02-01 00:00:00|2|182
+2026-02-01 00:00:00|2026-03-01 00:00:00|2|155
+2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
+2026-03-01 00:00:00|2026-04-01 00:00:00|2|177
+2026-03-01 00:00:00|2026-04-01 00:00:00|3|113
+</pre></div>
+
+<div class="code"><pre>
+print(
+    tools.t_vect_db_select(
+        input="normals",
+        columns="cat,precipitation",
+        t_where="start_time &gt;= '2026-02-01'",
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|precipitation
+2026-02-01 00:00:00|2026-03-01 00:00:00|1|92
+2026-02-01 00:00:00|2026-03-01 00:00:00|2|155
+2026-02-01 00:00:00|2026-03-01 00:00:00|3|88
+2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
+2026-03-01 00:00:00|2026-04-01 00:00:00|2|177
+2026-03-01 00:00:00|2026-04-01 00:00:00|3|113
+</pre></div>
+
+<div class="code"><pre>
+print(
+    tools.t_vect_db_select(
+        input="normals",
+        columns="cat,precipitation",
+        where="cat = 2",
+        t_where="start_time &gt;= '2026-02-01'",
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|precipitation
+2026-02-01 00:00:00|2026-03-01 00:00:00|2|155
+2026-03-01 00:00:00|2026-04-01 00:00:00|2|177
+</pre></div>
+
+<h3>Choose the output format</h3>
+
+All blocks print the station with the category 2 of each map and the columns
+<code>cat</code> and <code>terrain</code>. The first block uses <code>csv</code>: the separator is a comma and
+the text values are in double quotes. The second block sets <b>separator</b> to a
+semicolon for <code>csv</code>. The third block shows <code>plain</code> with the separator <code>comma</code>,
+which differs from <code>csv</code> by the missing quotes. The fourth block uses <code>json</code>: a
+list with one object for each row, the times first.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.vect.db.select input=normals columns=cat,terrain where="cat = 2" format=csv
+</pre></div>
+
+<div class="code"><pre>
+start_time,end_time,cat,terrain
+2026-01-01 00:00:00,2026-02-01 00:00:00,2,"upland"
+2026-02-01 00:00:00,2026-03-01 00:00:00,2,"upland"
+2026-03-01 00:00:00,2026-04-01 00:00:00,2,"upland"
+</pre></div>
+
+<div class="code"><pre>
+t.vect.db.select input=normals columns=cat,terrain where="cat = 2" \
+    format=csv separator=";"
+</pre></div>
+
+<div class="code"><pre>
+start_time;end_time;cat;terrain
+2026-01-01 00:00:00;2026-02-01 00:00:00;2;"upland"
+2026-02-01 00:00:00;2026-03-01 00:00:00;2;"upland"
+2026-03-01 00:00:00;2026-04-01 00:00:00;2;"upland"
+</pre></div>
+
+<div class="code"><pre>
+t.vect.db.select input=normals columns=cat,terrain where="cat = 2" \
+    separator=comma
+</pre></div>
+
+<div class="code"><pre>
+start_time,end_time,cat,terrain
+2026-01-01 00:00:00,2026-02-01 00:00:00,2,upland
+2026-02-01 00:00:00,2026-03-01 00:00:00,2,upland
+2026-03-01 00:00:00,2026-04-01 00:00:00,2,upland
+</pre></div>
+
+<div class="code"><pre>
+t.vect.db.select input=normals columns=cat,terrain where="cat = 2" format=json
+</pre></div>
+
+<div class="code"><pre>
+[
+    {
+        "start_time": "2026-01-01 00:00:00",
+        "end_time": "2026-02-01 00:00:00",
+        "cat": 2,
+        "terrain": "upland"
+    },
+    {
+        "start_time": "2026-02-01 00:00:00",
+        "end_time": "2026-03-01 00:00:00",
+        "cat": 2,
+        "terrain": "upland"
+    },
+    {
+        "start_time": "2026-03-01 00:00:00",
+        "end_time": "2026-04-01 00:00:00",
+        "cat": 2,
+        "terrain": "upland"
+    }
+]
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+print(
+    tools.t_vect_db_select(
+        input="normals", columns="cat,terrain", where="cat = 2", format="csv"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+start_time,end_time,cat,terrain
+2026-01-01 00:00:00,2026-02-01 00:00:00,2,"upland"
+2026-02-01 00:00:00,2026-03-01 00:00:00,2,"upland"
+2026-03-01 00:00:00,2026-04-01 00:00:00,2,"upland"
+</pre></div>
+
+<div class="code"><pre>
+print(
+    tools.t_vect_db_select(
+        input="normals",
+        columns="cat,terrain",
+        where="cat = 2",
+        format="csv",
+        separator=";",
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+start_time;end_time;cat;terrain
+2026-01-01 00:00:00;2026-02-01 00:00:00;2;"upland"
+2026-02-01 00:00:00;2026-03-01 00:00:00;2;"upland"
+2026-03-01 00:00:00;2026-04-01 00:00:00;2;"upland"
+</pre></div>
+
+<div class="code"><pre>
+print(
+    tools.t_vect_db_select(
+        input="normals", columns="cat,terrain", where="cat = 2", separator="comma"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+start_time,end_time,cat,terrain
+2026-01-01 00:00:00,2026-02-01 00:00:00,2,upland
+2026-02-01 00:00:00,2026-03-01 00:00:00,2,upland
+2026-03-01 00:00:00,2026-04-01 00:00:00,2,upland
+</pre></div>
+
+<div class="code"><pre>
+print(
+    tools.t_vect_db_select(
+        input="normals", columns="cat,terrain", where="cat = 2", format="json"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+[
+    {
+        "start_time": "2026-01-01 00:00:00",
+        "end_time": "2026-02-01 00:00:00",
+        "cat": 2,
+        "terrain": "upland"
+    },
+    {
+        "start_time": "2026-02-01 00:00:00",
+        "end_time": "2026-03-01 00:00:00",
+        "cat": 2,
+        "terrain": "upland"
+    },
+    {
+        "start_time": "2026-03-01 00:00:00",
+        "end_time": "2026-04-01 00:00:00",
+        "cat": 2,
+        "terrain": "upland"
+    }
+]
+</pre></div>
+
+<h3>Time instants and relative time</h3>
+
+The dataset <code>snapshots</code> has two maps that are registered as time instants, for 1
+and 2 January 2026. Each has one point: map <code>snapshot_k</code> is a copy of the
+station with the category <code>k</code> of <code>precip_30ynormals</code>. The end time is empty: the
+first block shows the two separators <code>||</code> next to each other in the plain
+format, and the second block shows <code>null</code> in <code>json</code>. The dataset <code>cycles</code> has
+two maps of relative time in days, from 0 to 1 and from 1 to 2, with the same
+two stations. Its times are numbers.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+for k in 1 2; do
+    v.extract input=precip_30ynormals output=snapshot_$k where="cat = $k"
+    v.extract input=precip_30ynormals output=cycle_$k where="cat = $k"
+done
+t.create type=stvds output=snapshots title="Snapshots" \
+    description="Stations as time instants"
+t.register type=vector input=snapshots maps=snapshot_1,snapshot_2 \
+    start=2026-01-01 increment="1 day"
+t.create type=stvds temporaltype=relative output=cycles title="Cycles" \
+    description="Stations per cycle"
+t.register -i type=vector input=cycles maps=cycle_1,cycle_2 \
+    start=0 increment=1 unit=days
+t.vect.db.select input=snapshots columns=cat,station,elev
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|station|elev
+2026-01-01 00:00:00||1|310090|185.928
+2026-01-02 00:00:00||2|310184|533.0952
+</pre></div>
+
+<div class="code"><pre>
+t.vect.db.select input=snapshots columns=cat,station,elev \
+    where="elev &gt; 300" format=json
+</pre></div>
+
+<div class="code"><pre>
+[
+    {
+        "start_time": "2026-01-02 00:00:00",
+        "end_time": null,
+        "cat": 2,
+        "station": 310184,
+        "elev": 533.0952
+    }
+]
+</pre></div>
+
+<div class="code"><pre>
+t.vect.db.select input=cycles columns=cat,station,elev
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|station|elev
+0|1|1|310090|185.928
+1|2|2|310184|533.0952
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for k in (1, 2):
+    tools.v_extract(
+        input="precip_30ynormals", output=f"snapshot_{k}", where=f"cat = {k}"
+    )
+    tools.v_extract(input="precip_30ynormals", output=f"cycle_{k}", where=f"cat = {k}")
+tools.t_create(
+    type="stvds",
+    output="snapshots",
+    title="Snapshots",
+    description="Stations as time instants",
+)
+tools.t_register(
+    type="vector",
+    input="snapshots",
+    maps="snapshot_1,snapshot_2",
+    start="2026-01-01",
+    increment="1 day",
+)
+tools.t_create(
+    type="stvds",
+    temporaltype="relative",
+    output="cycles",
+    title="Cycles",
+    description="Stations per cycle",
+)
+tools.t_register(
+    type="vector",
+    input="cycles",
+    maps="cycle_1,cycle_2",
+    start=0,
+    increment=1,
+    unit="days",
+    flags="i",
+)
+print(tools.t_vect_db_select(input="snapshots", columns="cat,station,elev").text)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|station|elev
+2026-01-01 00:00:00||1|310090|185.928
+2026-01-02 00:00:00||2|310184|533.0952
+</pre></div>
+
+<div class="code"><pre>
+print(
+    tools.t_vect_db_select(
+        input="snapshots", columns="cat,station,elev", where="elev &gt; 300", format="json"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+[
+    {
+        "start_time": "2026-01-02 00:00:00",
+        "end_time": null,
+        "cat": 2,
+        "station": 310184,
+        "elev": 533.0952
+    }
+]
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_vect_db_select(input="cycles", columns="cat,station,elev").text)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|station|elev
+0|1|1|310090|185.928
+1|2|2|310184|533.0952
+</pre></div>
+
+<h3>Choose the layer</h3>
+
+The dataset <code>plots</code> has two maps for 1 and 2 March 2026. Each has two points
+with the categories 1 and 2 in layer 1 and in layer 2. The points lie in the
+computational region south of the state: the points of <code>plots_k</code> are <code>k</code> km east
+of the position (300000, 100000) and 1 and 2 km north of it. The table of layer
+1 has the column <code>count</code> with the values 1 and 2, the table of layer 2 the
+values 101 and 102. The maps are registered without a layer, so the first block
+prints layer 1 and the second block, with <b>layer</b> set to 2, prints layer 2.
+
+<p>
+The dataset <code>both</code> registers the two layers of <code>plots_1</code> as <code>plots_1:1</code> and
+<code>plots_1:2</code>. The third block prints both, and a <b>layer</b> option does not change
+this: the registered layer wins.
+
+<p>
+The dataset <code>mixed</code> registers <code>plots_1:2</code> for 1 March and <code>plots_2</code> without a
+layer for 2 March. The fourth block prints layer 2 for the first map, the layer
+it is registered with, and layer 1 for the second map, which takes the option
+<b>layer</b> with its default: 101 and 102, then 1 and 2.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+for k in 1 2; do
+    v.edit map=plots_$k tool=create
+    v.edit map=plots_$k tool=add input=- &lt;&lt;EOF
+VERTI:
+P 1 2
+ $((300000 + 1000 * k)) 101000
+ 1 1
+ 2 1
+P 1 2
+ $((300000 + 1000 * k)) 102000
+ 1 2
+ 2 2
+EOF
+    v.db.addtable map=plots_$k columns="count integer"
+    v.db.addtable map=plots_$k layer=2 table=plots_${k}_b columns="count integer"
+    db.execute input=- &lt;&lt;EOF
+UPDATE plots_$k SET count = cat;
+UPDATE plots_${k}_b SET count = 100 + cat;
+EOF
+done
+t.create type=stvds output=plots title="Plots" \
+    description="Two layers per map"
+t.register -i type=vector input=plots maps=plots_1,plots_2 \
+    start=2026-03-01 increment="1 day"
+t.vect.db.select input=plots
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|count
+2026-03-01 00:00:00|2026-03-02 00:00:00|1|1
+2026-03-01 00:00:00|2026-03-02 00:00:00|2|2
+2026-03-02 00:00:00|2026-03-03 00:00:00|1|1
+2026-03-02 00:00:00|2026-03-03 00:00:00|2|2
+</pre></div>
+
+<div class="code"><pre>
+t.vect.db.select input=plots layer=2
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|count
+2026-03-01 00:00:00|2026-03-02 00:00:00|1|101
+2026-03-01 00:00:00|2026-03-02 00:00:00|2|102
+2026-03-02 00:00:00|2026-03-03 00:00:00|1|101
+2026-03-02 00:00:00|2026-03-03 00:00:00|2|102
+</pre></div>
+
+<div class="code"><pre>
+t.create type=stvds output=both title="Both layers" \
+    description="Two layers of one map"
+t.register type=vector input=both maps=plots_1:1,plots_1:2 \
+    start=2026-03-01 end=2026-03-02
+t.vect.db.select input=both layer=2
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|count
+2026-03-01 00:00:00|2026-03-02 00:00:00|1|1
+2026-03-01 00:00:00|2026-03-02 00:00:00|2|2
+2026-03-01 00:00:00|2026-03-02 00:00:00|1|101
+2026-03-01 00:00:00|2026-03-02 00:00:00|2|102
+</pre></div>
+
+<div class="code"><pre>
+t.create type=stvds output=mixed title="Mixed layers" \
+    description="A map with a layer, then one without"
+t.register type=vector input=mixed maps=plots_1:2 \
+    start=2026-03-01 end=2026-03-02
+t.register type=vector input=mixed maps=plots_2 \
+    start=2026-03-02 end=2026-03-03
+t.vect.db.select input=mixed
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|count
+2026-03-01 00:00:00|2026-03-02 00:00:00|1|101
+2026-03-01 00:00:00|2026-03-02 00:00:00|2|102
+2026-03-02 00:00:00|2026-03-03 00:00:00|1|1
+2026-03-02 00:00:00|2026-03-03 00:00:00|2|2
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from io import StringIO
+
+features = "VERTI:\nP 1 2\n {x} 101000\n 1 1\n 2 1\nP 1 2\n {x} 102000\n 1 2\n 2 2\n"
+for k in (1, 2):
+    tools.v_edit(map=f"plots_{k}", tool="create")
+    tools.v_edit(
+        map=f"plots_{k}",
+        tool="add",
+        input=StringIO(features.format(x=300000 + 1000 * k)),
+    )
+    tools.v_db_addtable(map=f"plots_{k}", columns="count integer")
+    tools.v_db_addtable(
+        map=f"plots_{k}", layer=2, table=f"plots_{k}_b", columns="count integer"
+    )
+    sql = f"UPDATE plots_{k} SET count = cat;\n"
+    sql += f"UPDATE plots_{k}_b SET count = 100 + cat;\n"
+    tools.db_execute(input=StringIO(sql))
+tools.t_create(
+    type="stvds", output="plots", title="Plots", description="Two layers per map"
+)
+tools.t_register(
+    type="vector",
+    input="plots",
+    maps="plots_1,plots_2",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+print(tools.t_vect_db_select(input="plots").text)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|count
+2026-03-01 00:00:00|2026-03-02 00:00:00|1|1
+2026-03-01 00:00:00|2026-03-02 00:00:00|2|2
+2026-03-02 00:00:00|2026-03-03 00:00:00|1|1
+2026-03-02 00:00:00|2026-03-03 00:00:00|2|2
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_vect_db_select(input="plots", layer=2).text)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|count
+2026-03-01 00:00:00|2026-03-02 00:00:00|1|101
+2026-03-01 00:00:00|2026-03-02 00:00:00|2|102
+2026-03-02 00:00:00|2026-03-03 00:00:00|1|101
+2026-03-02 00:00:00|2026-03-03 00:00:00|2|102
+</pre></div>
+
+<div class="code"><pre>
+tools.t_create(
+    type="stvds",
+    output="both",
+    title="Both layers",
+    description="Two layers of one map",
+)
+tools.t_register(
+    type="vector",
+    input="both",
+    maps="plots_1:1,plots_1:2",
+    start="2026-03-01",
+    end="2026-03-02",
+)
+print(tools.t_vect_db_select(input="both", layer=2).text)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|count
+2026-03-01 00:00:00|2026-03-02 00:00:00|1|1
+2026-03-01 00:00:00|2026-03-02 00:00:00|2|2
+2026-03-01 00:00:00|2026-03-02 00:00:00|1|101
+2026-03-01 00:00:00|2026-03-02 00:00:00|2|102
+</pre></div>
+
+<div class="code"><pre>
+tools.t_create(
+    type="stvds",
+    output="mixed",
+    title="Mixed layers",
+    description="A map with a layer, then one without",
+)
+tools.t_register(
+    type="vector",
+    input="mixed",
+    maps="plots_1:2",
+    start="2026-03-01",
+    end="2026-03-02",
+)
+tools.t_register(
+    type="vector",
+    input="mixed",
+    maps="plots_2",
+    start="2026-03-02",
+    end="2026-03-03",
+)
+print(tools.t_vect_db_select(input="mixed").text)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|count
+2026-03-01 00:00:00|2026-03-02 00:00:00|1|101
+2026-03-01 00:00:00|2026-03-02 00:00:00|2|102
+2026-03-02 00:00:00|2026-03-03 00:00:00|1|1
+2026-03-02 00:00:00|2026-03-03 00:00:00|2|2
+</pre></div>
+
+<h3>Print from a dataset of another mapset</h3>
+
+The dataset <code>normals</code> stays in the mapset <code>t_vect_db_select</code>. The example
+creates the mapset <code>t_vect_db_select_2</code> and switches to it, with the region of
+the first example. The first block adds the mapset <code>t_vect_db_select</code> to the
+search path of the new mapset with <em>g.mapsets</em> and prints the dataset by its
+name alone, which is found in the search path. The mapset is added only for
+this block, because it names the dataset without its mapset; the second block
+names the mapset and works without it (see
+<a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other mapsets</a>). Both
+print the same rows.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.mapset -c mapset=t_vect_db_select_2
+g.region raster=elev_state_500m res=1000 -a
+g.mapsets mapset=t_vect_db_select operation=add
+t.vect.db.select input=normals columns=cat,precipitation where="cat = 1"
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|precipitation
+2026-01-01 00:00:00|2026-02-01 00:00:00|1|111
+2026-02-01 00:00:00|2026-03-01 00:00:00|1|92
+2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
+</pre></div>
+
+<div class="code"><pre>
+t.vect.db.select input=normals@t_vect_db_select columns=cat,precipitation \
+    where="cat = 1"
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|precipitation
+2026-01-01 00:00:00|2026-02-01 00:00:00|1|111
+2026-02-01 00:00:00|2026-03-01 00:00:00|1|92
+2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_mapset(mapset="t_vect_db_select_2", flags="c")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+tools.g_mapsets(mapset="t_vect_db_select", operation="add")
+print(
+    tools.t_vect_db_select(
+        input="normals", columns="cat,precipitation", where="cat = 1"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|precipitation
+2026-01-01 00:00:00|2026-02-01 00:00:00|1|111
+2026-02-01 00:00:00|2026-03-01 00:00:00|1|92
+2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
+</pre></div>
+
+<div class="code"><pre>
+print(
+    tools.t_vect_db_select(
+        input="normals@t_vect_db_select",
+        columns="cat,precipitation",
+        where="cat = 1",
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|cat|precipitation
+2026-01-01 00:00:00|2026-02-01 00:00:00|1|111
+2026-02-01 00:00:00|2026-03-01 00:00:00|1|92
+2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
 </pre></div>
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>
-</em>
+<em><a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.vect.list.html">t.vect.list</a>, <a href="t.vect.univar.html">t.vect.univar</a>,
+<a href="v.db.select.html">v.db.select</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 
