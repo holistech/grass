@@ -1,6 +1,11 @@
 [
+  "File <{}> not found",
   "Invalid date <{}> of the option <{}>",
   "Invalid where condition <{}>: {}",
+  "Map <%s> is already registered in the temporal database, use overwrite flag to overwrite.",
   "Space time datasets can only be created in the current mapset",
+  "The offset must not move the next cycle back to or before the start of this one",
+  "Unable to export raster map <%s>",
+  "Unable to register maps in the space time dataset <{name}>. The mapset of the dataset does not match the current mapset",
   "Unable to update dataset <%(ds)s> of type %(type)s in the temporal database. The mapset of the database does not match the current mapset"
 ]
