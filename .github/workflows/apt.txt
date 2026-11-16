@@ -16,6 +16,7 @@ libproj-dev
 libreadline-dev
 libsvm-dev
 libzstd-dev
+mupdf-tools
 pdal
 proj-bin
 python3-dateutil
