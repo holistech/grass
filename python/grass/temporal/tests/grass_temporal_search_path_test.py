@@ -105,8 +105,7 @@ def listed_rows(tools, name):
 # the result; the calls write to the mapset "second" with overwrite, so the
 # cases do not depend on each other. t.select, t.rast.mapcalc and
 # t.rast3d.mapcalc pass these cases only from their revision on; their cases
-# come with it. t.rast.export and the extract test need the export and extract
-# modules of the next stage.
+# come with it.
 CASES = {
     "t.rast.list": (
         lambda t, p, m: t.t_rast_list(input=f"ds@{m}"),
@@ -152,6 +151,15 @@ CASES = {
         lambda t, p, m: t.t_sample(input=f"ds@{m}", sample=f"ds@{m}"),
         lambda t, r: len(lines(r)) == 2,
     ),
+    "t.rast.export": (
+        lambda t, p, m: t.t_rast_export(
+            input=f"ds@{m}",
+            output=str(p / "exported"),
+            compression="no",
+            overwrite=True,
+        ),
+        lambda t, r: True,
+    ),
     "t.rast.algebra": (
         lambda t, p, m: t.t_rast_algebra(
             expression=f"algebra = ds@{m} + 1", basename="algebra", overwrite=True
@@ -168,6 +176,8 @@ def run(tools, name, tmp_path, mapset="first"):
 
 def check(tools, name, result, tmp_path):
     assert CASES[name][1](tools, result)
+    if name == "t.rast.export":
+        assert (tmp_path / "exported").exists()
 
 
 @pytest.mark.parametrize("tool", sorted(CASES))
@@ -203,6 +213,26 @@ def test_mapset_without_temporal_database_is_refused(tools, tool, tmp_path):
     assert error.value.returncode == 1
     assert REFUSAL in message(error.value)
     assert "Accessible mapsets" not in message(error.value)
+
+
+def extract(tools, name):
+    return tools.t_rast_extract(
+        input=f"{name}@first",
+        output=f"{name}_out",
+        where="start_time > '2000-01-01'",
+        basename=f"{name}_out",
+        overwrite=True,
+    )
+
+
+def test_extract_of_dataset_of_mapset_in_search_path_needs_maps_in_the_database(tools):
+    """The maps are put into the database of "second", the extract is made"""
+    add_first(tools)
+
+    extract(tools, "extract_fails")
+
+    listing = tools.t_rast_list(input="extract_fails_out", columns="name,mapset")
+    assert lines(listing) == ["name|mapset", "x1_1|first", "x1_2|first"]
 
 
 def test_a_dataset_copied_without_search_path_registers_the_maps_of_the_original(tools):
