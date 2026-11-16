@@ -142,9 +142,10 @@ on precedence.
     `FatalError` has to catch `ValueError` and `TypeError` too
     ([t.rast.algebra](t.rast.algebra.md#notes)).
 - **Calls of r.mapcalc in a dry run.** The dry run of *t.rast.algebra*
-    with **-d** printed the expressions of *r.mapcalc* as written, such as
-    `r_2001_01_01=if(a1@PERMANENT >= 3, 1, 0)` for
-    `R = if(A >= 3, start_doy(A, 0), 0)`, and listed the parameter `region`
+    with **-d** printed the expressions of *r.mapcalc* without quotes or
+    added parentheses, such as `r_2001_01_01=if(a1@PERMANENT >= 3, 1, 0)`
+    for `R = if(A >= 3, start_doy(A, 0), 0)` with `basename=r` and
+    `suffix=gran`, and listed the parameter `region`
     of *r.mapcalc* with its default `current`. Now each map name is in
     double quotes, each operator is in parentheses with its operands, and
     the condition of `if()` is compared with 0:

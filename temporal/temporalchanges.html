@@ -142,9 +142,10 @@ result dataset as the real run does. Python code that catches
 <code>FatalError</code> has to catch <code>ValueError</code> and <code>TypeError</code> too
 (<a href="t.rast.algebra.html#notes">t.rast.algebra</a>).</li>
 <li><b>Calls of r.mapcalc in a dry run.</b> The dry run of <em>t.rast.algebra</em>
-with <b>-d</b> printed the expressions of <em>r.mapcalc</em> as written, such as
-<code>r_2001_01_01=if(a1@PERMANENT &gt;= 3, 1, 0)</code> for
-<code>R = if(A &gt;= 3, start_doy(A, 0), 0)</code>, and listed the parameter <code>region</code>
+with <b>-d</b> printed the expressions of <em>r.mapcalc</em> without quotes or
+added parentheses, such as <code>r_2001_01_01=if(a1@PERMANENT &gt;= 3, 1, 0)</code>
+for <code>R = if(A &gt;= 3, start_doy(A, 0), 0)</code> with <code>basename=r</code> and
+<code>suffix=gran</code>, and listed the parameter <code>region</code>
 of <em>r.mapcalc</em> with its default <code>current</code>. Now each map name is in
 double quotes, each operator is in parentheses with its operands, and
 the condition of <code>if()</code> is compared with 0:
