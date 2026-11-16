@@ -95,8 +95,9 @@ def test_compute_datetime_delta_minutes_seconds_same() -> None:
     start = datetime(2001, 1, 1, 0, 0, 30)
     end = datetime(2001, 1, 1, 0, 5, 30)
     comp: datetime_delta = compute_datetime_delta(start, end)
+    # The seconds are equal, so they do not count.
     assert comp == datetime_delta(
-        year=0, month=0, day=0, hour=0, minute=5, second=300, max_days=0
+        year=0, month=0, day=0, hour=0, minute=5, second=0, max_days=0
     )
 
 
@@ -113,8 +114,9 @@ def test_compute_datetime_delta_hour_minutes_same() -> None:
     start = datetime(2011, 10, 31, 0, 45, 0)
     end = datetime(2011, 10, 31, 1, 45, 0)
     comp: datetime_delta = compute_datetime_delta(start, end)
+    # The minutes and the seconds are equal, so they do not count.
     assert comp == datetime_delta(
-        year=0, month=0, day=0, hour=1, minute=60, second=0, max_days=0
+        year=0, month=0, day=0, hour=1, minute=0, second=0, max_days=0
     )
 
 

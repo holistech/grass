@@ -1,0 +1,751 @@
+"""The table of maps that a space time dataset has registered
+
+Every space time dataset keeps the identifiers of its maps in a table of its
+own, the map register. The class StdsMapRegister holds everything that reads
+or writes this table: creating, renaming and dropping it, registering and
+unregistering a map, selecting the registered maps, and bringing the extent
+and the metadata of the dataset up to date with them.
+
+The table name comes from the temporal database and goes into SQL text,
+because SQL has no placeholder for a table name. It is therefore checked
+with sql_identifier() before it is used; a value that is no plain name stops
+the call with a fatal error. The form is not the one that create_name()
+makes: databases written by older versions hold tables named differently,
+for example with underscores in the uuid, and the SQL of those versions only
+worked for plain names either.
+
+SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:author: Soeren Gebbert
+"""
+
+from __future__ import annotations
+
+import re
+import uuid
+from datetime import datetime
+from pathlib import Path
+
+from grass.exceptions import FatalError
+
+from .abstract_map_dataset import (
+    other_temporal_type_message,
+    other_time_unit_message,
+)
+from .datetime_math import string_to_datetime
+from .db import (
+    connection,
+    sql_identifier,
+    sql_literal,
+    sql_placeholder,
+    sql_statement,
+)
+from .schema import (
+    get_sql_template_path,
+    get_tgis_db_version_from_metadata,
+    get_tgis_metadata,
+)
+from .state import get_current_mapset
+from .temporal_granularity import (
+    compute_absolute_time_granularity,
+    compute_relative_time_granularity,
+)
+
+
+def _placeholder(dbif) -> str:
+    """The placeholder of the parameter style of the backend"""
+    return sql_placeholder(dbif.get_dbmi().paramstyle)
+
+
+class GroupedRow:
+    """A row of get_registered_maps(group=...), read by position or by name
+
+    The names are those of the selected columns, the group columns first, as
+    sqlite3.Row has them; the list of a column is a comma separated text.
+    """
+
+    __slots__ = ("_names", "_values")
+
+    def __init__(self, names, values):
+        self._names = tuple(names)
+        self._values = tuple(values)
+
+    def keys(self):
+        """Return the column names"""
+        return list(self._names)
+
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            return self._values[self._names.index(key)]
+        return self._values[key]
+
+    def __len__(self):
+        return len(self._values)
+
+    def __iter__(self):
+        return iter(self._values)
+
+
+def _grouped_rows(rows, group_columns, joined_columns):
+    """Return one row per group with the other columns joined by commas
+
+    rows hold the group columns, the joined columns and the id, in that
+    order, sorted by the group. The values of a group are joined in the
+    order of the ids, so that position i of every list belongs to the same
+    map. A NULL is skipped and a list of only NULLs is NULL, as group_concat
+    has it.
+    """
+    count = len(group_columns)
+    groups = {}
+    for row in rows:
+        groups.setdefault(tuple(row[:count]), []).append(row)
+    names = [*group_columns, *joined_columns]
+    grouped = []
+    for key, members in groups.items():
+        members.sort(key=lambda row: row[-1])
+        values = []
+        for position in range(count, count + len(joined_columns)):
+            texts = [str(row[position]) for row in members if row[position] is not None]
+            values.append(",".join(texts) if texts else None)
+        grouped.append(GroupedRow(names, [*key, *values]))
+    return grouped
+
+
+# A map with a layer has a sentence of its own in each of these messages rather
+# than the plain one with words inserted, so that a translator can inflect it.
+def _invalid_time_message(map_) -> str:
+    if map_.get_layer():
+        return _("Map <%(id)s> with layer %(l)s has invalid time") % {
+            "id": map_.get_map_id(),
+            "l": map_.get_layer(),
+        }
+    return _("Map <%s> has invalid time") % map_.get_map_id()
+
+
+def _already_registered_message(map_) -> str:
+    if map_.get_layer():
+        return _("Map <%(map)s> with layer %(l)s is already registered.") % {
+            "map": map_.get_map_id(),
+            "l": map_.get_layer(),
+        }
+    return _("Map <%s> is already registered.") % map_.get_map_id()
+
+
+def _not_registered_message(map_, stds_id: str) -> str:
+    if map_.get_layer():
+        return _(
+            "Map <%(map)s> with layer %(l)s is not registered in space time "
+            "dataset <%(base)s>"
+        ) % {"map": map_.get_map_id(), "l": map_.get_layer(), "base": stds_id}
+    return _("Map <%(map)s> is not registered in space time dataset <%(base)s>") % {
+        "map": map_.get_map_id(),
+        "base": stds_id,
+    }
+
+
+def _fill_template(sql: str, values: dict[str, str]) -> str:
+    """Put the values in for the placeholders of an SQL template
+
+    All placeholders are replaced in one pass, so a value is never searched
+    for another placeholder: replaced one after the other, the identifier
+    STDS_x@PERMANENT lost its STDS to the type of the dataset, and the
+    update found no row.
+
+    Comment lines are dropped first: a line break in an identifier ends a
+    comment, so a placeholder inside one would let the rest of the identifier
+    run as SQL. The templates hold no string literal or code before a
+    comment, so a line that starts with -- is the only form to drop.
+    """
+    sql = "".join(
+        line
+        for line in sql.splitlines(keepends=True)
+        if not line.lstrip().startswith("--")
+    )
+    pattern = "|".join(re.escape(placeholder) for placeholder in values)
+    return re.sub(pattern, lambda match: values[match.group()], sql)
+
+
+def _map_time_of(counts: dict) -> str:
+    """Name the temporal types of the maps, from the counts of each type"""
+    if counts["invalid"] > 0:
+        return "invalid"
+    if counts["interval"] > 0 and counts["point"] > 0:
+        return "mixed"
+    if counts["interval"] > 0:
+        return "interval"
+    if counts["point"] > 0:
+        return "point"
+    return "invalid"
+
+
+class StdsMapRegister:
+    """The map register table of one space time dataset
+
+    The object holds no state of its own except the dataset, so it is made
+    whenever it is needed (AbstractSpaceTimeDataset.map_register) and a copy
+    of the dataset never shares it with the original.
+
+    :param stds: The space time dataset
+    """
+
+    def __init__(self, stds) -> None:
+        self._stds = stds
+
+    def table_name(self) -> str | None:
+        """Return the name of the register table, None if there is none yet
+
+        :raises ~grass.exceptions.FatalError: if the name is not a plain
+            identifier
+        """
+        name = self._stds.get_map_register()
+        if name is None:
+            return None
+        try:
+            return sql_identifier(name)
+        except ValueError:
+            pass
+        # Outside the except clause, so the fatal error does not carry the
+        # ValueError as its context into a traceback.
+        self._stds.msgr.fatal(
+            _("Invalid name <{name}> of the map register table of <{ds}>").format(
+                name=name, ds=self._stds.get_id()
+            )
+        )
+
+    def create_name(self) -> str:
+        """Create the name of a new register table
+
+        A uuid and the map type make the name.
+        """
+        map_type = self._stds.get_new_map_instance(None).get_type()
+        return f"{map_type}_map_register_{uuid.uuid4().hex}"
+
+    def create_statement(self, dbif) -> str:
+        """Name a new register table, set the name and return its SQL
+
+        This changes the dataset object only; the caller executes the
+        statement together with the insert of the dataset.
+        """
+        name = self.create_name()
+        sql = Path(get_sql_template_path(), "stds_map_register_table_template.sql")
+        statement = sql.read_text().replace(
+            "SPACETIME_REGISTER_TABLE", sql_identifier(name)
+        )
+        # SQLite indexes the primary key itself, so this index repeats it. It
+        # stays because released GRASS 8.x renames a dataset with an
+        # unconditional DROP INDEX <register table>_index, which fails on a
+        # database made without it.
+        if dbif.get_dbmi().__name__ == "sqlite3":
+            statement += sql_statement(
+                "CREATE INDEX {table}_index ON {table} (id);", table=name
+            )
+        self._stds.set_map_register(name)
+        self._stds.msgr.debug(
+            1,
+            _("Created register table <%s> for space time %s  dataset <%s>")
+            % (
+                name,
+                self._stds.get_new_map_instance(None).get_type(),
+                self._stds.get_id(),
+            ),
+        )
+        return statement
+
+    def drop_statement(self) -> str:
+        """Return the SQL that drops the register table"""
+        return sql_statement("DROP TABLE IF EXISTS {table};\n", table=self.table_name())
+
+    def rename_statement(self, dbif) -> str:
+        """Give the register table a new name and return the SQL for it
+
+        The new name is set in the dataset object, which must already carry
+        its new identifier; the caller executes the statement.
+        """
+        old = self.table_name()
+        new = self.create_name()
+        self._stds.set_map_register(new)
+        statement = sql_statement(
+            'ALTER TABLE {old} RENAME TO "{new}";\n', old=old, new=new
+        )
+        # The index on the id, named after the table, follows the table to its
+        # new name. A table without it gets none, because DROP INDEX fails.
+        if dbif.get_dbmi().__name__ == "sqlite3":
+            mapset = self._stds.base.mapset
+            dbif.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+                (f"{old}_index",),
+                mapset=mapset,
+            )
+            if dbif.fetchone(mapset=mapset) is not None:
+                statement += sql_statement(
+                    "DROP INDEX {old}_index;\nCREATE INDEX {new}_index ON {new} (id);",
+                    old=old,
+                    new=new,
+                )
+        return statement
+
+    def contains(self, map_id: str, dbif=None) -> bool:
+        """Check if a map is registered in the dataset
+
+        :param map_id: The identifier of the map
+        :param dbif: The database interface to be used
+        """
+        table = self.table_name()
+        if table is None:
+            return False
+        stds = self._stds
+        with connection(dbif) as dbif:
+            select = sql_statement("SELECT id FROM {table} WHERE id = ", table=table)
+            sql = f"{select}({_placeholder(dbif)})"
+            try:
+                dbif.execute(sql, (map_id,), mapset=stds.base.mapset)
+                row = dbif.fetchone(mapset=stds.base.mapset)
+            except FatalError:
+                raise
+            except Exception:
+                stds.msgr.warning(_("Error in register table request"))
+                raise
+            return row is not None
+
+    def register(self, map_, dbif=None) -> bool:
+        """Register a map in the dataset
+
+        The map must be in the temporal database and have the temporal type
+        and, if it is relative, the unit of the dataset; the first map of a
+        relative dataset sets the unit. A map that is registered already
+        gives a warning and False.
+
+        :param map\\_: The AbstractMapDataset object
+        :param dbif: The database interface to be used
+        :return: True if the map has been registered, False if it was
+            registered already
+        :raises ~grass.exceptions.FatalError: in case of a fatal error
+        """
+        stds = self._stds
+        mapset = get_current_mapset()
+
+        if stds.get_mapset() != mapset:
+            stds.msgr.fatal(
+                _(
+                    "Unable to register map in dataset <%(ds)s> of "
+                    "type %(type)s. The mapset of the database does "
+                    "not match the current mapset"
+                )
+                % {"ds": stds.get_id(), "type": stds.get_type()}
+            )
+
+        # A connection that was handed in belongs to the caller, also when
+        # the registration stops with an error.
+        with connection(dbif) as dbif:
+            return self._register(map_, dbif, mapset)
+
+    def _register(self, map_, dbif, mapset) -> bool:
+        """Register the map over the open connection, see register()"""
+        stds = self._stds
+        if map_.is_in_db(dbif, mapset=stds.get_mapset()) is False:
+            stds.msgr.fatal(
+                _(
+                    "Only a map that was inserted in the temporal "
+                    "database can be registered in a space time "
+                    "dataset"
+                )
+            )
+
+        layer = f" with layer {map_.get_layer()}" if map_.get_layer() else ""
+        stds.msgr.debug(
+            1,
+            f"Register {map_.get_type()} map <{map_.get_map_id()}>{layer} in space "
+            f"time {map_.get_type()} dataset <{stds.get_id()}>",
+        )
+
+        # First select all data from the database in the current mapset
+        map_.select(dbif, mapset=mapset)
+
+        if not map_.check_for_correct_time():
+            stds.msgr.fatal(_invalid_time_message(map_))
+
+        map_id = map_.base.get_id()
+        map_rel_time_unit = map_.get_relative_time_unit()
+        table = self.table_name()
+
+        # The gathered SQL statements are stored here
+        statement = ""
+
+        if stds.get_temporal_type() != map_.get_temporal_type():
+            stds.msgr.fatal(other_temporal_type_message(stds.get_id(), map_))
+
+        # In case no map has been registered yet, set the
+        # relative time unit from the first map
+        if (
+            (
+                stds.metadata.get_number_of_maps() is None
+                or stds.metadata.get_number_of_maps() == 0
+            )
+            and stds.map_counter == 0
+            and stds.is_time_relative()
+        ):
+            stds.set_relative_time_unit(map_rel_time_unit)
+            statement += stds.relative_time.get_update_all_statement_mogrified(dbif)
+
+            stds.msgr.debug(
+                1,
+                _("Set temporal unit for space time %s dataset <%s> to %s")
+                % (map_.get_type(), stds.get_id(), map_rel_time_unit),
+            )
+
+        # Check the relative time unit
+        if stds.is_time_relative() and (
+            stds.get_relative_time_unit() != map_rel_time_unit
+        ):
+            stds.msgr.fatal(other_time_unit_message(stds.get_id(), map_))
+
+        stds_mapset = stds.base.get_mapset()
+        if stds_mapset != mapset:
+            stds.msgr.fatal(
+                _("Maps can only registered in a database in the current mapset")
+            )
+
+        if self.contains(map_id, dbif):
+            stds.msgr.warning(_already_registered_message(map_))
+            return False
+
+        # Register the stds in the map stds register table column
+        statement += map_.add_stds_to_register(
+            stds_id=stds.base.get_id(), dbif=dbif, execute=False
+        )
+
+        # Now put the map name in the stds map register table
+        insert = sql_statement("INSERT INTO {table} (id) VALUES ", table=table)
+        sql = f"{insert}({_placeholder(dbif)});\n"
+        statement += dbif.mogrify_sql_statement((sql, (map_id,)))
+
+        # Only databases in the current mapset can be modified
+        dbif.execute_transaction(statement, mapset=stds_mapset)
+
+        stds.map_counter += 1
+
+        return True
+
+    def unregister(self, map_, dbif=None, execute: bool = True):
+        """Unregister a map from the dataset
+
+        :param map\\_: The map object to unregister
+        :param dbif: The database interface to be used
+        :param execute: If True the SQL DELETE statement is executed. If
+            False the prepared statement is returned and the caller must
+            execute it.
+        :return: The SQL statement if execute is False, else an empty
+            string; an empty string as well if the map is not registered
+            (with a warning)
+        """
+        stds = self._stds
+        mapset = get_current_mapset()
+
+        if stds.get_mapset() != mapset:
+            stds.msgr.debug(1, f"STDS name <{stds.get_name()}>")
+            stds.msgr.fatal(
+                _("Maps can only unregistered in a database in the current mapset")
+            )
+
+        statement = ""
+
+        with connection(dbif) as dbif:
+            if not self.contains(map_.get_id(), dbif):
+                stds.msgr.warning(_not_registered_message(map_, stds.base.get_id()))
+                return ""
+
+            # Remove the space time dataset from the dataset register of the
+            # map. The statement must be executed here, otherwise the dataset
+            # is not removed correctly.
+            map_.remove_stds_from_register(stds.base.get_id(), dbif=dbif, execute=True)
+
+            table = self.table_name()
+            if table is not None:
+                delete = sql_statement("DELETE FROM {table} WHERE id = ", table=table)
+                sql = f"{delete}{_placeholder(dbif)};\n"
+                statement += dbif.mogrify_sql_statement((sql, (map_.get_id(),)))
+
+            if execute:
+                dbif.execute_transaction(statement, mapset=mapset)
+                statement = ""
+
+            stds.map_counter -= 1
+
+            return statement
+
+    def rows(
+        self,
+        columns=None,
+        where=None,
+        order=None,
+        dbif=None,
+        group=None,
+        spatial_extent=None,
+        spatial_relation=None,
+    ):
+        """Return the SQL rows of the selected registered maps
+
+        See AbstractSpaceTimeDataset.get_registered_maps() for the meaning
+        of the arguments.
+
+        :return: The rows, None if the dataset has no register table
+        """
+        # Callers have always been allowed to end a condition with a
+        # semicolon. Only the end is stripped; a semicolon inside is part of
+        # the condition, as in name = 'a;b'.
+        if where is not None:
+            where = where.rstrip("; \t\r\n").lstrip()
+        if order is not None:
+            order = order.rstrip("; \t\r\n").lstrip()
+
+        table = self.table_name()
+        if table is None:
+            return None
+
+        stds = self._stds
+        with connection(dbif) as dbif:
+            map_type = stds.get_new_map_instance(None).get_type()
+            if stds.get_temporal_type() == "absolute":
+                map_view = map_type + "_view_abs_time"
+            else:
+                map_view = map_type + "_view_rel_time"
+
+            if group:
+                # The rows are grouped in Python: group_concat does not exist
+                # on PostgreSQL, string_agg and group_concat order the list
+                # only from SQLite 3.44 and GRASS accepts 3.33, and a list per
+                # column ordered by its own values would not stay aligned.
+                group_columns = [name.strip() for name in group.split(",")]
+                joined_columns = (
+                    [name.strip() for name in columns.split(",")] if columns else ["id"]
+                )
+                columns = ",".join([*group_columns, *joined_columns, "id"])
+                order = f"{group},{order},id" if order else f"{group},id"
+            else:
+                columns = columns or "*"
+
+            # filter by semantic label identifier
+            if stds.semantic_label:
+                where = stds._update_where_statement_by_semantic_label(where)
+
+            # filter by spatial extent
+            if spatial_extent and spatial_relation:
+                where = stds._update_where_statement_by_spatial_extent(
+                    where, spatial_extent, spatial_relation
+                )
+
+            registered = sql_statement(
+                "{view} WHERE {view}.id IN (SELECT id FROM {table})",
+                view=map_view,
+                table=table,
+            )
+            condition = f" AND ({where})" if where else ""
+            ordering = f" ORDER BY {order}" if order else ""
+            # The columns, where, group and order are SQL of the caller by design.
+            sql = f"SELECT {columns} FROM {registered}{condition}{ordering};"  # noqa: S608
+
+            try:
+                dbif.execute(sql, mapset=stds.base.mapset)
+                rows = dbif.fetchall(mapset=stds.base.mapset)
+            except RuntimeError:
+                stds.msgr.error(
+                    _("Unable to get map ids from register table <{}>").format(table)
+                )
+                raise
+            if group:
+                return _grouped_rows(rows, group_columns, joined_columns)
+            return rows
+
+    def update_extent(self, dbif=None) -> None:
+        """Update the extent, the metadata and the time type of the dataset
+
+        The modification time, the spatial and temporal extent and the type
+        specific metadata come from the registered maps. The end time of the
+        dataset is the largest end time of the maps; if the maps have none,
+        or the end is earlier than the largest start time, the largest start
+        time is used.
+
+        :param dbif: The database interface to be used
+        """
+        stds = self._stds
+
+        if stds.get_mapset() != get_current_mapset():
+            stds.msgr.fatal(
+                _(
+                    "Unable to update dataset <%(ds)s> of type "
+                    "%(type)s in the temporal database. The mapset"
+                    " of the database does not match the current "
+                    "mapset"
+                )
+                % {"ds": stds.get_id(), "type": stds.get_type()}
+            )
+
+        stds.msgr.verbose(
+            _(
+                "Update metadata, spatial and temporal extent from"
+                " all registered maps of <%s>"
+            )
+            % (stds.get_id())
+        )
+
+        # Nothing to do if the map register is not present
+        table = self.table_name()
+        if not table:
+            return
+
+        with connection(dbif) as dbif:
+            self._require_update_from(dbif)
+            map_type = stds.get_new_map_instance(None).get_type()
+            absolute = stds.is_time_absolute()
+            self._run_update_templates(dbif, table, map_type)
+            self._fix_end_time(dbif, table, map_type, absolute)
+
+            # Count the temporal map types
+            maps = stds.get_registered_maps(order="start_time", dbif=dbif)
+            map_time = _map_time_of(stds.count_temporal_types(maps))
+
+            # Smallest supported temporal resolution
+            if map_time == "invalid":
+                gran = None
+            elif absolute:
+                gran = compute_absolute_time_granularity(maps)
+            else:
+                gran = compute_relative_time_granularity(maps)
+
+            # Set the map time type and update the time objects
+            stds.temporal_extent.select(dbif)
+            stds.metadata.select(dbif)
+            if stds.metadata.get_number_of_maps() > 0:
+                stds.temporal_extent.set_map_time(map_time)
+                stds.temporal_extent.set_granularity(gran)
+            else:
+                stds.temporal_extent.set_map_time(None)
+                stds.temporal_extent.set_granularity(None)
+            stds.temporal_extent.update_all(dbif)
+
+            # Set the modification time
+            stds.base.set_mtime(datetime.now())
+            stds.base.update(dbif)
+
+    def _require_update_from(self, dbif) -> None:
+        """Stop if the database cannot run the UPDATE-FROM of the templates
+
+        SQLite supports that syntax only since 3.33.
+        """
+        dbmi = dbif.get_dbmi()
+        if dbmi.__name__ == "sqlite3" and dbmi.sqlite_version_info < (3, 33):
+            self._stds.msgr.fatal(
+                _(
+                    "The temporal framework requires SQLite 3.33 or later to "
+                    "update a space time dataset, but the Python sqlite3 module "
+                    "uses SQLite {version}. Please update SQLite or switch the "
+                    "temporal database to the PostgreSQL backend with t.connect."
+                ).format(version=dbmi.sqlite_version)
+            )
+
+    def _run_update_templates(self, dbif, table: str, map_type: str) -> None:
+        """Update the extent and the metadata from the registered maps
+
+        Runs the SQL templates of the extent and of the type specific metadata
+        in one transaction. The identifier goes in as an SQL literal, quoted
+        by sql_literal() and not by the template, so that a quote in a name
+        cannot end the string early. The script is executed as text, hence
+        the default parameter style also for PostgreSQL.
+        """
+        stds = self._stds
+        sql_path = get_sql_template_path()
+
+        # The spatial and temporal extent from the registered maps
+        sql = Path(
+            sql_path, "update_stds_spatial_temporal_extent_template.sql"
+        ).read_text()
+        sql = _fill_template(
+            sql,
+            {
+                "GRASS_MAP": sql_identifier(map_type),
+                "SPACETIME_REGISTER_TABLE": table,
+                "SPACETIME_ID": sql_literal(stds.base.get_id()),
+                "STDS": sql_identifier(stds.get_type()),
+            },
+        )
+        sql_script = sql + "\n"
+
+        # The type specific metadata
+        sql = Path(sql_path, f"update_{stds.get_type()}_metadata_template.sql")
+        sql = sql.read_text()
+
+        # Comment out update of semantic labels for DB version < 3
+        if get_tgis_db_version_from_metadata(get_tgis_metadata(dbif)) < 3:
+            sql = sql.replace(
+                "number_of_semantic_labels = number_of_semantic_labels_new,",
+                "-- number_of_semantic_labels = number_of_semantic_labels_new,",
+            )
+            sql = sql.replace(
+                "count(distinct semantic_label)",
+                "-- count(distinct semantic_label)",
+            )
+
+        sql = _fill_template(
+            sql,
+            {
+                "SPACETIME_REGISTER_TABLE": table,
+                "SPACETIME_ID": sql_literal(stds.base.get_id()),
+            },
+        )
+        sql_script += sql + "\n"
+
+        dbif.execute_transaction(sql_script, mapset=stds.base.mapset)
+
+    def _fix_end_time(self, dbif, table: str, map_type: str, absolute: bool) -> None:
+        """Make the end time of the dataset not earlier than the last start
+
+        Reads the end time that the templates set; without one, or if it is
+        earlier than the largest start time of the maps, the largest start
+        time becomes the end time.
+        """
+        stds = self._stds
+        # Read and validate the selected end time
+        stds.select(dbif)
+
+        if absolute:
+            _start_time, end_time = stds.get_absolute_time()
+        else:
+            _start_time, end_time, _unit = stds.get_relative_time()
+
+        max_start = sql_statement(
+            "SELECT max(start_time) FROM {times} WHERE {times}.id IN "
+            "(SELECT id FROM {table})",
+            times=f"{map_type}_{'absolute' if absolute else 'relative'}_time",
+            table=table,
+        )
+
+        # In case no end time is set, use the maximum start time of
+        # all registered maps as end time
+        use_start_time = end_time is None
+        if not use_start_time:
+            # Check if the end time is smaller than the maximum start time
+            dbif.execute(max_start + ";", mapset=stds.base.mapset)
+            row = dbif.fetchone(mapset=stds.base.mapset)
+
+            if row is not None:
+                # The Python sqlite3 driver gives a text unless the
+                # connection is made with detect_types=PARSE_DECLTYPES
+                if dbif.get_dbmi().__name__ == "sqlite3" and absolute:
+                    max_start_time = string_to_datetime(row[0])
+                    if max_start_time is None:
+                        max_start_time = end_time
+                else:
+                    max_start_time = row[0]
+
+                if end_time < max_start_time:
+                    use_start_time = True
+
+        # Set the maximum start time as end time
+        if use_start_time:
+            update = sql_statement(
+                "UPDATE {table} SET end_time = ",
+                table=stds.kind.table("absolute_time" if absolute else "relative_time"),
+            )
+            sql = f"{update}({max_start}) WHERE id = {sql_literal(stds.base.get_id())};"
+            dbif.execute_transaction(sql, mapset=stds.base.mapset)
