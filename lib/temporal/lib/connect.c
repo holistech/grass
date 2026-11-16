@@ -11,13 +11,16 @@
    Joel Jones (CERL/UIUC) and Radim Blazek
  */
 
-#include <grass/temporal.h>
+#include <stdio.h>
+#include <string.h>
+
 #include <grass/glocale.h>
+#include <grass/temporal.h>
 
 /*!
- * \brief Get TGIS driver name
+ * \brief Get TGIS driver name of the current mapset
  *
- * \return pointer to TGIS driver name
+ * \return pointer to a copy of the TGIS driver name, to be freed with G_free()
  * \return NULL if not set
  */
 char *tgis_get_driver_name(void)
@@ -31,9 +34,13 @@ char *tgis_get_driver_name(void)
 }
 
 /*!
- * \brief Get TGIS database name
+ * \brief Get TGIS database name of the current mapset
  *
- * \return pointer to TGIS database name
+ * The name is returned as it is stored, with the variables $GISDBASE,
+ * $LOCATION_NAME and $MAPSET not yet replaced.
+ *
+ * \return pointer to a copy of the TGIS database name, to be freed with
+ *         G_free()
  * \return NULL if not set
  */
 char *tgis_get_database_name(void)
@@ -49,7 +56,10 @@ char *tgis_get_database_name(void)
 /*!
    \brief Set Temporal GIS DB connection settings
 
-   This function sets environmental variables as TGISDB_DRIVER, TGISDB_DATABASE.
+   This function sets the variables TGISDB_DRIVER and TGISDB_DATABASE in the
+   VAR file of the current mapset; a member of the connection that is NULL is
+   left as it is. An empty value, or one of only white space, removes the
+   variable, because the file reader of the GIS library skips it.
 
    \param connection pointer to dbConnection with default settings
 
@@ -67,7 +77,17 @@ int tgis_set_connection(dbConnection *connection)
 }
 
 /*!
-   \brief Get Temporal GIS DB connection settings
+   \brief Get Temporal GIS DB connection settings of the current mapset
+
+   The members are NULL for a variable that is not set. They point into the
+   environment of the GIS library and are not copied, so they must not be
+   freed. The library gives no promise how long they stay valid: do not use
+   them after any call that changes the environment, that is G_setenv(),
+   G_setenv2(), G_setenv_nogisrc(), G_unsetenv(), G_unsetenv2(),
+   G_create_alt_env(), G_switch_env(), G__read_gisrc_env() or
+   G__read_mapset_env(), nor after tgis_set_connection() and
+   tgis_set_default_connection(), which call G_setenv2(). Copy the strings
+   first if they are needed later.
 
    \param[out] connection pointer to dbConnection to be modified
 
@@ -88,63 +108,88 @@ int tgis_get_connection(dbConnection *connection)
 #define DRIVER_NAME   0
 #define DATABASE_NAME 1
 
+/* Reads one variable from the VAR file of a mapset with the rules of the file
+ * reader in libgis: the text before the first colon is the name, a line with
+ * an empty name or value is skipped, and the last line of a name wins.
+ *
+ * The reader of libgis is not used because the only way to point it at
+ * another mapset is G_create_alt_env(), and an environment made that way can
+ * never be freed. That lost about 1.2 kB per call (growth of 48,444 kB over
+ * 40,000 calls, measured 31.10.2026 with a C program reading /proc/self/statm
+ * around the calls). */
+static char *read_mapset_variable(const char *gisdbase, const char *location,
+                                  const char *mapset, const char *name)
+{
+    /* As in libgis, a line may be as long as a path. */
+    char buf[GPATH_MAX + 16];
+    char path[GPATH_MAX];
+    char *found = NULL;
+    FILE *fd;
+
+    snprintf(path, sizeof(path), "%s/%s/%s/VAR", gisdbase, location, mapset);
+    if (!(fd = fopen(path, "r")))
+        return NULL;
+
+    while (G_getl2(buf, sizeof buf, fd)) {
+        char *key = buf;
+        char *value = strchr(buf, ':');
+
+        if (!value)
+            continue;
+
+        *value++ = '\0';
+        G_strip(key);
+        G_strip(value);
+        if (*key && *value && strcmp(key, name) == 0) {
+            G_free(found);
+            found = G_store(value);
+        }
+    }
+    fclose(fd);
+
+    return found;
+}
+
+/* A mapset name is joined to a path, so a name with path parts would reach
+ * a directory outside the project. */
+static int is_plain_mapset_name(const char *mapset)
+{
+    return *mapset && !strchr(mapset, '/') && strcmp(mapset, ".") != 0 &&
+           strcmp(mapset, "..") != 0;
+}
+
 static char *get_mapset_connection_name(const char *mapset, int contype)
 {
-    const char *val = NULL;
-    char *ret_val = NULL;
-    ;
     const char *gisdbase = G_getenv_nofatal("GISDBASE");
     const char *location = G_getenv_nofatal("LOCATION_NAME");
-    int ret;
+    const char *name;
 
     G_debug(1, "Checking mapset <%s>", mapset);
-    ret = G_mapset_permissions2(gisdbase, location, mapset);
-    switch (ret) {
-    case 0: /* Check if the mapset exists and user is owner */
-        /* We suppress this warning, since G_mapset_permission2() does not
-         * properly check the access privileges to the mapset of a different
-         user.
-         * TODO: develop a dedicated G_mapset_permission3() for that
-         G_warning(_("You are not the owner of mapset <%s>"),
-         mapset);
-         */
-        break;
-    case -1:
+    /* Only a missing mapset is refused. G_mapset_permissions2() returns 0 for
+     * a mapset of another owner, but it does not check the access privileges
+     * of a different user properly, so a warning would be misleading. Reading
+     * fails by itself if it is not allowed. */
+    if (!is_plain_mapset_name(mapset) ||
+        G_mapset_permissions2(gisdbase, location, mapset) == -1) {
         G_warning(_("Mapset <%s> does not exist."), mapset);
-        return ret_val;
-    default:
-        break;
+        return NULL;
     }
 
-    G_create_alt_env();
-    G_setenv_nogisrc("GISDBASE", gisdbase);
-    G_setenv_nogisrc("LOCATION_NAME", location);
-    G_setenv_nogisrc("MAPSET", mapset);
-    G__read_mapset_env();
+    name = contype == DATABASE_NAME ? "TGISDB_DATABASE" : "TGISDB_DRIVER";
 
-    if (contype == DATABASE_NAME) {
-        if ((val = G_getenv_nofatal2("TGISDB_DATABASE", G_VAR_MAPSET)))
-            ret_val = G_store(val);
-    }
-    else if (contype == DRIVER_NAME) {
-        if ((val = G_getenv_nofatal2("TGISDB_DRIVER", G_VAR_MAPSET)))
-            ret_val = G_store(val);
-    }
-
-    G_switch_env();
-
-    return ret_val;
+    return read_mapset_variable(gisdbase, location, mapset, name);
 }
 
 /*!
  * \brief Get TGIS driver name from a specific mapset
  *
- * This function give a warning in case the mapset does not exists
- * or it is not allowed to access the mapset. NULL is returned in this case.
+ * This function gives a warning in case the mapset does not exist or its name
+ * has path parts; NULL is returned in this case. A mapset that cannot be read
+ * gives NULL without a warning.
  *
  * \param mapset The name of the mapset to receive the driver name from
  *
- * \return pointer to TGIS driver name
+ * \return pointer to a copy of the TGIS driver name, to be freed with G_free()
  * \return NULL if not set
  */
 char *tgis_get_mapset_driver_name(const char *mapset)
@@ -153,14 +198,20 @@ char *tgis_get_mapset_driver_name(const char *mapset)
 }
 
 /*!
- * \brief Get TGIS database name
+ * \brief Get TGIS database name from a specific mapset
  *
- * This function give a warning in case the mapset does not exists
- * or it is not allowed to access the mapset. NULL is returned in this case..
+ * This function gives a warning in case the mapset does not exist or its name
+ * has path parts; NULL is returned in this case. A mapset that cannot be read
+ * gives NULL without a warning.
  *
- * \param mapset The name of the mapset to receive the driver name from
-
- * \return pointer to TGIS database name
+ * The name is returned as it is stored: the variables $GISDBASE,
+ * $LOCATION_NAME and $MAPSET in it are not replaced. The Python library
+ * replaces them with the values of the project it runs in.
+ *
+ * \param mapset The name of the mapset to receive the database name from
+ *
+ * \return pointer to a copy of the TGIS database name, to be freed with
+ *         G_free()
  * \return NULL if not set
  */
 char *tgis_get_mapset_database_name(const char *mapset)

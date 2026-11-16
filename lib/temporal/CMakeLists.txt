@@ -1,4 +1,4 @@
-file(GLOB SQLFILES "SQL/*.sql")
+file(GLOB SQLFILES CONFIGURE_DEPENDS "SQL/*.sql")
 foreach(sqlfile ${SQLFILES})
     install(FILES "${sqlfile}" DESTINATION ${GRASS_INSTALL_ETCDIR}/sql)
 endforeach()
