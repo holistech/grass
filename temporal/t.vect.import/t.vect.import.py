@@ -37,7 +37,8 @@
 
 # %option G_OPT_M_DIR
 # % key: directory
-# % description: Path to the extraction directory
+# % description: Path to the extraction directory (default is .tmp in the current mapset)
+# % required: no
 # %end
 
 # %option
