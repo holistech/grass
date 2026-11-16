@@ -13,6 +13,7 @@ from .aggregation import aggregate_raster_maps, collect_map_names
 from .algebra.parser.facade import (
     TemporalRaster3DAlgebraParser,
     TemporalRasterAlgebraParser,
+    TemporalVectorAlgebraParser,
 )
 from .db import SQLDatabaseInterfaceConnection, SQLStatementError, init_dbif
 from .schema import (
@@ -92,13 +93,6 @@ from .univar_statistics import (
     print_vector_dataset_univar_statistics,
 )
 
-# t.vect.algebra, t.select and the old algebra tests of the package still run on
-# the old temporal algebra; these names go with it once the vector algebra and
-# the selection move to the algebra core.
-from .temporal_algebra import TemporalAlgebraParser
-from .temporal_raster_base_algebra import TemporalRasterAlgebraLexer
-from .temporal_vector_algebra import TemporalVectorAlgebraParser
-
 # Names the package exported before and tools still take from it: t.copy
 # (AbstractMapDataset) and six raster tools that build map name suffixes.
 # They leave the package with the revision of those tools.
@@ -133,9 +127,7 @@ __all__ = [
     "SpaceTimeRasterDataset",
     "SpaceTimeVectorDataset",
     "SpatioTemporalTopologyBuilder",
-    "TemporalAlgebraParser",
     "TemporalRaster3DAlgebraParser",
-    "TemporalRasterAlgebraLexer",
     "TemporalRasterAlgebraParser",
     "TemporalVectorAlgebraParser",
     "VectorDataset",
