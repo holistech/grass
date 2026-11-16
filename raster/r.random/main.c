@@ -20,6 +20,7 @@
  *
  *****************************************************************************/
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <grass/gis.h>
 #include <grass/glocale.h>
@@ -34,7 +35,7 @@ int main(int argc, char *argv[])
     gcell_count targets;
     gcell_count count;
     struct rr_state myState;
-    long seed_value;
+    int64_t seed_value;
 
     struct GModule *module;
     struct {
@@ -200,13 +201,13 @@ int main(int argc, char *argv[])
     }
 
     if (parm.seed->answer) {
-        seed_value = atol(parm.seed->answer);
+        seed_value = G_random_seed_from_option(parm.seed);
         G_srand48(seed_value);
-        G_debug(3, "Read random seed from seed=: %ld", seed_value);
+        G_debug(3, "Read random seed from seed=: %" PRId64, seed_value);
     }
     else {
         seed_value = G_srand48_auto();
-        G_debug(3, "Generated random seed (-s): %ld", seed_value);
+        G_debug(3, "Generated random seed (-s): %" PRId64, seed_value);
     }
 
     execute_random(&myState);
