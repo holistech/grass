@@ -10,46 +10,29 @@ SPDX-License-Identifier: GPL-2.0-or-later
 @author GRASS Development Team
 """
 
-import os
-import shutil
-
 import pytest
 
-import grass.script as gs
+from grass.temporal.testing.session import project_session
 from grass.tools import Tools
 
 
 @pytest.fixture(scope="module")
 def session(tmp_path_factory):
-    """Pytest fixture to create a temporary GRASS project with STRDS.
+    """Pytest fixture to create a temporary GRASS project with raster maps.
 
-    This setup initializes the GRASS environment, sets the computational region,
-    creates raster maps, and registers them in SpaceTimeRasterDataSets (STRDS).
+    This setup initializes the GRASS environment in the mapset "perc", sets
+    the computational region and creates the raster maps prec_1..prec_3 that
+    the tests register in their own SpaceTimeRasterDataSets (STRDS).
 
     Yields:
-        session: active GRASS session with the prepared project and STRDS.
+        session: active GRASS session with the prepared project and rasters.
 
     """
-    # Create a single temporary project directory once per module
-    tmp_path = tmp_path_factory.mktemp("raster_mapcalc_where")
-
-    # Remove if exists (defensive cleanup)
-    if tmp_path.exists():
-        shutil.rmtree(tmp_path)
-
-    gs.create_project(tmp_path)
-
-    with gs.setup.init(
-        tmp_path.parent,
-        location=tmp_path.name,
-        env=os.environ.copy(),
-    ) as session:
+    project = tmp_path_factory.mktemp("raster_mapcalc_where") / "project"
+    with project_session(project, mapset="perc") as session:
         tools = Tools(session=session)
-        tools.g_mapset(mapset="perc", flags="c")
-        tools.g_gisenv(set="TGIS_USE_CURRENT_MAPSET=1")
         tools.g_region(s=0, n=80, w=0, e=120, b=0, t=50, res=10, res3=10)
 
-        # Create raster maps for testing
         for i in range(1, 4):
             mapname = f"prec_{i}"
             tools.r_mapcalc(expression=f"{mapname} = {i}00", overwrite=True)
