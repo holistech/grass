@@ -13,6 +13,10 @@ from grass.gunittest.utils import xfail_windows
 
 import grass.temporal as tgis
 
+# The old algebra under test: the package exports the parser of the algebra
+# core from now on. The file goes with the old algebra.
+from grass.temporal.temporal_raster_algebra import TemporalRasterAlgebraParser
+
 
 class TestTemporalRasterAlgebraImplicitAggregation(TestCase):
     @classmethod
@@ -78,7 +82,7 @@ class TestTemporalRasterAlgebraImplicitAggregation(TestCase):
         r4 = a4 + a1 + a2 + a3 + a4    # 14
 
         """
-        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        ta = TemporalRasterAlgebraParser(run=True, debug=True)
         ta.parse(expression="R = A + A", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -105,7 +109,7 @@ class TestTemporalRasterAlgebraImplicitAggregation(TestCase):
         r4 = a4 + a1 + a2 + a3 + a4    # 14
 
         """
-        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        ta = TemporalRasterAlgebraParser(run=True, debug=True)
         ta.parse(expression="R = A {+, equal,l} A", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -132,7 +136,7 @@ class TestTemporalRasterAlgebraImplicitAggregation(TestCase):
         r4 = singletmap + a1 + a2 + a3 + a4    # 110
 
         """
-        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        ta = TemporalRasterAlgebraParser(run=True, debug=True)
         ta.parse(
             expression="R = tmap(singletmap) {+, equal,l} A",
             basename="r",
@@ -164,7 +168,7 @@ class TestTemporalRasterAlgebraImplicitAggregation(TestCase):
         r4 = singletmap + a1 + a2 + a3 + a4    # 110
 
         """
-        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        ta = TemporalRasterAlgebraParser(run=True, debug=True)
         ta.parse(expression="R = tmap(singletmap) + A", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -192,7 +196,7 @@ class TestTemporalRasterAlgebraImplicitAggregation(TestCase):
         r4 = singletmap + a1 + a2 + a3 + a4    # 110
 
         """
-        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        ta = TemporalRasterAlgebraParser(run=True, debug=True)
         ta.parse(
             expression="R = tmap(singletmap) {+, equal,r} A",
             basename="r",
