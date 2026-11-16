@@ -88,16 +88,6 @@ the SQL object serialization, all classes that represent table entries, datetime
 
     Implements the metadata base classes and datatype specific derivatives for all datasets [#allds]_.
 
-:mod:`~grass.temporal.spatial_topology_dataset_connector`
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
-    Implements the interface to link datasets by spatial topological relations
-
-:mod:`~grass.temporal.temporal_topology_dataset_connector`
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
-    Implements the interface to link datasets by temporal topological relations
-
 :mod:`~grass.temporal.c_libraries_interface`
 """"""""""""""""""""""""""""""""""""""""""""
 
@@ -115,15 +105,6 @@ the SQL object serialization, all classes that represent table entries, datetime
 
     This module contains function to parse, convert and process datetime objects
     in the temporal framework.
-
-Spatio-temporal algebra classes for space time raster and vector datasets are defined in:
-
-- :mod:`~grass.temporal.temporal_algebra`
-- :mod:`~grass.temporal.temporal_operator`
-- :mod:`~grass.temporal.temporal_raster_base_algebra`
-- :mod:`~grass.temporal.temporal_raster_algebra`
-- :mod:`~grass.temporal.temporal_raster3d_algebra`
-- :mod:`~grass.temporal.temporal_vector_algebra`
 
 High level API
 ^^^^^^^^^^^^^^
@@ -160,14 +141,6 @@ temporal processing algorithms and temporal GRASS modules.
     This module contains all classes that represent specific datasets [#allds]_.
     A module developer uses these map layer and Space Time Dataset object
     representations to perform spatio-temporal tasks.
-
-:mod:`~grass.temporal.spatio_temporal_relationships`
-""""""""""""""""""""""""""""""""""""""""""""""""""""
-
-    The logic to compute spatio-temporal topology for a single list or two lists of :class:`~grass.temporal.abstract_dataset.AbstractDataset` objects
-    is implemented in this module.
-    The class :class:`~grass.temporal.spatio_temporal_relationships.SpatioTemporalTopologyBuilder`
-    provides a convenient interface for topology computation.
 
 :mod:`~grass.temporal.gui_support`
 """"""""""""""""""""""""""""""""""
