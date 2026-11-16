@@ -1,130 +1,298 @@
 <!-- meta page description: Temporal data processing in GRASS -->
 <!-- meta page index: temporal -->
 
-The temporal enabled GRASS introduces three new data types that
-are designed to handle time series data:
+The temporal framework of GRASS manages time series of maps. It adds three
+types of datasets for them, the <em>space time datasets</em>:
+
 <ul>
-  <li> <em>Space time raster datasets</em> (strds) are designed to
-  manage raster map time series. Modules that process strds have the
-  naming prefix <em>t.rast</em>.</li>
-  <li> <em>Space time 3D raster datasets</em> (str3ds) are designed to
-  manage 3D raster map time series. Modules that process str3ds have
-  the naming prefix <em>t.rast3d</em>.</li>
-  <li> <em>Space time vector datasets</em> (stvds) are designed to
-  manage vector map time series. Modules that process stvds have the
-  naming prefix <em>t.vect</em>.</li>
+<li><em>Space time raster datasets</em> (strds) hold raster map time series. The
+tools that process strds have the name prefix <em>t.rast</em>.</li>
+<li><em>Space time 3D raster datasets</em> (str3ds) hold 3D raster map time series.
+The tools that process str3ds have the name prefix <em>t.rast3d</em>.</li>
+<li><em>Space time vector datasets</em> (stvds) hold vector map time series. The
+tools that process stvds have the name prefix <em>t.vect</em>.</li>
 </ul>
 
-These new data types can be managed, analyzed and processed with
-temporal modules that are based on the GRASS temporal framework.
+<p>
+A space time dataset is a named collection of maps of one type. It does not
+contain the maps; it lists them, together with the time of each map and the
+extent and the range of values that the framework has read from the map. The
+tools of the framework, the temporal tools, create, change, analyze and
+process these datasets. The short example at the end of this page runs the
+main steps with generated data.
 
-<h3>Temporal data management in general</h3>
+<h2>Concepts</h2>
+
+<h3>Time of maps</h3>
+
+Every map of a space time dataset has a time. The <em>temporal type</em> of the
+dataset is either <em>absolute</em> or <em>relative</em>:
+
+<ul>
+<li>With absolute time, the time of a map is a date and time, such as
+<code>2026-03-01 00:00:00</code>.</li>
+<li>With relative time, the time of a map is a number of time units counted from
+an arbitrary start, such as model step 3. The unit is <code>years</code>, <code>months</code>,
+<code>days</code>, <code>hours</code>, <code>minutes</code> or <code>seconds</code> and is the same for all maps of a
+dataset.</li>
+</ul>
+
+<p>
+A dataset holds maps of its own temporal type only. A map has either a <em>time
+instant</em>, a start time without an end time, or a <em>time interval</em>, from a start
+time to an end time. A dataset can hold both. Absolute and relative time are
+set with <em><a href="t.create.html">t.create</a></em> and <em><a href="t.register.html">t.register</a></em>: the
+option <b>temporaltype</b> of <em>t.create</em> chooses the type of the dataset, and
+<em>t.register</em> gives the maps their times and, with relative time, the unit.
+
+<h3>Granularity</h3>
+
+The granularity of a dataset is the step in which its time can be counted:
+<code>1 day</code> for daily maps that follow each other without a gap. For maps of
+different lengths or with gaps between them, it is the greatest common divisor
+of the lengths and gaps. With relative time it is a number of the unit.
+<em><a href="t.info.html">t.info</a></em> and <em><a href="t.topology.html">t.topology</a></em> print it. A dataset
+with a single map that is a time instant has no granularity.
+
+<p>
+The granularity counts months and years when both times of a step (the start
+and the end of an interval or of a gap) lie a whole number of months after the
+earliest start of the maps, counted as a series counts its time stamps: the
+earliest start plus one, two, three months, each cut to the end of a shorter
+month. A monthly series from January 31, with intervals to February 28,
+March 31 and April 30, has the granularity <code>1 month</code>, as has the same series
+from January 1 or from January 15. The times January 31, February 28 and
+March 28 are no such series: March 28 is not two months after January 31, so
+the two steps count as 28 days each and the granularity is <code>28 days</code>. The
+releases before GRASS 8.6 counted months only between the first days of two
+months and gave the series from January 31 the granularity <code>1 day</code>. A dataset
+keeps the granularity it stored until it is updated from its maps, for example
+by <em><a href="t.support.html">t.support</a></em> with <b>-u</b>.
+Tools that work on the granularity (for example <em>t.rast.to.rast3</em> or the
+<b>-g</b> flag of the algebra tools) use the stored granularity.
+
+<p>
+Tools that cut a dataset into time steps, <em>t.rast.aggregate</em> with its option
+<b>granularity</b> and the method <code>gran</code> of <em><a href="t.rast.list.html">t.rast.list</a></em> with
+its option <b>granule</b>, use such a step as a <em>granule</em>. Their manuals say how
+the first granule is placed and how months are counted.
+
+<h3>Temporal topology</h3>
+
+The temporal topology of a dataset describes how its maps lie in time to each
+other. <em><a href="t.topology.html">t.topology</a></em> reports it. The topology is <em>valid</em> if no
+two maps are equal, overlap, or lie in each other. Maps that touch, where the
+end of one map is the start of the next, and maps with a gap between them are
+allowed, as are time instants. A <em>gap</em> is time that no map covers: it lies
+before a map that starts after the latest end of the maps before it. A map
+that ends inside a longer one leaves no gap behind it.
+<em><a href="t.snap.html">t.snap</a></em> closes gaps, and <em><a href="t.rast.gapfill.html">t.rast.gapfill</a></em>
+fills them with interpolated maps.
+
+<p>
+The temporal relations between two time intervals A and B are <code>equal</code>,
+<code>during</code> and <code>contains</code>, <code>starts</code> and <code>started</code>, <code>finishes</code> and <code>finished</code>,
+<code>precedes</code> and <code>follows</code>, <code>overlaps</code> and <code>overlapped</code>. The manual of
+<em><a href="t.rast.algebra.html">t.rast.algebra</a></em> draws them and states which relation
+includes which, and the manual of <em>t.topology</em> counts them for a dataset.
+
+<h3>Sampling</h3>
+
+Sampling relates the maps of one dataset to the maps of another dataset, the
+<em>sampler</em>. Each map of the sampler is a granule of time; for each granule, the
+sampling finds the maps of the other dataset that are in a chosen temporal
+relation to it, such as <code>during</code>, <code>contain</code>, <code>overlap</code> or <code>equal</code>.
+<em><a href="t.sample.html">t.sample</a></em> prints the result. The tools that combine several
+datasets use the same idea, among them
+<em><a href="t.rast.mapcalc.html">t.rast.mapcalc</a></em>,
+<em><a href="t.rast3d.mapcalc.html">t.rast3d.mapcalc</a></em> and
+<em><a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a></em>; the manual of
+<em>t.rast3d.mapcalc</em> explains how the tool picks one map when more than one
+map is related to a granule.
+
+<h3>Semantic labels</h3>
+
+A raster map can carry a semantic label that names its role, such as the band
+<code>S2_B4</code> of a satellite scene (set with <em><a href="r.support.html">r.support</a></em>). Maps of
+different labels may share the same time. With
+<em><a href="t.rast.list.html">t.rast.list</a></em>, <em><a href="t.rast.univar.html">t.rast.univar</a></em> and
+<em><a href="t.rast.aggregate.html">t.rast.aggregate</a></em>, <code>input=name.label</code> selects the maps
+of one label from the dataset <code>name</code>. Therefore the name of a new space time
+dataset must not contain a dot. The tools that change a dataset
+(<em><a href="t.register.html">t.register</a></em>, <em><a href="t.unregister.html">t.unregister</a></em>,
+<em><a href="t.remove.html">t.remove</a></em>, <em><a href="t.support.html">t.support</a></em>,
+<em><a href="t.shift.html">t.shift</a></em>, <em><a href="t.snap.html">t.snap</a></em> and
+<em><a href="t.rast.gapfill.html">t.rast.gapfill</a></em>) refuse a name with a label; give the
+dataset without it. A dataset of an earlier release whose whole
+name contains a dot is found by that name: the mapsets are searched in turn,
+the current one first, and in each the whole name is tried before the text
+after the dot is read as a label. <em>t.info</em> prints the labels of a
+dataset.
+
+<p>
+The <em>semantic type</em> of a dataset, set with the option <b>semantictype</b> of
+<em>t.create</em>, is a different thing: it states whether the values are amounts
+(<code>sum</code>), means (<code>mean</code>, the default), minima or maxima.
+
+<h3>Temporal algebra</h3>
+
+The temporal algebra applies operations to whole datasets. An expression
+such as <code>C = A + B</code> relates the maps of the datasets by their temporal
+relations and registers the results in a new dataset. The tools are
+<em><a href="t.rast.algebra.html">t.rast.algebra</a></em>,
+<em><a href="t.rast3d.algebra.html">t.rast3d.algebra</a></em>,
+<em><a href="t.vect.algebra.html">t.vect.algebra</a></em> and <em><a href="t.select.html">t.select</a></em>, which
+selects maps without computing.
+
+<p>
+Since GRASS 8.6, the algebra computes with a new implementation. The manual of
+<em>t.rast.algebra</em> lists where its results differ from those of GRASS 8.5. The
+page <a href="temporalchanges.html">changes in GRASS 8.6</a> lists all changes of the
+temporal framework since GRASS 8.5.
+
+<h2>Temporal data management in general</h2>
 
 Space time datasets are stored in a temporal database. A core principle
 of the temporal framework is that temporal databases are mapset
 specific. A new temporal database is created when a temporal command is
 invoked in a mapset that does not contain any temporal databases yet.
 For example, when a mapset was recently created.
-<p>
-<b>Therefore, as space-time datasets are mapset specific, they can only
-register raster, 3D raster or vector maps from the same mapset.</b>
-<p>
-By default, space-time datasets can not register maps from other
-mapsets. This is a security measure, since the registration of maps in
-a space-time dataset will always modify the metadata of the registered
-map. This is critical if:
-<ul>
-    <li>The user has no write access to the maps from other mapsets
-    he/she wants to register</li>
-    <li>If registered maps are removed from other mapsets, the temporal
-    database will not be updated and will contain ghost maps</li>
-</ul>
 
-SQLite3 or PostgreSQL are supported as temporal database backends.
-Temporal databases stored in other mapsets can be accessed as long as
-those other mapsets are in the user's current mapset search path
-(managed with <a href="g.mapsets.html">g.mapsets</a>). Access to
-space-time datasets from other mapsets is read-only. They can not be
-modified or removed.
 <p>
-Connection settings are performed with <a href="t.connect.html">t.connect</a>.
-By default, a SQLite3 database is
-created in the current mapset to store all space-time datasets and
-registered time series maps in that mapset.
+A space time dataset belongs to the mapset in which it was created, and a
+new dataset is always created in the current mapset. Maps of other mapsets
+can be registered in a dataset of the current mapset, but the dataset itself
+has to belong to the current mapset.
+
+<p>
+Registering a map in a space time dataset writes the time stamp of the map
+into the spatial database, for a map of the current mapset. For a map of
+another mapset no time stamp and no semantic label file is written, so
+registering does not need write access to such a map; the time stays in the
+temporal database of the current mapset only. If a registered map is removed
+from the spatial database in another way than with the temporal tools, the
+temporal database still lists it until <a href="t.support.html">t.support</a> with the flag
+<b>-m</b> reads the maps again and drops the maps that are gone.
+
+<p>
+SQLite3 or PostgreSQL are supported as temporal database backends.
+Temporal databases stored in other mapsets can be accessed, see
+<a href="#datasets-of-other-mapsets">Datasets of other mapsets</a>. Datasets of other
+mapsets can be read with <code>name@mapset</code>, but a tool that changes a dataset,
+such as <em>t.register</em>, <em>t.rename</em> or <em>t.create</em>, works on the current mapset
+only.
+<em>t.remove</em> stops with an error for a dataset of another mapset. For a
+dataset of the current mapset, the flag <b>-d</b> deletes only its maps of the
+current mapset and warns for each map of another mapset.
+
+<p>
+Connection settings are performed with <a href="t.connect.html">t.connect</a>. By
+default, a SQLite3 database is created in the current mapset to store
+all space-time datasets and registered time series maps in that mapset.
+<a href="t.upgrade.html">t.upgrade</a> brings the temporal database of a mapset to the
+version of the installed GRASS.
+
 <p>
 New space-time datasets are created in the temporal database with
-<a href="t.create.html">t.create</a>. The name of the new dataset, the
-type (strds, str3ds, stvds), the title and the description must be
-provided for creation. Optionally, the temporal type (absolute,
-relative) and the semantic information can be provided.
-<p>
-The module <a href="t.register.html">t.register</a> is designed to
-register raster, 3D raster and vector maps in the temporal database and
-in the space-time datasets. It supports different input options. Maps
-to register can be provided as a comma separated string at the command
-line, or in an input file. The module supports the definition of time
-stamps (time instances or intervals) for each map in the input file.
-With  <a href="t.unregister.html">t.unregister</a> maps can be
-unregistered from space-time datasets and from the temporal database.
-<p>
+<a href="t.create.html">t.create</a>. The name of the new dataset, the type (strds,
+str3ds, stvds), the title and the description must be provided for
+creation. Optionally, the temporal type (absolute, relative) and the
+semantic information can be provided.
 
-<b>Important</b><br>
-<i>Use only temporal commands like <a href="t.register.html">t.register</a>
-to attach a time stamp to raster,
-3D raster and vector maps. The commands r.timestamp, r3.timestamp and
-v.timestamp should not be used because they only modify the metadata of
-the map in the spatial database, but they do not register maps in the
-temporal database. However, maps with timestamps attached by means of
-*.timestamp modules can be registered in space-time datasets using the
-existing timestamp.</i>
 <p>
-The module <a href="t.remove.html">t.remove</a> will remove the
-space-time datasets from the temporal database and optionally all
-registered maps. It will take care of multiple map registration, hence
-if maps are registered in several space-time datasets in the current
-mapset. Use <a href="t.support.html">t.support</a> to modify the
-metadata of space time datasets or to update the metadata that is
-derived from registered maps. This module also checks for removed and
-modified maps and updates the space-time datasets accordingly. Rename a
-space-time dataset with <a href="t.rename.html">t.rename</a>.
+The module <a href="t.register.html">t.register</a> is designed to register raster,
+3D raster and vector maps in the temporal database and in the space-time
+datasets. It supports different input options. Maps to register can be
+provided as a comma separated string at the command line, or in an input
+file. The module supports the definition of time stamps (time instances
+or intervals) for each map in the input file. With
+<a href="t.unregister.html">t.unregister</a> maps can be unregistered from space-time
+datasets and from the temporal database.
+
+<p>
+<b>Important</b><br>
+<em>Use only temporal commands like <a href="t.register.html">t.register</a> to attach a
+time stamp to raster, 3D raster and vector maps. The commands
+r.timestamp, r3.timestamp and v.timestamp should not be used because
+they only modify the metadata of the map in the spatial database, but
+they do not register maps in the temporal database. However, maps with
+timestamps attached by means of *.timestamp modules can be registered
+in space-time datasets using the existing timestamp.</em>
+
+<p>
+The module <a href="t.remove.html">t.remove</a> will remove the space-time datasets
+from the temporal database and optionally all registered maps. It will
+take care of multiple map registration, hence if maps are registered in
+several space-time datasets in the current mapset. Use
+<a href="t.support.html">t.support</a> to modify the metadata of space time datasets
+or to update the metadata that is derived from registered maps. This
+module also checks for removed and modified maps and updates the
+space-time datasets accordingly. Rename a space-time dataset with
+<a href="t.rename.html">t.rename</a>. <a href="t.copy.html">t.copy</a> copies a dataset,
+<a href="t.merge.html">t.merge</a> registers the maps of several datasets in one, and
+<a href="t.shift.html">t.shift</a> and <a href="t.snap.html">t.snap</a> change the times of the maps.
+
 <p>
 To print information about space-time datasets or registered maps, the
-module  <a href="t.info.html">t.info</a> can be used.
-<a href="t.list.html">t.list</a> will list all space-time datasets and
-registered maps in the temporal database.
+module <a href="t.info.html">t.info</a> can be used. <a href="t.list.html">t.list</a> will list
+all space-time datasets and registered maps in the temporal database.
+
 <p>
-The module <a href="t.topology.html">t.topology</a> was designed to
-compute and check the temporal topology of space-time datasets.
-Moreover, the module <a href="t.sample.html">t.sample</a> samples input
-space-time dataset(s) with a sample space-time dataset and prints the
-result to standard output. Different sampling methods are supported and
-can be combined.
+The module <a href="t.topology.html">t.topology</a> was designed to compute and check
+the temporal topology of space-time datasets. Moreover, the module
+<a href="t.sample.html">t.sample</a> samples input space-time dataset(s) with a
+sample space-time dataset and prints the result to standard output.
+Different sampling methods are supported and can be combined.
+
 <p>
 List of general management modules:
-<ul>
-    <li><a href="t.connect.html">t.connect</a></li>
-    <li><a href="t.create.html">t.create</a></li>
-    <li><a href="t.rename.html">t.rename</a></li>
-    <li><a href="t.remove.html">t.remove</a></li>
-    <li><a href="t.register.html">t.register</a></li>
-    <li><a href="t.unregister.html">t.unregister</a></li>
-    <li><a href="t.info.html">t.info</a></li>
-    <li><a href="t.list.html">t.list</a></li>
-    <li><a href="t.sample.html">t.sample</a></li>
-    <li><a href="t.support.html">t.support</a></li>
-    <li><a href="t.topology.html">t.topology</a></li>
-</ul>
-
-<h3>Modules to visualize space-time datasets and temporal data</h3>
 
 <ul>
-    <li><a href="g.gui.animation.html">g.gui.animation</a></li>
-    <li><a href="g.gui.timeline.html">g.gui.timeline</a></li>
-    <li><a href="g.gui.mapswipe.html">g.gui.mapswipe</a></li>
-    <li><a href="g.gui.tplot.html">g.gui.tplot</a></li>
+<li><a href="t.connect.html">t.connect</a></li>
+<li><a href="t.copy.html">t.copy</a></li>
+<li><a href="t.create.html">t.create</a></li>
+<li><a href="t.info.html">t.info</a></li>
+<li><a href="t.list.html">t.list</a></li>
+<li><a href="t.merge.html">t.merge</a></li>
+<li><a href="t.register.html">t.register</a></li>
+<li><a href="t.remove.html">t.remove</a></li>
+<li><a href="t.rename.html">t.rename</a></li>
+<li><a href="t.sample.html">t.sample</a></li>
+<li><a href="t.shift.html">t.shift</a></li>
+<li><a href="t.snap.html">t.snap</a></li>
+<li><a href="t.support.html">t.support</a></li>
+<li><a href="t.topology.html">t.topology</a></li>
+<li><a href="t.unregister.html">t.unregister</a></li>
+<li><a href="t.upgrade.html">t.upgrade</a></li>
 </ul>
 
-<h3>Modules to process space-time raster datasets</h3>
+<h3>Datasets of other mapsets</h3>
+
+A dataset named with its mapset, <code>name@mapset</code>, is read from any mapset of the
+project that has a temporal database. The mapset does not have to be in the
+search path. A name without a mapset is searched by <em>t.rast.list</em>, for
+example, in the current mapset first, then in the mapsets of the search path
+in their order, and is not found if the dataset lies in a mapset outside the
+search path. <em>t.select</em> and the algebra tools search the
+current mapset and the search path. A
+tool that reads the maps of a dataset of another mapset, such as
+<em>t.rast.mapcalc</em>, <em>t.rast3d.mapcalc</em> and <em>t.rast.accdetect</em>, needs no entry in
+the search path for it. For the other tools, add the mapset
+with <em><a href="g.mapsets.html">g.mapsets</a></em> <code>operation=add</code> only if datasets of that
+mapset should be found by their name alone. A mapset that does not exist or has
+no temporal database is refused with an error. The last example of the
+<a href="#examples">EXAMPLES</a> shows both ways.
+
+<h2>Modules to visualize space-time datasets and temporal data</h2>
+
+<ul>
+<li><a href="g.gui.animation.html">g.gui.animation</a></li>
+<li><a href="g.gui.timeline.html">g.gui.timeline</a></li>
+<li><a href="g.gui.mapswipe.html">g.gui.mapswipe</a></li>
+<li><a href="g.gui.tplot.html">g.gui.tplot</a></li>
+</ul>
+
+<h2>Modules to process space-time raster datasets</h2>
 
 The focus of the temporal GIS framework is the processing and analysis
 of raster time series. Hence, the majority of the temporal modules are
@@ -132,161 +300,705 @@ designed to process space-time raster datasets (strds). However, there
 are several modules to process space-time 3D raster datasets and
 space-time vector datasets as well.
 
-<h4>Querying and map calculation</h4>
+<h3>Querying and map calculation</h3>
 
 Maps registered in a space-time raster dataset can be listed using
-<a href="t.rast.list.html">t.rast.list</a>. This module supports several
-methods to list maps and uses SQL queries to determine how these maps
-are selected and sorted. Subsets of space-time raster datasets can be
-extracted with <a href="t.rast.extract.html">t.rast.extract</a> that
-allows performing additional mapcalc operations on the selected raster
-maps.
+<a href="t.rast.list.html">t.rast.list</a>. This module supports several methods to
+list maps and uses SQL queries to determine how these maps are selected
+and sorted. Subsets of space-time raster datasets can be extracted with
+<a href="t.rast.extract.html">t.rast.extract</a> that allows performing additional
+mapcalc operations on the selected raster maps.
+
 <p>
-Several modules in the temporal framework have a <em>where</em> option.
-This option allows performing different selections of maps registered
-in the temporal database and in space-time datasets. The columns that
-can be used to perform these selections are: <i>id, name, creator,
-mapset, temporal_type, creation_time, start_time, end_time, north,
-south, west, east, nsres, ewres, cols, rows, number_of_cells, min and
-max</i>. Note that for vector time series, i.e. stvds, some of the
-columns that can be queried to list/select vector maps differ from
-those for space-time raster datasets (check with <code>t.vect.list --help</code>).
+Several modules in the temporal framework have a <em>where</em> option. This
+option allows performing different selections of maps registered in the
+temporal database and in space-time datasets. The columns that can be
+used to perform these selections are: <em>id, name, creator, mapset,
+temporal_type, creation_time, start_time, end_time, north, south, west,
+east, nsres, ewres, cols, rows, number_of_cells, min and max</em>. Note that
+for vector time series, i.e. stvds, some of the columns that can be
+queried to list/select vector maps differ from those for space-time
+raster datasets (check with <code>t.vect.list --help</code>).
 
 <ul>
-    <li><a href="t.rast.extract.html">t.rast.extract</a></li>
-    <li><a href="t.rast.gapfill.html">t.rast.gapfill</a></li>
-    <li><a href="t.rast.mapcalc.html">t.rast.mapcalc</a></li>
-    <li><a href="t.rast.colors.html">t.rast.colors</a></li>
-    <li><a href="t.rast.neighbors.html">t.rast.neighbors</a></li>
+<li><a href="t.rast.extract.html">t.rast.extract</a></li>
+<li><a href="t.rast.gapfill.html">t.rast.gapfill</a></li>
+<li><a href="t.rast.mapcalc.html">t.rast.mapcalc</a></li>
+<li><a href="t.rast.algebra.html">t.rast.algebra</a></li>
+<li><a href="t.rast.colors.html">t.rast.colors</a></li>
+<li><a href="t.rast.neighbors.html">t.rast.neighbors</a></li>
+<li><a href="t.rast.contour.html">t.rast.contour</a></li>
+<li><a href="t.rast.what.html">t.rast.what</a></li>
 </ul>
 
 <p>
 Similar to the <em>where</em> option, selected modules like
-<a href="t.rast.univar.html">t.rast.univar</a> support a
-<em>region_relation</em> option to limit computations to maps of
-the space time raster dataset that have a given spatial relation to the
-current computational region. Supported spatial relations are:
+<a href="t.rast.univar.html">t.rast.univar</a> support a <em>region_relation</em> option to
+limit computations to maps of the space time raster dataset that have a
+given spatial relation to the current computational region. Supported
+spatial relations are:
+
 <ul>
- <li>"overlaps": process only maps that spatially overlap ("intersect")
+<li>"overlaps": process only maps that spatially overlap ("intersect")
 with the current computational region</li>
- <li>"is_contained": process only maps that are fully within the current
+<li>"is_contained": process only maps that are fully within the current
 computational region</li>
- <li>"contains": process only maps that contain (fully cover) the current
+<li>"contains": process only maps that contain (fully cover) the current
 computational region</li>
 </ul>
+
+<p>
 Space time raster datasets may contain raster maps with varying spatial
 extent like for example series of scenes of satellite images. For such
 cases the <em>region_relation</em> option can be useful.
 
 <p>
-Moreover, there is <a href="v.what.strds.html">v.what.strds</a>, that
-uploads space-time raster dataset values at positions of vector points,
-to the attribute table of the vector map.
+Moreover, there is <a href="v.what.strds.html">v.what.strds</a>, that uploads
+space-time raster dataset values at positions of vector points, to the
+attribute table of the vector map. <a href="t.rast.what.html">t.rast.what</a> samples
+the maps of a dataset at point locations and prints the values.
 
-<h4>Aggregation and accumulation analysis</h4>
+<h3>Aggregation and accumulation analysis</h3>
 
 The temporal framework supports the aggregation of space-time raster
 datasets. It provides three modules to perform aggregation using
 different approaches. To aggregate a space-time raster dataset using a
 temporal granularity like 4 months, 7 days and so on, use
 <a href="t.rast.aggregate.html">t.rast.aggregate</a>. The module
-<a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a> allows
-aggregating a space-time raster dataset using the time intervals of the
-maps of another space-time dataset (raster, 3D raster and vector). A
-simple interface to <a href="r.series.html">r.series</a> is the module
-<a href="t.rast.series.html">t.rast.series</a> that processes the whole
-input space-time raster dataset or a subset of it.
+<a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a> allows aggregating a
+space-time raster dataset using the time intervals of the maps of
+another space-time dataset (raster, 3D raster and vector). A simple
+interface to <a href="r.series.html">r.series</a> is the module
+<a href="t.rast.series.html">t.rast.series</a> that processes the whole input
+space-time raster dataset or a subset of it.
 
 <ul>
-    <li><a href="t.rast.aggregate.html">t.rast.aggregate</a></li>
-    <li><a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a></li>
-    <li><a href="t.rast.series.html">t.rast.series</a></li>
-    <li><a href="t.rast.accumulate.html">t.rast.accumulate</a></li>
-    <li><a href="t.rast.accdetect.html">t.rast.accdetect</a></li>
+<li><a href="t.rast.aggregate.html">t.rast.aggregate</a></li>
+<li><a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a></li>
+<li><a href="t.rast.series.html">t.rast.series</a></li>
+<li><a href="t.rast.accumulate.html">t.rast.accumulate</a></li>
+<li><a href="t.rast.accdetect.html">t.rast.accdetect</a></li>
 </ul>
 
-<h4>Export/import conversion</h4>
+<h3>Export/import conversion</h3>
 
 Space-time raster datasets can be exported with
-<a href="t.rast.export.html">t.rast.export</a> as a compressed tar
-archive. Such archives can be then imported using
-<a href="t.rast.import.html">t.rast.import</a>.
+<a href="t.rast.export.html">t.rast.export</a> as a compressed tar archive. Such
+archives can be then imported using <a href="t.rast.import.html">t.rast.import</a>.
+
 <p>
-The module <a href="t.rast.to.rast3.html">t.rast.to.rast3</a> converts
-space-time raster datasets into space-time voxel cubes. All 3D raster
-modules can be used to process such voxel cubes. This conversion allows
-the export of space-time raster datasets as netCDF files that include
-time as one dimension.
+The module <a href="t.rast.to.rast3.html">t.rast.to.rast3</a> converts space-time
+raster datasets into space-time voxel cubes. All 3D raster modules can
+be used to process such voxel cubes. This conversion allows the export
+of space-time raster datasets as netCDF files that include time as one
+dimension. <a href="t.rast.to.vect.html">t.rast.to.vect</a> converts each map of a
+dataset into a vector map and registers them in a space time vector dataset.
 
 <ul>
-    <li><a href="t.rast.export.html">t.rast.export</a></li>
-    <li><a href="t.rast.import.html">t.rast.import</a></li>
-    <li><a href="t.rast.out.vtk.html">t.rast.out.vtk</a></li>
-    <li><a href="t.rast.to.rast3.html">t.rast.to.rast3</a></li>
-    <li><a href="r3.out.netcdf.html">r3.out.netcdf</a></li>
+<li><a href="t.rast.export.html">t.rast.export</a></li>
+<li><a href="t.rast.import.html">t.rast.import</a></li>
+<li><a href="t.rast.out.vtk.html">t.rast.out.vtk</a></li>
+<li><a href="t.rast.to.rast3.html">t.rast.to.rast3</a></li>
+<li><a href="t.rast.to.vect.html">t.rast.to.vect</a></li>
+<li><a href="r3.out.netcdf.html">r3.out.netcdf</a></li>
 </ul>
 
-<h4>Statistics and gap filling</h4>
+<h3>Statistics and gap filling</h3>
 
 <ul>
-    <li><a href="t.rast.univar.html">t.rast.univar</a></li>
-    <li><a href="t.rast.gapfill.html">t.rast.gapfill</a></li>
+<li><a href="t.rast.univar.html">t.rast.univar</a></li>
+<li><a href="t.rast.gapfill.html">t.rast.gapfill</a></li>
 </ul>
 
-<h3>Modules to manage, process and analyze STR3DS and STVDS</h3>
+<h2>Modules to manage, process and analyze STR3DS and STVDS</h2>
 
 Several space-time vector dataset modules were developed to allow the
 handling of vector time series data.
 
 <ul>
-    <li><a href="t.vect.extract.html">t.vect.extract</a></li>
-    <li><a href="t.vect.import.html">t.vect.import</a></li>
-    <li><a href="t.vect.export.html">t.vect.export</a></li>
-    <li><a href="t.vect.observe.strds.html">t.vect.observe.strds</a></li>
-    <li><a href="t.vect.univar.html">t.vect.univar</a></li>
-    <li><a href="t.vect.what.strds.html">t.vect.what.strds</a></li>
-    <li><a href="t.vect.db.select.html">t.vect.db.select</a></li>
+<li><a href="t.vect.algebra.html">t.vect.algebra</a></li>
+<li><a href="t.vect.db.select.html">t.vect.db.select</a></li>
+<li><a href="t.vect.export.html">t.vect.export</a></li>
+<li><a href="t.vect.extract.html">t.vect.extract</a></li>
+<li><a href="t.vect.import.html">t.vect.import</a></li>
+<li><a href="t.vect.list.html">t.vect.list</a></li>
+<li><a href="t.vect.observe.strds.html">t.vect.observe.strds</a></li>
+<li><a href="t.vect.univar.html">t.vect.univar</a></li>
+<li><a href="t.vect.what.strds.html">t.vect.what.strds</a></li>
 </ul>
 
+<p>
 The space-time 3D raster dataset modules are doing exactly the same as
 their raster pendants, but with 3D raster map layers:
 
 <ul>
-    <li><a href="t.rast3d.list.html">t.rast3d.list</a></li>
-    <li><a href="t.rast3d.extract.html">t.rast3d.extract</a></li>
-    <li><a href="t.rast3d.mapcalc.html">t.rast3d.mapcalc</a></li>
-    <li><a href="t.rast3d.univar.html">t.rast3d.univar</a></li>
+<li><a href="t.rast3d.algebra.html">t.rast3d.algebra</a></li>
+<li><a href="t.rast3d.list.html">t.rast3d.list</a></li>
+<li><a href="t.rast3d.extract.html">t.rast3d.extract</a></li>
+<li><a href="t.rast3d.mapcalc.html">t.rast3d.mapcalc</a></li>
+<li><a href="t.rast3d.univar.html">t.rast3d.univar</a></li>
 </ul>
 
-<h4>See also</h4>
+<p>
+<a href="t.select.html">t.select</a> selects maps of datasets of all three types
+without computing.
+
+<h2>EXAMPLES</h2>
+
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>temporalintro</code> and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset
+and region, except the last, which creates a second mapset. The temporal
+manuals use the same kind of data: series of maps for 2020 that are generated
+from maps of the dataset, here the monthly air temperature and the monthly
+precipitation. The values are generated, not measured. Each example uses the
+result of the previous one.
+
+<h3>Create a dataset and register maps</h3>
+
+The dataset <code>temperature_monthly</code> holds twelve maps of the monthly mean air
+temperature in 2020, in degrees Celsius rounded to tenths. They are generated
+from the elevation model <code>elev_state_500m</code>: 16.5 degrees at sea level and the
+northing 160 km, an annual cycle of plus and minus 10.5 degrees with its
+maximum in July, 6.5 degrees less for every 1000 m of elevation, and 1 degree
+more for every 100 km to the south.
+
+<p>
+<em><a href="t.create.html">t.create</a></em> creates the empty dataset and <em><a href="t.register.html">t.register</a></em>
+registers the twelve maps in it. With the flag <b>-i</b> and the options <b>start</b>
+and <b>increment</b>, the maps become consecutive intervals of one month, the
+first starting on 1 January 2020. The commands print nothing.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.mapset -c mapset=temporalintro
+g.region raster=elev_state_500m res=1000 -a
+for month in $(seq 12); do
+    echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+        "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+        "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+done | r.mapcalc file=-
+t.create output=temperature_monthly title="Air temperature" \
+    description="Monthly mean air temperature 2020 in degree Celsius"
+t.register -i input=temperature_monthly \
+    maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+    start=2020-01-01 increment="1 month"
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_mapset(flags="c", mapset="temporalintro")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+months = range(1, 13)
+tools.r_mapcalc(
+    expression="\n".join(
+        f"temperature_monthly_2020_{month:02d} = round((16.5"
+        f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+        " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+        for month in months
+    )
+)
+tools.t_create(
+    output="temperature_monthly",
+    title="Air temperature",
+    description="Monthly mean air temperature 2020 in degree Celsius",
+)
+tools.t_register(
+    input="temperature_monthly",
+    maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months),
+    start="2020-01-01",
+    increment="1 month",
+    flags="i",
+)
+</pre></div>
+
+<h3>Look at the dataset and its time</h3>
+
+<em><a href="t.info.html">t.info</a></em> with the flag <b>-g</b> prints the properties of the dataset.
+The twelve maps cover the year 2020, and the granularity is one month.
+<em><a href="t.topology.html">t.topology</a></em> shows that the topology is valid: the maps touch
+without gaps, so there are eleven <code>Follows</code> and eleven <code>Precedes</code> pairs.
+<em><a href="t.rast.list.html">t.rast.list</a></em> lists the maps with their times and the
+minimum and maximum of their values. January is the coldest month with
+-7.0 degrees in the coldest cell, and July the warmest with 28.4 degrees in the
+warmest cell.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.info -g input=temperature_monthly | grep -E "^(start_time|end_time|granularity|number_of_maps)="
+t.topology input=temperature_monthly
+t.rast.list input=temperature_monthly columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+start_time='2020-01-01 00:00:00'
+end_time='2021-01-01 00:00:00'
+granularity='1 month'
+number_of_maps=12
+ +-------------------- Basic information -------------------------------------+
+ | Id: ........................ temperature_monthly@temporalintro
+ | Name: ...................... temperature_monthly
+ | Mapset: .................... temporalintro
+ | Creator: ................... user
+ | Temporal type: ............. absolute
+ | Creation time: ............. 2026-11-01 12:00:00
+ | Modification time:.......... 2026-11-01 12:00:00
+ | Semantic type:.............. mean
+ +-------------------- Temporal topology -------------------------------------+
+ | Is subset of dataset: ...... False
+ | Temporal topology is: ...... valid
+ | Number of points: .......... 0
+ | Number of intervals: ....... 12
+ | Invalid time stamps: ....... 0
+ | Number of gaps: ............ 0
+ | Granularity: ............... 1 month
+ +-------------------- Topological relations ---------------------------------+
+ | Equal:...................... 0
+ | Follows: ................... 11
+ | Precedes: .................. 11
+ | Overlaps: .................. 0
+ | Overlapped: ................ 0
+ | During: .................... 0
+ | Contains: .................. 0
+ | Starts: .................... 0
+ | Started: ................... 0
+ | Finishes: .................. 0
+ | Finished: .................. 0
++----------------------------------------------------------------------------+
+name|start_time|end_time|min|max
+temperature_monthly_2020_01|2020-01-01 00:00:00|2020-02-01 00:00:00|-7.0|7.5
+temperature_monthly_2020_02|2020-02-01 00:00:00|2020-03-01 00:00:00|-6.1|8.4
+temperature_monthly_2020_03|2020-03-01 00:00:00|2020-04-01 00:00:00|-2.7|11.8
+temperature_monthly_2020_04|2020-04-01 00:00:00|2020-05-01 00:00:00|2.4|16.9
+temperature_monthly_2020_05|2020-05-01 00:00:00|2020-06-01 00:00:00|7.7|22.2
+temperature_monthly_2020_06|2020-06-01 00:00:00|2020-07-01 00:00:00|12.0|26.5
+temperature_monthly_2020_07|2020-07-01 00:00:00|2020-08-01 00:00:00|13.9|28.4
+temperature_monthly_2020_08|2020-08-01 00:00:00|2020-09-01 00:00:00|13.1|27.6
+temperature_monthly_2020_09|2020-09-01 00:00:00|2020-10-01 00:00:00|9.6|24.2
+temperature_monthly_2020_10|2020-10-01 00:00:00|2020-11-01 00:00:00|4.6|19.1
+temperature_monthly_2020_11|2020-11-01 00:00:00|2020-12-01 00:00:00|-0.8|13.7
+temperature_monthly_2020_12|2020-12-01 00:00:00|2021-01-01 00:00:00|-5.0|9.5
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+info = tools.t_info(input="temperature_monthly", flags="g").keyval
+for key in ("start_time", "end_time", "granularity", "number_of_maps"):
+    print(f"{key}={info[key]}")
+print(tools.t_topology(input="temperature_monthly").stdout, end="")
+print(
+    tools.t_rast_list(
+        input="temperature_monthly", columns="name,start_time,end_time,min,max"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+start_time='2020-01-01 00:00:00'
+end_time='2021-01-01 00:00:00'
+granularity='1 month'
+number_of_maps=12
+ +-------------------- Basic information -------------------------------------+
+ | Id: ........................ temperature_monthly@temporalintro
+ | Name: ...................... temperature_monthly
+ | Mapset: .................... temporalintro
+ | Creator: ................... user
+ | Temporal type: ............. absolute
+ | Creation time: ............. 2026-11-01 12:00:00
+ | Modification time:.......... 2026-11-01 12:00:00
+ | Semantic type:.............. mean
+ +-------------------- Temporal topology -------------------------------------+
+ | Is subset of dataset: ...... False
+ | Temporal topology is: ...... valid
+ | Number of points: .......... 0
+ | Number of intervals: ....... 12
+ | Invalid time stamps: ....... 0
+ | Number of gaps: ............ 0
+ | Granularity: ............... 1 month
+ +-------------------- Topological relations ---------------------------------+
+ | Equal:...................... 0
+ | Follows: ................... 11
+ | Precedes: .................. 11
+ | Overlaps: .................. 0
+ | Overlapped: ................ 0
+ | During: .................... 0
+ | Contains: .................. 0
+ | Starts: .................... 0
+ | Started: ................... 0
+ | Finishes: .................. 0
+ | Finished: .................. 0
++----------------------------------------------------------------------------+
+name|start_time|end_time|min|max
+temperature_monthly_2020_01|2020-01-01 00:00:00|2020-02-01 00:00:00|-7.0|7.5
+temperature_monthly_2020_02|2020-02-01 00:00:00|2020-03-01 00:00:00|-6.1|8.4
+temperature_monthly_2020_03|2020-03-01 00:00:00|2020-04-01 00:00:00|-2.7|11.8
+temperature_monthly_2020_04|2020-04-01 00:00:00|2020-05-01 00:00:00|2.4|16.9
+temperature_monthly_2020_05|2020-05-01 00:00:00|2020-06-01 00:00:00|7.7|22.2
+temperature_monthly_2020_06|2020-06-01 00:00:00|2020-07-01 00:00:00|12.0|26.5
+temperature_monthly_2020_07|2020-07-01 00:00:00|2020-08-01 00:00:00|13.9|28.4
+temperature_monthly_2020_08|2020-08-01 00:00:00|2020-09-01 00:00:00|13.1|27.6
+temperature_monthly_2020_09|2020-09-01 00:00:00|2020-10-01 00:00:00|9.6|24.2
+temperature_monthly_2020_10|2020-10-01 00:00:00|2020-11-01 00:00:00|4.6|19.1
+temperature_monthly_2020_11|2020-11-01 00:00:00|2020-12-01 00:00:00|-0.8|13.7
+temperature_monthly_2020_12|2020-12-01 00:00:00|2021-01-01 00:00:00|-5.0|9.5
+</pre></div>
+
+<h3>Aggregate over a longer period</h3>
+
+<em><a href="t.rast.aggregate.html">t.rast.aggregate</a></em> cuts the time into granules of three
+months and averages the maps of each granule. The <b>where</b> condition selects
+the maps from March to November, so the granules are March to May, June to
+August and September to November: spring, summer and autumn. In summer the
+warmest cell has 26.5, 28.4 and 27.6 degrees in June, July and August, so its
+mean is 27.5 degrees.
+
+<p>
+The figure shows the three new maps with the border of North Carolina from the
+vector map <code>nc_state</code>. <em><a href="t.rast.colors.html">t.rast.colors</a></em> gives the maps the
+colour table <code>celsius</code>, so the same colour means the same temperature in all
+three maps. <em>d.frame</em> makes one frame per map, <em>d.rast</em> draws the map, <em>d.vect</em>
+the border and <em>d.text</em> the name; <em>d.legend</em> draws the legend in a frame of its
+own.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.aggregate input=temperature_monthly output=temperature_season \
+    basename=temperature_season granularity="3 months" method=average \
+    where="start_time &gt;= '2020-03-01' and start_time &lt; '2020-12-01'"
+t.rast.list input=temperature_season columns=name,start_time,end_time,min,max
+t.rast.colors input=temperature_season color=celsius
+d.mon start=cairo output=temporalintro_summer.png width=600 height=600
+row=0
+for map in "temperature_season_2020_03 spring" \
+    "temperature_season_2020_06 summer" \
+    "temperature_season_2020_09 autumn"; do
+    set -- $map
+    top=$((100 - 33 * row))
+    d.frame -c frame=map_$row at=$((top - 33)),$top,0,80
+    d.rast map=$1
+    d.vect map=nc_state type=boundary color=black
+    d.text text=$2 at=2,8 size=14 color=black
+    row=$((row + 1))
+done
+d.frame -c frame=legend at=0,100,80,100
+d.legend raster=temperature_season_2020_06 range=0,30 at=10,90,10,35 \
+    label_step=5 digits=0 title="deg C"
+d.mon stop=cairo
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+temperature_season_2020_03|2020-03-01 00:00:00|2020-06-01 00:00:00|2.466666666666667|16.966666666666665
+temperature_season_2020_06|2020-06-01 00:00:00|2020-09-01 00:00:00|13.0|27.5
+temperature_season_2020_09|2020-09-01 00:00:00|2020-12-01 00:00:00|4.466666666666666|19.0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_rast_aggregate(
+    input="temperature_monthly",
+    output="temperature_season",
+    basename="temperature_season",
+    granularity="3 months",
+    method="average",
+    where="start_time &gt;= '2020-03-01' and start_time &lt; '2020-12-01'",
+)
+columns = "name,start_time,end_time,min,max"
+print(tools.t_rast_list(input="temperature_season", columns=columns).text)
+tools.t_rast_colors(input="temperature_season", color="celsius")
+tools.d_mon(start="cairo", output="temporalintro_summer.png", width=600, height=600)
+for row, (name, label) in enumerate(
+    (
+        ("temperature_season_2020_03", "spring"),
+        ("temperature_season_2020_06", "summer"),
+        ("temperature_season_2020_09", "autumn"),
+    )
+):
+    top = 100 - 33 * row
+    tools.d_frame(flags="c", frame=f"map_{row}", at=[top - 33, top, 0, 80])
+    tools.d_rast(map=name)
+    tools.d_vect(map="nc_state", type="boundary", color="black")
+    tools.d_text(text=label, at=[2, 8], size=14, color="black")
+tools.d_frame(flags="c", frame="legend", at=[0, 100, 80, 100])
+tools.d_legend(
+    raster="temperature_season_2020_06",
+    range=[0, 30],
+    at=[10, 90, 10, 35],
+    label_step=5,
+    digits=0,
+    title="deg C",
+)
+tools.d_mon(stop="cairo")
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+temperature_season_2020_03|2020-03-01 00:00:00|2020-06-01 00:00:00|2.466666666666667|16.966666666666665
+temperature_season_2020_06|2020-06-01 00:00:00|2020-09-01 00:00:00|13.0|27.5
+temperature_season_2020_09|2020-09-01 00:00:00|2020-12-01 00:00:00|4.466666666666666|19.0
+</pre></div>
+
+<p>
+<img src="temporalintro_summer.png" alt="Generated mean air temperature of spring, summer and autumn 2020 in North Carolina">
+
+<p>
+<em>Figure: Mean air temperature of spring, summer and autumn 2020, computed from
+generated monthly maps (not measured data).</em>
+
+<h3>Sample one dataset by another</h3>
+
+A second generated series, <code>precipitation_monthly</code>, holds the monthly
+precipitation sum of 2020 in millimeters. The monthly normals of the 136
+climate stations in the vector map <code>precip_30ynormals</code> are interpolated for
+each month with <em><a href="v.surf.idw.html">v.surf.idw</a></em> and multiplied by an assumed
+factor for the wet year 2020. The maps are registered like the temperature
+maps.
+
+<p>
+<em><a href="t.sample.html">t.sample</a></em> takes <code>temperature_season</code> as the sampler and prints,
+for each of its maps, the maps of <code>precipitation_monthly</code> in the default
+relations <code>during</code>, <code>overlap</code>, <code>contain</code> and <code>equal</code>. Each season contains
+three monthly maps, so each row names three maps. The columns are the sampler
+map, the related maps of <code>precipitation_monthly</code>, the start and end of the
+granule, its length in days (92, 92 and 91) and the distance of its start from
+the first granule in days (the manual of <em>t.sample</em> describes them).
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+month=1
+for entry in jan:1.2 feb:1.7 mar:0.9 apr:1.3 may:1.6 jun:0.9 \
+    jul:1.1 aug:1.5 sep:0.8 oct:1.0 nov:1.6 dec:0.9; do
+    name=$(printf %02d $month)
+    v.surf.idw input=precip_30ynormals column=${entry%:*} \
+        output=precipitation_normal_$name npoints=12 power=2
+    r.mapcalc expression="precipitation_monthly_2020_$name = if(isnull(elev_state_500m), null(), round(${entry#*:} * precipitation_normal_$name))"
+    month=$((month + 1))
+done
+t.create output=precipitation_monthly title="Precipitation" \
+    description="Monthly precipitation sum 2020 in mm"
+t.register -i input=precipitation_monthly \
+    maps=$(g.list type=raster pattern="precipitation_monthly_*" mapset=. separator=comma) \
+    start=2020-01-01 increment="1 month"
+t.sample inputs=precipitation_monthly sample=temperature_season
+</pre></div>
+
+<div class="code"><pre>
+temperature_season_2020_03@temporalintro|precipitation_monthly_2020_03@temporalintro,precipitation_monthly_2020_04@temporalintro,precipitation_monthly_2020_05@temporalintro|2020-03-01 00:00:00|2020-06-01 00:00:00|92.0|0.0
+temperature_season_2020_06@temporalintro|precipitation_monthly_2020_06@temporalintro,precipitation_monthly_2020_07@temporalintro,precipitation_monthly_2020_08@temporalintro|2020-06-01 00:00:00|2020-09-01 00:00:00|92.0|92.0
+temperature_season_2020_09@temporalintro|precipitation_monthly_2020_09@temporalintro,precipitation_monthly_2020_10@temporalintro,precipitation_monthly_2020_11@temporalintro|2020-09-01 00:00:00|2020-12-01 00:00:00|91.0|184.0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+factors = {"jan": 1.2, "feb": 1.7, "mar": 0.9, "apr": 1.3, "may": 1.6, "jun": 0.9}
+factors |= {"jul": 1.1, "aug": 1.5, "sep": 0.8, "oct": 1.0, "nov": 1.6, "dec": 0.9}
+for month, (column, factor) in enumerate(factors.items(), start=1):
+    normal = f"precipitation_normal_{month:02d}"
+    tools.v_surf_idw(
+        input="precip_30ynormals", column=column, output=normal, npoints=12, power=2
+    )
+    tools.r_mapcalc(
+        expression=f"precipitation_monthly_2020_{month:02d} ="
+        f" if(isnull(elev_state_500m), null(), round({factor} * {normal}))"
+    )
+tools.t_create(
+    output="precipitation_monthly",
+    title="Precipitation",
+    description="Monthly precipitation sum 2020 in mm",
+)
+tools.t_register(
+    input="precipitation_monthly",
+    maps=",".join(f"precipitation_monthly_2020_{month:02d}" for month in months),
+    start="2020-01-01",
+    increment="1 month",
+    flags="i",
+)
+print(tools.t_sample(inputs="precipitation_monthly", sample="temperature_season").text)
+</pre></div>
+
+<div class="code"><pre>
+temperature_season_2020_03@temporalintro|precipitation_monthly_2020_03@temporalintro,precipitation_monthly_2020_04@temporalintro,precipitation_monthly_2020_05@temporalintro|2020-03-01 00:00:00|2020-06-01 00:00:00|92.0|0.0
+temperature_season_2020_06@temporalintro|precipitation_monthly_2020_06@temporalintro,precipitation_monthly_2020_07@temporalintro,precipitation_monthly_2020_08@temporalintro|2020-06-01 00:00:00|2020-09-01 00:00:00|92.0|92.0
+temperature_season_2020_09@temporalintro|precipitation_monthly_2020_09@temporalintro,precipitation_monthly_2020_10@temporalintro,precipitation_monthly_2020_11@temporalintro|2020-09-01 00:00:00|2020-12-01 00:00:00|91.0|184.0
+</pre></div>
+
+<h3>Compute with the temporal algebra</h3>
+
+<em><a href="t.rast.algebra.html">t.rast.algebra</a></em> combines the two datasets, which have the
+same months. The expression marks the cells that are warm and wet in a month:
+warmer than 15 degrees and with more than 100 mm of precipitation. The result
+dataset <code>warm_wet</code> keeps the times of the input maps; each map holds 1 where
+both conditions are true and 0 elsewhere, so its largest value is 1 from April
+to October, the months with such a cell.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.algebra expression="warm_wet = if(temperature_monthly &gt; 15.0 &amp;&amp; precipitation_monthly &gt; 100, 1, 0)" basename=warm_wet
+t.rast.list input=warm_wet columns=name,start_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|min|max
+warm_wet_00|2020-01-01 00:00:00|0.0|0.0
+warm_wet_01|2020-02-01 00:00:00|0.0|0.0
+warm_wet_02|2020-03-01 00:00:00|0.0|0.0
+warm_wet_03|2020-04-01 00:00:00|0.0|1.0
+warm_wet_04|2020-05-01 00:00:00|0.0|1.0
+warm_wet_05|2020-06-01 00:00:00|0.0|1.0
+warm_wet_06|2020-07-01 00:00:00|0.0|1.0
+warm_wet_07|2020-08-01 00:00:00|0.0|1.0
+warm_wet_08|2020-09-01 00:00:00|0.0|1.0
+warm_wet_09|2020-10-01 00:00:00|0.0|1.0
+warm_wet_10|2020-11-01 00:00:00|0.0|0.0
+warm_wet_11|2020-12-01 00:00:00|0.0|0.0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+condition = "temperature_monthly &gt; 15.0 &amp;&amp; precipitation_monthly &gt; 100"
+tools.t_rast_algebra(
+    expression=f"warm_wet = if({condition}, 1, 0)", basename="warm_wet"
+)
+print(tools.t_rast_list(input="warm_wet", columns="name,start_time,min,max").text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|min|max
+warm_wet_00|2020-01-01 00:00:00|0.0|0.0
+warm_wet_01|2020-02-01 00:00:00|0.0|0.0
+warm_wet_02|2020-03-01 00:00:00|0.0|0.0
+warm_wet_03|2020-04-01 00:00:00|0.0|1.0
+warm_wet_04|2020-05-01 00:00:00|0.0|1.0
+warm_wet_05|2020-06-01 00:00:00|0.0|1.0
+warm_wet_06|2020-07-01 00:00:00|0.0|1.0
+warm_wet_07|2020-08-01 00:00:00|0.0|1.0
+warm_wet_08|2020-09-01 00:00:00|0.0|1.0
+warm_wet_09|2020-10-01 00:00:00|0.0|1.0
+warm_wet_10|2020-11-01 00:00:00|0.0|0.0
+warm_wet_11|2020-12-01 00:00:00|0.0|0.0
+</pre></div>
+
+<h3>Datasets of another mapset</h3>
+
+The example creates the mapset <code>temporalintro_2</code> and switches to it, so it is
+the current mapset and <code>temporalintro</code> is not in its search path. A new
+mapset takes its region from the default region of the dataset, so the region
+of the first example is set again. <em><a href="t.rast.list.html">t.rast.list</a></em> reads the
+dataset <code>temperature_monthly</code> of the first example with its mapset,
+<code>temperature_monthly@temporalintro</code>, and lists the maps of the first two
+months. The name <code>temperature_monthly</code> alone is not found: the mapset
+<code>temporalintro</code> is neither the current mapset nor in the search path. After
+<em>g.mapsets</em> with <code>operation=add</code> has added it to the search path, the name
+alone finds the dataset too.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.mapset -c mapset=temporalintro_2
+g.region raster=elev_state_500m res=1000 -a
+t.rast.list input=temperature_monthly@temporalintro columns=name,mapset \
+    where="start_time &lt; '2020-03-01'"
+if ! t.rast.list input=temperature_monthly columns=name,mapset 2&gt;&amp;1; then
+    echo "t.rast.list failed"
+fi
+g.mapsets mapset=temporalintro operation=add
+t.rast.list input=temperature_monthly columns=name,mapset \
+    where="start_time &lt; '2020-03-01'"
+</pre></div>
+
+<div class="code"><pre>
+name|mapset
+temperature_monthly_2020_01|temporalintro
+temperature_monthly_2020_02|temporalintro
+ERROR: Space time dataset &lt;temperature_monthly&gt; of type &lt;strds&gt; not found
+t.rast.list failed
+name|mapset
+temperature_monthly_2020_01|temporalintro
+temperature_monthly_2020_02|temporalintro
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import ToolError
+
+tools.g_mapset(flags="c", mapset="temporalintro_2")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+first_months = "start_time &lt; '2020-03-01'"
+result = tools.t_rast_list(
+    input="temperature_monthly@temporalintro",
+    columns="name,mapset",
+    where=first_months,
+)
+print(result.text)
+try:
+    tools.t_rast_list(input="temperature_monthly", columns="name,mapset")
+except ToolError as error:
+    print(error.stderr.strip())
+    print("t.rast.list failed")
+tools.g_mapsets(mapset="temporalintro", operation="add")
+result = tools.t_rast_list(
+    input="temperature_monthly", columns="name,mapset", where=first_months
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|mapset
+temperature_monthly_2020_01|temporalintro
+temperature_monthly_2020_02|temporalintro
+ERROR: Space time dataset &lt;temperature_monthly&gt; of type &lt;strds&gt; not found
+t.rast.list failed
+name|mapset
+temperature_monthly_2020_01|temporalintro
+temperature_monthly_2020_02|temporalintro
+</pre></div>
+
+<h2>SEE ALSO</h2>
 
 <ul>
-<li> Gebbert, S., Pebesma, E. 2014. <i>TGRASS: A temporal GIS for field based environmental modeling</i>.
-Environmental Modelling &amp; Software 53, 1-12 (<a href="https://doi.org/10.1016/j.envsoft.2013.11.001">DOI</a>)
-- <a href="https://ifgi.uni-muenster.de/~epebe_01/tgrass.pdf">preprint PDF</a></li>
-
-<li> Gebbert, S., Pebesma, E. 2017. <i>The GRASS GIS temporal framework</i>. International Journal of
-Geographical Information Science 31, 1273-1292 (<a href="https://doi.org/10.1080/13658816.2017.1306862">DOI</a>)</li>
-
-<li> Gebbert, S., Leppelt, T., Pebesma, E., 2019. <i>A topology based spatio-temporal map algebra for big data analysis</i>.
-Data 4, 86. (<a href="https://doi.org/10.3390/data4020086">DOI</a>)</li>
-
-<li> <a href="https://grasswiki.osgeo.org/wiki/Temporal_data_processing">Temporal
-data processing</a> (Wiki)</li>
-
-<li> Vaclav Petras, Anna Petrasova, Helena Mitasova, Markus Neteler,
-<b>FOSS4G 2014 workshop</b>: <br>
-<a href="https://ncsu-geoforall-lab.github.io/grass-temporal-workshop/">Spatio-temporal
-data handling and visualization in GRASS GIS</a></li>
-
-<li> <a href="https://www.geostat-course.org/Topic_Gebbert">GEOSTAT 2012 GRASS Course</a></li>
+<li>Gebbert, S., Pebesma, E. 2014. <em>TGRASS: A temporal GIS for field based
+environmental modeling</em>. Environmental Modelling &amp; Software 53, 1-12
+(<a href="https://doi.org/10.1016/j.envsoft.2013.11.001">DOI</a>) - <a href="https://ifgi.uni-muenster.de/~epebe_01/tgrass.pdf">preprint
+PDF</a></li>
+<li>Gebbert, S., Pebesma, E. 2017. <em>The GRASS GIS temporal framework</em>.
+International Journal of Geographical Information Science 31,
+1273-1292 (<a href="https://doi.org/10.1080/13658816.2017.1306862">DOI</a>)</li>
+<li>Gebbert, S., Leppelt, T., Pebesma, E., 2019. <em>A topology based
+spatio-temporal map algebra for big data analysis</em>. Data 4, 86.
+(<a href="https://doi.org/10.3390/data4020086">DOI</a>)</li>
+<li><a href="https://grasswiki.osgeo.org/wiki/Temporal_data_processing">Temporal data
+processing</a>
+(Wiki)</li>
+<li>Vaclav Petras, Anna Petrasova, Helena Mitasova, Markus Neteler,
+<b>FOSS4G 2014 workshop</b>:<br>
+<a href="https://ncsu-geoforall-lab.github.io/grass-temporal-workshop/">Spatio-temporal data handling and visualization in GRASS
+GIS</a></li>
+<li><a href="https://www.geostat-course.org/Topic_Gebbert">GEOSTAT 2012 GRASS
+Course</a></li>
 </ul>
 
 <ul>
-  <li><a href="rasterintro.html">Introduction into raster data processing</a></li>
-  <li><a href="raster3dintro.html">Introduction into 3D raster data (voxel) processing</a></li>
-  <li><a href="vectorintro.html">Introduction into vector data processing</a></li>
-  <li><a href="imageryintro.html">Introduction into image processing</a></li>
-  <li><a href="databaseintro.html">Database management</a></li>
-  <li><a href="projectionintro.html">Projections and spatial transformations</a></li>
+<li><a href="temporalchanges.html">Changes of the temporal framework in GRASS 8.6</a></li>
+<li><a href="rasterintro.html">Introduction into raster data processing</a></li>
+<li><a href="raster3dintro.html">Introduction into 3D raster data (voxel)
+processing</a></li>
+<li><a href="vectorintro.html">Introduction into vector data processing</a></li>
+<li><a href="imageryintro.html">Introduction into image processing</a></li>
+<li><a href="databaseintro.html">Database management</a></li>
+<li><a href="projectionintro.html">Projections and spatial transformations</a></li>
 </ul>
