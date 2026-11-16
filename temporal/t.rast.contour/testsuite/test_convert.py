@@ -10,6 +10,8 @@ from grass.gunittest.case import TestCase
 from grass.gunittest.gmodules import SimpleModule
 
 
+# The counts of contour lines are those of the r.contour that traces saddle
+# cells and extreme levels. Kept until the temporal tools get pytest tests.
 class TestRasterContour(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -73,9 +75,9 @@ class TestRasterContour(TestCase):
                         granularity='3 months'
                         map_time=interval
                         number_of_maps=5
-                        lines=28
-                        primitives=28
-                        nodes=56"""
+                        lines=32
+                        primitives=32
+                        nodes=64"""
 
         info = SimpleModule("t.info", flags="g", type="stvds", input="result")
         self.assertModuleKeyValue(
@@ -102,9 +104,9 @@ class TestRasterContour(TestCase):
                         granularity='3 months'
                         map_time=interval
                         number_of_maps=4
-                        lines=28
-                        primitives=28
-                        nodes=56"""
+                        lines=32
+                        primitives=32
+                        nodes=64"""
 
         info = SimpleModule("t.info", flags="g", type="stvds", input="result")
         self.assertModuleKeyValue(
@@ -132,9 +134,9 @@ class TestRasterContour(TestCase):
                         granularity='3 months'
                         map_time=interval
                         number_of_maps=3
-                        lines=21
-                        primitives=21
-                        nodes=42"""
+                        lines=24
+                        primitives=24
+                        nodes=48"""
 
         info = SimpleModule("t.info", flags="g", type="stvds", input="result")
         self.assertModuleKeyValue(
@@ -162,9 +164,9 @@ class TestRasterContour(TestCase):
                         granularity='3 months'
                         map_time=interval
                         number_of_maps=4
-                        lines=28
-                        primitives=28
-                        nodes=56"""
+                        lines=32
+                        primitives=32
+                        nodes=64"""
 
         info = SimpleModule("t.info", flags="g", type="stvds", input="result")
         self.assertModuleKeyValue(
@@ -193,9 +195,9 @@ class TestRasterContour(TestCase):
                         granularity='3 months'
                         map_time=interval
                         number_of_maps=4
-                        lines=28
-                        primitives=28
-                        nodes=56"""
+                        lines=32
+                        primitives=32
+                        nodes=64"""
 
         info = SimpleModule("t.info", flags="g", type="stvds", input="result")
         self.assertModuleKeyValue(
@@ -225,9 +227,9 @@ class TestRasterContour(TestCase):
                         granularity='3 months'
                         map_time=interval
                         number_of_maps=3
-                        lines=21
-                        primitives=21
-                        nodes=42"""
+                        lines=24
+                        primitives=24
+                        nodes=48"""
 
         info = SimpleModule("t.info", flags="g", type="stvds", input="result")
         self.assertModuleKeyValue(
