@@ -5,7 +5,7 @@ The expected values capture the output of t.info as it is now, so that later
 changes to the interface can be checked against the established behavior.
 """
 
-import grass.script as gs
+from grass.temporal.testing.readback import info_text
 from grass.tools import Tools
 
 # Keys whose values differ between runs, systems, or users. The spatial extent
@@ -88,11 +88,6 @@ VECTOR_SHELL_KEYS = [
 ]
 
 
-def shell_info(tools, **kwargs):
-    """Return the shell style output of t.info parsed into a dictionary"""
-    return gs.parse_key_val(tools.t_info(flags="g", **kwargs).text)
-
-
 def stable_items(info):
     """Return the parsed shell output without the keys which cannot be compared"""
     return {key: value for key, value in info.items() if key not in VOLATILE_KEYS}
@@ -101,7 +96,7 @@ def stable_items(info):
 def test_shell_keys(temporal_data):
     """Shell output has the expected keys in the expected order"""
     tools = Tools(session=temporal_data.session)
-    info = shell_info(tools, type="stvds", input="vect_abs1")
+    info = info_text(tools, type="stvds", input="vect_abs1")
 
     assert list(info.keys()) == STVDS_SHELL_KEYS
 
@@ -109,7 +104,7 @@ def test_shell_keys(temporal_data):
 def test_shell_values(temporal_data):
     """Shell output reports the metadata of the dataset"""
     tools = Tools(session=temporal_data.session)
-    info = shell_info(tools, type="stvds", input="vect_abs1")
+    info = info_text(tools, type="stvds", input="vect_abs1")
 
     assert stable_items(info) == {
         "id": f"vect_abs1@{temporal_data.mapset}",
@@ -156,7 +151,7 @@ def test_plain_info(temporal_data):
 def test_vector_map_shell(temporal_data):
     """Shell output for a registered vector map reports the map metadata"""
     tools = Tools(session=temporal_data.session)
-    info = shell_info(tools, type="vector", input="vect_1")
+    info = info_text(tools, type="vector", input="vect_1")
 
     assert list(info.keys()) == VECTOR_SHELL_KEYS
     assert stable_items(info) == {
