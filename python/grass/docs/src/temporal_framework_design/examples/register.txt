@@ -1,0 +1,6 @@
+Dataset: temperature_daily@temporal_design
+Maps: 366
+Time: 2020-01-01 00:00:00 to 2021-01-01 00:00:00
+Granularity: 1 day
+Smallest minimum: -993.0
+Largest maximum: 3144.0
