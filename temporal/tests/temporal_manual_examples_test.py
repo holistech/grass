@@ -49,7 +49,13 @@ from grass.temporal.testing.nc_dataset import (
 
 # The manuals rewritten so far; each tool stage that rewrites manuals replaces
 # this file with a longer list, the last one with the final version.
+# t.upgrade is added with t.list: its example reads the column
+# number_of_semantic_labels, which only the revised t.list accepts.
 REVIEWED_MANUALS = (
+    "t.connect",
+    "t.copy",
+    "t.create",
+    "t.merge",
     "t.rast.aggregate",
     "t.rast.aggregate.ds",
     "t.rast.algebra",
@@ -58,8 +64,13 @@ REVIEWED_MANUALS = (
     "t.rast3d.algebra",
     "t.rast3d.mapcalc",
     "t.rast3d.univar",
+    "t.register",
+    "t.remove",
+    "t.rename",
     "t.sample",
     "t.select",
+    "t.support",
+    "t.unregister",
     "t.vect.algebra",
 )
 
