@@ -7,6 +7,13 @@
 Name of the vector map is determined by default from pack file
 internals. Optionally the name can be given by <b>output</b> parameter.
 
+The coordinate reference system (CRS) of the pack file must match the one of
+the current project; the name of the CRS is not compared. If it does not, the
+module stops with an error. The flag <b>-o</b> assumes that both are the same:
+the module warns and uses the CRS of the current project. A project without a
+CRS (an XY project) has none to match, so a pack file of a project with a CRS
+is unpacked there with <b>-o</b> only.
+
 <h2>EXAMPLE</h2>
 
 Pack up vector map <i>random_point</i> into <i>random_point.pack</i> file.
