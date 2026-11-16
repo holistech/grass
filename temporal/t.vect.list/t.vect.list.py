@@ -32,7 +32,6 @@
 # % required: no
 # % multiple: yes
 # % options: id,name,layer,creator,mapset,temporal_type,creation_time,start_time,end_time,north,south,west,east,points,lines,boundaries,centroids,faces,kernels,primitives,nodes,areas,islands,holes,volumes
-# % answer: start_time
 # %end
 
 # %option
@@ -42,8 +41,7 @@
 # % guisection: Selection
 # % required: no
 # % multiple: yes
-# % options: id,name,layer,creator,mapset,temporal_type,creation_time,start_time,end_time,north,south,west,east,points,lines,boundaries,centroids,faces,kernels,primitives,nodes,areas,islands,holes,volumes
-# % answer: name,layer,mapset,start_time,end_time
+# % options: id,name,layer,creator,mapset,temporal_type,creation_time,start_time,end_time,north,south,west,east,points,lines,boundaries,centroids,faces,kernels,primitives,nodes,areas,islands,holes,volumes,interval_length,distance_from_begin
 # %end
 
 # %option G_OPT_T_WHERE
@@ -58,6 +56,14 @@
 # % multiple: no
 # % options: cols,comma,delta,deltagaps,gran
 # % answer: cols
+# %end
+
+# %option
+# % key: granule
+# % type: string
+# % description: The granule to be used for listing. The granule must be specified as string eg.: absolute time "1 months" or relative time "1"
+# % required: no
+# % multiple: no
 # %end
 
 # %option G_OPT_F_FORMAT
@@ -85,40 +91,11 @@
 import grass.script as gs
 
 
-def message_option_value_excludes_option_value(
-    option_name, option_value, excluded_option_name, excluded_option_value, reason
-):
-    return _(
-        "Combining {option_name}={option_value} and "
-        "{excluded_option_name}={excluded_option_value} is not allowed. {reason}"
-    ).format(
-        option_name=option_name,
-        option_value=option_value,
-        excluded_option_name=excluded_option_name,
-        excluded_option_value=excluded_option_value,
-        reason=reason,
-    )
-
-
-def message_option_value_excludes_flag(option_name, option_value, flag_name, reason):
-    return _(
-        "The flag -{flag_name} is not allowed with {option_name}={option_value}."
-        " {reason}"
-    ).format(
-        flag_name=flag_name,
-        option_name=option_name,
-        option_value=option_value,
-        reason=reason,
-    )
-
-
-############################################################################
-
-
 def main():
     options, flags = gs.parser()
     # lazy imports
     import grass.temporal as tgis
+    from grass.temporal.list_stds import check_list_format, check_list_method
 
     # Get the options
     input = options["input"]
@@ -127,66 +104,64 @@ def main():
     where = options["where"]
     separator = gs.separator(options["separator"])
     method = options["method"]
+    granule = options["granule"]
     header = flags["u"]
     output = options["output"]
     output_format = options["format"]
 
-    if output_format == "csv":
-        if not separator:
-            separator = ","
-        elif len(separator) > 1:
-            gs.fatal(
-                message_option_value_excludes_option_value(
-                    option_name="format",
-                    option_value=output_format,
-                    excluded_option_name="separator",
-                    excluded_option_value=separator,
-                    reason=_(
-                        "A standard CSV separator (delimiter) is only one character "
-                        "long"
-                    ),
-                )
-            )
+    # Columns that come from the database and not from the map objects the
+    # methods delta, deltagaps and gran work on
+    delta_excluded_columns = [
+        "creator",
+        "temporal_type",
+        "creation_time",
+        "north",
+        "south",
+        "west",
+        "east",
+        "points",
+        "lines",
+        "boundaries",
+        "centroids",
+        "faces",
+        "kernels",
+        "primitives",
+        "nodes",
+        "areas",
+        "islands",
+        "holes",
+        "volumes",
+    ]
+    try:
+        check_list_method(method, order, columns, delta_excluded_columns)
+    except ValueError as error:
+        gs.fatal(str(error))
 
-    elif output_format in {"json", "yaml"}:
-        if header:
-            gs.fatal(
-                message_option_value_excludes_flag(
-                    option_name="format",
-                    option_value=output_format,
-                    flag_name="u",
-                    reason=_("Column names are always included"),
-                )
-            )
-        if separator:
-            gs.fatal(
-                message_option_value_excludes_option_value(
-                    option_name="format",
-                    option_value=output_format,
-                    excluded_option_name="separator",
-                    excluded_option_value=separator,
-                    reason=_("Separator is part of the format"),
-                )
-            )
+    # The method comma is the old name of the format line
+    if method == "comma" and output_format == "plain":
+        output_format = "line"
 
-    elif output_format == "line":
-        if not separator:
-            separator = ","
-        columns_list = columns.split(",")
-        if len(columns_list) > 1:
-            gs.fatal(
-                message_option_value_excludes_option_value(
-                    option_name="format",
-                    option_value=output_format,
-                    excluded_option_name="columns",
-                    excluded_option_value=columns,
-                    reason=_("Only one column is allowed (not {num_columns})").format(
-                        num_columns=len(columns_list)
-                    ),
-                )
-            )
-    elif not separator:  # output_format = "plain"
-        separator = "|"
+    # Without columns the library chooses them: the ids for the line format and
+    # the table of the manual for the delta methods. The other methods and
+    # formats list the columns below.
+    if (
+        not columns
+        and output_format != "line"
+        and method
+        not in {
+            "delta",
+            "deltagaps",
+            "gran",
+        }
+    ):
+        columns = "name,layer,mapset,start_time,end_time"
+
+    try:
+        output_format, separator = check_list_format(
+            output_format, separator, method, columns, header, header_flag="u"
+        )
+    except ValueError as error:
+        gs.fatal(str(error))
 
     # Make sure the temporal database exists
     tgis.init()
@@ -200,6 +175,7 @@ def main():
         separator,
         method,
         header,
+        granule,
         outpath=output,
         output_format=output_format,
     )
