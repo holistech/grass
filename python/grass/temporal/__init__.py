@@ -1,8 +1,9 @@
 """The temporal framework of GRASS
 
 The package exports the names that code outside the library uses, listed in
-``__all__``. Everything else is imported from its module, for example
-``from grass.temporal.db import DBConnection``.
+``__all__``; the contract test ``grass_temporal_public_contract_test.py`` holds
+the list and who uses each name. Everything else is imported from its module,
+for example ``from grass.temporal.related_maps import related_per_granule``.
 """
 
 from grass.exceptions import FatalError
@@ -93,12 +94,6 @@ from .univar_statistics import (
     print_vector_dataset_univar_statistics,
 )
 
-# Names the package exported before and tools still take from it: the map name
-# suffix builders of the raster tools that are not revised yet. They leave the
-# package with the revision of those tools.
-from .datetime_math import create_suffix_from_datetime, create_time_suffix
-
-
 __all__ = [
     "AbsoluteTemporalExtent",
     "AbstractSpaceTimeDataset",
@@ -127,8 +122,6 @@ __all__ = [
     "compute_relative_time_granularity",
     "core",
     "create_numeric_suffix",
-    "create_suffix_from_datetime",
-    "create_time_suffix",
     "dataset_cycles",
     "dataset_factory",
     "dataset_mapcalculator",
