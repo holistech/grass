@@ -22,6 +22,7 @@ set(PYDIRS
     semantic_label
     temporal
     temporal/ply
+    temporal/testing
     tools
     utils
 )
