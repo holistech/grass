@@ -42,37 +42,520 @@
 # % multiple: yes
 # %end
 
+# %option G_OPT_V_TYPE
+# % options: point,centroid
+# % answer: point
+# %end
+
 # %option G_OPT_DB_WHERE
 # %end
+
+import atexit
+import os
 
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
-############################################################################
-
 
 class Sample:
-    def __init__(self, start=None, end=None, raster_names=None):
+    def __init__(self, start, end, raster_names):
         self.start = start
         self.end = end
-        if raster_names is not None:
-            self.raster_names = raster_names
-        else:
-            self.raster_names = []
+        self.raster_names = raster_names
 
-    def __str__(self):
-        return "Start: %s\nEnd: %s\nNames: %s\n" % (
-            str(self.start),
-            str(self.end),
-            str(self.raster_names),
+
+def check_input(input, where):
+    """Check the input map and whether where can select its points
+
+    Nothing is written. Returns the database connections of the input.
+    """
+    if not gs.find_file(input, element="vector")["file"]:
+        gs.fatal(_("Vector map <%s> not found") % input)
+
+    input_db = gs.vector.vector_db(input)
+    if where:
+        # v.extract copies layer 1 only: the other layers of the input would
+        # be missing in the output without a word. A layer may have
+        # categories without a table or a table without categories, so both
+        # are asked.
+        with_categories = gs.read_command(
+            "v.category", input=input, option="layers"
+        ).split()
+        other_layers = sorted(
+            {int(layer) for layer in with_categories}.union(input_db) - {1}
+        )
+        if other_layers:
+            gs.fatal(
+                _(
+                    "The where option cannot be used with vector map <{vector}>: "
+                    "it has the layers {layers} besides layer 1 and the selection "
+                    "would drop them"
+                ).format(
+                    vector=input, layers=", ".join(str(layer) for layer in other_layers)
+                )
+            )
+    return input_db
+
+
+def single_samples(first_strds, dbif):
+    """Return a sample for each map of one space time raster dataset"""
+    rows = first_strds.get_registered_maps(
+        columns="name,mapset,start_time,end_time", order="start_time", dbif=dbif
+    )
+
+    if not rows:
+        dbif.close()
+        gs.fatal(_("Space time raster dataset <%s> is empty") % first_strds.get_id())
+
+    samples = []
+    for row in rows:
+        start = row["start_time"]
+        end = row["end_time"]
+        raster_maps = [
+            row["name"] + "@" + row["mapset"],
+        ]
+
+        s = Sample(start, end, raster_maps)
+        samples.append(s)
+    return samples
+
+
+def granule_samples(strds_names, first_strds, dbif):
+    """Return a sample for each granule of the first dataset that all datasets have
+
+    The granules are the maps of the first dataset; one in which a dataset
+    has no map is left out. All datasets must have the temporal type of the
+    first one and it must have intervals.
+    """
+    for name in strds_names[1:]:
+        dataset = tgis.open_old_stds(name, "strds", dbif)
+        if dataset.get_temporal_type() != first_strds.get_temporal_type():
+            gs.fatal(
+                _(
+                    "Temporal type of space time raster datasets must be equal\n"
+                    "<%(a)s> of type %(type_a)s do not match <%(b)s> of type "
+                    "%(type_b)s"
+                )
+                % {
+                    "a": first_strds.get_id(),
+                    "type_a": first_strds.get_temporal_type(),
+                    "b": dataset.get_id(),
+                    "type_b": dataset.get_temporal_type(),
+                }
+            )
+
+    # sample_stds_by_stds_topology() reports a sampler without intervals and
+    # returns None, which would end in a traceback below.
+    if first_strds.get_map_time() != "interval":
+        dbif.close()
+        gs.fatal(_("The temporal map type of the sample dataset must be interval"))
+
+    try:
+        mapmatrizes = tgis.sample_stds_by_stds_topology(
+            "strds",
+            "strds",
+            strds_names,
+            strds_names[0],
+            False,
+            None,
+            "equal",
+            False,
+            False,
+        )
+    except ValueError as error:
+        # Datasets with and without a time zone offset cannot be related.
+        dbif.close()
+        gs.fatal(str(error))
+
+    samples = []
+    for i in range(len(mapmatrizes[0])):
+        isvalid = True
+        mapname_list = []
+        # Collected, because a granule that a later dataset lacks is dropped
+        # and must not warn.
+        several = []
+        for index, mapmatrix in enumerate(mapmatrizes):
+            entry = mapmatrix[i]
+
+            if entry["samples"]:
+                sample = entry["samples"][0]
+                name = sample.get_id()
+                if name is None:
+                    isvalid = False
+                    break
+                mapname_list.append(name)
+                if len(entry["samples"]) > 1:
+                    several.append((strds_names[index], len(entry["samples"]), name))
+
+        if isvalid:
+            entry = mapmatrizes[0][i]
+            map = entry["granule"]
+
+            start, end = map.get_temporal_extent_as_tuple()
+            for dataset, count, used in several:
+                gs.warning(
+                    _(
+                        "Granule {start} - {end}: space time raster dataset "
+                        "<{dataset}> has {count} maps, only <{used}> is used"
+                    ).format(
+                        start=start, end=end, dataset=dataset, count=count, used=used
+                    )
+                )
+            s = Sample(start, end, mapname_list)
+            samples.append(s)
+    return samples
+
+
+def select_points(input, where, dbif):
+    """Return the map whose points are observed: input, or those where selects
+
+    With where the selected points are copied into a helper map, which is
+    removed at the end of the run.
+    """
+    if not where:
+        return input
+    # where selects points of the input: the other points are not in the
+    # output at all. Applying it in the new layers would fail, as they have
+    # no column of the input table.
+    selected = "tmp_t_vect_observe_strds_%d" % os.getpid()
+    try:
+        gs.run_command(
+            "v.extract", input=input, where=where, output=selected, quiet=True
+        )
+    except CalledModuleError:
+        dbif.close()
+        gs.fatal(_("Unable to select the points of <%s> with where") % input)
+    atexit.register(
+        gs.run_command,
+        "g.remove",
+        flags="f",
+        type="vector",
+        name=selected,
+        quiet=True,
+    )
+    # An empty selection has no layer 1, which the output needs; it would end
+    # in a KeyError after the output map was made.
+    topology = gs.vector_info_topo(selected)
+    if topology["points"] + topology["centroids"] == 0:
+        dbif.close()
+        gs.fatal(
+            _("The where option selects no point of vector map <{}>").format(input)
+        )
+    return selected
+
+
+def check_column_cases(points, vector_db, num_samples, column_names, input, dbif):
+    """Refuse a column that differs only in case from a column of a table
+
+    Only the layers that are observed and have a table in vector_db count,
+    the others get a new table. This is checked before vectmap is made: the
+    column check of add_columns() takes K for k, as SQLite does, and lets it
+    pass with overwrite, but v.what.rast looks for K as written and then
+    fails to add it. The check runs with and without overwrite: without it
+    the name gets this message only, not the one for an existing column with
+    the advice to overwrite, which would not help. points is the map
+    vector_db was read from; input names the map in the message.
+    """
+    for layer in range(1, num_samples + 1):
+        if not (layer in vector_db and vector_db[layer]["table"]):
+            continue
+        stored = list(gs.vector_columns(points, layer=layer))
+        stored_by_lower = {name.lower(): name for name in stored}
+        for column in column_names:
+            if column.lower() in stored_by_lower and column not in stored:
+                dbif.close()
+                gs.fatal(
+                    _(
+                        "Column <{column}> differs only in case from the column "
+                        "<{stored}> of the table of vector map <{vector}> "
+                        "layer {layer}"
+                    ).format(
+                        column=column,
+                        stored=stored_by_lower[column.lower()],
+                        vector=input,
+                        layer=layer,
+                    )
+                )
+
+
+def copy_with_layers(points, vector_db, num_samples, vectmap, overwrite):
+    """Create vectmap from points with a layer for each sample
+
+    v.category copies the categories of the first listed layer to the
+    others. vector_db holds the connections of points: if there are any,
+    layer 1 is listed first, and the layers that have a connection are left
+    out of the rest of the list.
+    """
+    layers = "1," if vector_db else ""
+    first = True
+    for layer in range(num_samples):
+        layer += 1
+        # Skip existing layer
+        if vector_db and layer in vector_db and vector_db[layer]["layer"] == layer:
+            continue
+        if first:
+            layers += "%i" % (layer)
+            first = False
+        else:
+            layers += ",%i" % (layer)
+
+    # We create a new vector map using the categories of the original map
+    try:
+        gs.run_command(
+            "v.category",
+            input=points,
+            layer=layers,
+            output=vectmap,
+            option="transfer",
+            overwrite=overwrite,
+        )
+    except CalledModuleError:
+        gs.fatal(_("Unable to create new layers for vector map <%s>") % (vectmap))
+
+
+def name_layer_one(vectmap, layer_one):
+    """Connect layer 1 of vectmap again under the layer name of the input
+
+    layer_one is the connection of layer 1 of the input. If that fails,
+    vectmap is removed.
+    """
+    # v.extract names layer 1 after the helper map, which is removed at the
+    # end of the run. Without where the output has the layer name of the
+    # input, so the layer is connected again under that name.
+    copied = gs.vector.vector_db(vectmap)[1]
+    try:
+        gs.run_command(
+            "v.db.connect",
+            map=vectmap,
+            layer="1/%s" % layer_one["name"] if layer_one["name"] else "1",
+            table=copied["table"],
+            key=copied["key"],
+            database=copied["database"],
+            driver=copied["driver"],
+            overwrite=True,
+            quiet=True,
+        )
+    except CalledModuleError:
+        gs.run_command("g.remove", flags="f", type="vector", name=vectmap, quiet=True)
+        gs.fatal(_("Unable to name layer 1 of vector map <%s>") % (vectmap))
+
+
+def column_definitions(raster_names, column_names):
+    """Return the definition of each column, INT for a CELL raster map
+
+    The other raster maps give DOUBLE PRECISION columns.
+    """
+    column_defs = {}
+    for name, column in zip(raster_names, column_names, strict=False):
+        # The column is by default double precision
+        coltype = "DOUBLE PRECISION"
+        # Get raster map type
+        raster_map = tgis.RasterDataset(name)
+        raster_map.load()
+        if raster_map.metadata.get_datatype() == "CELL":
+            coltype = "INT"
+
+        column_defs[column] = "%s %s" % (column, coltype)
+    return column_defs
+
+
+def set_to_null(vectmap, layer, columns):
+    """Set the columns of the table of layer to NULL in every row
+
+    v.what.rast leaves the value of a point alone that it does not sample
+    (outside the region or on a null cell). A column that the input table
+    had keeps its old value there, so it is emptied before the raster maps
+    are read.
+    """
+    if not columns:
+        return
+    connection = gs.vector.vector_db(vectmap)[layer]
+    assignments = ", ".join(f'"{column}" = NULL' for column in columns)
+    try:
+        gs.run_command(
+            "db.execute",
+            # The names are those the database reported, quoted; v.db.update
+            # would store the text NULL in a text column.
+            sql=f'UPDATE "{connection["table"]}" SET {assignments}',  # noqa: S608
+            database=connection["database"],
+            driver=connection["driver"],
+        )
+    except CalledModuleError:
+        gs.fatal(
+            _(
+                "Unable to set the columns {} of vector map <{}> with layer {} to NULL"
+            ).format(", ".join(columns), vectmap, layer)
         )
 
 
-############################################################################
+def add_columns(vectmap, layer, column_defs, vector_db, overwrite):
+    """Add the columns to the table of layer, or add a table with them
+
+    vector_db holds the connections of the map vectmap was copied from: a
+    layer that has a table there has it in vectmap too. A column that the
+    table has is refused without overwrite and written again with it.
+    """
+    if vector_db and layer in vector_db and vector_db[layer]["table"]:
+        # v.db.addcolumn only prints an error for a column that the
+        # table has and the run would go on and replace its values
+        present = {
+            column.lower(): column for column in gs.vector_columns(vectmap, layer=layer)
+        }
+        replaced = []
+        for column in column_defs.copy():
+            if column.lower() not in present:
+                continue
+            if not overwrite:
+                gs.fatal(
+                    _(
+                        "Unable to add column {column} to vector map "
+                        "<{vector}> with layer {layer}: the column exists, "
+                        "use the overwrite flag to replace its values"
+                    ).format(column=column, vector=vectmap, layer=layer)
+                )
+            del column_defs[column]
+            replaced.append(present[column.lower()])
+        set_to_null(vectmap, layer, replaced)
+        columns_string = ",".join(column_defs.values())
+        if columns_string:
+            try:
+                gs.run_command(
+                    "v.db.addcolumn",
+                    map=vectmap,
+                    layer=layer,
+                    column=columns_string,
+                    overwrite=overwrite,
+                )
+            except CalledModuleError:
+                gs.fatal(
+                    _("Unable to add column %s to vector map <%s> with layer %i")
+                    % (columns_string, vectmap, layer)
+                )
+    else:
+        columns_string = ",".join(column_defs.values())
+        # Try to add a new table
+        gs.message("Add table to layer %i" % (layer))
+        try:
+            gs.run_command(
+                "v.db.addtable",
+                map=vectmap,
+                layer=layer,
+                columns=columns_string,
+                overwrite=overwrite,
+            )
+        except CalledModuleError:
+            gs.fatal(
+                _("Unable to add table to vector map <%s> with layer %i")
+                % (vectmap, layer)
+            )
+
+
+def sample_rasters(vectmap, layer, raster_names, column_names, feature_type):
+    """Write the values of the raster maps at the features into the columns
+
+    feature_type is the type option of v.what.rast: point, centroid or both.
+    """
+    for name, column in zip(raster_names, column_names, strict=False):
+        try:
+            gs.run_command(
+                "v.what.rast",
+                map=vectmap,
+                layer=layer,
+                raster=name,
+                column=column,
+                type=feature_type,
+            )
+        except CalledModuleError:
+            gs.fatal(
+                _(
+                    "Unable to run v.what.rast for vector map <%s> "
+                    "with layer %i and raster map <%s>"
+                )
+                % (vectmap, layer, str(raster_names))
+            )
+
+
+def register_layer(out_sp, vect, sample, first_strds, dbif):
+    """Give vect the time of sample and register it in out_sp"""
+    vect.load()
+
+    start = sample.start
+    end = sample.end
+
+    if out_sp.is_time_absolute():
+        vect.set_absolute_time(start, end)
+    else:
+        vect.set_relative_time(start, end, first_strds.get_relative_time_unit())
+
+    if vect.is_in_db(dbif):
+        vect.update_all(dbif)
+    else:
+        vect.insert(dbif)
+
+    out_sp.register_map(vect, dbif)
+
+
+def observe_samples(
+    samples,
+    column_names,
+    vectmap,
+    vector_db,
+    out_sp,
+    first_strds,
+    mapset,
+    overwrite,
+    feature_type,
+    dbif,
+):
+    """Sample the raster maps in a layer of vectmap per sample and register it
+
+    The layers are counted from 1 in the order of samples. If a step fails,
+    the registered maps, out_sp and vectmap are removed and the connection
+    is closed.
+    """
+    dummy = out_sp.get_new_map_instance(None)
+
+    # The dataset, its map entries and the vector map that this run made are
+    # removed if a step fails
+    # The cleanup below needs the open connection, so the refusals inside the
+    # try do not close it; the cleanup closes it.
+    registered = []
+    try:
+        # Sample the space time raster dataset with the vector
+        # map at specific layer with v.what.rast
+        for count, sample in enumerate(samples, 1):
+            raster_names = sample.raster_names
+
+            column_defs = column_definitions(raster_names, column_names)
+            add_columns(vectmap, count, column_defs, vector_db, overwrite)
+            sample_rasters(vectmap, count, raster_names, column_names, feature_type)
+
+            vect = out_sp.get_new_map_instance(
+                dummy.build_id(vectmap, mapset, str(count))
+            )
+            register_layer(out_sp, vect, sample, first_strds, dbif)
+            registered.append(vect)
+
+    except BaseException:
+        for vect in registered:
+            vect.delete(dbif)
+        out_sp.delete(dbif)
+        dbif.close()
+        gs.run_command(
+            "g.remove",
+            flags="f",
+            type="vector",
+            name=vectmap,
+            quiet=True,
+            errors="ignore",
+        )
+        raise
 
 
 def main():
-    # lazy imports
+    global tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
     import grass.temporal as tgis
 
     # Get the options
@@ -81,6 +564,7 @@ def main():
     vector_output = options["vector_output"]
     strds = options["strds"]
     where = options["where"]
+    feature_type = options["type"]
     columns = options["columns"]
 
     if where in {"", " ", "\n"}:
@@ -100,6 +584,19 @@ def main():
             )
         )
 
+    seen = set()
+    for column in column_names:
+        # The tables compare column names without regard to case.
+        if column.lower() in seen:
+            gs.fatal(
+                _("The column names must be different: <{}> is given twice").format(
+                    column
+                )
+            )
+        seen.add(column.lower())
+
+    input_db = check_input(input, where)
+
     # Make sure the temporal database exists
     tgis.init()
     # We need a database interface
@@ -110,118 +607,34 @@ def main():
 
     out_sp = tgis.check_new_stds(output, "stvds", dbif, overwrite)
 
-    samples = []
-
     first_strds = tgis.open_old_stds(strds_names[0], "strds", dbif)
 
-    # Single space time raster dataset
     if len(strds_names) == 1:
-        rows = first_strds.get_registered_maps(
-            columns="name,mapset,start_time,end_time", order="start_time", dbif=dbif
-        )
-
-        if not rows:
-            dbif.close()
-            gs.fatal(_("Space time raster dataset <%s> is empty") % out_sp.get_id())
-
-        for row in rows:
-            start = row["start_time"]
-            end = row["end_time"]
-            raster_maps = [
-                row["name"] + "@" + row["mapset"],
-            ]
-
-            s = Sample(start, end, raster_maps)
-            samples.append(s)
+        samples = single_samples(first_strds, dbif)
     else:
-        # Multiple space time raster datasets
-        for name in strds_names[1:]:
-            dataset = tgis.open_old_stds(name, "strds", dbif)
-            if dataset.get_temporal_type() != first_strds.get_temporal_type():
-                gs.fatal(
-                    _(
-                        "Temporal type of space time raster datasets must be equal\n"
-                        "<%(a)s> of type %(type_a)s do not match <%(b)s> of type "
-                        "%(type_b)s"
-                    )
-                    % {
-                        "a": first_strds.get_id(),
-                        "type_a": first_strds.get_temporal_type(),
-                        "b": dataset.get_id(),
-                        "type_b": dataset.get_temporal_type(),
-                    }
-                )
+        samples = granule_samples(strds_names, first_strds, dbif)
+        if not samples:
+            gs.warning(
+                _(
+                    "No granule of space time raster dataset <{}> has a map in "
+                    "each of the datasets, nothing is written"
+                ).format(first_strds.get_id())
+            )
+            dbif.close()
+            return
 
-        mapmatrizes = tgis.sample_stds_by_stds_topology(
-            "strds",
-            "strds",
-            strds_names,
-            strds_names[0],
-            False,
-            None,
-            "equal",
-            False,
-            False,
-        )
+    points = select_points(input, where, dbif)
 
-        for i in range(len(mapmatrizes[0])):
-            isvalid = True
-            mapname_list = []
-            for mapmatrix in mapmatrizes:
-                entry = mapmatrix[i]
+    # Get the layer and database connections of the observed points
+    vector_db = gs.vector.vector_db(points)
+    check_column_cases(points, vector_db, len(samples), column_names, input, dbif)
+    copy_with_layers(points, vector_db, len(samples), vector_output, overwrite)
 
-                if entry["samples"]:
-                    sample = entry["samples"][0]
-                    name = sample.get_id()
-                    if name is None:
-                        isvalid = False
-                        break
-                    mapname_list.append(name)
+    layer_one = input_db.get(1)
+    if where and layer_one:
+        name_layer_one(vector_output, layer_one)
 
-            if isvalid:
-                entry = mapmatrizes[0][i]
-                map = entry["granule"]
-
-                start, end = map.get_temporal_extent_as_tuple()
-                s = Sample(start, end, mapname_list)
-                samples.append(s)
-
-    num_samples = len(samples)
-
-    # Get the layer and database connections of the input vector
-    vector_db = gs.vector.vector_db(input)
-
-    # We copy the vector table and create the new layers
-    # If vector_db, use the first layer to copy the categories from
-    layers = "1," if vector_db else ""
-    first = True
-    for layer in range(num_samples):
-        layer += 1
-        # Skip existing layer
-        if vector_db and layer in vector_db and vector_db[layer]["layer"] == layer:
-            continue
-        if first:
-            layers += "%i" % (layer)
-            first = False
-        else:
-            layers += ",%i" % (layer)
-
-    vectmap = vector_output
-
-    # We create a new vector map using the categories of the original map
-    try:
-        gs.run_command(
-            "v.category",
-            input=input,
-            layer=layers,
-            output=vectmap,
-            option="transfer",
-            overwrite=overwrite,
-        )
-    except CalledModuleError:
-        gs.fatal(_("Unable to create new layers for vector map <%s>") % (vectmap))
-
-    title = _("Observaion of space time raster dataset(s) <%s>") % (strds)
+    title = _("Observation of space time raster dataset(s) <%s>") % (strds)
     description = _(
         "Observation of space time raster dataset(s) <%s> with vector map <%s>"
     ) % (strds, input)
@@ -238,112 +651,18 @@ def main():
         overwrite,
     )
 
-    dummy = out_sp.get_new_map_instance(None)
-
-    # Sample the space time raster dataset with the vector
-    # map at specific layer with v.what.rast
-    count = 1
-    for sample in samples:
-        raster_names = sample.raster_names
-
-        if len(raster_names) != len(column_names):
-            gs.fatal(
-                _(
-                    "The number of raster maps in a granule must "
-                    "be equal to the number of column names"
-                )
-            )
-
-        # Create the columns creation string
-        columns_string = ""
-        for name, column in zip(raster_names, column_names, strict=False):
-            # The column is by default double precision
-            coltype = "DOUBLE PRECISION"
-            # Get raster map type
-            raster_map = tgis.RasterDataset(name)
-            raster_map.load()
-            if raster_map.metadata.get_datatype() == "CELL":
-                coltype = "INT"
-
-            tmp_string = "%s %s," % (column, coltype)
-            columns_string += tmp_string
-
-        # Remove last comma
-        columns_string = columns_string[0 : len(columns_string) - 1]
-
-        # Try to add a column
-        if vector_db and count in vector_db and vector_db[count]["table"]:
-            try:
-                gs.run_command(
-                    "v.db.addcolumn",
-                    map=vectmap,
-                    layer=count,
-                    column=columns_string,
-                    overwrite=overwrite,
-                )
-            except CalledModuleError:
-                dbif.close()
-                gs.fatal(
-                    _("Unable to add column %s to vector map <%s> with layer %i")
-                    % (columns_string, vectmap, count)
-                )
-        else:
-            # Try to add a new table
-            gs.message("Add table to layer %i" % (count))
-            try:
-                gs.run_command(
-                    "v.db.addtable",
-                    map=vectmap,
-                    layer=count,
-                    columns=columns_string,
-                    overwrite=overwrite,
-                )
-            except CalledModuleError:
-                dbif.close()
-                gs.fatal(
-                    _("Unable to add table to vector map <%s> with layer %i")
-                    % (vectmap, count)
-                )
-
-        # Call v.what.rast for each raster map
-        for name, column in zip(raster_names, column_names, strict=False):
-            try:
-                gs.run_command(
-                    "v.what.rast",
-                    map=vectmap,
-                    layer=count,
-                    raster=name,
-                    column=column,
-                    where=where,
-                )
-            except CalledModuleError:
-                dbif.close()
-                gs.fatal(
-                    _(
-                        "Unable to run v.what.rast for vector map <%s> "
-                        "with layer %i and raster map <%s>"
-                    )
-                    % (vectmap, count, str(raster_names))
-                )
-
-        vect = out_sp.get_new_map_instance(dummy.build_id(vectmap, mapset, str(count)))
-        vect.load()
-
-        start = sample.start
-        end = sample.end
-
-        if out_sp.is_time_absolute():
-            vect.set_absolute_time(start, end)
-        else:
-            vect.set_relative_time(start, end, first_strds.get_relative_time_unit())
-
-        if vect.is_in_db(dbif):
-            vect.update_all(dbif)
-        else:
-            vect.insert(dbif)
-
-        out_sp.register_map(vect, dbif)
-        count += 1
+    observe_samples(
+        samples,
+        column_names,
+        vector_output,
+        vector_db,
+        out_sp,
+        first_strds,
+        mapset,
+        overwrite,
+        feature_type,
+        dbif,
+    )
 
     out_sp.update_from_registered_maps(dbif)
     dbif.close()
@@ -351,4 +670,5 @@ def main():
 
 if __name__ == "__main__":
     options, flags = gs.parser()
+
     main()
