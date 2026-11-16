@@ -1,5 +1,5 @@
 """
-Object factory
+Factory function that creates space time and map datasets by type name.
 
 SPDX-FileCopyrightText: 2012-2024 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,67 +9,21 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-from typing import Literal, overload
+from typing import TYPE_CHECKING
 
-from .core import get_tgis_message_interface
-from .space_time_datasets import (
-    Raster3DDataset,
-    RasterDataset,
-    SpaceTimeRaster3DDataset,
-    SpaceTimeRasterDataset,
-    SpaceTimeVectorDataset,
-    VectorDataset,
-)
+from .datasets import class_of_kind
+from .kinds import find_kind
+from .state import get_tgis_message_interface
 
-###############################################################################
-
-
-@overload
-def dataset_factory(type: Literal["strds"], id: str) -> SpaceTimeRasterDataset:
-    pass
-
-
-@overload
-def dataset_factory(type: Literal["str3ds"], id: str) -> SpaceTimeRaster3DDataset:
-    pass
-
-
-@overload
-def dataset_factory(type: Literal["stvds"], id: str) -> SpaceTimeVectorDataset:
-    pass
-
-
-@overload
-def dataset_factory(type: Literal["rast", "raster"], id: str) -> RasterDataset:
-    pass
-
-
-@overload
-def dataset_factory(
-    type: Literal["raster_3d", "rast3d", "raster3d"],
-    id: str,
-) -> Raster3DDataset:
-    pass
-
-
-@overload
-def dataset_factory(type: Literal["vect", "vector"], id: str) -> VectorDataset:
-    pass
-
-
-@overload
-def dataset_factory(
-    type: str, id: str
-) -> (
-    SpaceTimeRasterDataset
-    | SpaceTimeRaster3DDataset
-    | SpaceTimeVectorDataset
-    | RasterDataset
-    | Raster3DDataset
-    | VectorDataset
-    | None
-):
-    pass
+if TYPE_CHECKING:
+    from .space_time_datasets import (
+        Raster3DDataset,
+        RasterDataset,
+        SpaceTimeRaster3DDataset,
+        SpaceTimeRasterDataset,
+        SpaceTimeVectorDataset,
+        VectorDataset,
+    )
 
 
 def dataset_factory(
@@ -85,22 +39,18 @@ def dataset_factory(
 ):
     """A factory functions to create space time or map datasets
 
+    The return type is the union of the six classes. The former overloads that
+    named the class for each literal type are gone with the table of types
+    they repeated; a caller that needs the narrow type asserts it.
+
     :param type: the dataset type: rast or raster; rast3d, raster3d or raster_3d;
                  vect or vector; strds; str3ds; stvds
     :param id: The id of the dataset ("name@mapset")
+    :return: The dataset object, None for an unknown type
     """
-    if type == "strds":
-        return SpaceTimeRasterDataset(id)
-    if type == "str3ds":
-        return SpaceTimeRaster3DDataset(id)
-    if type == "stvds":
-        return SpaceTimeVectorDataset(id)
-    if type in {"rast", "raster"}:
-        return RasterDataset(id)
-    if type in {"raster_3d", "rast3d", "raster3d"}:
-        return Raster3DDataset(id)
-    if type in {"vect", "vector"}:
-        return VectorDataset(id)
+    kind = find_kind(type)
+    if kind is not None:
+        return class_of_kind(kind.name)(id)
 
     msgr = get_tgis_message_interface()
     msgr.error(_("Unknown dataset type: %s") % type)

@@ -31,7 +31,6 @@ from .schema import (
     upgrade_temporal_database,
 )
 from .state import (
-    STATE,
     get_current_mapset,
     get_enable_mapset_check,
     get_enable_timestamp_write,
@@ -48,30 +47,6 @@ from .state import (
     stop_subprocesses,
     tools,
 )
-
-
-# The package __init__ still imports these four getters from here; they go when
-# __init__ takes its names from the new modules. They stay out of __all__,
-# which lists only what state, db and schema define.
-def get_tgis_backend() -> str | None:
-    """Return the temporal database backend: sqlite or pg"""
-    return STATE.backend
-
-
-def get_tgis_database() -> str | None:
-    """Return the temporal database string of the session"""
-    return STATE.database_string
-
-
-def get_current_location() -> str | None:
-    """Return the project (location) of the session"""
-    return STATE.current_location
-
-
-def get_current_gisdbase() -> str | None:
-    """Return the database directory (gisdbase) of the session"""
-    return STATE.current_gisdbase
-
 
 __all__ = [
     "DBConnection",
