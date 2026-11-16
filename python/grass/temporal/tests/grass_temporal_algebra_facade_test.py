@@ -22,8 +22,7 @@ CLASSES = [
 ]
 
 
-# The package takes the vector parser from the core once t.vect.algebra moves to it.
-@pytest.mark.parametrize(("name", "parser_class"), CLASSES[:2])
+@pytest.mark.parametrize(("name", "parser_class"), CLASSES)
 def test_the_package_exports_the_facade(name, parser_class):
     assert getattr(tgis, name) is parser_class
 
