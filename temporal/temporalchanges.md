@@ -141,6 +141,18 @@ on precedence.
     result dataset as the real run does. Python code that catches
     `FatalError` has to catch `ValueError` and `TypeError` too
     ([t.rast.algebra](t.rast.algebra.md#notes)).
+- **Calls of r.mapcalc in a dry run.** The dry run of *t.rast.algebra*
+    with **-d** printed the expressions of *r.mapcalc* as written, such as
+    `r_2001_01_01=if(a1@PERMANENT >= 3, 1, 0)` for
+    `R = if(A >= 3, start_doy(A, 0), 0)`, and listed the parameter `region`
+    of *r.mapcalc* with its default `current`. Now each map name is in
+    double quotes, each operator is in parentheses with its operands, and
+    the condition of `if()` is compared with 0:
+    `"r_2001_01_01"=if((("a1@PERMANENT" >= 3) != 0), 1, 0)`. `region` is
+    listed only under **-s**, with `union`. Both forms compute the same
+    map. Scripts that read the printed expressions have to accept the new
+    form
+    ([t.rast.algebra](t.rast.algebra.md#name-the-result-maps-and-plan-a-run)).
 - **Errors without traceback.** The algebra tools printed a Python
     traceback with an error. Now they report the error with a message only
     ([t.rast.algebra](t.rast.algebra.md#notes)).
