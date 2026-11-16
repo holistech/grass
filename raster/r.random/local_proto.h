@@ -1,6 +1,8 @@
 #ifndef __LOCAL_PROTO_H__
 #define __LOCAL_PROTO_H__
 
+#include <stdint.h>
+
 #include <grass/raster.h>
 
 /* raster_ptr.c: From Huidae Cho ... */
@@ -44,7 +46,7 @@ void get_stats(struct rr_state *);
 int execute_random(struct rr_state *);
 
 /* support.c */
-int make_support(struct rr_state *, int, double, long);
+int make_support(struct rr_state *, int, double, int64_t);
 
 #endif /* __LOCAL_PROTO_H__ */
 
