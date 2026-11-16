@@ -1,17 +1,969 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast3d.univar</em> provides the same functionality as
-<a href="t.rast.univar.html">t.rast.univar</a>, the only difference is the
-3D raster map layer metadata. Please refer to the manual page of
-<a href="t.rast.univar.html">t.rast.univar</a> for documentation and examples.
+<em>t.rast3d.univar</em> calculates univariate statistics of each 3D raster map
+registered in a space time 3D raster dataset and prints one line of statistics
+per map, ordered by start time. It runs <em><a href="r3.univar.html">r3.univar</a></em> for every
+map, so the statistics are those of <em>r3.univar</em>: they are taken from the cells
+(voxels) of the current 3D computational region and count only cells with a
+value (non-null cells). See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. Space time raster datasets have their own tool,
+<em><a href="t.rast.univar.html">t.rast.univar</a></em>, space time vector datasets
+<em><a href="t.vect.univar.html">t.vect.univar</a></em>. Its manual page explains the statistics
+for 2D maps in the same words; this page differs in the options that
+<em>t.rast3d.univar</em> does not have, in the 3D region, and in the zones.
+
+<p>
+The option <b>input</b> names the space time 3D raster dataset. Each line of the
+output starts with three columns that name the map:
+
+<ul>
+<li><code>id</code>, the name of the map with its mapset, such as <code>temperature_profile_2020_01@t_rast3d_univar</code>;</li>
+<li><code>start</code> and <code>end</code>, the start and end time of the map; the end of a map
+registered as a time instance is <code>None</code>.</li>
+</ul>
+
+<p>
+The statistics follow:
+
+<ul>
+<li><code>non_null_cells</code> and <code>null_cells</code>: the number of cells with and without a
+value;</li>
+<li><code>min</code>, <code>max</code> and <code>range</code>, the smallest and the largest value and their
+difference;</li>
+<li><code>mean</code> and <code>mean_of_abs</code>, the mean of the values and the mean of their
+absolute values;</li>
+<li><code>stddev</code> and <code>variance</code>: the variance is the sum of the squared deviations
+from the mean divided by the number of non-null cells (the population
+variance), the standard deviation is its square root;</li>
+<li><code>coeff_var</code>, the coefficient of variation in percent, 100 times the
+standard deviation divided by the mean. It grows without bound when the mean
+approaches 0, and it is negative for a negative mean;</li>
+<li><code>sum</code> and <code>sum_abs</code>, the sum of the values and of their absolute values.</li>
+</ul>
+
+<p>
+The flag <b>-e</b> adds the extended statistics <code>first_quartile</code>, <code>median</code>,
+<code>third_quartile</code> and the 90th percentile <code>percentile_90</code>. <em>r3.univar</em> finds a
+percentile p in the sorted values of the n non-null cells: it takes the value
+at position <code>n * p / 100 - 0.5</code> with the fractional part dropped, counting
+from 0, so the percentile 0 is the minimum. The quartiles follow the same rule
+with p = 25 and p = 75. The median is the middle value,
+or the mean of the two middle values when n is even, so it can differ from
+the 50th percentile. The option <b>percentile</b> replaces the 90th percentile by
+one or more percentiles from 0 to 100, separated by commas; it requires
+<b>-e</b>. Each percentile gets a column of its own, named after it, with an
+underscore for a decimal point: <code>percentile=97.5</code> gives <code>percentile_97_5</code>.
+
+<p>
+Two options select the maps of the dataset, and they can be combined:
+
+<ul>
+<li>the option <b>where</b> takes an SQL condition on the registered maps, for
+instance on <code>start_time</code> or <code>name</code>;</li>
+<li>the option <b>region_relation</b> keeps the maps that have a spatial relation
+with the current 3D computational region: <code>overlaps</code> keeps the maps that
+share at least a part of the region, <code>contains</code> the maps that cover the
+whole region, and <code>is_contained</code> the maps that lie inside the region. A map
+with the extent of the region both contains it and is contained in it. The
+option only selects maps; it does not change the cells the statistics are
+taken from.</li>
+</ul>
+
+<p>
+The statistics of every map are taken in the current 3D computational region:
+cells of the map outside the region are not counted, and cells of the region
+outside the map are null cells. Unlike <em>t.rast.univar</em>, <em>t.rast3d.univar</em> has
+no flag to take the statistics in the region of each map instead.
+
+<p>
+The option <b>zones</b> names a 3D raster map whose values, whole numbers,
+divide the region into zones. <em>t.rast3d.univar</em> then prints one line per map
+and zone, with the columns <code>zone</code> (the value) and <code>label</code> (the category label
+of the zone) after the three columns of the map. A 3D raster map gets its
+category labels from a 2D raster map with the option <b>raster</b> of
+<em><a href="r3.support.html">r3.support</a></em>, as the example with the layers shows; without
+labels the column <code>label</code> is empty. A zone without any cell in the region gets
+no line. <b>zones</b> takes a single 3D raster map, not a space time dataset; the
+same zones apply to every map.
+
+<p>
+The option <b>nprocs</b> sets the number of maps that are processed at the same
+time. Its default is the variable <code>NPROCS</code> of the session, if it is set with
+<em>g.gisenv</em>, and 0 otherwise. 0 uses all CPU cores, a negative number leaves
+that many cores unused. The output is the same, in the same order, for any value.
+
+<p>
+The option <b>format</b> chooses the form of the output:
+
+<ul>
+<li><code>plain</code> (the default) separates the columns with a vertical bar <code>|</code>;</li>
+<li><code>csv</code> separates them with a comma, or with another single character given
+in <b>separator</b>;</li>
+<li><code>json</code> prints a list with one object per map, or with <b>zones</b> one per
+map and zone. The keys are the column names, except where they follow
+<em>r3.univar</em>: <code>n</code> instead of <code>non_null_cells</code>, <code>zone_label</code> instead of
+<code>label</code>, the additional key <code>cells</code> for the number of all cells, and no
+<code>sum_abs</code>. With <b>-e</b>, the percentiles are the list <code>percentiles</code> of
+objects with the keys <code>percentile</code> and <code>value</code>, instead of the columns
+<code>percentile_90</code> and so on. A value that does not exist is <code>null</code>. Every
+object has the key <code>semantic_label</code>, which is <code>null</code> for 3D maps; the formats
+<code>plain</code> and <code>csv</code> have no such column.</li>
+</ul>
+
+<p>
+The option <b>separator</b> sets the separator of the formats <code>plain</code> and <code>csv</code>.
+The flag <b>-s</b> leaves out the line with the column names; it takes the place
+of the flag <b>-u</b> of <em>t.rast.univar</em>. The format <code>json</code> always names the
+values and accepts neither <b>separator</b> nor <b>-s</b>.
+
+<p>
+The option <b>output</b> writes the statistics to a file instead of the standard
+output; <code>output=-</code> is the standard output. An existing file is replaced only
+with <b>--overwrite</b>.
+
+<h2>NOTES</h2>
+
+The current 3D computational region decides which cells are counted, so it
+needs a vertical extent and a 3D resolution (the options <b>t</b>, <b>b</b> and
+<b>res3</b> of <em>g.region</em>). A map that does not reach into the region has only
+null cells there; its <code>min</code>, <code>max</code> and all further statistics are <code>nan</code> in the
+formats <code>plain</code> and <code>csv</code> and <code>null</code> in the format <code>json</code>. A map that lies
+above or below the region counts as outside, too. The region is the same for
+all maps, so maps with different extents can have different numbers of
+non-null cells, as the example with the cubes below shows.
+
+<p>
+In a dataset with relative time, <code>start</code> and <code>end</code> are numbers of the time
+unit of the dataset, printed without the unit: a map registered from 0 to 6
+hours shows <code>0</code> and <code>6</code>, as the first example shows.
+
+<p>
+<em>t.rast3d.univar</em> only reads, so it works on a dataset of another mapset as
+well. The name with the mapset (<code>input=temperature_profile@t_rast3d_univar</code>)
+selects it; a name without a mapset is searched in the mapsets of the search
+path (see <em><a href="g.mapsets.html">g.mapsets</a></em>). The last example shows this.
+
+<p>
+The 3D raster mask set with <em><a href="r3.mask.html">r3.mask</a></em> is respected, as
+<em>r3.univar</em> respects it: a cell that the mask excludes counts as a null cell,
+and with <b>zones</b> it belongs to no zone.
+
+<p>
+If no map is selected, for instance because the condition in <b>where</b>
+matches none, <em>t.rast3d.univar</em> prints nothing in the formats <code>plain</code> and
+<code>csv</code>, not even the line with the column names. The format <code>json</code> prints an
+empty list <code>[]</code>.
+
+<p>
+<b>zones</b> refuses a map with a value that is not a whole number, such as 2.5,
+as <em>t.rast.univar</em> refuses a zones map that is not of type CELL. 3D raster
+maps are always of a floating point type, so <em>t.rast3d.univar</em> checks the
+values in the current region before it computes the first map; it prints and
+writes nothing then.
+
+<p>
+The format <code>csv</code> refuses a separator of more than one character, the format
+<code>json</code> refuses <b>separator</b> and <b>-s</b>. <b>percentile</b> without <b>-e</b> is
+refused by the parser.
+
+<h2>EXAMPLES</h2>
+
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_rast3d_univar</code> and sets the 3D computational
+region to North Carolina with cells of 1 km and three layers of 1000 m, from 0
+to 3000 m; the later examples work in this mapset and region, except the cubes,
+which set a region of their own, and the last, which creates a second mapset. The
+horizontal resolution <code>res</code> alone leaves the 3D resolution at the 500 m of the
+elevation model, so the region sets <b>res3</b> as well.
+
+<h3>Statistics of each map of a dataset</h3>
+
+The dataset <code>temperature_profile</code> holds twelve 3D maps of the monthly mean air
+temperature in 2020 in whole degrees Celsius. They are generated, not
+measured: the temperature follows a yearly cycle with its maximum in July,
+falls by 0.0065 degrees per meter of height (<code>z()</code> is the height of the centre
+of a layer: 500, 1500 and 2500 m) and by 0.01 degrees per kilometer to the
+north. <code>round()</code> in <em>r3.mapcalc</em> rounds the values to whole degrees, which
+keeps the mean, the variance and the sums the same on every platform. Each map
+covers all 839 * 335 * 3 = 843,195 cells of the region, so no cell is null.
+The maps are registered as intervals of one month, starting on 1 January 2020.
+<em>t.rast3d.univar</em> processes two maps at the same time here (<b>nprocs</b>); the
+output does not depend on it. The condition in <b>where</b> keeps the first three
+months.
+
+<p>
+The second block makes the dataset <code>model</code> with relative time: two model
+steps of 6 hours each, with the constant values 1 and 2. Their <code>start</code> and
+<code>end</code> are numbers of hours, printed without the unit.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.mapset -c mapset=t_rast3d_univar
+g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
+for month in $(seq 12); do
+    echo "temperature_profile_2020_$(printf %02d $month) = round(16.5" \
+        "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * z()" \
+        "- 0.00001 * (y() - 160000))"
+done | r3.mapcalc file=-
+t.create type=str3ds output=temperature_profile title="Air temperature" \
+    description="Monthly mean air temperature 2020 in degree Celsius, 0 to 3000 m"
+t.register -i type=raster_3d input=temperature_profile \
+    maps=$(g.list type=raster_3d pattern="temperature_profile_*" mapset=. separator=comma) \
+    start=2020-01-01 increment="1 month"
+t.rast3d.univar input=temperature_profile nprocs=2 \
+    where="start_time &lt; '2020-04-01'"
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_profile_2020_01@t_rast3d_univar|2020-01-01 00:00:00|2020-02-01 00:00:00|843195|0|-12|5|17|-3.61492537313433|5.53134328358209|5.4020427423754|29.1820657904507|-149.437185689163|-3048087|4664001
+temperature_profile_2020_02@t_rast3d_univar|2020-02-01 00:00:00|2020-03-01 00:00:00|843195|0|-11|5|16|-2.76318407960199|5.24278606965174|5.40127475380717|29.1737689661147|-195.472852991581|-2329903|4420691
+temperature_profile_2020_03@t_rast3d_univar|2020-03-01 00:00:00|2020-04-01 00:00:00|843195|0|-8|9|17|0.680597014925373|4.65074626865672|5.40024613791268|29.1626583500408|793.457217631907|573876|3921486
+</pre></div>
+
+<div class="code"><pre>
+r3.mapcalc expression="model_step_1 = 1"
+r3.mapcalc expression="model_step_2 = 2"
+t.create type=str3ds output=model temporaltype=relative title="Model" \
+    description="Model output per step of 6 hours"
+t.register -i type=raster_3d input=model maps=model_step_1,model_step_2 \
+    start=0 increment=6 unit=hours
+t.rast3d.univar input=model
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+model_step_1@t_rast3d_univar|0|6|843195|0|1|1|0|1|1|0|0|0|843195|843195
+model_step_2@t_rast3d_univar|6|12|843195|0|2|2|0|2|2|0|0|0|1686390|1686390
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_mapset(flags="c", mapset="t_rast3d_univar")
+tools.g_region(
+    raster="elev_state_500m",
+    res=1000,
+    res3=1000,
+    t=3000,
+    b=0,
+    tbres=1000,
+    flags="a",
+)
+months = range(1, 13)
+tools.r3_mapcalc(
+    expression="\n".join(
+        f"temperature_profile_2020_{month:02d} = round(16.5"
+        f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * z()"
+        " - 0.00001 * (y() - 160000))"
+        for month in months
+    )
+)
+tools.t_create(
+    type="str3ds",
+    output="temperature_profile",
+    title="Air temperature",
+    description="Monthly mean air temperature 2020 in degree Celsius, 0 to 3000 m",
+)
+tools.t_register(
+    type="raster_3d",
+    input="temperature_profile",
+    maps=",".join(f"temperature_profile_2020_{month:02d}" for month in months),
+    start="2020-01-01",
+    increment="1 month",
+    flags="i",
+)
+result = tools.t_rast3d_univar(
+    input="temperature_profile", nprocs=2, where="start_time &lt; '2020-04-01'"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_profile_2020_01@t_rast3d_univar|2020-01-01 00:00:00|2020-02-01 00:00:00|843195|0|-12|5|17|-3.61492537313433|5.53134328358209|5.4020427423754|29.1820657904507|-149.437185689163|-3048087|4664001
+temperature_profile_2020_02@t_rast3d_univar|2020-02-01 00:00:00|2020-03-01 00:00:00|843195|0|-11|5|16|-2.76318407960199|5.24278606965174|5.40127475380717|29.1737689661147|-195.472852991581|-2329903|4420691
+temperature_profile_2020_03@t_rast3d_univar|2020-03-01 00:00:00|2020-04-01 00:00:00|843195|0|-8|9|17|0.680597014925373|4.65074626865672|5.40024613791268|29.1626583500408|793.457217631907|573876|3921486
+</pre></div>
+
+<div class="code"><pre>
+tools.r3_mapcalc(expression="model_step_1 = 1")
+tools.r3_mapcalc(expression="model_step_2 = 2")
+tools.t_create(
+    type="str3ds",
+    output="model",
+    temporaltype="relative",
+    title="Model",
+    description="Model output per step of 6 hours",
+)
+tools.t_register(
+    type="raster_3d",
+    input="model",
+    maps="model_step_1,model_step_2",
+    start=0,
+    increment=6,
+    unit="hours",
+    flags="i",
+)
+print(tools.t_rast3d_univar(input="model").text)
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+model_step_1@t_rast3d_univar|0|6|843195|0|1|1|0|1|1|0|0|0|843195|843195
+model_step_2@t_rast3d_univar|6|12|843195|0|2|2|0|2|2|0|0|0|1686390|1686390
+</pre></div>
+
+<h3>Calculate extended statistics and percentiles</h3>
+
+The flag <b>-e</b> adds the quartiles, the median and the 90th percentile. The
+first command takes the July map of <code>temperature_profile</code>, which has an odd
+number of cells. The first quartile is at position
+<code>843195 * 25 / 100 - 0.5</code> = 210798.25, which becomes 210798 (the value 12), the
+third quartile at position 632395.75, which becomes 632395 (the value 23). The
+option <b>percentile</b> replaces the 90th percentile by the listed ones: the
+10th percentile is at position 84319 (the value 10), the 95th at position
+801034.75, which becomes 801034 (the value 25). The 50th percentile and the
+median are both the middle value 17, at position 421597: with an odd number of
+cells, the median is a value of the map, too.
+
+<p>
+The second command takes the statistics in the lower two layers only, by
+setting the top of the region to 2000 m: the 281,065 cells of the upper layer
+are not counted, <code>non_null_cells</code> is 562,130, and the number of cells is even.
+The lower layer holds the values 22 to 25 and the middle layer 16 to 19, as the
+zones below show. The two middle values, at the positions 281064 and 281065,
+are 19 and 22, so the median is their mean 20.5, while the 50th percentile is
+the value 19 at position 281064. The median is not even a value that occurs in
+the map. The third command resets the region and takes the December map, with
+the default percentile.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast3d.univar -e input=temperature_profile percentile=10,50,95 \
+    where="name = 'temperature_profile_2020_07'"
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_10|percentile_50|percentile_95
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|843195|0|9|25|16|17.2636815920398|17.2636815920398|5.40085900465552|29.1692779881686|31.284514695555|14556650|14556650|12|17|23|10|17|25
+</pre></div>
+
+<div class="code"><pre>
+g.region t=2000
+t.rast3d.univar -e input=temperature_profile percentile=10,50,95 \
+    where="name = 'temperature_profile_2020_07'"
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_10|percentile_50|percentile_95
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|562130|0|16|25|9|20.5223880597015|20.5223880597015|3.37620386027356|11.3987525061261|16.4513206282421|11536250|11536250|17|20.5|24|16|19|25
+</pre></div>
+
+<div class="code"><pre>
+g.region t=3000
+t.rast3d.univar -e input=temperature_profile where="start_time &gt;= '2020-12-01'"
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_90
+temperature_profile_2020_12@t_rast3d_univar|2020-12-01 00:00:00|2021-01-01 00:00:00|843195|0|-10|7|17|-1.66965174129353|4.87960199004975|5.40060107011404|29.1664919185169|-323.456738704684|-1407842|4114456|-7|-2|4|6
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+result = tools.t_rast3d_univar(
+    input="temperature_profile",
+    percentile=[10, 50, 95],
+    where="name = 'temperature_profile_2020_07'",
+    flags="e",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_10|percentile_50|percentile_95
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|843195|0|9|25|16|17.2636815920398|17.2636815920398|5.40085900465552|29.1692779881686|31.284514695555|14556650|14556650|12|17|23|10|17|25
+</pre></div>
+
+<div class="code"><pre>
+tools.g_region(t=2000)
+result = tools.t_rast3d_univar(
+    input="temperature_profile",
+    percentile=[10, 50, 95],
+    where="name = 'temperature_profile_2020_07'",
+    flags="e",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_10|percentile_50|percentile_95
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|562130|0|16|25|9|20.5223880597015|20.5223880597015|3.37620386027356|11.3987525061261|16.4513206282421|11536250|11536250|17|20.5|24|16|19|25
+</pre></div>
+
+<div class="code"><pre>
+tools.g_region(t=3000)
+result = tools.t_rast3d_univar(
+    input="temperature_profile", where="start_time &gt;= '2020-12-01'", flags="e"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_90
+temperature_profile_2020_12@t_rast3d_univar|2020-12-01 00:00:00|2021-01-01 00:00:00|843195|0|-10|7|17|-1.66965174129353|4.87960199004975|5.40060107011404|29.1664919185169|-323.456738704684|-1407842|4114456|-7|-2|4|6
+</pre></div>
+
+<h3>Statistics per zone</h3>
+
+The 3D map <code>layers</code> holds the number of the layer: 1 in the lower layer
+(0 to 1000 m), 2 in the middle and 3 in the upper layer. With <b>zones</b>, each
+map gets one line per zone. Every zone has 839 * 335 = 281,065 cells. In July,
+the mean falls by about 6.5 degrees from layer to layer, as the assumed
+0.0065 degrees per meter say, and the layers do not overlap: the lower layer
+holds 22 to 25, the middle layer 16 to 19 and the upper layer 9 to 12. The
+labels of the layers are written with <em><a href="r.category.html">r.category</a></em> to the
+category table of the 2D raster map <code>layer_names</code>, whose cells play no part,
+and <em>r3.support</em> copies the table to <code>layers</code>; the column <code>label</code> shows the
+labels. With <b>format</b> <code>json</code>, each zone is an object of its own, and the
+category label has the name <code>zone_label</code>.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r3.mapcalc expression="layers = depth()"
+r.mapcalc expression="layer_names = 1"
+r.category map=layer_names separator=":" rules=- &lt;&lt;EOF
+1:0 to 1000 m
+2:1000 to 2000 m
+3:2000 to 3000 m
+EOF
+r3.support map=layers raster=layer_names
+t.rast3d.univar input=temperature_profile zones=layers \
+    where="name = 'temperature_profile_2020_07'"
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|zone|label|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|1|0 to 1000 m|281065|0|22|25|3|23.7462686567164|23.7462686567164|0.997658206989149|0.995321897972803|4.20132620165135|6674245|6674245
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|2|1000 to 2000 m|281065|0|16|19|3|17.2985074626866|17.2985074626866|1.00765614505185|1.01537090666075|5.82510454861724|4862005|4862005
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|3|2000 to 3000 m|281065|0|9|12|3|10.7462686567164|10.7462686567164|0.997658206989156|0.995321897972817|9.28376387059353|3020400|3020400
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.univar input=temperature_profile zones=layers format=json \
+    where="name = 'temperature_profile_2020_07'" | grep -E '"(zone|zone_label|mean)"'
+</pre></div>
+
+<div class="code"><pre>
+        "zone": 1,
+        "zone_label": "0 to 1000 m",
+        "mean": 23.746268656716417,
+        "zone": 2,
+        "zone_label": "1000 to 2000 m",
+        "mean": 17.29850746268657,
+        "zone": 3,
+        "zone_label": "2000 to 3000 m",
+        "mean": 10.746268656716419,
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from io import StringIO
+
+tools.r3_mapcalc(expression="layers = depth()")
+tools.r_mapcalc(expression="layer_names = 1")
+tools.r_category(
+    map="layer_names",
+    separator=":",
+    rules=StringIO("1:0 to 1000 m\n2:1000 to 2000 m\n3:2000 to 3000 m\n"),
+)
+tools.r3_support(map="layers", raster="layer_names")
+result = tools.t_rast3d_univar(
+    input="temperature_profile",
+    zones="layers",
+    where="name = 'temperature_profile_2020_07'",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|zone|label|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|1|0 to 1000 m|281065|0|22|25|3|23.7462686567164|23.7462686567164|0.997658206989149|0.995321897972803|4.20132620165135|6674245|6674245
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|2|1000 to 2000 m|281065|0|16|19|3|17.2985074626866|17.2985074626866|1.00765614505185|1.01537090666075|5.82510454861724|4862005|4862005
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|3|2000 to 3000 m|281065|0|9|12|3|10.7462686567164|10.7462686567164|0.997658206989156|0.995321897972817|9.28376387059353|3020400|3020400
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_univar(
+    input="temperature_profile",
+    zones="layers",
+    format="json",
+    where="name = 'temperature_profile_2020_07'",
+)
+for stats in result.json:
+    print(f"zone {stats['zone']} ({stats['zone_label']!r}): mean {stats['mean']}")
+</pre></div>
+
+<div class="code"><pre>
+zone 1 ('0 to 1000 m'): mean 23.746268656716417
+zone 2 ('1000 to 2000 m'): mean 17.29850746268657
+zone 3 ('2000 to 3000 m'): mean 10.746268656716419
+</pre></div>
+
+<h3>Choose the output format</h3>
+
+The option <b>separator</b> sets another separator, and the flag <b>-s</b> leaves
+out the line with the column names, for instance to append the lines to a
+table that has them already. With <b>format</b> <code>csv</code>, the columns are separated
+by commas, and the option <b>output</b> writes the statistics to a file. These
+commands show the first two months. With <b>format</b> <code>json</code>,
+<em>t.rast3d.univar</em> prints a list with one object per map; here for the July
+map with the extended statistics and two percentiles. The key <code>semantic_label</code>
+is <code>null</code>. In Python, the attribute <code>json</code> of the result holds this list, and
+the example prints the mean, the median and the percentiles from it.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast3d.univar -s input=temperature_profile separator=";" \
+    where="start_time &lt; '2020-03-01'"
+</pre></div>
+
+<div class="code"><pre>
+temperature_profile_2020_01@t_rast3d_univar;2020-01-01 00:00:00;2020-02-01 00:00:00;843195;0;-12;5;17;-3.61492537313433;5.53134328358209;5.4020427423754;29.1820657904507;-149.437185689163;-3048087;4664001
+temperature_profile_2020_02@t_rast3d_univar;2020-02-01 00:00:00;2020-03-01 00:00:00;843195;0;-11;5;16;-2.76318407960199;5.24278606965174;5.40127475380717;29.1737689661147;-195.472852991581;-2329903;4420691
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.univar input=temperature_profile format=csv output=profile.csv \
+    where="start_time &lt; '2020-03-01'"
+cat profile.csv
+</pre></div>
+
+<div class="code"><pre>
+id,start,end,non_null_cells,null_cells,min,max,range,mean,mean_of_abs,stddev,variance,coeff_var,sum,sum_abs
+temperature_profile_2020_01@t_rast3d_univar,2020-01-01 00:00:00,2020-02-01 00:00:00,843195,0,-12,5,17,-3.61492537313433,5.53134328358209,5.4020427423754,29.1820657904507,-149.437185689163,-3048087,4664001
+temperature_profile_2020_02@t_rast3d_univar,2020-02-01 00:00:00,2020-03-01 00:00:00,843195,0,-11,5,16,-2.76318407960199,5.24278606965174,5.40127475380717,29.1737689661147,-195.472852991581,-2329903,4420691
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.univar -e input=temperature_profile format=json percentile=50,90 \
+    where="name = 'temperature_profile_2020_07'"
+</pre></div>
+
+<div class="code"><pre>
+[
+    {
+        "id": "temperature_profile_2020_07@t_rast3d_univar",
+        "semantic_label": null,
+        "start": "2020-07-01 00:00:00",
+        "end": "2020-08-01 00:00:00",
+        "n": 843195,
+        "null_cells": 0,
+        "cells": 843195,
+        "min": 9,
+        "max": 25,
+        "range": 16,
+        "mean": 17.263681592039802,
+        "mean_of_abs": 17.263681592039802,
+        "stddev": 5.400859004655521,
+        "variance": 29.169277988168627,
+        "coeff_var": 31.284514695555032,
+        "sum": 14556650,
+        "first_quartile": 12,
+        "median": 17,
+        "third_quartile": 23,
+        "percentiles": [
+            {
+                "percentile": 50,
+                "value": 17
+            },
+            {
+                "percentile": 90,
+                "value": 24
+            }
+        ]
+    }
+]
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+result = tools.t_rast3d_univar(
+    input="temperature_profile",
+    separator=";",
+    where="start_time &lt; '2020-03-01'",
+    flags="s",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+temperature_profile_2020_01@t_rast3d_univar;2020-01-01 00:00:00;2020-02-01 00:00:00;843195;0;-12;5;17;-3.61492537313433;5.53134328358209;5.4020427423754;29.1820657904507;-149.437185689163;-3048087;4664001
+temperature_profile_2020_02@t_rast3d_univar;2020-02-01 00:00:00;2020-03-01 00:00:00;843195;0;-11;5;16;-2.76318407960199;5.24278606965174;5.40127475380717;29.1737689661147;-195.472852991581;-2329903;4420691
+</pre></div>
+
+<div class="code"><pre>
+from pathlib import Path
+
+tools.t_rast3d_univar(
+    input="temperature_profile",
+    format="csv",
+    output="profile.csv",
+    where="start_time &lt; '2020-03-01'",
+)
+print(Path("profile.csv").read_text(), end="")
+</pre></div>
+
+<div class="code"><pre>
+id,start,end,non_null_cells,null_cells,min,max,range,mean,mean_of_abs,stddev,variance,coeff_var,sum,sum_abs
+temperature_profile_2020_01@t_rast3d_univar,2020-01-01 00:00:00,2020-02-01 00:00:00,843195,0,-12,5,17,-3.61492537313433,5.53134328358209,5.4020427423754,29.1820657904507,-149.437185689163,-3048087,4664001
+temperature_profile_2020_02@t_rast3d_univar,2020-02-01 00:00:00,2020-03-01 00:00:00,843195,0,-11,5,16,-2.76318407960199,5.24278606965174,5.40127475380717,29.1737689661147,-195.472852991581,-2329903,4420691
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_univar(
+    input="temperature_profile",
+    format="json",
+    percentile=[50, 90],
+    where="name = 'temperature_profile_2020_07'",
+    flags="e",
+)
+for stats in result.json:
+    percentiles = {item["percentile"]: item["value"] for item in stats["percentiles"]}
+    print(
+        f"{stats['id']}: mean {stats['mean']}, median {stats['median']},"
+        f" percentiles {percentiles}"
+    )
+</pre></div>
+
+<div class="code"><pre>
+temperature_profile_2020_07@t_rast3d_univar: mean 17.263681592039802, median 17, percentiles {50: 17, 90: 24}
+</pre></div>
+
+<h3>Maps with extents of their own</h3>
+
+The dataset <code>cubes</code> holds four maps with constant values on cubes of their
+own. The current region is the cube with 64 cells from (200000, 100000, 0) to
+(204000, 104000, 4000), with cells of 1000 m. Each cube is set with <em>g.region</em>,
+in kilometers from the corner of this region, the same in all three directions:
+
+<ul>
+<li><code>cube_1</code> covers the cube from (-1, -1, -1) to (5, 5, 5) and so the whole
+region;</li>
+<li><code>cube_2</code> lies inside the region, from (1, 1, 1) to (3, 3, 3);</li>
+<li><code>cube_3</code> reaches from (2, 2, 2) to (6, 6, 6) and shares 8 cells with the
+region;</li>
+<li><code>cube_4</code> lies outside, from (10, 10, 10) to (12, 12, 12).</li>
+</ul>
+
+<p>
+The commands print the columns <code>id</code>, <code>non_null_cells</code>, <code>null_cells</code> and <code>min</code>
+only: on the command line, <em>cut</em> keeps the first, fourth, fifth and sixth
+column; in Python, the function <code>print_columns()</code> picks them from the plain
+text.
+
+<ol>
+<li>By default, the cells are counted in the current region: <code>cube_1</code> has 64
+non-null cells there, <code>cube_2</code> and <code>cube_3</code> have 8, and <code>cube_4</code> none. As
+<code>cube_4</code> has no value in the region, its <code>min</code> is <code>nan</code>.</li>
+<li><b>region_relation</b> selects maps by their relation to the current region:
+<code>overlaps</code> keeps all but <code>cube_4</code>, <code>contains</code> only <code>cube_1</code>, which covers
+the region, and <code>is_contained</code> only <code>cube_2</code>, which lies inside it.</li>
+<li><b>region_relation</b> and <b>where</b> work together: of the maps that overlap
+the region, the condition keeps those that start on 2 July 2026 or later.</li>
+<li>With <b>format</b> <code>json</code>, the statistics of <code>cube_4</code> that do not exist are
+<code>null</code>.</li>
+</ol>
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+for cube in "cube_1 -1 5 10" "cube_2 1 3 20" \
+    "cube_3 2 6 30" "cube_4 10 12 40"; do
+    set -- $cube
+    g.region w=$((200000 + $2 * 1000)) e=$((200000 + $3 * 1000)) \
+        s=$((100000 + $2 * 1000)) n=$((100000 + $3 * 1000)) \
+        b=$(($2 * 1000)) t=$(($3 * 1000)) res=1000 res3=1000
+    r3.mapcalc expression="$1 = $4"
+done
+t.create type=str3ds output=cubes title="Cubes" \
+    description="Cubes with extents of their own"
+t.register -i type=raster_3d input=cubes \
+    maps=cube_1,cube_2,cube_3,cube_4 start=2026-07-01 increment="1 day"
+g.region w=200000 e=204000 s=100000 n=104000 b=0 t=4000 res=1000 res3=1000
+t.rast3d.univar input=cubes | cut -d"|" -f1,4-6
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells|min
+cube_1@t_rast3d_univar|64|0|10
+cube_2@t_rast3d_univar|8|56|20
+cube_3@t_rast3d_univar|8|56|30
+cube_4@t_rast3d_univar|0|64|nan
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.univar input=cubes region_relation=overlaps | cut -d"|" -f1,4-6
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells|min
+cube_1@t_rast3d_univar|64|0|10
+cube_2@t_rast3d_univar|8|56|20
+cube_3@t_rast3d_univar|8|56|30
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.univar input=cubes region_relation=contains | cut -d"|" -f1,4-6
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells|min
+cube_1@t_rast3d_univar|64|0|10
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.univar input=cubes region_relation=is_contained | cut -d"|" -f1,4-6
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells|min
+cube_2@t_rast3d_univar|8|56|20
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.univar input=cubes region_relation=overlaps \
+    where="start_time &gt;= '2026-07-02'" | cut -d"|" -f1,4-6
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells|min
+cube_2@t_rast3d_univar|8|56|20
+cube_3@t_rast3d_univar|8|56|30
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.univar input=cubes format=json where="name = 'cube_4'" |
+    grep -E '"(n|null_cells|min|mean)"'
+</pre></div>
+
+<div class="code"><pre>
+        "n": 0,
+        "null_cells": 64,
+        "min": null,
+        "mean": null,
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for name, low, high, value in (
+    ("cube_1", -1, 5, 10),
+    ("cube_2", 1, 3, 20),
+    ("cube_3", 2, 6, 30),
+    ("cube_4", 10, 12, 40),
+):
+    tools.g_region(
+        w=200000 + low * 1000,
+        e=200000 + high * 1000,
+        s=100000 + low * 1000,
+        n=100000 + high * 1000,
+        b=low * 1000,
+        t=high * 1000,
+        res=1000,
+        res3=1000,
+    )
+    tools.r3_mapcalc(expression=f"{name} = {value}")
+tools.t_create(
+    type="str3ds",
+    output="cubes",
+    title="Cubes",
+    description="Cubes with extents of their own",
+)
+tools.t_register(
+    type="raster_3d",
+    input="cubes",
+    maps="cube_1,cube_2,cube_3,cube_4",
+    start="2026-07-01",
+    increment="1 day",
+    flags="i",
+)
+tools.g_region(w=200000, e=204000, s=100000, n=104000, b=0, t=4000, res=1000, res3=1000)
+
+
+def print_columns(result):
+    for line in result.text.splitlines():
+        columns = line.split("|")
+        print("|".join(columns[index] for index in (0, 3, 4, 5)))
+
+
+print_columns(tools.t_rast3d_univar(input="cubes"))
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells|min
+cube_1@t_rast3d_univar|64|0|10
+cube_2@t_rast3d_univar|8|56|20
+cube_3@t_rast3d_univar|8|56|30
+cube_4@t_rast3d_univar|0|64|nan
+</pre></div>
+
+<div class="code"><pre>
+print_columns(tools.t_rast3d_univar(input="cubes", region_relation="overlaps"))
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells|min
+cube_1@t_rast3d_univar|64|0|10
+cube_2@t_rast3d_univar|8|56|20
+cube_3@t_rast3d_univar|8|56|30
+</pre></div>
+
+<div class="code"><pre>
+print_columns(tools.t_rast3d_univar(input="cubes", region_relation="contains"))
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells|min
+cube_1@t_rast3d_univar|64|0|10
+</pre></div>
+
+<div class="code"><pre>
+print_columns(tools.t_rast3d_univar(input="cubes", region_relation="is_contained"))
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells|min
+cube_2@t_rast3d_univar|8|56|20
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_univar(
+    input="cubes", region_relation="overlaps", where="start_time &gt;= '2026-07-02'"
+)
+print_columns(result)
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells|min
+cube_2@t_rast3d_univar|8|56|20
+cube_3@t_rast3d_univar|8|56|30
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_univar(input="cubes", format="json", where="name = 'cube_4'")
+for stats in result.json:
+    print(
+        f"n: {stats['n']}, null_cells: {stats['null_cells']},"
+        f" min: {stats['min']}, mean: {stats['mean']}"
+    )
+</pre></div>
+
+<div class="code"><pre>
+n: 0, null_cells: 64, min: None, mean: None
+</pre></div>
+
+<h3>Use a dataset of another mapset</h3>
+
+<em>t.rast3d.univar</em> reads a dataset of another mapset. The example creates the
+mapset <code>t_rast3d_univar_2</code> and switches to it; the dataset <code>temperature_profile</code>
+stays in the mapset <code>t_rast3d_univar</code> and is named with its mapset. The region
+of the new mapset is set like the one of the first example, and <em>g.mapsets</em> adds
+<code>t_rast3d_univar</code> to the search path. In the second block, <em>g.mapsets</em> shows
+the search path, and the name <code>temperature_profile</code> without a mapset finds the
+same dataset. The mapset is added only for the second block, which names the
+dataset without its mapset; the first block works without it (see
+<a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other mapsets</a>).
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.mapset -c mapset=t_rast3d_univar_2
+g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
+g.mapsets mapset=t_rast3d_univar operation=add
+t.rast3d.univar input=temperature_profile@t_rast3d_univar \
+    where="name = 'temperature_profile_2020_07'"
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|843195|0|9|25|16|17.2636815920398|17.2636815920398|5.40085900465552|29.1692779881686|31.284514695555|14556650|14556650
+</pre></div>
+
+<div class="code"><pre>
+g.mapsets -p
+t.rast3d.univar input=temperature_profile \
+    where="name = 'temperature_profile_2020_07'"
+</pre></div>
+
+<div class="code"><pre>
+t_rast3d_univar_2 PERMANENT t_rast3d_univar
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|843195|0|9|25|16|17.2636815920398|17.2636815920398|5.40085900465552|29.1692779881686|31.284514695555|14556650|14556650
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_mapset(flags="c", mapset="t_rast3d_univar_2")
+tools.g_region(
+    raster="elev_state_500m",
+    res=1000,
+    res3=1000,
+    t=3000,
+    b=0,
+    tbres=1000,
+    flags="a",
+)
+tools.g_mapsets(mapset="t_rast3d_univar", operation="add")
+result = tools.t_rast3d_univar(
+    input="temperature_profile@t_rast3d_univar",
+    where="name = 'temperature_profile_2020_07'",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|843195|0|9|25|16|17.2636815920398|17.2636815920398|5.40085900465552|29.1692779881686|31.284514695555|14556650|14556650
+</pre></div>
+
+<div class="code"><pre>
+print(tools.g_mapsets(flags="p").text)
+result = tools.t_rast3d_univar(
+    input="temperature_profile", where="name = 'temperature_profile_2020_07'"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+t_rast3d_univar_2 PERMANENT t_rast3d_univar
+id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|843195|0|9|25|16|17.2636815920398|17.2636815920398|5.40085900465552|29.1692779881686|31.284514695555|14556650|14556650
+</pre></div>
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="t.rast.univar.html">t.rast.univar</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>
-</em>
+<em><a href="g.gisenv.html">g.gisenv</a>, <a href="g.mapsets.html">g.mapsets</a>, <a href="g.region.html">g.region</a>,
+<a href="r.category.html">r.category</a>, <a href="r3.mapcalc.html">r3.mapcalc</a>,
+<a href="r3.mask.html">r3.mask</a>, <a href="r3.support.html">r3.support</a>,
+<a href="r3.univar.html">r3.univar</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast.univar.html">t.rast.univar</a>, <a href="t.register.html">t.register</a>,
+<a href="t.vect.univar.html">t.vect.univar</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

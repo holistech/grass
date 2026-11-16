@@ -1,134 +1,683 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.what</em> is designed to sample space time raster datasets
-at specific point coordinates using <a href="r.what.html">r.what</a>
-internally. The output of <a href="r.what.html">r.what</a> is transformed
-to different output layouts.
-The output layouts can be specified using the <em>layout</em> option.
+<em>t.rast.what</em> samples the maps of a space time raster dataset at point
+locations: it reads the cell value of each selected map at each location and
+writes the values, together with the start and end time of each map, as a text
+table. A temperature series sampled at a few stations gives one time series per
+station, for instance. The tool runs <em><a href="r.what.html">r.what</a></em> on the maps, so the
+values are those of <em>r.what</em>, and it brings the output of <em>r.what</em> into one of
+three layouts, with the time stamps of the maps instead of their names. It can
+run several <em>r.what</em> processes in parallel. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets, and <em><a href="v.what.strds.html">v.what.strds</a></em> for sampling that stores the
+values in the attribute table of a vector map.
+
+<h3>Locations</h3>
+
+The locations come from one of three sources. The option <b>points</b>
+names a vector map; each point of it is a location. The option <b>coordinates</b>
+lists the locations as <code>east,north</code> pairs, for instance <code>0.5,2.5,2.5,0.5</code> for
+the two locations <code>0.5,2.5</code> and <code>2.5,0.5</code>; the tool stops with the message
+<code>Option &lt;coordinates&gt; must be provided in multiples of 2</code> if a coordinate
+lacks its partner. The flag <b>-i</b> reads the locations from stdin, one location
+per line, and ignores <b>coordinates</b> and <b>points</b>. A line has the east and
+the north coordinate, separated by blanks. If the first line has a third
+column, it is the name of the location (a site name or an identifier), and the
+tool shows it in every layout. The sixth example uses <b>-i</b>.
+
 <p>
-Three layouts can be specified:
+The tool stops with an error message if no source is given, with a request to
+give the coordinates, the <b>points</b> option or the flag <b>-i</b>, and if
+<b>points</b> and <b>coordinates</b> are given together, also with <b>-i</b>: "Options
+coordinates and points are mutually exclusive". A location outside the current
+region is no error; it gets a null value in every map.
+
+<p>
+The flag <b>-v</b> adds the category of each point of the vector map. It needs
+<b>points</b>; with <b>coordinates</b> or with <b>-i</b> the tool stops with the message
+"Flag 'v' required option 'points'". The third example uses <b>-v</b>.
+
+<h3>Selection of maps</h3>
+
+The option <b>strds</b> names the space time raster dataset. The option <b>where</b>
+takes an SQL condition on the registered maps and selects the maps to sample;
+without it, all maps are sampled. If the condition selects no map, the tool
+stops with the message that the space time raster dataset is empty; a condition
+with a syntax error stops it with the message "Invalid where condition" and the
+error of the database. The option <b>order</b> sorts the selected maps by one or
+several columns, separated by commas; the output lists the maps in this order.
+The columns are <code>id</code>, <code>name</code>, <code>creator</code>, <code>mapset</code>, <code>creation_time</code>,
+<code>modification_time</code>, <code>start_time</code> (the default), <code>end_time</code>, <code>north</code>, <code>south</code>,
+<code>west</code>, <code>east</code>, <code>min</code> and <code>max</code>. The fourth example shows both options.
+
+<h3>Layouts</h3>
+
+The option <b>layout</b> chooses how the table is arranged. With the flag <b>-n</b>
+the table has a header line. Without <b>-n</b> the table has no header line and
+the lines of the data are the same.
+
 <ul>
-    <li><em>row</em> - Row order, one vector sample point value per row</li>
-    <li><em>col</em> - Column order, create a column for each vector sample
-     point of a single time step/raster layer</li>
-    <li><em>timerow</em> - Time order, create a column for each time step,
-     this order is the original <em>r.what</em> output, except that the column
-     names are the timestamps</li>
+<li><code>row</code> (the default) writes one line for each location and map, location
+after location, in the order of the maps. A line holds the coordinates, the
+start time, the end time and the value: <code>x</code>, <code>y</code>, <code>start</code>, <code>end</code> and <code>value</code>
+in the header.</li>
+<li><code>col</code> writes one line for each map and one column for each location. A line
+holds the start time, the end time and the value of every location. The title
+of a location column in the header is its coordinates, <code>east</code> and <code>north</code>,
+separated by a comma. If the output separator is a comma, a semicolon
+separates the parts of the title instead, so that the title stays one column.</li>
+<li><code>timerow</code> writes one line for each location and one column for each map. A
+line holds the coordinates followed by the values of all maps, and the title
+of a map column is its start and end time, separated by a semicolon. The
+This is the layout of <em>r.what</em> with the time stamps as column titles.</li>
 </ul>
 
-Please have a look at the example to see the supported layouts.
 <p>
-This module is designed to run several instances of <em>r.what</em> to sample
-subsets of a space time raster dataset in parallel. Several intermediate
-text files will be created that are merged into a single file at the
-end of the processing.
+In all layouts the coordinates are written as <em>r.what</em> writes them, which is as
+they were given: <code>0.5</code> stays <code>0.5</code>, and <code>0.123456789012</code> keeps its twelve
+decimals.
+
 <p>
-Coordinates can be provided as vector map using the <em>points</em> option
-or as comma separated coordinate list with the <em>coordinates </em>option.
+With <b>-v</b>, the category of the point comes first in the <code>row</code> and <code>timerow</code>
+layouts (<code>cat</code> in the header) and in front of the coordinates in the title of a
+location column in the <code>col</code> layout, separated from them by the same character
+as the coordinates. With a site name from stdin, the name follows the
+coordinates: in the column <code>site</code> of the <code>row</code> and <code>timerow</code> layouts, and as a
+third part of the title of a location column in the <code>col</code> layout.
+
+<h3>Output</h3>
+
+The option <b>output</b> names a text file for the table; with <code>-</code>, the default,
+the table goes to stdout. The tool does not overwrite an existing file unless
+the flag <code>--overwrite</code> is given. The option <b>separator</b> sets the character
+between the columns of the table: a character, or one of the names <code>pipe</code>
+(the default), <code>comma</code>, <code>space</code>, <code>tab</code> and <code>newline</code>. It also tells <em>r.what</em>
+which character to write; it does not change how the locations on stdin are
+separated. The option <b>null_value</b> sets the text that stands for a null
+cell; the default is <code>*</code>. The fifth example shows these options.
+
+<h3>Computation</h3>
+
+The option <b>nprocs</b> sets the number of <em>r.what</em> processes that run at the
+same time (default 1). Each process samples a share of the maps and writes a
+temporary file; the tool puts the files together in the order of the maps. The
+table does not depend on the number of processes. The first example uses
+<b>nprocs</b>.
+
+<h2>NOTES</h2>
+
+If <em>r.what</em> reads none of the locations, for example because a line of the
+locations on stdin has the coordinates separated by <code>|</code> or <code>,</code> instead of
+blanks, the tool ends with the message "No location was sampled: r.what
+returned no line. Check the locations." and writes no
+output. It leaves an existing output file as it is. The same happens with an
+empty vector map in <b>points</b>.
+
 <p>
-An output file can be specified using the <em>output</em> option.
-Stdout will be used if no output is specified or if the
-<em>output</em> option is set to "-".
+A map that is registered in the dataset but no longer exists stops the tool
+with the message "Error running r.what".
+
+<p>
+A dataset with relative time works in the same way; the tables show the start
+and end time of a map as the numbers stored in the temporal database, without
+the unit. The seventh example shows it.
+
+<p>
+A dataset of another mapset (<code>strds=name@mapset</code>) is queried like one of the
+current mapset; the tool reads its maps from their own mapset.
 
 <h2>EXAMPLES</h2>
 
-<h3>Data preparation</h3>
-In the following examples we sample a space time raster dataset that contains
-4 raster map layers. First we create the STRDS that will be sampled with
-<em>t.rast.what</em>.
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_rast_what</code> and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. The series are generated from the elevation model, they are not
+measurements: the locations are real climate stations of the dataset, but the
+values at them come from a formula and say nothing about the climate there.
+The last example uses maps with small constant values.
+
+<h3>Sample a dataset at coordinates</h3>
+
+The dataset <code>temperature_monthly</code> holds twelve maps of the monthly mean air
+temperature in 2020, in degrees Celsius rounded to tenths. They are generated
+from the elevation model <code>elev_state_500m</code>: 16.5 degrees at sea level and the
+northing 160 km, an annual cycle of plus and minus 10.5 degrees with its
+maximum in July, 6.5 degrees less for every 1000 m of elevation, and 1 degree
+more for every 100 km to the south. Each map is an interval of one month.
+
+<p>
+The tool samples it at two locations given as <b>coordinates</b>, in the
+coordinates of the dataset (meters): <code>500657,183601</code> is the position of the
+climate station 310090, rounded to the meter, and <code>169208,171737</code> that of the
+station 310184. The formula uses the elevation of the 1 km cell, about 170 m
+at the first and 547 m at the second location. The option <b>where</b> keeps the
+table short, it selects the first three months. The tool writes the default
+layout <code>row</code>, a line for each location and map, with a header from <b>-n</b>. The
+option <b>nprocs</b> lets two processes sample the maps; the table is the same as
+with one. In these months the second location is colder than the first one,
+because the formula lowers the temperature with the elevation.
+
+<p>Command line:</p>
 
 <div class="code"><pre>
-g.region s=0 n=80 w=0 e=120 b=0 t=50 res=10
-
-# Generate data
-r.mapcalc expression="a_1 = 1" -s
-r.mapcalc expression="a_2 = 2" -s
-r.mapcalc expression="a_3 = 3" -s
-r.mapcalc expression="a_4 = 4" -s
-
-t.create type=strds output=A title="A test" descr="A test"
-
-t.register -i type=raster input=A maps=a_1,a_2,a_3,a_4 \
-    start='1990-01-01' increment="1 month"
+g.mapset -c mapset=t_rast_what
+g.region raster=elev_state_500m res=1000 -a
+for month in $(seq 12); do
+    echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+        "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+        "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+done | r.mapcalc file=-
+t.create output=temperature_monthly title="Air temperature" \
+    description="Monthly mean air temperature 2020 in degree Celsius"
+t.register -i input=temperature_monthly \
+    maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+    start=2020-01-01 increment="1 month"
 </pre></div>
 
-<h3>Example 1</h3>
-
-The first approach uses text coordinates as input and stdout as output,
-the layout is one coordinate(point per column:
-
-
 <div class="code"><pre>
-t.rast.what strds=A coordinates="115,36,79,45" layout=col -n
-
-start|end|115.0000000000;36.0000000000|79.0000000000;45.0000000000
-1990-01-01 00:00:00|1990-02-01 00:00:00|1|1
-1990-02-01 00:00:00|1990-03-01 00:00:00|2|2
-1990-03-01 00:00:00|1990-04-01 00:00:00|3|3
-1990-04-01 00:00:00|1990-05-01 00:00:00|4|4
+t.rast.what strds=temperature_monthly coordinates=500657,183601,169208,171737 \
+    where="start_time &lt; '2020-04-01'" -n nprocs=2
 </pre></div>
 
-<h3>Example 2</h3>
+<div class="code"><pre>
+x|y|start|end|value
+500657|183601|2020-01-01 00:00:00|2020-02-01 00:00:00|4.7
+500657|183601|2020-02-01 00:00:00|2020-03-01 00:00:00|5.6
+500657|183601|2020-03-01 00:00:00|2020-04-01 00:00:00|9
+169208|171737|2020-01-01 00:00:00|2020-02-01 00:00:00|2.4
+169208|171737|2020-02-01 00:00:00|2020-03-01 00:00:00|3.2
+169208|171737|2020-03-01 00:00:00|2020-04-01 00:00:00|6.7
+</pre></div>
 
-A vector map layer can be used as input to sample the STRDS. All
-three available layouts are demonstrated using the vector map for sampling.
+<p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-# First create the vector map layer based on random points
-v.random output=points n=3 seed=1
+from grass.tools import Tools
 
-# Row layout using a text file as output
-t.rast.what strds=A points=points output=result.txt layout=row -n
+tools = Tools()
+tools.g_mapset(flags="c", mapset="t_rast_what")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+months = range(1, 13)
+tools.r_mapcalc(
+    expression="\n".join(
+        f"temperature_monthly_2020_{month:02d} = round((16.5"
+        f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+        " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+        for month in months
+    )
+)
+tools.t_create(
+    output="temperature_monthly",
+    title="Air temperature",
+    description="Monthly mean air temperature 2020 in degree Celsius",
+)
+tools.t_register(
+    input="temperature_monthly",
+    maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months),
+    start="2020-01-01",
+    increment="1 month",
+    flags="i",
+)
+</pre></div>
 
-cat result.txt
+<div class="code"><pre>
+result = tools.t_rast_what(
+    strds="temperature_monthly",
+    coordinates="500657,183601,169208,171737",
+    where="start_time &lt; '2020-04-01'",
+    flags="n",
+    nprocs=2,
+)
+print(result.text)
+</pre></div>
 
-115.0043586274|36.3593955783|1990-01-01 00:00:00|1990-02-01 00:00:00|1
-115.0043586274|36.3593955783|1990-02-01 00:00:00|1990-03-01 00:00:00|2
-115.0043586274|36.3593955783|1990-03-01 00:00:00|1990-04-01 00:00:00|3
-115.0043586274|36.3593955783|1990-04-01 00:00:00|1990-05-01 00:00:00|4
-79.6816763826|45.2391522853|1990-01-01 00:00:00|1990-02-01 00:00:00|1
-79.6816763826|45.2391522853|1990-02-01 00:00:00|1990-03-01 00:00:00|2
-79.6816763826|45.2391522853|1990-03-01 00:00:00|1990-04-01 00:00:00|3
-79.6816763826|45.2391522853|1990-04-01 00:00:00|1990-05-01 00:00:00|4
-97.4892579600|79.2347263950|1990-01-01 00:00:00|1990-02-01 00:00:00|1
-97.4892579600|79.2347263950|1990-02-01 00:00:00|1990-03-01 00:00:00|2
-97.4892579600|79.2347263950|1990-03-01 00:00:00|1990-04-01 00:00:00|3
-97.4892579600|79.2347263950|1990-04-01 00:00:00|1990-05-01 00:00:00|4
+<div class="code"><pre>
+x|y|start|end|value
+500657|183601|2020-01-01 00:00:00|2020-02-01 00:00:00|4.7
+500657|183601|2020-02-01 00:00:00|2020-03-01 00:00:00|5.6
+500657|183601|2020-03-01 00:00:00|2020-04-01 00:00:00|9
+169208|171737|2020-01-01 00:00:00|2020-02-01 00:00:00|2.4
+169208|171737|2020-02-01 00:00:00|2020-03-01 00:00:00|3.2
+169208|171737|2020-03-01 00:00:00|2020-04-01 00:00:00|6.7
+</pre></div>
 
+<h3>Choose the layout</h3>
 
-# Column layout order using stdout as output
-t.rast.what strds=A points=points layout=col -n
+The same two locations and months in the layouts <code>col</code> and <code>timerow</code>. In the
+layout <code>col</code> each line is a map and each column a location, whose title is its
+coordinates. In the layout <code>timerow</code> each line is a location and each column a
+map, whose title is its start and end time.
 
-start|end|115.0043586274;36.3593955783|79.6816763826;45.2391522853|97.4892579600;79.2347263950
-1990-01-01 00:00:00|1990-02-01 00:00:00|1|1|1
-1990-02-01 00:00:00|1990-03-01 00:00:00|2|2|2
-1990-03-01 00:00:00|1990-04-01 00:00:00|3|3|3
-1990-04-01 00:00:00|1990-05-01 00:00:00|4|4|4
+<p>Command line:</p>
 
-# Timerow layout, one time series per row
-# using the where statement to select a subset of the STRDS
-# and stdout as output
-t.rast.what strds=A points=points \
-    where="start_time &gt;= '1990-03-01'" layout=timerow -n
+<div class="code"><pre>
+t.rast.what strds=temperature_monthly coordinates=500657,183601,169208,171737 \
+    where="start_time &lt; '2020-04-01'" layout=col -n
+</pre></div>
 
-x|y|1990-03-01 00:00:00;1990-04-01 00:00:00|1990-04-01 00:00:00;1990-05-01 00:00:00
-115.004358627375|36.3593955782903|3|4
-79.681676382576|45.2391522852909|3|4
-97.4892579600048|79.2347263950131|3|4
+<div class="code"><pre>
+start|end|500657,183601|169208,171737
+2020-01-01 00:00:00|2020-02-01 00:00:00|4.7|2.4
+2020-02-01 00:00:00|2020-03-01 00:00:00|5.6|3.2
+2020-03-01 00:00:00|2020-04-01 00:00:00|9|6.7
+</pre></div>
+
+<div class="code"><pre>
+t.rast.what strds=temperature_monthly coordinates=500657,183601,169208,171737 \
+    where="start_time &lt; '2020-04-01'" layout=timerow -n
+</pre></div>
+
+<div class="code"><pre>
+x|y|2020-01-01 00:00:00;2020-02-01 00:00:00|2020-02-01 00:00:00;2020-03-01 00:00:00|2020-03-01 00:00:00;2020-04-01 00:00:00
+500657|183601|4.7|5.6|9
+169208|171737|2.4|3.2|6.7
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+result = tools.t_rast_what(
+    strds="temperature_monthly",
+    coordinates="500657,183601,169208,171737",
+    where="start_time &lt; '2020-04-01'",
+    layout="col",
+    flags="n",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+start|end|500657,183601|169208,171737
+2020-01-01 00:00:00|2020-02-01 00:00:00|4.7|2.4
+2020-02-01 00:00:00|2020-03-01 00:00:00|5.6|3.2
+2020-03-01 00:00:00|2020-04-01 00:00:00|9|6.7
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast_what(
+    strds="temperature_monthly",
+    coordinates="500657,183601,169208,171737",
+    where="start_time &lt; '2020-04-01'",
+    layout="timerow",
+    flags="n",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+x|y|2020-01-01 00:00:00;2020-02-01 00:00:00|2020-02-01 00:00:00;2020-03-01 00:00:00|2020-03-01 00:00:00;2020-04-01 00:00:00
+500657|183601|4.7|5.6|9
+169208|171737|2.4|3.2|6.7
+</pre></div>
+
+<h3>Sample the points of a vector map</h3>
+
+The option <b>points</b> takes the locations from a vector map. The flag <b>-v</b>
+adds the category of each point. The map <code>stations</code> holds the places of three
+climate stations of <code>precip_30ynormals</code>, rounded to whole meters, with the
+categories 1, 2 and 18. The station with the category 18 lies on the Outer
+Banks, on a cell where the elevation model has no value in this region, so the
+generated series has no value there either: the table shows the default <code>*</code> in
+every month. The first block uses the layout <code>row</code>, the second the layout <code>col</code>,
+where the category is the first part of the title of a column.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+v.in.ascii input=- output=stations separator=pipe x=1 y=2 cat=3 &lt;&lt;EOF
+500657|183601|1
+169208|171737|2
+917005|169684|18
+EOF
+</pre></div>
+
+<div class="code"><pre>
+t.rast.what strds=temperature_monthly points=stations \
+    where="start_time &lt; '2020-03-01'" -n -v
+</pre></div>
+
+<div class="code"><pre>
+cat|x|y|start|end|value
+1|500657|183601|2020-01-01 00:00:00|2020-02-01 00:00:00|4.7
+1|500657|183601|2020-02-01 00:00:00|2020-03-01 00:00:00|5.6
+2|169208|171737|2020-01-01 00:00:00|2020-02-01 00:00:00|2.4
+2|169208|171737|2020-02-01 00:00:00|2020-03-01 00:00:00|3.2
+18|917005|169684|2020-01-01 00:00:00|2020-02-01 00:00:00|*
+18|917005|169684|2020-02-01 00:00:00|2020-03-01 00:00:00|*
+</pre></div>
+
+<div class="code"><pre>
+t.rast.what strds=temperature_monthly points=stations \
+    where="start_time &lt; '2020-03-01'" layout=col -n -v
+</pre></div>
+
+<div class="code"><pre>
+start|end|1,500657,183601|2,169208,171737|18,917005,169684
+2020-01-01 00:00:00|2020-02-01 00:00:00|4.7|2.4|*
+2020-02-01 00:00:00|2020-03-01 00:00:00|5.6|3.2|*
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from io import StringIO
+
+tools.v_in_ascii(
+    input=StringIO("500657|183601|1\n169208|171737|2\n917005|169684|18\n"),
+    output="stations",
+    separator="pipe",
+    x=1,
+    y=2,
+    cat=3,
+)
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast_what(
+    strds="temperature_monthly",
+    points="stations",
+    where="start_time &lt; '2020-03-01'",
+    flags="nv",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+cat|x|y|start|end|value
+1|500657|183601|2020-01-01 00:00:00|2020-02-01 00:00:00|4.7
+1|500657|183601|2020-02-01 00:00:00|2020-03-01 00:00:00|5.6
+2|169208|171737|2020-01-01 00:00:00|2020-02-01 00:00:00|2.4
+2|169208|171737|2020-02-01 00:00:00|2020-03-01 00:00:00|3.2
+18|917005|169684|2020-01-01 00:00:00|2020-02-01 00:00:00|*
+18|917005|169684|2020-02-01 00:00:00|2020-03-01 00:00:00|*
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast_what(
+    strds="temperature_monthly",
+    points="stations",
+    where="start_time &lt; '2020-03-01'",
+    layout="col",
+    flags="nv",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+start|end|1,500657,183601|2,169208,171737|18,917005,169684
+2020-01-01 00:00:00|2020-02-01 00:00:00|4.7|2.4|*
+2020-02-01 00:00:00|2020-03-01 00:00:00|5.6|3.2|*
+</pre></div>
+
+<h3>Select and order the maps</h3>
+
+The option <b>where</b> samples only the maps that match a condition: the maps
+from November on. The option <b>order</b> sorts the maps; the summer maps, sorted
+by <code>max</code>, the largest value of each map, come in the order of their largest
+value, June, August and July, instead of the order of their start times, and so
+do the columns of the layout <code>timerow</code>, whose titles show the start and end
+time of each map.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.what strds=temperature_monthly coordinates=500657,183601 \
+    where="start_time &gt;= '2020-11-01'" -n
+</pre></div>
+
+<div class="code"><pre>
+x|y|start|end|value
+500657|183601|2020-11-01 00:00:00|2020-12-01 00:00:00|10.9
+500657|183601|2020-12-01 00:00:00|2021-01-01 00:00:00|6.7
+</pre></div>
+
+<div class="code"><pre>
+t.rast.what strds=temperature_monthly coordinates=500657,183601 \
+    where="start_time &gt;= '2020-06-01' and start_time &lt; '2020-09-01'" \
+    order=max layout=timerow -n
+</pre></div>
+
+<div class="code"><pre>
+x|y|2020-06-01 00:00:00;2020-07-01 00:00:00|2020-08-01 00:00:00;2020-09-01 00:00:00|2020-07-01 00:00:00;2020-08-01 00:00:00
+500657|183601|23.7|24.8|25.6
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+result = tools.t_rast_what(
+    strds="temperature_monthly",
+    coordinates="500657,183601",
+    where="start_time &gt;= '2020-11-01'",
+    flags="n",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+x|y|start|end|value
+500657|183601|2020-11-01 00:00:00|2020-12-01 00:00:00|10.9
+500657|183601|2020-12-01 00:00:00|2021-01-01 00:00:00|6.7
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast_what(
+    strds="temperature_monthly",
+    coordinates="500657,183601",
+    where="start_time &gt;= '2020-06-01' and start_time &lt; '2020-09-01'",
+    order="max",
+    layout="timerow",
+    flags="n",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+x|y|2020-06-01 00:00:00;2020-07-01 00:00:00|2020-08-01 00:00:00;2020-09-01 00:00:00|2020-07-01 00:00:00;2020-08-01 00:00:00
+500657|183601|23.7|24.8|25.6
+</pre></div>
+
+<h3>Write a file with another separator and null value</h3>
+
+Of the three locations the first is the station 310090 of the first example,
+the second is the station on the Outer Banks of the third example, and the third,
+<code>100,100</code>, lies outside the region. The last two give null values in every
+map. The option <b>null_value</b> writes <code>NA</code> instead of <code>*</code>, the option
+<b>separator</b> makes the table comma separated, and the option <b>output</b> writes
+it to a file instead of stdout, so that the call prints nothing. In the layout
+<code>col</code>, a semicolon separates the coordinates in the title of a location
+column, because the comma separates the columns.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.what strds=temperature_monthly \
+    coordinates=500657,183601,917005,169684,100,100 \
+    where="start_time &lt; '2020-03-01'" \
+    separator=comma null_value=NA output=result.csv -n
+cat result.csv
+</pre></div>
+
+<div class="code"><pre>
+x,y,start,end,value
+500657,183601,2020-01-01 00:00:00,2020-02-01 00:00:00,4.7
+500657,183601,2020-02-01 00:00:00,2020-03-01 00:00:00,5.6
+917005,169684,2020-01-01 00:00:00,2020-02-01 00:00:00,NA
+917005,169684,2020-02-01 00:00:00,2020-03-01 00:00:00,NA
+100,100,2020-01-01 00:00:00,2020-02-01 00:00:00,NA
+100,100,2020-02-01 00:00:00,2020-03-01 00:00:00,NA
+</pre></div>
+
+<div class="code"><pre>
+t.rast.what strds=temperature_monthly \
+    coordinates=500657,183601,917005,169684,100,100 \
+    where="start_time &lt; '2020-03-01'" \
+    separator=comma null_value=NA layout=col -n
+</pre></div>
+
+<div class="code"><pre>
+start,end,500657;183601,917005;169684,100;100
+2020-01-01 00:00:00,2020-02-01 00:00:00,4.7,NA,NA
+2020-02-01 00:00:00,2020-03-01 00:00:00,5.6,NA,NA
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from pathlib import Path
+
+tools.t_rast_what(
+    strds="temperature_monthly",
+    coordinates="500657,183601,917005,169684,100,100",
+    where="start_time &lt; '2020-03-01'",
+    separator="comma",
+    null_value="NA",
+    output="result.csv",
+    flags="n",
+)
+print(Path("result.csv").read_text(), end="")
+</pre></div>
+
+<div class="code"><pre>
+x,y,start,end,value
+500657,183601,2020-01-01 00:00:00,2020-02-01 00:00:00,4.7
+500657,183601,2020-02-01 00:00:00,2020-03-01 00:00:00,5.6
+917005,169684,2020-01-01 00:00:00,2020-02-01 00:00:00,NA
+917005,169684,2020-02-01 00:00:00,2020-03-01 00:00:00,NA
+100,100,2020-01-01 00:00:00,2020-02-01 00:00:00,NA
+100,100,2020-02-01 00:00:00,2020-03-01 00:00:00,NA
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast_what(
+    strds="temperature_monthly",
+    coordinates="500657,183601,917005,169684,100,100",
+    where="start_time &lt; '2020-03-01'",
+    separator="comma",
+    null_value="NA",
+    layout="col",
+    flags="n",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+start,end,500657;183601,917005;169684,100;100
+2020-01-01 00:00:00,2020-02-01 00:00:00,4.7,NA,NA
+2020-02-01 00:00:00,2020-03-01 00:00:00,5.6,NA,NA
+</pre></div>
+
+<h3>Read the locations from stdin</h3>
+
+The flag <b>-i</b> reads the locations from stdin: a line has the east and the
+north coordinate and optionally a name, separated by blanks. Here the name is
+the number of the climate station. It appears in the column <code>site</code> of the layout
+<code>row</code>. The call gives no <b>coordinates</b> and no <b>points</b>.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+printf '500657 183601 310090\n169208 171737 310184\n' |
+    t.rast.what -i strds=temperature_monthly \
+    where="start_time &lt; '2020-03-01'" -n
+</pre></div>
+
+<div class="code"><pre>
+x|y|site|start|end|value
+500657|183601|310090|2020-01-01 00:00:00|2020-02-01 00:00:00|4.7
+500657|183601|310090|2020-02-01 00:00:00|2020-03-01 00:00:00|5.6
+169208|171737|310184|2020-01-01 00:00:00|2020-02-01 00:00:00|2.4
+169208|171737|310184|2020-02-01 00:00:00|2020-03-01 00:00:00|3.2
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+result = tools.t_rast_what(
+    strds="temperature_monthly",
+    flags="in",
+    where="start_time &lt; '2020-03-01'",
+    stdin=StringIO("500657 183601 310090\n169208 171737 310184\n"),
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+x|y|site|start|end|value
+500657|183601|310090|2020-01-01 00:00:00|2020-02-01 00:00:00|4.7
+500657|183601|310090|2020-02-01 00:00:00|2020-03-01 00:00:00|5.6
+169208|171737|310184|2020-01-01 00:00:00|2020-02-01 00:00:00|2.4
+169208|171737|310184|2020-02-01 00:00:00|2020-03-01 00:00:00|3.2
+</pre></div>
+
+<h3>Sample a dataset with relative time</h3>
+
+A dataset with relative time shows the start and end of a map as numbers. The
+dataset <code>runoff</code> has two maps of one hour each, starting at 0; the maps hold the
+constant values 1 and 2, in millimeters of simulated runoff, over the whole
+region.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+for step in 1 2; do
+    r.mapcalc expression="runoff_$step = $step"
+done
+t.create output=runoff temporaltype=relative title="Runoff" \
+    description="Simulated runoff in mm per model hour"
+t.register -i input=runoff maps=runoff_1,runoff_2 start=0 increment=1 unit=hours
+</pre></div>
+
+<div class="code"><pre>
+t.rast.what strds=runoff coordinates=500657,183601 -n
+</pre></div>
+
+<div class="code"><pre>
+x|y|start|end|value
+500657|183601|0|1|1
+500657|183601|1|2|2
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for step in (1, 2):
+    tools.r_mapcalc(expression=f"runoff_{step} = {step}")
+tools.t_create(
+    output="runoff",
+    temporaltype="relative",
+    title="Runoff",
+    description="Simulated runoff in mm per model hour",
+)
+tools.t_register(
+    input="runoff",
+    maps="runoff_1,runoff_2",
+    start=0,
+    increment=1,
+    unit="hours",
+    flags="i",
+)
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast_what(strds="runoff", coordinates="500657,183601", flags="n")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+x|y|start|end|value
+500657|183601|0|1|1
+500657|183601|1|2|2
 </pre></div>
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.region.html">g.region</a>,
-<a href="r.mask.html">r.mask</a>
-<a href="r.neighbors.html">r.neighbors</a>,
-<a href="r.what.html">r.what</a>,
-<a href="t.info.html">t.info</a>,
+<em><a href="g.region.html">g.region</a>, <a href="r.mask.html">r.mask</a>, <a href="r.neighbors.html">r.neighbors</a>,
+<a href="r.what.html">r.what</a>, <a href="t.info.html">t.info</a>,
 <a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a>,
-<a href="t.rast.extract.html">t.rast.extract</a>,
-<a href="v.what.strds.html">v.what.strds</a>
-</em>
+<a href="t.rast.extract.html">t.rast.extract</a>, <a href="v.what.strds.html">v.what.strds</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

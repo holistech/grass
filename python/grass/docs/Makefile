@@ -52,7 +52,7 @@ libpythonclean:
 
 libpythonapidoc:
 	@echo "SPHINXBUILD: Using <$(SPHINXBUILD)>"
-	$(call run_grass,$(SPHINXAPIDOC) --module-first -T -f -t _templates/sphinx/apidoc/ -o src/ ../../grass)
+	$(call run_grass,$(SPHINXAPIDOC) --module-first -T -f -t _templates/sphinx/apidoc/ -o src/ ../../grass ../../grass/temporal/ply)
 
 libpythonhtml: checksphinx
 	@echo "SPHINXBUILD: Using <$(SPHINXBUILD)>"

@@ -23,11 +23,369 @@ from contextlib import contextmanager
 
 import grass.script as gs
 
-from .core import get_tgis_message_interface, init_dbif
 from .datetime_math import time_delta_to_relative_time
+from .db import (
+    SQLStatementError,
+    connection,
+    sql_identifier,
+    sql_literal,
+    sql_statement,
+)
+from .kinds import find_kind
 from .open_stds import open_old_stds
+from .schema import get_tgis_db_version_from_metadata, get_tgis_metadata
+from .state import get_tgis_database_string, get_tgis_message_interface
+from .topology import _has_start
 
-###############################################################################
+#: Columns that only the methods delta, deltagaps and gran can list: they
+#: compute the values from the times of the maps, the temporal database has
+#: no such columns.
+_DELTA_ONLY_COLUMNS = ("interval_length", "distance_from_begin")
+
+#: Columns that the views of a dataset type gained without a new version of
+#: the database: the views of an older database lack them until t.upgrade
+#: creates the views anew.
+_COLUMNS_ADDED_TO_VIEWS = {"strds": ("number_of_semantic_labels",)}
+
+
+def message_option_value_excludes_option_value(
+    option_name, option_value, excluded_option_name, excluded_option_value, reason
+):
+    """Return the message for a combination of two option values that is refused"""
+    return _(
+        "Combining {option_name}={option_value} and "
+        "{excluded_option_name}={excluded_option_value} is not allowed. {reason}"
+    ).format(
+        option_name=option_name,
+        option_value=option_value,
+        excluded_option_name=excluded_option_name,
+        excluded_option_value=excluded_option_value,
+        reason=reason,
+    )
+
+
+def message_option_value_excludes_option(
+    option_name, option_value, excluded_option_name, reason
+):
+    """Return the message for an option that is refused with a value of another"""
+    return _(
+        "The option {excluded_option_name} is not allowed with "
+        "{option_name}={option_value}. {reason}"
+    ).format(
+        excluded_option_name=excluded_option_name,
+        option_name=option_name,
+        option_value=option_value,
+        reason=reason,
+    )
+
+
+def message_option_value_excludes_flag(option_name, option_value, flag_name, reason):
+    """Return the message for a flag that is refused with a value of an option"""
+    return _(
+        "The flag -{flag_name} is not allowed with {option_name}={option_value}."
+        " {reason}"
+    ).format(
+        flag_name=flag_name,
+        option_name=option_name,
+        option_value=option_value,
+        reason=reason,
+    )
+
+
+def checked_separator(output_format, separator, *, column_names):
+    """Check the separator of a tool that prints a table as plain, csv or json
+
+    :param output_format: The value of the option format
+    :param separator: The separator, already converted by gs.separator(), an
+                      empty string if the user gave none
+    :param column_names: True if the user set the flag that changes whether
+                         the column names are printed
+    :return: The separator, the comma for csv and the bar for the other
+             formats if the user gave none
+    :raises ValueError: for a csv separator of more than one character, and
+                        for a separator or the flag with json, whose output
+                        has its own structure and always names the columns
+    """
+    if output_format == "csv":
+        if not separator:
+            return ","
+        if len(separator) > 1:
+            msg = _("A standard CSV separator (delimiter) is only one character long")
+            raise ValueError(msg)
+    elif output_format == "json":
+        if column_names:
+            msg = _("Column names are always included in JSON output")
+            raise ValueError(msg)
+        if separator:
+            msg = _("Separator option is not allowed with JSON format")
+            raise ValueError(msg)
+    elif not separator:
+        return "|"
+    return separator
+
+
+def check_list_format(
+    output_format,
+    separator,
+    method,
+    columns,
+    header,
+    header_flag,
+    separator_reason=None,
+):
+    """Check format, separator, columns and header flag of a list tool
+
+    The method comma is the old name of the format line and is treated as
+    such unless the format names another one.
+
+    :param output_format: The value of the option format
+    :param separator: The separator, already converted by gs.separator(), an
+                      empty string if the user gave none
+    :param method: The value of the option method
+    :param columns: The value of the option columns
+    :param header: True if the flag that suppresses the column names is set
+    :param header_flag: The letter of that flag, for the message
+    :param separator_reason: The reason given when a separator is refused with
+                             json or yaml, a default text if None
+    :return: The tuple (output_format, separator) with the format line for the
+             method comma and the default separator filled in
+    :raises ValueError: with the message for the combination that is refused
+    """
+    if separator_reason is None:
+        separator_reason = _("Separator is part of the format")
+    if output_format == "csv":
+        if not separator:
+            separator = ","
+        elif len(separator) > 1:
+            raise ValueError(
+                message_option_value_excludes_option_value(
+                    option_name="format",
+                    option_value=output_format,
+                    excluded_option_name="separator",
+                    excluded_option_value=separator,
+                    reason=_(
+                        "A standard CSV separator (delimiter) is only one character "
+                        "long"
+                    ),
+                )
+            )
+    elif output_format in {"json", "yaml"}:
+        if header:
+            raise ValueError(
+                message_option_value_excludes_flag(
+                    option_name="format",
+                    option_value=output_format,
+                    flag_name=header_flag,
+                    reason=_("Column names are always included"),
+                )
+            )
+        if separator:
+            raise ValueError(
+                message_option_value_excludes_option_value(
+                    option_name="format",
+                    option_value=output_format,
+                    excluded_option_name="separator",
+                    excluded_option_value=separator,
+                    reason=separator_reason,
+                )
+            )
+    elif output_format == "line" or method == "comma":
+        output_format = "line"
+        if not separator:
+            separator = ","
+        columns_list = columns.split(",")
+        if len(columns_list) > 1:
+            raise ValueError(
+                message_option_value_excludes_option_value(
+                    option_name="format",
+                    option_value=output_format,
+                    excluded_option_name="columns",
+                    excluded_option_value=columns,
+                    reason=_("Only one column is allowed (not {num_columns})").format(
+                        num_columns=len(columns_list)
+                    ),
+                )
+            )
+    elif not separator:  # output_format = "plain"
+        separator = "|"
+    return output_format, separator
+
+
+def check_list_method(method, order, columns, delta_excluded_columns):
+    """Check the columns and the order of a list tool against its method
+
+    :param method: The value of the option method
+    :param order: The value of the option order
+    :param columns: The value of the option columns
+    :param delta_excluded_columns: The columns that the methods delta,
+                                   deltagaps and gran cannot list
+    :raises ValueError: with the message for the combination that is refused
+    """
+    columns_list = columns.split(",") if columns else []
+    if method in {"delta", "deltagaps", "gran"}:
+        if order:
+            raise ValueError(
+                message_option_value_excludes_option(
+                    option_name="method",
+                    option_value=method,
+                    excluded_option_name="order",
+                    reason=_("Values are always ordered by start_time"),
+                )
+            )
+        excluded = delta_excluded_columns
+    else:
+        excluded = _DELTA_ONLY_COLUMNS
+    for column in excluded:
+        if column in columns_list:
+            raise ValueError(
+                message_option_value_excludes_option_value(
+                    option_name="method",
+                    option_value=method,
+                    excluded_option_name="columns",
+                    excluded_option_value=columns,
+                    reason=_(
+                        "Column '{name}' is not available with the method '{method}'"
+                    ).format(name=column, method=method),
+                )
+            )
+
+
+def check_list_options(
+    options, flags, *, header_flag, delta_excluded_columns, separator_reason=None
+):
+    """Check the options of a list tool against each other
+
+    Format and separator are checked before method, order and columns, so
+    that a call with several refused combinations reports the same one as
+    t.rast.list and t.rast3d.list did when each carried its own checks.
+
+    :param options: The options of the tool as returned by gs.parser()
+    :param flags: The flags of the tool as returned by gs.parser()
+    :param header_flag: The letter of the flag that suppresses the column names
+    :param delta_excluded_columns: The columns that the methods delta,
+                                   deltagaps and gran cannot list
+    :param separator_reason: See check_list_format()
+    :return: The tuple (output_format, separator) to list with
+    :raises ValueError: with the message for the combination that is refused
+    """
+    output_format, separator = check_list_format(
+        options["format"],
+        gs.separator(options["separator"]),
+        options["method"],
+        options["columns"],
+        flags[header_flag],
+        header_flag,
+        separator_reason,
+    )
+    check_list_method(
+        options["method"], options["order"], options["columns"], delta_excluded_columns
+    )
+    return output_format, separator
+
+
+class _ListingError(ValueError):
+    """A combination of columns, method and format that cannot be listed
+
+    list_maps_of_stds() reports it as a message; any other ValueError is a
+    bug and keeps its traceback.
+    """
+
+
+def _view_name(dataset_type, temporal_type):
+    """Return the name of the database view of a dataset type
+
+    The views of 3D raster maps are named raster3d_view_*, the type is
+    raster_3d.
+    """
+    kind = find_kind(dataset_type)
+    # An unknown type stays in the name, so that the query reports the missing
+    # view as it always did.
+    prefix = kind.table_prefix if kind else dataset_type
+    suffix = "abs_time" if temporal_type == "absolute" else "rel_time"
+    return f"{prefix}_view_{suffix}"
+
+
+def _view_columns(dbif, dataset_type, temporal_type, mapset):
+    """Return the columns of the view of a type in the database of the mapset"""
+    sql = sql_statement(
+        "SELECT * FROM {view} WHERE 0=1", view=_view_name(dataset_type, temporal_type)
+    )
+    dbif.execute(sql, mapset=mapset)
+    return [d[0] for d in dbif.connections[mapset].cursor.description]
+
+
+def _requested_columns(dbif, columns, schemas, stds_type):
+    """Return the columns to read: the requested ones or all the common ones
+
+    schemas maps each mapset to the columns of the views of the types there.
+    Stops with a message for a requested column that the views do not share,
+    naming t.upgrade when only the views of an older database lack it.
+    """
+    views = [view for mapset_views in schemas.values() for view in mapset_views]
+    common_columns = [col for col in views[0] if all(col in view for view in views)]
+    if not columns or columns.find("all") != -1:
+        return common_columns
+    msgr = get_tgis_message_interface()
+    requested_columns = [col.strip() for col in columns.split(",") if col != "type"]
+    valid = set(common_columns)
+    for col in requested_columns:
+        if col in valid:
+            continue
+        if all(col in _COLUMNS_ADDED_TO_VIEWS.get(dtype, ()) for dtype in stds_type):
+            # The column is not among the common ones, so a view lacks it.
+            mapset = next(
+                mapset
+                for mapset, mapset_views in schemas.items()
+                if any(col not in view for view in mapset_views)
+            )
+            msgr.fatal(
+                _(
+                    "Column <{column}> is missing from the views of the"
+                    " temporal database <{database}>. Run t.upgrade to"
+                    " create the views anew."
+                ).format(column=col, database=dbif.tgis_mapsets[mapset][1])
+            )
+        if len(stds_type) == 1:
+            msgr.fatal(
+                _("Column '%s' is not available for the requested dataset type") % col
+            )
+        else:
+            msgr.fatal(
+                _(
+                    "Column '%s' is not available for the requested combination"
+                    " of dataset types"
+                )
+                % col
+            )
+    return requested_columns
+
+
+def listed_columns(dbif, type, temporal_type, columns, mapsets):
+    """Return the database columns that get_dataset_list() reads for columns
+
+    The requested columns without blanks and in their order, or all the
+    columns the views of the types share in all the mapsets when columns is
+    empty or contains "all". The type column is not a database column and is
+    left out.
+
+    :param dbif: The database interface to be used
+    :param type: The dataset type as a string or a list of strings
+    :param temporal_type: A single temporal type (absolute or relative)
+    :param columns: A comma separated list of columns or None
+    :param mapsets: The mapset or the list of mapsets whose databases hold
+                    the views
+    :return: The list of the column names
+    """
+    stds_type = [type] if isinstance(type, str) else type
+    if isinstance(mapsets, str):
+        mapsets = [mapsets]
+    schemas = {
+        mapset: [
+            _view_columns(dbif, dtype, temporal_type, mapset) for dtype in stds_type
+        ]
+        for mapset in mapsets
+    }
+    return _requested_columns(dbif, columns, schemas, stds_type)
 
 
 def get_dataset_list(
@@ -38,8 +396,9 @@ def get_dataset_list(
     order=None,
     dbif=None,
 ):
-    """Return a list of time stamped maps or space time datasets of a specific
-    temporal type that are registered in the temporal database
+    """Return a list of time stamped maps or space time datasets of one temporal type.
+
+    The maps or datasets are registered in the temporal database.
 
     This method returns a dictionary, the keys are the available mapsets,
     the values are the rows from the SQL database query.
@@ -102,116 +461,59 @@ def get_dataset_list(
     """
     msgr = get_tgis_message_interface()
 
-    dbif, connection_state_changed = init_dbif(dbif)
+    with connection(dbif) as dbif:
+        is_list_input = isinstance(type, list)
+        stds_type = [type] if isinstance(type, str) else type
+        if isinstance(temporal_type, str):
+            temporal_type = [temporal_type]
 
-    is_list_input = isinstance(type, list)
-    stds_type = [type] if isinstance(type, str) else type
-    if isinstance(temporal_type, str):
-        temporal_type = [temporal_type]
+        result = {}
 
-    result = {}
+        for ttype in temporal_type:
+            if not dbif.tgis_mapsets:
+                continue
 
-    for ttype in temporal_type:
-        mapset_for_schema = (
-            list(dbif.tgis_mapsets.keys())[0] if dbif.tgis_mapsets else None
-        )
-        if not mapset_for_schema:
-            continue
-
-        type_schemas = []
-        for dtype in stds_type:
-            table = (
-                dtype + "_view_abs_time"
-                if ttype == "absolute"
-                else dtype + "_view_rel_time"
-            )
-            dbif.execute(f"SELECT * FROM {table} WHERE 0=1", mapset=mapset_for_schema)
-            type_schemas.append(
-                [d[0] for d in dbif.connections[mapset_for_schema].cursor.description]
+            # From the views of every mapset: an older database in the search
+            # path may lack a column that the views of a newer one have.
+            final_columns = listed_columns(
+                dbif, stds_type, ttype, columns, list(dbif.tgis_mapsets)
             )
 
-        common_columns = [
-            col
-            for col in type_schemas[0]
-            if all(col in schema for schema in type_schemas[1:])
-        ]
-        valid_columns_set = set(common_columns)
+            if not final_columns:
+                msgr.fatal(_("No valid database columns were requested"))
 
-        if columns and columns.find("all") == -1:
-            requested_columns = [
-                col.strip() for col in columns.split(",") if col != "type"
-            ]
-            for col in requested_columns:
-                if col not in valid_columns_set:
-                    if connection_state_changed:
-                        dbif.close()
-                    if len(stds_type) == 1:
-                        msgr.fatal(
-                            _(
-                                "Column '%s' is not available for the requested dataset type"
-                            )
-                            % col
-                        )
-                    else:
-                        msgr.fatal(
-                            _(
-                                "Column '%s' is not available for the requested combination of dataset types"
-                            )
-                            % col
-                        )
-            final_columns = requested_columns
-        else:
-            final_columns = common_columns
+            selected = ",".join(sql_identifier(column) for column in final_columns)
 
-        if not final_columns:
-            if connection_state_changed:
-                dbif.close()
-            msgr.fatal(_("No valid database columns were requested"))
+            for dtype in stds_type:
+                for mapset in dbif.tgis_mapsets:
+                    view = sql_identifier(_view_name(dtype, ttype))
+                    in_mapset = f"mapset = {sql_literal(mapset)}"
+                    # In brackets: an OR in the condition would otherwise
+                    # take the rows of every mapset
+                    condition = f"({where}) AND {in_mapset}" if where else in_mapset
+                    ordering = f" ORDER BY {order}" if order else ""
+                    # The where and order options are SQL of the caller by design.
+                    sql = f"SELECT {selected} FROM {view} WHERE {condition}{ordering}"  # noqa: S608
 
-        columns_to_query = ",".join(final_columns)
+                    dbif.execute(sql, mapset=mapset)
+                    rows = dbif.fetchall(mapset=mapset)
 
-        for dtype in stds_type:
-            for mapset in dbif.tgis_mapsets:
-                if ttype == "absolute":
-                    table = dtype + "_view_abs_time"
-                else:
-                    table = dtype + "_view_rel_time"
+                    if rows:
+                        if mapset not in result:
+                            result[mapset] = []
+                        if is_list_input:
+                            for row in rows:
+                                result[mapset].append({**dict(row), "type": dtype})
+                        else:
+                            result[mapset].extend(rows)
 
-                sql = f"SELECT {columns_to_query} FROM {table}"
-
-                if where:
-                    sql += " WHERE " + where
-                    sql += " AND mapset = '%s'" % (mapset)
-                else:
-                    sql += " WHERE mapset = '%s'" % (mapset)
-
-                if order:
-                    sql += " ORDER BY " + order
-
-                dbif.execute(sql, mapset=mapset)
-                rows = dbif.fetchall(mapset=mapset)
-
-                if rows:
-                    if mapset not in result:
-                        result[mapset] = []
-                    if is_list_input:
-                        for row in rows:
-                            result[mapset].append({**dict(row), "type": dtype})
-                    else:
-                        result[mapset].extend(rows)
-
-    if connection_state_changed:
-        dbif.close()
-
-    return result
-
-
-###############################################################################
+        return result
 
 
 @contextmanager
 def _open_output_file(file, encoding="utf-8", **kwargs):
-    if not file:
+    # "-" is the standard output, as for t.list and the other GRASS tools
+    if not file or file == "-":
         yield sys.stdout
     elif not isinstance(file, (str, os.PathLike)):
         yield file
@@ -357,12 +659,37 @@ def _get_get_registered_maps_as_objects_with_method(dataset, where, method, gran
             gran=gran, where=where, dbif=dbif
         )
     msg = f"Invalid method '{method}'"
-    raise ValueError(msg)
+    raise _ListingError(msg)
 
 
 def _get_get_registered_maps_as_objects_delta_gran(
     dataset, where, method, gran, dbif, msgr
 ):
+    if method == "gran" and not dataset.metadata.get_number_of_maps():
+        # Without maps the dataset has no granularity to list by; the method
+        # would end in a message about a wrong granularity "None". With a
+        # granule of the user it would print the header only, so both are
+        # refused alike.
+        msgr.fatal(
+            _(
+                "Nothing found in the database for space time dataset <{name}> "
+                "(type: {element_type}): {detail}"
+            ).format(
+                name=dataset.get_id(),
+                element_type=dataset.get_type(),
+                detail=_("Dataset is empty"),
+            )
+        )
+    if method == "gran" and not gran and not dataset.get_granularity():
+        # The library names the missing granularity; only the list tools have
+        # a granule option to offer instead, so the hint is given here.
+        msgr.fatal(
+            _(
+                "Space time dataset <{}> has no granularity, for example "
+                "because it holds a single time instance. Give a granule or "
+                "use another method."
+            ).format(dataset.get_id())
+        )
     maps = _get_get_registered_maps_as_objects_with_method(
         dataset=dataset, where=where, method=method, gran=gran, dbif=dbif
     )
@@ -373,9 +700,20 @@ def _get_get_registered_maps_as_objects_delta_gran(
         if len(maps[0]) <= 0:
             msgr.warning(_("Empty map list"))
             return []
-        first_time, unused = maps[0][0].get_temporal_extent_as_tuple()
+        first_maps = [map_[0] for map_ in maps if map_]
     else:
-        first_time, unused = maps[0].get_temporal_extent_as_tuple()
+        first_maps = maps
+    # A map without start time (the reading leaves one when the stored end
+    # lies before the start) cannot give the distance of the others, so the
+    # distances count from the first map that has one.
+    first_time = next(
+        (
+            map_.get_temporal_extent_as_tuple()[0]
+            for map_ in first_maps
+            if _has_start(map_)
+        ),
+        None,
+    )
 
     records = []
     for map_object in maps:
@@ -385,6 +723,14 @@ def _get_get_registered_maps_as_objects_delta_gran(
             else:
                 msgr.fatal(_("Empty entry in map list, this should not happen"))
 
+        if not _has_start(map_object):
+            msgr.warning(
+                _("Map <{}> has no start time; it is listed without times").format(
+                    map_object.get_id()
+                )
+            )
+            records.append((map_object, None, None, None, None))
+            continue
         start, end = map_object.get_temporal_extent_as_tuple()
         delta = end - start if end else None
         delta_first = start - first_time
@@ -403,31 +749,41 @@ def _get_list_of_maps_delta_gran(dataset, columns, where, method, gran, dbif, ms
     )
     rows = []
     for map_object, start, end, delta, delta_first in maps:
-        row = []
         # Here the names must be the same as in the database
         # to make the interface consistent.
+        values = {
+            "id": map_object.get_id(),
+            "name": map_object.get_name(),
+            "layer": map_object.get_layer(),
+            "mapset": map_object.get_mapset(),
+            "start_time": start,
+            "end_time": end,
+            "interval_length": delta,
+            "distance_from_begin": delta_first,
+        }
         for column in columns:
-            if column == "id":
-                row.append(map_object.get_id())
-            elif column == "name":
-                row.append(map_object.get_name())
-            elif column == "layer":
-                row.append(map_object.get_layer())
-            elif column == "mapset":
-                row.append(map_object.get_mapset())
-            elif column == "start_time":
-                row.append(start)
-            elif column == "end_time":
-                row.append(end)
-            elif column == "interval_length":
-                row.append(delta)
-            elif column == "distance_from_begin":
-                row.append(delta_first)
-            else:
+            if column not in values:
                 msg = f"Unsupported column '{column}'"
-                raise ValueError(msg)
-        rows.append(row)
+                raise _ListingError(msg)
+        rows.append([values[column] for column in columns])
     return rows
+
+
+def _refuse_missing_label_column(dbif, error):
+    """Name t.upgrade when a database of version 2 lacks the semantic label
+
+    The statement of a listing fails with an SQL error about the missing
+    column, which says nothing about the way out.
+    """
+    if "semantic_label" not in str(error):
+        return
+    if get_tgis_db_version_from_metadata(get_tgis_metadata(dbif)) < 3:
+        get_tgis_message_interface().fatal(
+            _(
+                "The temporal database <{database}> has version 2, which has "
+                "no semantic labels. Run t.upgrade first."
+            ).format(database=get_tgis_database_string())
+        )
 
 
 def _get_list_of_maps_stds(
@@ -441,96 +797,101 @@ def _get_list_of_maps_stds(
     gran=None,
     dbif=None,
 ):
-    dbif, connection_state_changed = init_dbif(dbif)
-    msgr = get_tgis_message_interface()
+    with connection(dbif) as dbif:
+        msgr = get_tgis_message_interface()
 
-    dataset = open_old_stds(name, element_type, dbif)
+        dataset = open_old_stds(name, element_type, dbif)
 
-    def check_columns(column_names, output_format, element_type):
-        if element_type != "stvds" and "layer" in columns:
-            msg = f"Column 'layer' is not allowed with temporal type '{element_type}'"
-            raise ValueError(msg)
-        if output_format == "line" and len(column_names) > 1:
-            msg = (
-                f"'{output_format}' output_format can have only 1 column, "
-                f"not {len(column_names)}"
-            )
-            raise ValueError(msg)
-
-    # This method expects a list of objects for gap detection
-    if method in {"delta", "deltagaps", "gran"}:
-        if not columns:
-            if output_format == "list":
-                # Only one column is needed.
-                columns = ["id"]
-            else:
-                columns = ["id", "name"]
-                if element_type == "stvds":
-                    columns.append("layer")
-                columns.extend(
-                    [
-                        "mapset",
-                        "start_time",
-                        "end_time",
-                        "interval_length",
-                        "distance_from_begin",
-                    ]
+        def check_columns(column_names, output_format, element_type):
+            if element_type != "stvds" and "layer" in columns:
+                msg = (
+                    f"Column 'layer' is not allowed with temporal type '{element_type}'"
                 )
-        check_columns(
-            column_names=columns,
-            output_format=output_format,
-            element_type=element_type,
-        )
-        rows = _get_list_of_maps_delta_gran(
-            dataset=dataset,
-            columns=columns,
-            where=where,
-            method=method,
-            gran=gran,
-            dbif=dbif,
-            msgr=msgr,
-        )
-    else:
-        if columns:
+                raise _ListingError(msg)
+            if output_format == "line" and len(column_names) > 1:
+                msg = (
+                    f"'{output_format}' output_format can have only 1 column, "
+                    f"not {len(column_names)}"
+                )
+                raise _ListingError(msg)
+
+        # This method expects a list of objects for gap detection
+        if method in {"delta", "deltagaps", "gran"}:
+            if not columns:
+                if output_format == "line":
+                    # Only one column is needed.
+                    columns = ["id"]
+                else:
+                    columns = ["id", "name"]
+                    if element_type == "stvds":
+                        columns.append("layer")
+                    columns.extend(
+                        [
+                            "mapset",
+                            "start_time",
+                            "end_time",
+                            "interval_length",
+                            "distance_from_begin",
+                        ]
+                    )
             check_columns(
                 column_names=columns,
                 output_format=output_format,
                 element_type=element_type,
             )
-        elif output_format == "line":
-            # For list of values, only one column is needed.
-            columns = ["id"]
-        else:
-            columns = ["name", "mapset", "start_time", "end_time"]
-        if not order:
-            order = "start_time"
-
-        rows = dataset.get_registered_maps(",".join(columns), where, order, dbif)
-
-        # End with error for the old, custom formats. Proper formats simply return
-        # empty result whatever empty is for each format (e.g., empty list for JSON).
-        if not rows and (output_format in {"plain", "line"}):
-            dbif.close()
-            gs.fatal(
-                _(
-                    "Nothing found in the database for space time dataset <{name}> "
-                    "(type: {element_type}): {detail}"
-                ).format(
-                    name=dataset.get_id(),
-                    element_type=element_type,
-                    detail=(
-                        _(
-                            "Dataset is empty or where clause is too constrained or "
-                            "incorrect"
-                        )
-                        if where
-                        else _("Dataset is empty")
-                    ),
-                )
+            rows = _get_list_of_maps_delta_gran(
+                dataset=dataset,
+                columns=columns,
+                where=where,
+                method=method,
+                gran=gran,
+                dbif=dbif,
+                msgr=msgr,
             )
-    if connection_state_changed:
-        dbif.close()
-    return rows, columns
+        else:
+            if columns:
+                check_columns(
+                    column_names=columns,
+                    output_format=output_format,
+                    element_type=element_type,
+                )
+            elif output_format == "line":
+                # For list of values, only one column is needed.
+                columns = ["id"]
+            else:
+                columns = ["name", "mapset", "start_time", "end_time"]
+            if not order:
+                order = "start_time"
+
+            try:
+                rows = dataset.get_registered_maps(
+                    ",".join(columns), where, order, dbif
+                )
+            except SQLStatementError as error:
+                _refuse_missing_label_column(dbif, error)
+                msgr.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+
+            # End with error for the old, custom formats. Proper formats simply return
+            # empty result whatever empty is for each format (e.g., empty list for JSON).
+            if not rows and (output_format in {"plain", "line"}):
+                msgr.fatal(
+                    _(
+                        "Nothing found in the database for space time dataset <{name}> "
+                        "(type: {element_type}): {detail}"
+                    ).format(
+                        name=dataset.get_id(),
+                        element_type=element_type,
+                        detail=(
+                            _(
+                                "Dataset is empty or where clause is too constrained or "
+                                "incorrect"
+                            )
+                            if where
+                            else _("Dataset is empty")
+                        ),
+                    )
+                )
+        return rows, columns
 
 
 # The code is compatible with pre-v8.2 versions, but for v9, it needs to be reviewed
@@ -577,7 +938,11 @@ def list_maps_of_stds(
     :param gran: The user defined granule to be used if method=gran is
                  set, in case gran=None the granule of the space time
                  dataset is used
-    :param outpath: The path to file where to save output
+    :param outpath: The path to file where to save output; None, an empty
+                    text and "-" are the standard output
+    :param output_format: The output format: plain, line, csv, json or yaml;
+                          without a value the format is line for method=comma
+                          and plain otherwise
     """
     if gran == "":
         gran = None
@@ -589,21 +954,23 @@ def list_maps_of_stds(
         else:
             output_format = "plain"
 
-    if columns:
-        if isinstance(columns, str):
-            columns = columns.split(",")
+    if columns and isinstance(columns, str):
+        columns = columns.split(",")
 
-    rows, columns = _get_list_of_maps_stds(
-        element_type=type,
-        name=input,
-        columns=columns,
-        order=order,
-        where=where,
-        method=method,
-        output_format=output_format,
-        gran=gran,
-        dbif=dbif,
-    )
+    try:
+        rows, columns = _get_list_of_maps_stds(
+            element_type=type,
+            name=input,
+            columns=columns,
+            order=order,
+            where=where,
+            method=method,
+            output_format=output_format,
+            gran=gran,
+            dbif=dbif,
+        )
+    except _ListingError as error:
+        get_tgis_message_interface().fatal(str(error))
 
     if output_format == "line":
         _write_line(
@@ -619,11 +986,3 @@ def list_maps_of_stds(
             output_format=output_format,
             file=outpath,
         )
-
-
-###############################################################################
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

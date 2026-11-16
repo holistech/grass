@@ -1,8 +1,13 @@
---#############################################################################
--- This SQL script generates the space time raster dataset view.
+-- Create the views of space-time raster datasets that join all of their tables
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
+-- SPDX-FileCopyrightText: 2013-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
+--
+-- A dataset appears in a view only if it has a row in each of the four tables
+-- that the view joins (base data, time, spatial extent and metadata). A dataset
+-- that lacks one of the rows is in no list.
 
 -- Create the views to access all cols for absolute or relative time
 
@@ -19,6 +24,7 @@ CREATE VIEW strds_view_abs_time AS SELECT
             A4.nsres_max, A4.ewres_max,
             A4.min_min, A4.min_max,
             A4.max_min, A4.max_max, A4.aggregation_type,
+            A4.number_of_semantic_labels,
             A4.title, A4.description, A4.command
             FROM strds_base A1, strds_absolute_time A2,
             strds_spatial_extent A3, strds_metadata A4 WHERE A1.id = A2.id AND
@@ -37,6 +43,7 @@ CREATE VIEW strds_view_rel_time AS SELECT
             A4.nsres_max, A4.ewres_max,
             A4.min_min, A4.min_max,
             A4.max_min, A4.max_max, A4.aggregation_type,
+            A4.number_of_semantic_labels,
             A4.title, A4.description, A4.command
             FROM strds_base A1, strds_relative_time A2,
             strds_spatial_extent A3, strds_metadata A4 WHERE A1.id = A2.id AND

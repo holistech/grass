@@ -90,6 +90,43 @@ jobs:
       - name: Test executing of the grass command
         run: .github/workflows/test_simple.sh
 
+      - name: Cache GRASS Sample Dataset
+        id: cached-data
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: sample-data/nc_spm_full_v2beta1.tar.gz
+          key: nc_spm_full_v2beta1.tar.gz
+          enableCrossOsArchive: true
+
+      - name: Download GRASS Sample Dataset
+        if: steps.cached-data.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p sample-data
+          curl -L "${SAMPLE_DATA}" -o sample-data/nc_spm_full_v2beta1.tar.gz
+        env:
+          SAMPLE_DATA: "https://grass.osgeo.org/sampledata/north_carolina/\
+            nc_spm_full_v2beta1.tar.gz"
+
+      - name: Save GRASS Sample Dataset to cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: steps.cached-data.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
+        with:
+          path: sample-data/nc_spm_full_v2beta1.tar.gz
+          key: nc_spm_full_v2beta1.tar.gz
+
+      # The tests in temporal/tests and python/grass/temporal/tests read the
+      # North Carolina project through this variable. The archive is piped
+      # into tar from inside the target directory, because GNU tar would read
+      # a drive letter such as D: in a Windows path as a remote host name.
+      - name: Unpack GRASS Sample Dataset for pytest
+        shell: bash
+        run: |
+          mkdir -p "${RUNNER_TEMP}/grassdata"
+          gzip -dc sample-data/nc_spm_full_v2beta1.tar.gz |
+            (cd "${RUNNER_TEMP}/grassdata" && tar -xf -)
+          echo "GRASS_TEMPORAL_TEST_NC_SPM=${RUNNER_TEMP}/grassdata/nc_spm_full_v2beta1" >> "${GITHUB_ENV}"
+
       - name: Run pytest with multiple workers in parallel
         run: |
           PYTHONPATH="$(grass --config python_path):${PYTHONPATH}"

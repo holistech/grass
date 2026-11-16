@@ -15,7 +15,7 @@ void Init(void)
 {
     struct Cell_head Region;
     int row, col, i, j, NumWeight, NumDist, NumExp;
-    char *Name, *Number, String[80];
+    char *Name, String[80];
     double MinRes;
 
     G_debug(2, "Init");
@@ -92,18 +92,9 @@ void Init(void)
 
     Theory = 0;
     NumSeeds = 0;
-    Seeds = (int *)G_malloc(NumMaps * sizeof(int));
-    Seed = -1;
-    if (!SeedStuff->answers) {
-        for (i = 0; i < NumMaps; i++) {
-            Seeds[i] = -1;
-        }
-    }
-    else {
-        for (i = 0; (Number = SeedStuff->answers[i]) && i < NumMaps; i++) {
-            sscanf(Number, "%d", &(Seeds[i]));
-        } /* /for */
-    } /* /else */
+    SeedGiven = SeedStuff->answer != NULL;
+    if (SeedGiven)
+        SeedValue = G_random_seed_from_option(SeedStuff);
 
     CellBuffer = Rast_allocate_c_buf();
     CatInfo.NumValue = (int *)G_malloc(CatInfo.NumCat * sizeof(int));

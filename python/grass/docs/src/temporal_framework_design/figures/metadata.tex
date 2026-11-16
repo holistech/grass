@@ -1,0 +1,80 @@
+% The metadata classes, generated from tables of columns in metadata.py. The
+% lists of columns are shortened where they end in "...".
+%
+% pgf-umlcd draws an inheritance line from the centre of the class, under the
+% other boxes. With the parents close above and the lists long, the lines of
+% the space time classes left their box at its side and ran under the
+% neighbouring box, so that STR3DSMetadata seemed to inherit
+% _SemanticLabelsMetadata. The parents now stand high above short boxes, so
+% that every line leaves its class at the top, and STRDSMetadata stands next
+% to _SemanticLabelsMetadata.
+\begin{tikzpicture}[font=\fontsize{6.5}{7.8}\selectfont]
+\begin{class}[text width=3.0cm]{MetadataRow}{-0.3,2.8}
+\attribute{kind : Kind}
+\operation{print_info()}
+\operation{print_shell_info()}
+\end{class}
+\begin{class}[text width=2.6cm]{_SpaceTimeMetadata}{2.9,2.8}
+\operation{print_history()}
+\end{class}
+\begin{class}[text width=3.0cm]{_SemanticLabelsMetadata}{6.2,2.8}
+\operation{get_semantic_labels()}
+\end{class}
+\begin{class}[text width=2.25cm]{RasterMetadata}{-6.75,-3.8}
+\inherit{MetadataRow}
+\attribute{datatype}
+\attribute{cols}
+\attribute{rows}
+\attribute{nsres}
+\attribute{semantic_label}
+\attribute{...}
+\end{class}
+\begin{class}[text width=2.25cm]{Raster3DMetadata}{-4.05,-3.8}
+\inherit{MetadataRow}
+\attribute{datatype}
+\attribute{cols}
+\attribute{rows}
+\attribute{depths}
+\attribute{tbres}
+\attribute{...}
+\end{class}
+\begin{class}[text width=2.25cm]{VectorMetadata}{-1.35,-3.8}
+\inherit{MetadataRow}
+\attribute{is_3d}
+\attribute{number_of_points}
+\attribute{number_of_lines}
+\attribute{number_of_areas}
+\attribute{...}
+\end{class}
+\begin{class}[text width=2.35cm]{STR3DSMetadata}{1.35,-3.8}
+\inherit{MetadataRow}
+\inherit{_SpaceTimeMetadata}
+\attribute{title}
+\attribute{raster3d_register}
+\attribute{number_of_maps}
+\attribute{tbres_min}
+\attribute{tbres_max}
+\attribute{...}
+\end{class}
+\begin{class}[text width=2.25cm]{STVDSMetadata}{4.05,-3.8}
+\inherit{MetadataRow}
+\inherit{_SpaceTimeMetadata}
+\attribute{title}
+\attribute{vector_register}
+\attribute{number_of_maps}
+\attribute{number_of_points}
+\attribute{number_of_areas}
+\attribute{...}
+\end{class}
+\begin{class}[text width=2.25cm]{STRDSMetadata}{6.75,-3.8}
+\inherit{MetadataRow}
+\inherit{_SpaceTimeMetadata}
+\inherit{_SemanticLabelsMetadata}
+\attribute{title}
+\attribute{raster_register}
+\attribute{number_of_maps}
+\attribute{min_min}
+\attribute{max_max}
+\attribute{...}
+\end{class}
+\end{tikzpicture}

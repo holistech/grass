@@ -9,15 +9,34 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  *****************************************************************************/
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <grass/gis.h>
-#include <grass/temporal.h>
-#include <grass/glocale.h>
 #include <grass/gjson.h>
+#include <grass/glocale.h>
+#include <grass/temporal.h>
 
 enum OutputFormat { PLAIN, SHELL, JSON };
+
+/* libgis removes a variable whose value is empty after stripping, so a blank
+ * value would silently unset the setting instead of changing it. The parser
+ * already refuses a blank driver, because it is not in the list of drivers. */
+static void check_not_blank(const struct Option *option)
+{
+    const char *c;
+
+    if (!option->answer)
+        return;
+
+    for (c = option->answer; *c; c++)
+        if (!isspace((unsigned char)*c))
+            return;
+
+    G_fatal_error(_("Option <%s> must not be empty."), option->key);
+}
 
 static void print_tgis_connection(const char *mapset, G_JSON_Array *json_array)
 {
@@ -52,7 +71,6 @@ int main(int argc, char *argv[])
     struct GModule *module;
 
     enum OutputFormat format;
-    G_JSON_Value *root_value = NULL;
 
     /* Initialize the GIS calls */
     G_gisinit(argv[0]);
@@ -120,6 +138,13 @@ int main(int argc, char *argv[])
     mapset_opt->guisection = _("Print");
 
     G_option_requires(mapset_opt, print, NULL);
+    /* -p returns before -c and -d are looked at, so a call with both would
+     * print and set nothing. The deprecated -g prints as well. -c with -d
+     * stays allowed: -c wins, as before. */
+    G_option_exclusive(print, check_set_default, NULL);
+    G_option_exclusive(print, def, NULL);
+    G_option_exclusive(sh, check_set_default, NULL);
+    G_option_exclusive(sh, def, NULL);
 
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
@@ -144,9 +169,6 @@ int main(int argc, char *argv[])
             _("Flag 'g' is deprecated and will be removed in a future "
               "release. Please use format=shell instead."));
         if (format == JSON) {
-            /* Free memory before failing to prevent memory leaks */
-            if (root_value)
-                G_json_value_free(root_value);
             G_fatal_error(_("The -g flag cannot be used with format=json. "
                             "Please select only one output format."));
         }
@@ -160,8 +182,6 @@ int main(int argc, char *argv[])
     }
 
     if (mapset_opt->answer && format != JSON) {
-        if (root_value)
-            G_json_value_free(root_value);
         G_fatal_error(_("The mapset option requires format=json."));
     }
 
@@ -169,7 +189,8 @@ int main(int argc, char *argv[])
         if (format == JSON) {
             /* JSON always outputs an array. When mapset is not specified,
              * report connections for all mapsets on the current search path. */
-            G_JSON_Array *json_array = NULL;
+            G_JSON_Value *root_value;
+            G_JSON_Array *json_array;
             char *json_string;
 
             root_value = G_json_value_init_array();
@@ -219,31 +240,21 @@ int main(int argc, char *argv[])
             G_json_value_free(root_value);
         }
         else {
-            /* PLAIN / SHELL: report the current mapset's connection */
-            if (tgis_get_connection(&conn) == DB_OK) {
-                switch (format) {
-                case SHELL:
-                    fprintf(stdout, "driver=%s\n",
-                            conn.driverName ? conn.driverName : "");
-                    fprintf(stdout, "database=%s\n",
-                            conn.databaseName ? conn.databaseName : "");
-                    break;
+            /* PLAIN / SHELL: report the current mapset's connection. The
+             * variables are not set in a new mapset, which prints empty
+             * values and is no error. */
+            const char *drv, *db;
 
-                case PLAIN:
-                    fprintf(stdout, "driver:%s\n",
-                            conn.driverName ? conn.driverName : "");
-                    fprintf(stdout, "database:%s\n",
-                            conn.databaseName ? conn.databaseName : "");
-                    break;
-
-                case JSON:
-                    /* unreachable: JSON is handled above */
-                    break;
-                }
+            tgis_get_connection(&conn);
+            drv = conn.driverName ? conn.driverName : "";
+            db = conn.databaseName ? conn.databaseName : "";
+            if (format == SHELL) {
+                fprintf(stdout, "driver=%s\n", drv);
+                fprintf(stdout, "database=%s\n", db);
             }
             else {
-                G_fatal_error(_("Temporal GIS database connection not defined. "
-                                "Run t.connect."));
+                fprintf(stdout, "driver:%s\n", drv);
+                fprintf(stdout, "database:%s\n", db);
             }
         }
 
@@ -288,6 +299,7 @@ int main(int argc, char *argv[])
     }
 
     /* set connection */
+    check_not_blank(database);
     tgis_get_connection(&conn); /* read current */
 
     if (driver->answer)

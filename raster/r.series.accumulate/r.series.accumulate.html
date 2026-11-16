@@ -2,35 +2,32 @@
 
 <em>r.series.accumulate</em> calculates (accumulated) raster value
 using growing degree days (GDDs)/Winkler indices's, Biologically
-Effective Degree Days (BEDD), Huglin heliothermal indices or an average
-approach from several input maps for a given day. Accumulation of e.g.
+Effective Degree Days (BEDD), Huglin heliothermal indices or the mean
+from several input maps for a given day. Accumulation of e.g.
 degree-days to growing degree days (GDDs) can be done by providing a
 <em>basemap</em> with GDDs of the previous day.
 <p>
-The flag <b>-a</b> determines the average computation of the input raster maps.
-In case the flag is not set, the average calculation is:
-<div class="code"><pre>
-    average = (min + max) / 2
-</pre></div>
-In case the flag was set, the calculation changes to arithmetic mean
+All methods use the same average of the input maps: the arithmetic mean
+of the values of a cell, which counts the input maps that have a value
+in the cell:
 <div class="code"><pre>
     average = sum(input maps) / (number of input maps)
 </pre></div>
 <p>
-<b>GDD</b> Growing Degree Days are calculated as
+<b>GDD</b> Growing Degree Days, which are also the Winkler indices,
+are calculated as
 <div class="code"><pre>
     gdd = average - lower
 </pre></div>
-<p>
-In case the <b>-a</b> is set, the Winkler indices are calculated instead
-of GDD, usually accumulated for the period April 1<sup>st</sup> to October
+The method <code>gdd</code> is the default. The Winkler indices are
+usually accumulated for the period April 1<sup>st</sup> to October
 31<sup>st</sup> (northern hemisphere) or the period October
 1<sup>st</sup> to April 30<sup>th</sup>
 (southern hemisphere).
 <p>
 <b>BEDDs</b> Biologically Effective Degree Days are calculated as
 <div class="code"><pre>
-    bedd = average - lower
+    bedd = min(average, upper) - lower
 </pre></div>
 with an optional upper <em>cutoff</em> applied to the average instead of
 the temperature values.
@@ -48,10 +45,10 @@ usually accumulated for the period April 1<sup>st</sup> to September
     mean = average
 </pre></div>
 <p>
-For all the formulas <em>min</em> is the minimum value, <em>max</em>
-the maximum value and <em>average</em> the average value.
-The <em>min</em>, <em>max</em> and <em>average</em> values
-are automatically calculated from the input maps.
+<em>lower</em> and <em>upper</em> are the lower and the upper limit.
+In the Huglin formula <em>max</em> is the maximum value of the input
+maps in the cell. The <em>average</em> and <em>max</em> values are
+automatically calculated from the input maps.
 <p>
 The <em>shift</em> and <em>scale</em> values are applied directly to
 the input values. The <em>lower</em> and <em>upper</em> maps, as well
@@ -75,9 +72,14 @@ With the <em>-n</em> flag, any cell for which any of the
 corresponding input cells are NULL is automatically set to NULL
 (NULL propagation) and the accumulated value is not calculated.
 <p>
-Negative results are set to 0 (zero).
+Negative results of the methods <code>gdd</code>, <code>bedd</code> and
+<code>huglin</code> are set to 0 (zero). The method <code>mean</code> does not
+subtract <em>lower</em> and keeps its value.
 <p>
 Without the <em>-n</em> flag, all non-NULL cells are used for calculation.
+<p>
+The flag <em>-f</em> writes the output as a map of type FCELL (floating
+point, single precision) instead of DCELL.
 <p>
 If the <em>range=</em> option is given, any values which fall outside
 that range will be treated as if they were NULL. Note that the range is

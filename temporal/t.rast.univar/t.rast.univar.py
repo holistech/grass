@@ -53,11 +53,31 @@
 
 # %option
 # % key: region_relation
+# % type: string
 # % description: Process only maps with this spatial relation to the current computational region
 # % guisection: Selection
 # % options: overlaps,contains,is_contained
 # % required: no
 # % multiple: no
+# %end
+
+# %option
+# % key: granularity
+# % type: string
+# % description: Compute the statistics of the maps of each granule together instead of each map: for absolute time one number and one unit, such as "3 months" (years, months, weeks, days, hours, minutes, seconds); for relative time an integer in the unit of the dataset
+# % required: no
+# % multiple: no
+# % guisection: Granularity
+# %end
+
+# The standard option answers "start", which is no relation of a granule and
+# would reach the library in every run. The empty answer leaves sampling unset
+# unless it is given; without it the library takes contains.
+# %option G_OPT_T_SAMPLE
+# % options: equal,overlaps,overlapped,starts,started,finishes,finished,during,contains,related
+# % answer:
+# % description: Relation of a granule to the maps it takes, contains if not given; related takes all maps that share time with the granule
+# % guisection: Granularity
 # %end
 
 # %option G_OPT_F_SEP
@@ -90,6 +110,7 @@
 
 # %rules
 # % requires: percentile,-e
+# % requires: sampling,granularity
 # %end
 
 import grass.script as gs
@@ -108,42 +129,27 @@ def main():
     nprocs = gs.resolve_nprocs(options["nprocs"])
     where = options["where"]
     region_relation = options["region_relation"]
+    granularity = options["granularity"] or None
+    sampling = options["sampling"].split(",") if options["sampling"] else None
     extended = flags["e"]
     no_header = flags["u"]
     rast_region = bool(flags["r"])
     separator = gs.separator(options["separator"])
     output_format = options.get("format", "plain")
 
-    if output_format == "csv":
-        if not separator:
-            separator = ","
-        elif len(separator) > 1:
-            gs.fatal(
-                _("A standard CSV separator (delimiter) is only one character long")
-            )
-
-    elif output_format == "json":
-        if no_header:
-            gs.fatal(_("Column names are always included in JSON output"))
-        if separator:
-            gs.fatal(_("Separator option is not allowed with JSON format"))
-
-    elif not separator:
-        separator = "|"
-
     # lazy imports
     import grass.temporal as tgis
+    from grass.temporal.list_stds import checked_separator
+
+    try:
+        separator = checked_separator(output_format, separator, column_names=no_header)
+    except ValueError as error:
+        gs.fatal(str(error))
 
     percentile = None
     if options["percentile"]:
-        try:
-            percentile = list(map(float, options["percentile"].split(",")))
-        except ValueError:
-            gs.fatal(
-                _("<{}> is not valid input to the percentile option").format(
-                    options["percentile"]
-                )
-            )
+        # The parser has checked that every value is a number from 0 to 100.
+        percentile = list(map(float, options["percentile"].split(",")))
     # Make sure the temporal database exists
     tgis.init()
 
@@ -151,9 +157,8 @@ def main():
         output = None
 
     # Check if zones map exists and is of type CELL
-    if zones:
-        if gs.raster.raster_info(zones)["datatype"] != "CELL":
-            gs.fatal(_("Zoning raster must be of type CELL"))
+    if zones and gs.raster.raster_info(zones)["datatype"] != "CELL":
+        gs.fatal(_("Zoning raster must be of type CELL"))
 
     tgis.print_gridded_dataset_univar_statistics(
         "strds",
@@ -169,6 +174,8 @@ def main():
         region_relation=region_relation,
         nprocs=nprocs,
         format=output_format,
+        granularity=granularity,
+        sampling=sampling,
     )
 
 

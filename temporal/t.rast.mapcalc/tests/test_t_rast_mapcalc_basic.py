@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import pytest
 
 import grass.exceptions
-from grass.tools import Tools
+from grass.tools import ToolError, Tools
 
 
 def test_basic_addition(mapcalc_session, assert_tinfo):
@@ -130,3 +130,17 @@ def test_failure_on_missing_map(mapcalc_session):
             )
     finally:
         tools.g_rename(raster="prec_1_hidden,prec_1")
+
+
+def test_a_dot_in_the_output_name_is_refused(mapcalc_session):
+    """The tool passes the map type, which kept the dot in the name before."""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    with pytest.raises(ToolError, match=r"a\s+dot\s+is\s+not\s+allowed"):
+        tools.t_rast_mapcalc(
+            inputs="precip_abs1,precip_abs2",
+            output="dot_out.label",
+            expression="precip_abs1 + precip_abs2",
+            basename="dot_new",
+            method="equal",
+        )
+    assert "dot_out" not in tools.t_list(type="strds", columns="name").stdout

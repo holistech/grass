@@ -56,6 +56,7 @@
 
 # %option
 # % key: region_relation
+# % type: string
 # % description: Process only maps with this spatial relation to the current computational region
 # % guisection: Selection
 # % options: overlaps,contains,is_contained
@@ -90,9 +91,34 @@
 # % requires: percentile,-e
 # %end
 
+from subprocess import DEVNULL
+
 import grass.script as gs
+from grass.exceptions import CalledModuleError
 
 ############################################################################
+
+
+def check_zones(zones):
+    """Refuse a zones map with a value that is not a whole number
+
+    r3.univar refuses such a map, but only while it computes the first map;
+    by then the column names are printed and the output file is open. The
+    check runs r3.univar on the zones map itself, so it reads the same cells
+    of the current 3D region as the statistics do. r3.univar prints the
+    offending value.
+    """
+    try:
+        gs.run_command(
+            "r3.univar",
+            map=zones,
+            zones=zones,
+            format="json",
+            quiet=True,
+            stdout=DEVNULL,
+        )
+    except CalledModuleError:
+        gs.fatal(_("Zoning 3D raster map <{}> must hold whole numbers").format(zones))
 
 
 def main():
@@ -111,36 +137,19 @@ def main():
     separator = gs.separator(options["separator"])
     output_format = options.get("format", "plain")
 
-    if output_format == "csv":
-        if not separator:
-            separator = ","
-        elif len(separator) > 1:
-            gs.fatal(
-                _("A standard CSV separator (delimiter) is only one character long")
-            )
+    # lazy imports
+    import grass.temporal as tgis
+    from grass.temporal.list_stds import checked_separator
 
-    elif output_format == "json":
-        if no_header:
-            gs.fatal(_("Column names are always included in JSON output"))
-        if separator:
-            gs.fatal(_("Separator option is not allowed with JSON format"))
-
-    elif not separator:
-        separator = "|"
+    try:
+        separator = checked_separator(output_format, separator, column_names=no_header)
+    except ValueError as error:
+        gs.fatal(str(error))
 
     percentile = None
     if options["percentile"]:
-        try:
-            percentile = list(map(float, options["percentile"].split(",")))
-        except ValueError:
-            gs.fatal(
-                _("<{}> is not valid input to the percentile option").format(
-                    options["percentile"]
-                )
-            )
-
-    # lazy imports
-    import grass.temporal as tgis
+        # The parser has checked that every value is a number from 0 to 100.
+        percentile = list(map(float, options["percentile"].split(",")))
 
     # Make sure the temporal database exists
     tgis.init()
@@ -149,6 +158,9 @@ def main():
         output = None
     if output == "-":
         output = None
+
+    if zones:
+        check_zones(zones)
 
     tgis.print_gridded_dataset_univar_statistics(
         "str3ds",

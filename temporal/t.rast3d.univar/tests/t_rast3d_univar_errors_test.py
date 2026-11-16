@@ -1,0 +1,86 @@
+"""Test the refusals of t.rast3d.univar"""
+
+import pytest
+
+from grass.temporal.testing.readback import message
+from grass.tools import ToolError
+
+
+def _refused(tools, **options):
+    with pytest.raises(ToolError) as error:
+        tools.t_rast3d_univar(**options)
+    return message(error.value)
+
+
+def test_the_input_is_required(tools):
+    assert "Required parameter <input> not set" in _refused(tools, output="out.txt")
+
+
+def test_an_unknown_input_is_refused(tools):
+    text = _refused(tools, input="uv3_missing")
+
+    assert "Space time dataset <uv3_missing> of type <str3ds> not found" in text
+
+
+def test_percentile_needs_the_e_flag(tools, values):
+    assert "Option <percentile> requires <-e>" in _refused(
+        tools, input=values, percentile=10
+    )
+
+
+def test_a_percentile_outside_the_range_is_refused(tools, values):
+    text = _refused(tools, input=values, flags="e", percentile=101)
+
+    assert "Value <101> out of range for parameter <percentile>" in text
+
+
+def test_a_percentile_that_is_no_number_is_refused(tools, values):
+    text = _refused(tools, input=values, flags="e", percentile="x")
+
+    assert "Invalid value <x> for parameter <percentile>" in text
+
+
+def test_zones_from_a_double_map_are_rounded(tools, values):
+    # Every 3D raster map has a floating point type. A zones map whose values
+    # are whole numbers is used as it is; one with other values is refused
+    # (t_rast3d_univar_faults_test.py). uv3_ceil_half holds ceil(n / 2), so
+    # the zones 1 to 6 hold the voxels with n = 1 and 2, 3 and 4, and so on up
+    # to 11 and 12 of the first map.
+    tools.r3_mapcalc(
+        expression="uv3_ceil_half = ceil(((depth() - 1) * 6 + (row() - 1) * 3"
+        " + col()) / 2.0)",
+        overwrite=True,
+    )
+    result = tools.t_rast3d_univar(
+        input=values, zones="uv3_ceil_half", where="start_time < '2001-01-02'"
+    )
+
+    rows = [line.split("|") for line in result.stdout.splitlines()[1:]]
+    assert [(row[3], row[5], row[-2]) for row in rows] == [
+        ("1", "2", "3"),
+        ("2", "2", "7"),
+        ("3", "2", "11"),
+        ("4", "2", "15"),
+        ("5", "2", "19"),
+        ("6", "2", "23"),
+    ]
+
+
+def test_unknown_zones_are_refused(tools, values):
+    text = _refused(tools, input=values, zones="uv3_no_zones")
+
+    assert "uv3_no_zones" in text
+
+
+def test_an_unknown_format_is_refused_by_the_parser(tools, values):
+    text = _refused(tools, input=values, format="xml")
+
+    assert "Value <xml> out of range for parameter <format>" in text
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, values):
+    text = _refused(tools, input=values, where="nonsense =")
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
