@@ -10,14 +10,17 @@ values are in data/sampling_stds_characterization.json; they were taken from
 the function before it was rebuilt on grass.temporal.related_maps, and checked
 against the rules in its docstring.
 
-The classic function appended the relation "equals" to "start", which no map
-ever has, so "start" listed no map of the same time as a granule. "start" now
-ends with "equal". The expectations of the method lists with "start" (here and
-in data/sampling_stds_names.json) were derived again on 05.11.2026 from the
-classic sample_by_dataset() of the releases before GRASS 8.6, given the
-relation names of method_relations() as plain names, where "equal" is the
-relation the builder files; they differ from the old ones only by the maps
-a, e, p and q of equal time at the end of the granules s1 and s3.
+"start" selects the maps whose start time lies in the granule, from its start
+to its end without the end. The classic function selected maps that start
+before the granule and missed maps that start in it and end after it or have
+its time. The expectations of the method lists with "start" (here and in
+data/sampling_stds_names.json) were derived on 25.11.2026 from that rule: per
+granule the maps that start in it, relation by relation in the order starts,
+started, contains, equal, overlaps after the plain names, by start time
+within a relation. Against the classic expectations, h is no longer listed
+for s3 and c no longer for the gap (both start before), and h is listed for
+the gap and c of the relative input for its s2 (both start in it and end
+after it).
 """
 
 import json
@@ -87,7 +90,8 @@ NAMES = json.loads(
 # Names that the function accepted before it was rebuilt, besides the values of
 # the option: the relations of the topology builder, in any case and with white
 # space, "over" for "overlap", and "equals", which selects nothing. The expected
-# values come from the function of the commit before the rebuild.
+# values come from the function of the commit before the rebuild, those with
+# "start" from the rule of the module docstring.
 ACCEPTED = [key.split("|") for key in NAMES["matrix"]]
 
 
@@ -231,7 +235,7 @@ def test_equal_time_is_found_by_start(datasets):
     """The method "start" finds the map of the same time as the granule
 
     The granule s1 and the map a are equal. "equal" lists a, and "start" lists
-    it after b, which s1 contains, because equal is the last relation of the
+    it after b, which s1 contains, because equal comes after contains in the
     group.
     """
     equal = sample(["inp"], ["equal"], False)[0][0]["samples"]

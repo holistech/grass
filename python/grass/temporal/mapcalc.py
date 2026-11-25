@@ -195,9 +195,10 @@ def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
     Returns a list with one entry per granule: the map used as mapcalc_name()
     writes it, or None where none relates.
 
-    The map used is the one sample_by_dataset() of the releases up to GRASS
-    8.5 took, the first of the first relation in names that has one;
-    related_maps explains why gather() does not do that.
+    The map used is the first of the first relation in names that has one,
+    as sample_by_dataset() of the releases up to GRASS 8.5 took it; the
+    relations of the method "start" are no longer those of these releases
+    (see related_maps, which also explains why gather() does not do that).
 
     Warns, as the tool of GRASS 8.5 did, once per granule that relates more
     than one map. An input without registered maps gives a column of None.

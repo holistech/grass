@@ -58,37 +58,59 @@ def test_method_names_map_to_relations_without_inverse():
     assert union(["equal", "during"]) == equal | during
 
 
-def test_start_method_keeps_equal():
-    """The 'start' union holds equal, so the method matches a map of equal time
+# One granule from day 10 to day 20 and maps around it, (start, end) with end
+# None for a time instance.
+AROUND_GRANULE = {
+    "equal": (10, 20),
+    "during": (12, 18),
+    "contains": (5, 25),
+    "starts": (10, 15),
+    "started": (10, 25),
+    "finishes": (15, 20),
+    "finished": (5, 20),
+    "overlaps": (5, 15),
+    "overlapped": (15, 25),
+    "precedes": (1, 10),
+    "follows": (20, 30),
+    "instance_before": (5, None),
+    "instance_at_start": (10, None),
+    "instance_inside": (12, None),
+    "instance_at_end": (20, None),
+}
 
-    Equal is the last relation of the union. sample_by_dataset() still omits
-    it (its EQUALS key is never filed).
-    """
-    rel = union(["start"])
-    assert rel.temporal == {
-        "overlapped",
-        "starts",
-        "started",
-        "finishes",
-        "contains",
-        "equal",
+
+def starts_in(granule, times):
+    """True if the start of times lies in granule, from its start to its end"""
+    return granule[0] <= times[0] < granule[1]
+
+
+def test_start_method_selects_the_maps_that_start_in_the_granule():
+    """'start' relates exactly the maps whose start lies in [start, end)"""
+    granule = (10, 20)
+    inputs = series(*(slot(name, *times) for name, times in AROUND_GRANULE.items()))
+    (row,) = related_per_granule(
+        series(slot("g", *granule)), method_relations(["start"]), inputs
+    )
+    assert set(ids(row)) == {
+        name for name, times in AROUND_GRANULE.items() if starts_in(granule, times)
     }
-    assert method_relations(["start"])[-1] == "equal"
+    assert len(ids(row)) == len(set(ids(row)))
 
 
 def test_relations_are_tried_in_the_order_of_sample_by_dataset():
     """Plain method names first in list order, then the groups start, overlap
-    and contain, each without what the list has already. The map used is the
-    first of the first relation with a map, so this order is observable."""
+    and contain, each without what the list has already. "start" is starts,
+    started, contains, equal and overlaps, in the order in which the fixed
+    sample_by_dataset() of OSGeo main appends them. The map used is the first
+    of the first relation with a map, so this order is observable."""
     assert method_relations(["equal", "during"]) == ["equal", "during"]
     assert method_relations(["during", "equal"]) == ["during", "equal"]
     assert method_relations(["start", "equal"]) == [
         "equal",
-        "overlapped",
         "starts",
         "started",
-        "finishes",
         "contains",
+        "overlaps",
     ]
     assert method_relations(["contain", "overlap", "during"]) == [
         "during",
@@ -97,13 +119,12 @@ def test_relations_are_tried_in_the_order_of_sample_by_dataset():
         "contains",
     ]
     assert method_relations(["start", "overlap", "contain"]) == [
-        "overlapped",
         "starts",
         "started",
-        "finishes",
         "contains",
         "equal",
         "overlaps",
+        "overlapped",
     ]
 
 

@@ -13,12 +13,14 @@ gap granule by None. The file also holds the time stamps, the shuffled numbers
 and the boxes of each scenario, so the datasets are rebuilt exactly and no
 random generator is involved.
 
-One difference is wanted: the method "start" lists a map of the same time as
-the granule, which sample_by_dataset() never did, because it ended "start"
-with the relation "EQUALS" that the topology builder never files. For a
-method list with "start" the recorded grouping is that of the routine given the
-relation names of method_relations(), which it reads as plain names in that
-order, "equal" as the relation the builder files.
+One difference is wanted: the method "start" lists the maps whose start time
+lies in the granule, from its start to its end without the end.
+sample_by_dataset() listed maps that start before the granule and missed maps
+that start in it and end after it or have its time. For a method list with
+"start" the grouping in the file was derived on 25.11.2026 from that rule:
+per granule the maps that start in it, relation by relation in the order
+starts, started, contains, equal, overlaps after the plain names, by start
+time and then by id within a relation.
 """
 
 import json

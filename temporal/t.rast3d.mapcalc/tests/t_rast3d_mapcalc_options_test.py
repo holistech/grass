@@ -201,12 +201,12 @@ def methods(tools):
         ("overlap", [4]),
         ("follows", [6]),
         ("precedes", [5]),
-        # The method start takes the relations overlapped, starts, started,
-        # finishes, contains and equal (_METHOD_GROUPS in related_maps.py),
-        # not overlaps: so granule 4 (overlaps) has no partner. Map 1 equals
-        # its granule, the maps 2 and 7 lie in their granule (contains), map
-        # 8 starts with it and runs on.
-        ("start", [1, 2, 7, 8]),
+        # The method start takes the maps that start in the granule, from its
+        # start to its end without the end: map 1 equals its granule, the
+        # maps 2 and 7 lie in their granule, map 4 starts inside its granule
+        # and map 8 with it, both run on. The maps 3 and 6 start before their
+        # granule, map 5 at the end of its granule.
+        ("start", [1, 2, 4, 7, 8]),
         # The default of the tool: during, overlap, contain and equal
         (None, [1, 2, 3, 4, 7, 8]),
     ],

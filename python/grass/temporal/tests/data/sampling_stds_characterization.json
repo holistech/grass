@@ -104,14 +104,14 @@
       ],
       "samples": [
        [
-        "inp_c@PERMANENT",
-        "2001-01-03 00:00:00",
+        "inp_d@PERMANENT",
         "2001-01-05 00:00:00",
+        "2001-01-06 00:00:00",
         [
-         10.0,
-         0.0,
          40.0,
          30.0,
+         10.0,
+         0.0,
          0.0,
          0.0
         ],
@@ -119,9 +119,9 @@
         null
        ],
        [
-        "inp_d@PERMANENT",
+        "inp_h@PERMANENT",
         "2001-01-05 00:00:00",
-        "2001-01-06 00:00:00",
+        "2001-01-07 00:00:00",
         [
          40.0,
          30.0,
@@ -152,21 +152,6 @@
        null
       ],
       "samples": [
-       [
-        "inp_h@PERMANENT",
-        "2001-01-05 00:00:00",
-        "2001-01-07 00:00:00",
-        [
-         40.0,
-         30.0,
-         10.0,
-         0.0,
-         0.0,
-         0.0
-        ],
-        "absolute",
-        null
-       ],
        [
         "inp_f@PERMANENT",
         "2001-01-07 00:00:00",
@@ -543,21 +528,6 @@
        null
       ],
       "samples": [
-       [
-        "inp_h@PERMANENT",
-        "2001-01-05 00:00:00",
-        "2001-01-07 00:00:00",
-        [
-         40.0,
-         30.0,
-         10.0,
-         0.0,
-         0.0,
-         0.0
-        ],
-        "absolute",
-        null
-       ],
        [
         "inp_f@PERMANENT",
         "2001-01-07 00:00:00",
@@ -5082,14 +5052,14 @@
       ],
       "samples": [
        [
-        "inp_c@PERMANENT",
-        "2001-01-03 00:00:00",
+        "inp_d@PERMANENT",
         "2001-01-05 00:00:00",
+        "2001-01-06 00:00:00",
         [
-         10.0,
-         0.0,
          40.0,
          30.0,
+         10.0,
+         0.0,
          0.0,
          0.0
         ],
@@ -5097,9 +5067,9 @@
         null
        ],
        [
-        "inp_d@PERMANENT",
+        "inp_h@PERMANENT",
         "2001-01-05 00:00:00",
-        "2001-01-06 00:00:00",
+        "2001-01-07 00:00:00",
         [
          40.0,
          30.0,
@@ -5130,21 +5100,6 @@
        null
       ],
       "samples": [
-       [
-        "inp_h@PERMANENT",
-        "2001-01-05 00:00:00",
-        "2001-01-07 00:00:00",
-        [
-         40.0,
-         30.0,
-         10.0,
-         0.0,
-         0.0,
-         0.0
-        ],
-        "absolute",
-        null
-       ],
        [
         "inp_f@PERMANENT",
         "2001-01-07 00:00:00",
@@ -5521,21 +5476,6 @@
        null
       ],
       "samples": [
-       [
-        "inp_h@PERMANENT",
-        "2001-01-05 00:00:00",
-        "2001-01-07 00:00:00",
-        [
-         40.0,
-         30.0,
-         10.0,
-         0.0,
-         0.0,
-         0.0
-        ],
-        "absolute",
-        null
-       ],
        [
         "inp_f@PERMANENT",
         "2001-01-07 00:00:00",
@@ -7571,14 +7511,14 @@
      ],
      "samples": [
       [
-       null,
-       "4",
-       "6",
+       "rin_c@PERMANENT",
+       "5",
+       "8",
        [
         10.0,
         0.0,
+        40.0,
         30.0,
-        20.0,
         0.0,
         0.0
        ],
@@ -7874,8 +7814,8 @@
   "smp@PERMANENT|inp@PERMANENT|oth@PERMANENT|start_time|end_time|interval_length|distance_from_begin",
   "smp_s1@PERMANENT|inp_a@PERMANENT,inp_b@PERMANENT|oth_p@PERMANENT|2001-01-01 00:00:00|2001-01-03 00:00:00|2.0|0.0",
   "smp_s2@PERMANENT|inp_c@PERMANENT|None|2001-01-03 00:00:00|2001-01-04 00:00:00|1.0|2.0",
-  "None|inp_c@PERMANENT,inp_d@PERMANENT|None|2001-01-04 00:00:00|2001-01-06 00:00:00|2.0|3.0",
-  "smp_s3@PERMANENT|inp_e@PERMANENT,inp_h@PERMANENT,inp_f@PERMANENT|oth_q@PERMANENT|2001-01-06 00:00:00|2001-01-08 00:00:00|2.0|5.0",
+  "None|inp_d@PERMANENT,inp_h@PERMANENT|None|2001-01-04 00:00:00|2001-01-06 00:00:00|2.0|3.0",
+  "smp_s3@PERMANENT|inp_e@PERMANENT,inp_f@PERMANENT|oth_q@PERMANENT|2001-01-06 00:00:00|2001-01-08 00:00:00|2.0|5.0",
   "smp_s4@PERMANENT|inp_g@PERMANENT|None|2001-01-08 00:00:00|2001-01-09 00:00:00|1.0|7.0"
  ]
 }

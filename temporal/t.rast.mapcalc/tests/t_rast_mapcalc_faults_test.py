@@ -126,6 +126,42 @@ def test_method_start_keeps_equal_maps(tools, prefix):
     ]
 
 
+def test_start_takes_map_crossing_granule_end(tools, prefix):
+    """The partner map that starts in the granule is taken: 1 + 10
+
+    The granule runs from 10 to 20 January. The partner map of 15 to 25
+    January starts inside it and is taken, the map of 5 to 15 January starts
+    before it and is not, so the granule relates one map and no warning
+    about several maps is given.
+    """
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_s",
+        [MapSpec(f"{prefix}_s1", 1, D(2026, 1, 10), D(2026, 1, 20))],
+    )
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_p",
+        [
+            MapSpec(f"{prefix}_early", 100, D(2026, 1, 5), D(2026, 1, 15)),
+            MapSpec(f"{prefix}_late", 10, D(2026, 1, 15), D(2026, 1, 25)),
+        ],
+    )
+    result = tools.t_rast_mapcalc(
+        inputs=f"{prefix}_s,{prefix}_p",
+        expression=f"{prefix}_s + {prefix}_p",
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+        method="start",
+    )
+    assert values(tools, f"{prefix}_out") == [
+        (f"{prefix}_out_1", "2026-01-10 00:00:00", "2026-01-20 00:00:00", 11.0)
+    ]
+    assert "more than a single map" not in result.stderr
+
+
 def test_dataset_name_inside_function_name(tools):
     """The dataset day stays in start_day(): 3 * 5 on 5 January"""
     create_stds(

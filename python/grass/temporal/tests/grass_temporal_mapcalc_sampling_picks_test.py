@@ -13,12 +13,14 @@ A pick is the number of the input map, None where no map relates to the
 granule. The sampler is always an interval series (sample_by_dataset requires
 it).
 
-One difference is wanted: the method "start" selects a map of the same time as
-the granule, which the classic routine never did. For a list with "start" the
-file holds the pick of the routine given the relation names of
-method_relations(), where "equal" is the relation the topology builder files;
-"start_plain" holds the pick of the unchanged routine and "equal_first" that
-of the method "equal".
+One difference is wanted: the method "start" selects the maps whose start
+time lies in the granule, from its start to its end without the end. The
+classic routine selected maps that start before the granule and missed maps
+that start in it and end after it or have its time. For a list with "start"
+the file holds the pick of that rule, derived on 25.11.2026: the first map
+of the first relation that has one, in the order starts, started, contains,
+equal, overlaps after the plain names, by start time within a relation.
+"start_plain" holds the pick of the classic routine for "start".
 
 The maps have boxes on a small grid, so that disjoint boxes, boxes that share
 only an edge or a corner, and overlapping boxes all occur.
@@ -178,8 +180,9 @@ def series(sampling_session):
 @pytest.mark.parametrize("seed", SEEDS.values(), ids=SEEDS)
 def test_tool_sampling_matches_the_recorded_picks(series, seed):
     """For every method and recorded series the tool picks the same first map
-    per granule as the classic sample_by_dataset(); None marks a granule
-    without a related map on both sides"""
+    per granule as the classic sample_by_dataset(), for "start" as the rule
+    of the module docstring; None marks a granule without a related map on
+    both sides"""
     found_a_pick = False
     for number, (case, sampler, inp) in series(seed).items():
         for method, spatial in itertools.product(
@@ -250,21 +253,30 @@ def test_the_comparison_detects_a_missing_spatial_test(series):
     pytest.fail("the spatial test never changed a pick")
 
 
-def test_start_differs_from_the_classic_routine_only_by_equal_maps():
-    """The wanted difference occurs in the recorded cases, and only there
+def test_start_picks_follow_the_rule():
+    """The recorded pick of "start" is a map that starts in the granule
 
-    Where the unchanged classic "start" and the recorded pick of "start"
-    differ, the classic routine found no map and the pick is the map of the
-    same time as the granule, the one the method "equal" picks.
+    from its start to its end without the end, and None only where no map
+    starts in it. Some picks differ from those of the classic routine, so the
+    change of the method is covered by the recorded cases.
     """
     differences = 0
-    for case in RECORDED[SEEDS["intervals"]]["cases"]:
-        new = recorded_pick(case, ["start"], False)
-        for old, pick, same_time in zip(
-            case["start_plain"], new, case["equal_first"], strict=True
-        ):
-            if old != pick:
-                differences += 1
-                assert old is None
-                assert pick == same_time
+    for kind in RECORDED.values():
+        for case in kind["cases"]:
+            for (start, end), pick, classic in zip(
+                case["sampler"],
+                recorded_pick(case, ["start"], False),
+                case["start_plain"],
+                strict=True,
+            ):
+                starting = [
+                    number
+                    for number, (map_start, _) in enumerate(case["input"], 1)
+                    if start <= map_start < end
+                ]
+                if pick is None:
+                    assert not starting
+                else:
+                    assert pick in starting
+                differences += pick != classic
     assert differences

@@ -778,16 +778,15 @@ def method_datasets(mapcalc_session):
         # Map 5 begins where granule 5 ends: "precedes" selects the map that
         # comes after the granule.
         ("precedes", [5]),
-        # Map 1 equals its granule, map 2 and map 7 lie in their granule, map
-        # 8 starts together with its granule and runs on. Granule 4 is
-        # missing although its map starts inside it and runs on: seen from
-        # the granule that is "overlaps" (the granule starts first and ends
-        # inside the map), and the method "start" lists "overlapped" but not
-        # "overlaps" (_METHOD_GROUPS in related_maps.py). "overlapped" would
-        # need a map that starts before the granule and ends inside it. The
-        # classic tool missed granule 1 as well: it asked the sampling for
-        # "equals" while the topology says "equal".
-        ("start", [1, 2, 7, 8]),
+        # The map starts in the granule, from its start to its end without
+        # the end: map 1 equals its granule, map 2 and map 7 lie in their
+        # granule, map 4 starts inside its granule and runs on, map 8 starts
+        # together with its granule and runs on. Map 3 and map 6 start before
+        # their granule, map 5 at the end of its granule. The classic tool
+        # missed granule 4 (it read "start" as "overlapped", not "overlaps")
+        # and granule 1 (it asked for "equals" while the topology says
+        # "equal").
+        ("start", [1, 2, 4, 7, 8]),
     ],
 )
 def test_sampling_methods_take_the_related_map(
@@ -797,7 +796,7 @@ def test_sampling_methods_take_the_related_map(
     one takes, told by the cell value N of the taken map. Result map numbers
     are the granule numbers, because the gaps between the granules consume no
     number. Measured 2026-10-14 on the unchanged tool; the geometry is in the
-    method_datasets fixture. The case start was derived again on 05.11.2026,
+    method_datasets fixture. The case start was derived again on 25.11.2026,
     see its comment."""
     tools = Tools(session=mapcalc_session, overwrite=True)
     tools.t_rast_mapcalc(

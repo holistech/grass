@@ -207,10 +207,14 @@ def ord_table(stds, first, second):
 # The expected lists follow the relations in the order the method list names
 # them (after "start", "overlap" and "contain" are expanded), a map that is
 # in two requested relations once, at its first place. "start" expands to
-# OVERLAPPED STARTS STARTED FINISHES CONTAINS EQUAL, so ss_equal comes last.
-# The classic routine ended the group with EQUALS, a key that is never filed,
-# and dropped ss_equal; the cases with "start" got ss_equal on 05.11.2026,
-# derived from the relations above.
+# STARTS STARTED CONTAINS EQUAL OVERLAPS, the relations to the maps that start
+# in the granule, so ss_equal and uu_ovl_late come last in og_1, and og_2
+# lists only pp_after and qq_in_og2. The classic routine expanded "start" to
+# OVERLAPPED STARTS STARTED FINISHES CONTAINS EQUALS: it listed maps that
+# start before the granule (vv_ovl_early in og_1, yy_during and uu_ovl_late in
+# og_2) and missed ss_equal (EQUALS is never filed) and uu_ovl_late in og_1.
+# The cases with "start" were derived again on 25.11.2026 from the relations
+# above.
 ORDER_CASES = {
     "during,overlap,contain,equal": (
         [
@@ -240,37 +244,37 @@ ORDER_CASES = {
     ),
     "start": (
         [
-            "vv_ovl_early",
             "xx_starts",
             "zz_early",
             "ww_finishes",
             "aa_late",
             "ss_equal",
+            "uu_ovl_late",
         ],
-        ["yy_during", "uu_ovl_late", "pp_after", "qq_in_og2"],
+        ["pp_after", "qq_in_og2"],
     ),
     "contain,start": (
         [
-            "vv_ovl_early",
             "xx_starts",
             "zz_early",
             "ww_finishes",
             "aa_late",
             "ss_equal",
+            "uu_ovl_late",
         ],
-        ["yy_during", "uu_ovl_late", "pp_after", "qq_in_og2"],
+        ["pp_after", "qq_in_og2"],
     ),
     "start,during": (
         [
             "yy_during",
-            "vv_ovl_early",
             "xx_starts",
             "zz_early",
             "ww_finishes",
             "aa_late",
             "ss_equal",
+            "uu_ovl_late",
         ],
-        ["yy_during", "uu_ovl_late", "pp_after", "qq_in_og2"],
+        ["pp_after", "qq_in_og2"],
     ),
     "during": (["yy_during"], []),
     "overlap": (["vv_ovl_early", "uu_ovl_late"], ["yy_during", "uu_ovl_late"]),
@@ -395,8 +399,8 @@ def test_method_equal_lists_the_equal_maps(sample_session):
 
 
 def test_method_start_drops_the_equal_maps(sample_session):
-    """start ends with the relation equal, so it lists the maps eq_1 and eq_2
-    of the same time as samp_1 and samp_2, as method=equal does
+    """start lists the maps eq_1 and eq_2 of the same time as samp_1 and
+    samp_2, which start in them, as method=equal does
 
     The classic routine appended "equals", which upper-cases to the key
     "EQUALS" that the topology never files, and listed None for both.

@@ -2,9 +2,9 @@
 
 The results of t.rast.mapcalc, t.rast3d.mapcalc and t.sample are those of
 sample_by_dataset() of the releases up to GRASS 8.5, except for the rule of
-gaps (see with_gaps()) and one fixed fault (below). That function is not part
-of GRASS any more. This module is the one place that holds its rules on the
-temporal algebra core, so that the tools do not carry diverging copies:
+gaps (see with_gaps()) and the method "start" (below). That function is not
+part of GRASS any more. This module is the one place that holds its rules on
+the temporal algebra core, so that the tools do not carry diverging copies:
 
 - the sampling method names expand into relation names in the order in which
   sample_by_dataset() tries them,
@@ -12,9 +12,11 @@ temporal algebra core, so that the tools do not carry diverging copies:
   order, without repetition, and
 - the sampler must pass the two guards at the top of sample_by_dataset().
 
-The fixed fault: the method "start" also selects a map of the same time as
-the granule, which sample_by_dataset() meant to select but never did (see
-_METHOD_GROUPS).
+The method "start" selects every map whose start time lies in the granule,
+from its start to its end without the end, as the manual of t.sample says.
+sample_by_dataset() of the releases up to GRASS 8.5 selected maps that start
+before the granule and skipped maps that start in it and end after it or
+have its time (see _METHOD_GROUPS).
 
 It does not call gather(), which differs from those rules in two ways.
 A caller of the releases up to GRASS 8.5 that takes one map takes the first
@@ -67,14 +69,25 @@ _PLAIN_RELATIONS = {
 # These names stand for a group of relations that sample_by_dataset() appends
 # after the plain method names, in this order. They are read as written, not
 # upper-cased. "over" is an old short form of "overlap".
-# sample_by_dataset() ended "start" with "equals", which upper-cases to the key
-# "EQUALS" that the builder never files (it files "EQUAL"), so "start" of the
-# releases up to GRASS 8.5 never matched a map of equal time (measured 2026-10-14 in a
-# temporary project: method=equal listed an equal map, method=start printed
-# None for it). "start" here ends with "equal" instead, so that a map with the
-# same time as the granule is selected, as the name "equals" intended.
+# "start" holds the relations of the granule to the maps that start in it:
+# starts and started (the map starts with the granule and ends after or
+# before it), contains (the map lies in the granule; the builder also files
+# started and finished maps here, and a time instance from the start of the
+# granule up to its end without the end), equal, and overlaps (the map starts
+# in the granule and ends after it). Left out are overlapped and finishes,
+# whose maps start before the granule, and during, whose maps start before it
+# or with it; those that start with it come through starts. A time instance at
+# the end of the granule is only preceded by it. The order is the one in which
+# sample_by_dataset() of OSGeo main appends them since the fix of "start"
+# there (OSGeo/grass pull request 8177), so that a caller that takes one map
+# takes the same one.
+# sample_by_dataset() of the releases up to GRASS 8.5 read "start" as
+# overlapped, starts, started, finishes, contains and "equals", the last of
+# which the builder never files (it files "equal"): it selected maps that
+# start before the granule and missed maps that start in it and end after it
+# or have its time.
 _METHOD_GROUPS = {
-    "start": ("overlapped", "starts", "started", "finishes", "contains", "equal"),
+    "start": ("starts", "started", "contains", "equal", "overlaps"),
     "overlap": ("overlapped", "overlaps"),
     "over": ("overlapped", "overlaps"),
     "contain": ("contains",),
@@ -89,8 +102,9 @@ def method_relations(method, any_relation: bool = False):
     The plain names come first, in the order of the list, then the groups
     "start", "overlap" and "contain", each as far as not yet in the list. The
     order matters because the first relation with a map decides which map a
-    caller that takes only one uses. "start" ends with "equal", which
-    sample_by_dataset() never matched (see _METHOD_GROUPS).
+    caller that takes only one uses. "start" selects the maps that start in
+    the granule, which sample_by_dataset() of the releases up to GRASS 8.5
+    did not (see _METHOD_GROUPS).
 
     :param method: names from "start", "during", "overlap", "contain",
         "equal", "follows" and "precedes", the values that the standard
