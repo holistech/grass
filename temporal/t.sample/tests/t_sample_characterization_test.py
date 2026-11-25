@@ -398,7 +398,7 @@ def test_method_equal_lists_the_equal_maps(sample_session):
     )
 
 
-def test_method_start_drops_the_equal_maps(sample_session):
+def test_method_start_lists_the_equal_maps(sample_session):
     """start lists the maps eq_1 and eq_2 of the same time as samp_1 and
     samp_2, which start in them, as method=equal does
 

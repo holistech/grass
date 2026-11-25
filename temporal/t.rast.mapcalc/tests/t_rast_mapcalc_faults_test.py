@@ -1,7 +1,8 @@
 """Test the refusals, the method start and the expression of t.rast.mapcalc
 
 A sampler that cannot sample ends the run with an error. The method start
-selects a map of the same time as the granule. A dataset name in the
+selects a map of the same time as the granule and a map that starts in the
+granule and ends after it. A dataset name in the
 expression is replaced only where it stands as a whole name, and not where
 it is followed by "(", also after the label operator "@" and the grey
 operator "#" of r.mapcalc. Two inputs of the same name are refused, and the

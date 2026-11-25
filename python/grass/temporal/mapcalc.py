@@ -197,7 +197,7 @@ def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
 
     The map used is the first of the first relation in names that has one,
     as sample_by_dataset() of the releases up to GRASS 8.5 took it; the
-    relations of the method "start" are no longer those of these releases
+    relations of the method "start" are no longer the ones those releases used
     (see related_maps, which also explains why gather() does not do that).
 
     Warns, as the tool of GRASS 8.5 did, once per granule that relates more
