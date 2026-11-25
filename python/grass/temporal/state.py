@@ -397,6 +397,25 @@ def _import_driver(name: str):
     return psycopg2
 
 
+def _driver_module(driver_string: str):
+    """Return the Python module of the database driver that t.connect names
+
+    sqlite gives sqlite3 and pg gives psycopg2; any other name ends with a
+    fatal error that points to t.connect.
+    """
+    if driver_string == "sqlite":
+        return _import_driver("sqlite3")
+    if driver_string == "pg":
+        return _import_driver("psycopg2")
+    STATE.message_interface.fatal(
+        _(
+            "Unable to initialize the temporal DBMI interface. "
+            "Please use t.connect to specify the driver and the"
+            " database string"
+        )
+    )
+
+
 def _select_backend() -> None:
     """Find the driver and the database string of the mapset with t.connect
 
@@ -414,20 +433,8 @@ def _select_backend() -> None:
 
     if driver_string is not None and driver_string != "":
         driver_string = decode(driver_string)
-        if driver_string == "sqlite":
-            STATE.backend = driver_string
-            dbmi = _import_driver("sqlite3")
-        elif driver_string == "pg":
-            STATE.backend = driver_string
-            dbmi = _import_driver("psycopg2")
-        else:
-            msgr.fatal(
-                _(
-                    "Unable to initialize the temporal DBMI interface. "
-                    "Please use t.connect to specify the driver and the"
-                    " database string"
-                )
-            )
+        dbmi = _driver_module(driver_string)
+        STATE.backend = driver_string
     else:
         # Set the default sqlite3 connection in case nothing was defined
         gs.run_command("t.connect", flags="d", superquiet=True)
@@ -622,6 +629,10 @@ def init(
                          but does not require a temporal database in the
                          current mapset for operations (like listing
                          datasets, getting metainformation, ...).
+                         The backend and the SQL parameter style are taken
+                         from an existing connection definition of the
+                         current mapset, otherwise they stay at the default
+                         (sqlite); no connection is created.
     """
     # db imports this module, so it can only be imported when init() runs
     from .db import SQLDatabaseInterfaceConnection  # noqa: PLC0415
@@ -633,6 +644,14 @@ def init(
     _apply_env_switches(grassenv)
 
     if skip_db_init:
+        # Read the connection of the mapset but never create one:
+        # _select_backend() runs t.connect -c, which writes the default
+        # connection into a mapset that has none.
+        driver_string = STATE.c_library_interface.get_driver_name(STATE.current_mapset)
+        if driver_string:
+            driver_string = decode(driver_string)
+            STATE.dbmi_paramstyle = _driver_module(driver_string).paramstyle
+            STATE.backend = driver_string
         return
 
     _select_backend()

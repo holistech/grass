@@ -19,7 +19,7 @@ from grass.pygrass.messages import FatalError
 from grass.temporal import core
 from grass.temporal.kinds import KINDS
 from grass.temporal.testing.data import MapSpec, create_stds, day
-from grass.temporal.testing.session import temporal_session
+from grass.temporal.testing.session import project_session, temporal_session
 from grass.tools import Tools
 
 pytestmark = pytest.mark.real_io
@@ -392,3 +392,55 @@ def test_unknown_function_number_is_answered_with_an_error(
     # The server went on serving; it was not restarted either.
     assert ciface.available_mapsets()
     assert ciface.server.pid == pid
+
+
+@pytest.fixture
+def mapset_without_database(tmp_path, monkeypatch):
+    """A session in a new project whose mapset has no temporal database
+
+    The session environment is mirrored into os.environ for the test, because
+    grass.temporal reads the session from there. tgis.init() is not called,
+    so the mapset has no database unless the test makes one.
+    """
+    with project_session(tmp_path / "project") as session:
+        for name, value in session.env.items():
+            monkeypatch.setenv(name, value)
+        yield tmp_path
+
+
+def _database_files(root):
+    return list(root.glob("**/tgis/*.db"))
+
+
+def test_init_without_database_takes_the_backend_of_the_connection(
+    mapset_without_database,
+):
+    gs.run_command("t.connect", flags="d", superquiet=True)
+
+    tgis.init(skip_db_init=True)
+
+    assert tgis.state.STATE.backend == "sqlite"
+    assert tgis.state.STATE.dbmi_paramstyle == "qmark"
+    # A connection that is read creates no database.
+    assert not _database_files(mapset_without_database)
+
+
+def test_init_without_database_creates_none_without_a_connection(
+    mapset_without_database,
+):
+    tgis.init(skip_db_init=True)
+
+    assert not _database_files(mapset_without_database)
+
+
+def test_init_without_database_takes_the_backend_of_postgresql(
+    mapset_without_database,
+):
+    # t.connect only stores the connection string; no server is needed.
+    psycopg2 = pytest.importorskip("psycopg2")
+    gs.run_command("t.connect", driver="pg", database="dbname=none", superquiet=True)
+
+    tgis.init(skip_db_init=True)
+
+    assert tgis.state.STATE.backend == "pg"
+    assert tgis.state.STATE.dbmi_paramstyle == psycopg2.paramstyle

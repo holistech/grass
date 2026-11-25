@@ -61,6 +61,10 @@ maps of the call are still unregistered:
   `Map <rain_1@PERMANENT> is not registered in space time dataset
   <rain@PERMANENT>`. The map stays as it is.
 
+The tool does not create a temporal database. In a mapset that has none it
+gives the warning `Unable to connect to a temporal database in the current
+mapset. Nothing to unregister` and ends with status 0.
+
 The dataset types of the maps and of **input** must fit. A 3D raster map is
 not found as `raster`, and a call with `type=vector` does not find a space
 time raster dataset.

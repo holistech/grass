@@ -1,13 +1,20 @@
 """Test the refusals of t.unregister: option combinations, datasets and files
 
 The messages of the two checks on maps= and file= name the options maps= and
-file=.
+file=. A mapset without a temporal database stays without one.
 """
+
+import os
+from datetime import datetime
+from pathlib import Path
 
 import pytest
 
-from grass.temporal.testing.readback import message
-from grass.tools import ToolError
+import grass.script as gs
+from grass.temporal.testing.data import MapSpec, create_stds
+from grass.temporal.testing.readback import message, stds_info
+from grass.temporal.testing.session import mapset_session, project_session
+from grass.tools import ToolError, Tools
 
 # Only the tests that make maps run longer than one second; the others fail
 # before they read anything (measured 18.10.2026 with a serial pytest
@@ -84,3 +91,100 @@ def test_a_missing_file_is_refused_with_a_message(tools, tmp_path):
 
     assert "Traceback" not in message(error.value)
     assert "not found" in message(error.value)
+
+
+def _database_file(session):
+    """Path of the default temporal database of the current mapset"""
+    env = gs.gisenv(env=session.env)
+    return (
+        Path(env["GISDBASE"])
+        / env["LOCATION_NAME"]
+        / env["MAPSET"]
+        / "tgis"
+        / "sqlite.db"
+    )
+
+
+def _series_in_other_mapset(work):
+    """Make the dataset series of three daily maps in the mapset other of work"""
+    with mapset_session(work, "other") as other:
+        other_tools = Tools(session=other, consistent_return_value=True)
+        other_tools.g_region(n=1, s=0, e=1, w=0, res=1)
+        create_stds(
+            other_tools,
+            "strds",
+            "series",
+            [
+                MapSpec(f"m{n}", n, datetime(2026, 1, n), datetime(2026, 1, n + 1))
+                for n in (1, 2, 3)
+            ],
+        )
+
+
+def test_without_database_warns_and_creates_none(tmp_path):
+    with project_session(tmp_path / "project", mapset="work") as work:
+        tools = Tools(session=work, consistent_return_value=True, capture_stderr=True)
+        assert not _database_file(work).exists()
+
+        result = tools.t_unregister(maps="x")
+
+        assert (
+            "WARNING: Unable to connect to a temporal database in the current "
+            "mapset. Nothing to unregister"
+        ) in message(result)
+        assert result.returncode == 0
+        assert not _database_file(work).exists()
+
+
+def test_without_database_a_dataset_of_another_mapset_is_left_alone(tmp_path):
+    # The dataset is named with its mapset, which the tool can read; without
+    # a database in the current mapset there is nowhere to unregister.
+    with project_session(tmp_path / "project", mapset="work") as work:
+        _series_in_other_mapset(work)
+        tools = Tools(session=work, consistent_return_value=True, capture_stderr=True)
+
+        result = tools.t_unregister(input="series@other", maps="m1")
+
+        assert "Nothing to unregister" in message(result)
+        assert not _database_file(work).exists()
+        assert stds_info(tools, "strds", "series@other")["number_of_maps"] == 3
+
+
+def test_a_dataset_of_another_mapset_is_refused_with_a_database(tmp_path):
+    with project_session(tmp_path / "project", mapset="work") as work:
+        _series_in_other_mapset(work)
+        tools = Tools(session=work, consistent_return_value=True, capture_stderr=True)
+        tools.t_create(type="strds", output="mine", title="t", description="d")
+
+        with pytest.raises(ToolError) as error:
+            tools.t_unregister(input="series@other", maps="m1")
+
+        assert "The mapset of the database does not match the current mapset" in (
+            message(error.value)
+        )
+        assert stds_info(tools, "strds", "series@other")["number_of_maps"] == 3
+
+
+def test_a_file_that_cannot_be_read_is_refused_with_a_message(tools, tmp_path):
+    file = tmp_path / "maps.txt"
+    file.write_bytes(b"\xff\xfe\n")
+
+    with pytest.raises(ToolError) as error:
+        tools.t_unregister(file=file)
+
+    assert "Traceback" not in message(error.value)
+    assert f"Unable to read map list from file <{file}>" in message(error.value)
+
+
+def test_a_file_without_the_right_to_read_is_refused_with_a_message(tools, tmp_path):
+    file = tmp_path / "maps.txt"
+    file.write_text("a\n")
+    file.chmod(0)
+    if os.access(file, os.R_OK):
+        pytest.skip("the user can read a file without a permission")
+
+    with pytest.raises(ToolError) as error:
+        tools.t_unregister(file=file)
+
+    assert "Traceback" not in message(error.value)
+    assert f"Unable to read map list from file <{file}>" in message(error.value)

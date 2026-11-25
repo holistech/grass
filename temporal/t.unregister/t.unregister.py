@@ -54,17 +54,27 @@ def check_options(maps, file):
 def map_ids(maps, file, mapset):
     """Return the ids of the maps of the option maps or of the file
 
-    A name without mapset gets the current mapset.
+    A name without mapset gets the current mapset. Blanks around a name and
+    empty entries are left out.
     """
     dummy = tgis.RasterDataset(None)
 
     if maps:
-        return [dummy.build_id(mapname, mapset) for mapname in maps.split(",")]
+        # An empty entry, as in "a,,b" or "a, b", names no map.
+        return [
+            dummy.build_id(mapname.strip(), mapset)
+            for mapname in maps.split(",")
+            if mapname.strip()
+        ]
 
     try:
         names = tgis.names_from_file(file)
-    except ValueError as error:
-        gs.fatal(str(error))
+    except (OSError, ValueError) as error:
+        gs.fatal(
+            _("Unable to read map list from file <{filename}>: {error}").format(
+                filename=file, error=error
+            )
+        )
     return [dummy.build_id(mapname, mapset) for mapname in names]
 
 
@@ -145,14 +155,27 @@ def main():
     maps = options["maps"]
     type = options["type"]
 
-    # Make sure the temporal database exists
-    tgis.init()
-
     check_options(maps, file)
+
+    # Unregistering must not create a temporal database just to find that
+    # there is nothing in it.
+    tgis.init(skip_db_init=True)
 
     mapset = tgis.get_current_mapset()
 
+    # Read before the database is looked at: a list that cannot be read is
+    # a fault of the call, with or without a database.
+    maplist = map_ids(maps, file, mapset)
+
     dbif = tgis.SQLDatabaseInterfaceConnection(mapsets=mapset)
+    if mapset not in dbif.tgis_mapsets:
+        gs.warning(
+            _(
+                "Unable to connect to a temporal database in the current mapset."
+                " Nothing to unregister"
+            )
+        )
+        return
     dbif.connect()
 
     # In case a space time dataset is specified
@@ -174,7 +197,6 @@ def main():
                 % {"ds": sp.get_id(), "type": sp.get_type()}
             )
 
-    maplist = map_ids(maps, file, mapset)
     dataset_ids = unregister_maps(maplist, type, sp, mapset, dbif)
     update_datasets(input, sp, dataset_ids, type, dbif)
 

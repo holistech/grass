@@ -71,6 +71,11 @@ in the temporal database but not registered in the dataset gives
 </ul>
 
 <p>
+The tool does not create a temporal database. In a mapset that has none it
+gives the warning <code>Unable to connect to a temporal database in the current
+mapset. Nothing to unregister</code> and ends with status 0.
+
+<p>
 The dataset types of the maps and of <b>input</b> must fit. A 3D raster map is
 not found as <code>raster</code>, and a call with <code>type=vector</code> does not find a space
 time raster dataset.

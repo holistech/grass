@@ -169,6 +169,15 @@ def test_a_blank_line_in_the_file_is_skipped(tools, make_stds, tmp_path):
     assert _in_database(tools, maps) == [False, True, False]
 
 
+def test_blanks_and_empty_entries_in_maps_are_skipped(tools, make_stds):
+    maps, _ = make_stds(3)
+
+    result = tools.t_unregister(maps=f" {maps[0]} ,, {maps[2]},")
+
+    assert "WARNING" not in result.stderr
+    assert _in_database(tools, maps) == [False, True, False]
+
+
 def test_a_map_that_is_not_in_the_database_is_a_warning(tools, make_stds, prefix):
     maps, (name,) = make_stds(3)
     tools.r_mapcalc(expression=f"{prefix}_loose = 1")
@@ -250,7 +259,10 @@ def test_the_progress_ends_at_100_for_one_dataset(tools, make_stds):
     assert re.findall(r"\d+%", _datasets_part(result)) == ["0%", "100%"]
 
 
-def test_no_dataset_to_update_shows_no_progress(tools, prefix):
+def test_no_dataset_to_update_shows_no_progress(tools, make_stds, prefix):
+    # Without a database the tool stops with a warning, before any progress.
+    make_stds(1)
+
     result = tools.t_unregister(maps=f"{prefix}_unknown")
 
     assert re.findall(r"\d+%", _datasets_part(result)) == []
