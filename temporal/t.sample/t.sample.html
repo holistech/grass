@@ -47,25 +47,27 @@ the two may share the start or the end</li>
 <li><code>contain</code>: the map lies inside the granule, also a time instance; a map that
 shares the start or the end of the granule counts as well</li>
 <li><code>equal</code>: the map has the start and the end of the granule</li>
-<li><code>start</code>: the maps of <code>contain</code>, the maps that begin before the granule and
-end inside it or at its end, the maps longer than the granule that begin
-with it, and the maps equal to the granule</li>
+<li><code>start</code>: the map starts in the granule, at its start or later and before its
+end, also a time instance: the maps of <code>contain</code> and <code>equal</code>, the maps longer
+than the granule that begin with it, and the maps that begin inside it and
+end after it</li>
 <li><code>follows</code>: the map ends where the granule starts</li>
 <li><code>precedes</code>: the map starts where the granule ends, also a time instance</li>
 </ul>
 
 <p>
-Other values are rejected by the parser, among them the inverse relations
-<code>overlaps</code> and <code>overlapped</code>. Several values are separated by commas. The maps
-of a cell are listed relation by relation: first those of <code>during</code>, <code>equal</code>,
-<code>follows</code> and <code>precedes</code>, in the order in which the list names them, then
-those of the groups <code>start</code>, <code>overlap</code> and <code>contain</code> in this order, whatever
-the order of the list. A map that stands in two selected relations is listed
-once. The maps of one of the plain relations follow their start times, and
-maps that start together follow their ids. A group is made of several
+A map with the start and the end of the granule is selected only by <code>equal</code> and
+<code>start</code>. Other values are rejected by the parser, among them the inverse
+relations <code>overlaps</code> and <code>overlapped</code>. Several values are separated by commas.
+The maps of a cell are listed relation by relation: first those of <code>during</code>,
+<code>equal</code>, <code>follows</code> and <code>precedes</code>, in the order in which the list names them,
+then those of the groups <code>start</code>, <code>overlap</code> and <code>contain</code> in this order,
+whatever the order of the list. A map that stands in two selected relations is
+listed once. The maps of one of the plain relations follow their start times,
+and maps that start together follow their ids. A group is made of several
 relations, which follow one another, so a map need not be listed by its start
-time: in the call with <code>start</code> of the third example, <code>wide_s</code> stands before
-<code>wide_e</code>, although it starts later.
+time: in the call with <code>start</code> of the third example, <code>inside</code> stands before
+<code>same</code>, although it starts later.
 
 <h3>Output</h3>
 
@@ -361,12 +363,12 @@ method: the plain values <code>during</code> and <code>equal</code> come first, 
 <code>overlap</code> and <code>contain</code>, so the maps come in the order <code>wide</code>, <code>wide_e</code>,
 <code>wide_s</code>, <code>same</code>, <code>early</code>, <code>late</code>, <code>inside</code>; the maps of <code>during</code> follow their
 start times. The other calls select one relation each. <code>before</code> is related by
-none of them. <code>start</code> lists <code>early</code>, which begins before the granule and ends
-inside it, <code>wide_e</code>, which begins before it and ends with it, <code>wide_s</code>, which is
-longer and begins with it, <code>inside</code>, and last <code>same</code>, which is equal to the
-granule. It does not list <code>wide</code> and <code>late</code>. The last call names <code>overlap</code>
-before <code>start</code>, yet the maps of <code>start</code> come first and <code>late</code>, which only
-<code>overlap</code> selects, comes last.
+none of them. <code>start</code> lists the maps that begin in the granule: <code>wide_s</code>, which
+is longer and begins with it, <code>inside</code>, <code>same</code>, which is equal to the granule,
+and last <code>late</code>, which begins inside it and ends after it. It does not list
+<code>wide</code>, <code>wide_e</code> and <code>early</code>, which begin before the granule. The last call
+names <code>overlap</code> before <code>start</code>, yet the maps of <code>start</code> come first and <code>early</code>,
+which only <code>overlap</code> selects, comes last.
 
 <p>Command line:</p>
 
@@ -437,7 +439,7 @@ t.sample -c inputs=shapes sample=windows_june method=start
 
 <div class="code"><pre>
 windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
-window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,same@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+window@t_sample|wide_s@t_sample,inside@t_sample,same@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
 </pre></div>
 
 <div class="code"><pre>
@@ -446,7 +448,7 @@ t.sample -c inputs=shapes sample=windows_june method=overlap,start
 
 <div class="code"><pre>
 windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
-window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,same@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+window@t_sample|wide_s@t_sample,inside@t_sample,same@t_sample,late@t_sample,early@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -558,7 +560,7 @@ print(
 
 <div class="code"><pre>
 windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
-window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,same@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+window@t_sample|wide_s@t_sample,inside@t_sample,same@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
 </pre></div>
 
 <div class="code"><pre>
@@ -571,7 +573,7 @@ print(
 
 <div class="code"><pre>
 windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
-window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,same@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+window@t_sample|wide_s@t_sample,inside@t_sample,same@t_sample,late@t_sample,early@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
 </pre></div>
 
 <h3>Maps next to the granule</h3>

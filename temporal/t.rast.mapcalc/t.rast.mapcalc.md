@@ -135,17 +135,18 @@ example shows the methods.
   before it and ends inside it.
 - `follows`: the map ends when the granule starts.
 - `precedes`: the map starts when the granule ends.
-- `start`: the maps that lie inside the granule, the maps that start before it
-  and end inside it, the maps that cover it while sharing its start or its
-  end, and the equal map. It does not take a map that covers the granule
-  strictly and a map that starts inside it and ends after it.
+- `start`: the map starts in the granule, at its start or later and before its
+  end: the maps that lie inside the granule, the equal map, the maps that
+  start with it and end after it, and the maps that start inside it and end
+  after it. It does not take a map that starts before the granule.
 
 If more than one map of a dataset is related to a granule, the tool warns on
 the standard error and uses only one of them. Which one, follows from the
 order in which it tries the relations. First come the methods `equal`,
 `during`, `follows` and `precedes`, in the order of the list **method**; then
-the group `start`, which tries the equal map last, then `overlap` and then
-`contain`, if they are in the list.
+the group `start`, which tries the maps that start with the granule first,
+then the maps inside it, the equal map and last the maps that start inside it
+and end after it, then `overlap` and then `contain`, if they are in the list.
 Within one relation, the map with the earliest start time is taken, and for
 equal start times the map with the smaller id. So for the list
 `contain,during` a map found by `during` wins over a map found by `contain`.
@@ -651,7 +652,7 @@ The number at the end of a name is the number of the granule that found a
 related map: `equal` finds the map of granule 1, `during` the ones of the
 granules 3, 8 and 9, `contain` granule 2, `overlap` the granules 4 and 5,
 `follows` granule 6 and `precedes` granule 7. The method `start` finds the
-granules 1, 2, 5, 8 and 9. The last two blocks show that **method** takes a
+granules 1, 2, 4 and 8. The last two blocks show that **method** takes a
 list. Without **method** the default `equal` finds only the granule 1. With
 the list `during,overlap,contain,equal` the tool collects the granules 1 to 5,
 8 and 9, and the listing shows that the maps have the times of the granules.
@@ -710,7 +711,7 @@ start and end time.
     overlap: overlap_4,overlap_5
     follows: follows_6
     precedes: precedes_7
-    start: start_1,start_2,start_5,start_8,start_9
+    start: start_1,start_2,start_4,start_8
     ```
 
     ```sh
@@ -794,7 +795,7 @@ start and end time.
     overlap: overlap_4,overlap_5
     follows: follows_6
     precedes: precedes_7
-    start: start_1,start_2,start_5,start_8,start_9
+    start: start_1,start_2,start_4,start_8
     ```
 
     ```python

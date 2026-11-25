@@ -528,11 +528,16 @@ warning, and the distances count from the first map with a start time
 <h2>Sampling and topology</h2>
 
 <ul>
-<li><b>method=start keeps maps of equal time.</b> The sampling method <code>start</code>
-lost the maps of equal time, so a sampler map with a map of the same
-time got none. Now <code>start</code> includes <code>equal</code>; this holds for <em>t.sample</em>,
-<em>t.rast.mapcalc</em> and <em>t.rast3d.mapcalc</em>
-(<a href="t.sample.html#notes">t.sample</a>,
+<li><b>method=start takes the maps that start in the sampler map</b>
+<em>(upstream)</em>. The sampling method <code>start</code> selected maps that start
+before a sampler map and end inside it or at its end, and it missed
+maps that start inside it and end after it and maps of the same time.
+Now <code>start</code> selects every map whose start time lies in the sampler map,
+from its start to its end without the end, as the manual of <em>t.sample</em>
+describes it; this holds for <em>t.sample</em>, <em>t.rast.mapcalc</em>,
+<em>t.rast3d.mapcalc</em> and <code>sample_stds_by_stds_topology()</code>. The fix comes
+from OSGeo/grass pull request 8177
+(<a href="t.sample.html#relations">t.sample</a>,
 <a href="temporalintro.html#sampling">temporal data processing</a>).</li>
 <li><b>Samplers of time instances.</b> A sampler of time instances or of the
 other temporal type made <em>t.sample</em>, <em>t.rast.mapcalc</em> and
@@ -552,7 +557,8 @@ time instances are still refused (<a href="t.sample.html#notes">t.sample</a>).</
 <em>t.rast.mapcalc</em>, <em>t.rast3d.mapcalc</em>, <em>t.rast.aggregate</em> and
 <em>t.rast.aggregate.ds</em> computed sampling and aggregation with code of
 their own. Now they use the functions of the new algebra; their results
-are those of before, and tests that record them keep them
+are those of before, apart from the method <code>start</code> above, and tests that
+record them keep them
 (<a href="t.rast.mapcalc.html#notes">t.rast.mapcalc</a>).</li>
 <li><b>Samplers and empty maps in <em>t.rast.aggregate.ds</em>.</b> A sampler in another
 relative unit gave no result and exit code 0, and <b>-n</b> worked the

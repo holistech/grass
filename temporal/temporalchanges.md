@@ -522,11 +522,16 @@ sections "Results corrected since GRASS 8.5".
 
 ## Sampling and topology
 
-- **method=start keeps maps of equal time.** The sampling method `start`
-    lost the maps of equal time, so a sampler map with a map of the same
-    time got none. Now `start` includes `equal`; this holds for *t.sample*,
-    *t.rast.mapcalc* and *t.rast3d.mapcalc*
-    ([t.sample](t.sample.md#notes),
+- **method=start takes the maps that start in the sampler map**
+    *(upstream)*. The sampling method `start` selected maps that start
+    before a sampler map and end inside it or at its end, and it missed
+    maps that start inside it and end after it and maps of the same time.
+    Now `start` selects every map whose start time lies in the sampler map,
+    from its start to its end without the end, as the manual of *t.sample*
+    describes it; this holds for *t.sample*, *t.rast.mapcalc*,
+    *t.rast3d.mapcalc* and `sample_stds_by_stds_topology()`. The fix comes
+    from OSGeo/grass pull request 8177
+    ([t.sample](t.sample.md#relations),
     [temporal data processing](temporalintro.md#sampling)).
 - **Samplers of time instances.** A sampler of time instances or of the
     other temporal type made *t.sample*, *t.rast.mapcalc* and
@@ -546,7 +551,8 @@ sections "Results corrected since GRASS 8.5".
     *t.rast.mapcalc*, *t.rast3d.mapcalc*, *t.rast.aggregate* and
     *t.rast.aggregate.ds* computed sampling and aggregation with code of
     their own. Now they use the functions of the new algebra; their results
-    are those of before, and tests that record them keep them
+    are those of before, apart from the method `start` above, and tests that
+    record them keep them
     ([t.rast.mapcalc](t.rast.mapcalc.md#notes)).
 - **Samplers and empty maps in *t.rast.aggregate.ds*.** A sampler in another
     relative unit gave no result and exit code 0, and **-n** worked the

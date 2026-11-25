@@ -45,23 +45,25 @@ following values:
 - `contain`: the map lies inside the granule, also a time instance; a map that
   shares the start or the end of the granule counts as well
 - `equal`: the map has the start and the end of the granule
-- `start`: the maps of `contain`, the maps that begin before the granule and
-  end inside it or at its end, the maps longer than the granule that begin
-  with it, and the maps equal to the granule
+- `start`: the map starts in the granule, at its start or later and before its
+  end, also a time instance: the maps of `contain` and `equal`, the maps longer
+  than the granule that begin with it, and the maps that begin inside it and
+  end after it
 - `follows`: the map ends where the granule starts
 - `precedes`: the map starts where the granule ends, also a time instance
 
-Other values are rejected by the parser, among them the inverse relations
-`overlaps` and `overlapped`. Several values are separated by commas. The maps
-of a cell are listed relation by relation: first those of `during`, `equal`,
-`follows` and `precedes`, in the order in which the list names them, then
-those of the groups `start`, `overlap` and `contain` in this order, whatever
-the order of the list. A map that stands in two selected relations is listed
-once. The maps of one of the plain relations follow their start times, and
-maps that start together follow their ids. A group is made of several
+A map with the start and the end of the granule is selected only by `equal` and
+`start`. Other values are rejected by the parser, among them the inverse
+relations `overlaps` and `overlapped`. Several values are separated by commas.
+The maps of a cell are listed relation by relation: first those of `during`,
+`equal`, `follows` and `precedes`, in the order in which the list names them,
+then those of the groups `start`, `overlap` and `contain` in this order,
+whatever the order of the list. A map that stands in two selected relations is
+listed once. The maps of one of the plain relations follow their start times,
+and maps that start together follow their ids. A group is made of several
 relations, which follow one another, so a map need not be listed by its start
-time: in the call with `start` of the third example, `wide_s` stands before
-`wide_e`, although it starts later.
+time: in the call with `start` of the third example, `inside` stands before
+`same`, although it starts later.
 
 ### Output
 
@@ -355,12 +357,12 @@ method: the plain values `during` and `equal` come first, then the groups
 `overlap` and `contain`, so the maps come in the order `wide`, `wide_e`,
 `wide_s`, `same`, `early`, `late`, `inside`; the maps of `during` follow their
 start times. The other calls select one relation each. `before` is related by
-none of them. `start` lists `early`, which begins before the granule and ends
-inside it, `wide_e`, which begins before it and ends with it, `wide_s`, which is
-longer and begins with it, `inside`, and last `same`, which is equal to the
-granule. It does not list `wide` and `late`. The last call names `overlap`
-before `start`, yet the maps of `start` come first and `late`, which only
-`overlap` selects, comes last.
+none of them. `start` lists the maps that begin in the granule: `wide_s`, which
+is longer and begins with it, `inside`, `same`, which is equal to the granule,
+and last `late`, which begins inside it and ends after it. It does not list
+`wide`, `wide_e` and `early`, which begin before the granule. The last call
+names `overlap` before `start`, yet the maps of `start` come first and `early`,
+which only `overlap` selects, comes last.
 
 === "Command line"
 
@@ -431,7 +433,7 @@ before `start`, yet the maps of `start` come first and `late`, which only
 
     ```text
     windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
-    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,same@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    window@t_sample|wide_s@t_sample,inside@t_sample,same@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```sh
@@ -440,7 +442,7 @@ before `start`, yet the maps of `start` come first and `late`, which only
 
     ```text
     windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
-    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,same@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    window@t_sample|wide_s@t_sample,inside@t_sample,same@t_sample,late@t_sample,early@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
 === "Python (grass.tools)"
@@ -552,7 +554,7 @@ before `start`, yet the maps of `start` come first and `late`, which only
 
     ```text
     windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
-    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,same@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    window@t_sample|wide_s@t_sample,inside@t_sample,same@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```python
@@ -565,7 +567,7 @@ before `start`, yet the maps of `start` come first and `late`, which only
 
     ```text
     windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
-    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,same@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    window@t_sample|wide_s@t_sample,inside@t_sample,same@t_sample,late@t_sample,early@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
 ### Maps next to the granule

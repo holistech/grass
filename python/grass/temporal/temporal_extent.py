@@ -630,7 +630,7 @@ class TemporalExtent(Row):
             A  |---------|
             B    |---------|
 
-        :param extent: The temporal extent object that is overlaps
+        :param extent: The temporal extent object that is overlapped by
                        this extent
 
         Usage:
@@ -664,7 +664,7 @@ class TemporalExtent(Row):
             B  |---------|
 
 
-        :param extent: The temporal extent object that is overlapped
+        :param extent: The temporal extent object that overlaps
                        this extent
 
         Usage:
