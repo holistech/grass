@@ -23,6 +23,7 @@ extern FLAG *Cells;
 extern CELLSORTER *DoNext;
 extern CELL **Out, *CellBuffer;
 extern int OutFD;
+extern struct G_random_state RandomState;
 extern int MaxCellsNum;
 extern struct Flag *Verbose;
 extern struct Option *Distance;

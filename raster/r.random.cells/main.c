@@ -29,6 +29,7 @@ FLAG *Cells;
 CELLSORTER *DoNext;
 CELL **Out, *CellBuffer;
 int OutFD;
+struct G_random_state RandomState;
 int MaxCellsNum;
 struct Flag *Verbose;
 struct Option *Distance;

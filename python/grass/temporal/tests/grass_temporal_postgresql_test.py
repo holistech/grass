@@ -278,7 +278,9 @@ def test_the_scenario_gives_the_same_rows_on_both_backends(
             database,
         ):
 
-            def after(step, backend=backend, database=database, seen=seen):
+            def after(
+                step, backend=backend, database=database, seen=seen, listed=listed
+            ):
                 seen[step] = postgresql.rows_of(backend, database)
                 # The list of labels is not stored but read by t.info
                 if step in {"strds registered", "strds unregistered"}:
