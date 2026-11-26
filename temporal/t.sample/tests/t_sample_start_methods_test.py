@@ -119,7 +119,7 @@ def test_python_api_selects_the_same_maps(tools, method):
     names = {
         sample.get_name() for sample in entry["samples"] if sample.get_id() is not None
     }
-    assert names == {name for name, (_, methods) in MAPS.items() if method in methods}
+    assert names == {name for name in MAPS if method in MAPS[name][1]}
 
 
 def test_start_with_during_lists_each_map_once(tools):
