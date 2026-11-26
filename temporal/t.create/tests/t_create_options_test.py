@@ -8,6 +8,7 @@ import sys
 
 import pytest
 
+import grass.temporal as tgis
 from grass.temporal.testing.data import MapSpec, create_stds, day, small_region
 from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.temporal.testing.session import project_session
@@ -178,6 +179,20 @@ def test_command_is_recorded_in_the_history(tools):
 
     assert 't.create output="hist_ds"' in history
     assert 'semantictype="min"' in history
+
+
+@pytest.mark.usefixtures("temporal_module_session")
+@pytest.mark.parametrize("program", ["t.create.py", "t.create"])
+def test_the_history_names_the_tool_without_the_script_suffix(monkeypatch, program):
+    # On Windows the program name of a Python tool is its file name with the
+    # suffix .py (GitHub Windows runner, 26.11.2026); the history is the same
+    # on every platform. Linux runs the tool without the suffix, so the test
+    # builds the command string in the process with the name of each.
+    monkeypatch.setattr(sys, "argv", [f"/usr/scripts/{program}", "output=a"])
+
+    command = tgis.SpaceTimeRasterDataset("a@PERMANENT").create_command_string()
+
+    assert command.splitlines()[1] == 't.create output="a"'
 
 
 def test_name_may_carry_the_current_mapset(tools):
