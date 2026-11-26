@@ -16,6 +16,12 @@ from grass.tools import Tools
 pytestmark = pytest.mark.real_io
 
 
+needs_proc_fd = pytest.mark.skipif(
+    not Path("/proc/self/fd").is_dir(),
+    reason="needs /proc/self/fd to see the open files of the process",
+)
+
+
 def _open_handles(path):
     """Count the file descriptors of this process that point to the file"""
     target = Path(path).resolve()
@@ -162,6 +168,7 @@ def test_register_map_leaves_a_given_connection_open_on_abort(small_strds):
     dbif.close()
 
 
+@needs_proc_fd
 def test_register_map_closes_its_own_connection_on_abort(small_strds):
     path = tgis.get_tgis_database_string()
     before = _open_handles(path)

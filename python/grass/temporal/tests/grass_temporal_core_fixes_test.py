@@ -239,6 +239,12 @@ def test_rollback_reaches_the_connection_of_the_mapset(temporal_module_session):
     assert calls == ["current", "other", "other"]
 
 
+needs_proc_fd = pytest.mark.skipif(
+    not Path("/proc/self/fd").is_dir(),
+    reason="needs /proc/self/fd to see the open files of the process",
+)
+
+
 def _open_handles(path):
     """Count the file descriptors of this process that point to the file"""
     target = Path(path).resolve()
@@ -252,6 +258,7 @@ def _open_handles(path):
     return count
 
 
+@needs_proc_fd
 def test_close_releases_the_sqlite_file(temporal_module_session):
     tgis.init()
     before = _open_handles(tgis.get_tgis_database_string())
@@ -264,6 +271,7 @@ def test_close_releases_the_sqlite_file(temporal_module_session):
     assert _open_handles(tgis.get_tgis_database_string()) == before
 
 
+@needs_proc_fd
 def test_interface_close_releases_every_connection(temporal_module_session):
     tgis.init()
     before = _open_handles(tgis.get_tgis_database_string())
@@ -276,6 +284,7 @@ def test_interface_close_releases_every_connection(temporal_module_session):
     assert dbif.is_connected() is False
 
 
+@needs_proc_fd
 @pytest.mark.parametrize(
     "method", ["delete", "is_in_db", "select", "insert", "update", "update_all"]
 )
@@ -321,6 +330,7 @@ def test_missing_metadata_table_does_not_end_in_a_type_error(without_metadata_ta
         tgis.get_tgis_db_version_from_metadata()
 
 
+@needs_proc_fd
 def test_failed_metadata_read_closes_its_own_connection(without_metadata_table):
     before = _open_handles(tgis.get_tgis_database_string())
 
