@@ -42,10 +42,11 @@ from grass.temporal.testing.session import (  # noqa: E402
 )
 from grass.tools import ToolError, Tools  # noqa: E402
 
-# Windows starts processes several times slower than Linux, and there
-# pytest-timeout has only its thread method, which ends the whole xdist worker
-# when a limit passes. In the OSGeo4W job of the CI (26.11.2026), eight
-# workers ended so, among them tests with a limit of 10 s.
+# In the OSGeo4W job of the CI (26.11.2026), eight tests ran out of their
+# time limit, among them tests with a limit of 10 s; there pytest-timeout has
+# only its thread method, which ends the whole xdist worker when a limit
+# passes. The factor and the floor are chosen values, not measured ones; the
+# next run on Windows shows whether they hold.
 WINDOWS_TIMEOUT_FACTOR = 5
 WINDOWS_TIMEOUT_MINIMUM = 60
 
