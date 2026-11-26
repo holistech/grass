@@ -60,6 +60,10 @@ def checksum(tools):
     """Checksums of the raster and the vector which run() wrote"""
     raster = tools.r_out_ascii(input="random_raster", flags="h").stdout
     vector = tools.v_out_ascii(input="random_vector", format="point").stdout
+    # v.out.ascii writes no empty row. On Windows it ends each row with
+    # "\r\n" (HOST_NEWLINE) in a stdout in text mode, and the "\r\r\n" reads
+    # as two line ends (OSGeo4W CI, 26.11.2026); one is the text of Linux.
+    vector = vector.replace("\n\n", "\n")
     return (
         hashlib.md5(raster.encode()).hexdigest(),
         hashlib.md5(vector.encode()).hexdigest(),
