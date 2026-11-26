@@ -42,7 +42,10 @@ The option **compression** compresses the archive: `bzip2` (the default),
 `gzip`, or `no` for a plain tar archive. A tool such as `tar -tf` or the Python
 module `tarfile` recognises the compression by itself.
 
-The option **directory** names the working directory, by default `/tmp`.
+The option **directory** names the working directory, by default the
+temporary directory of the system: the first of the environment variables
+`TMPDIR`, `TEMP` and `TMP` that names a writable directory, otherwise a
+directory such as `/tmp` or `C:\TEMP` (see the Python module `tempfile`).
 *t.vect.export* exports the maps into a temporary subdirectory of it, packs
 them there, moves the archive to the path given by **output** and removes the
 subdirectory. The archive is therefore not written to **directory**, and a

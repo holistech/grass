@@ -17,8 +17,7 @@ from grass.temporal.testing.data import MapSpec, register_stds, vector_points
 
 @pytest.fixture(autouse=True)
 def _work_in_tmp_path(tmp_path, monkeypatch):
-    # The default of directory is /tmp, the archive of a relative output goes
-    # to the current directory.
+    # The archive of a relative output goes to the current directory.
     monkeypatch.chdir(tmp_path)
 
 

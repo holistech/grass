@@ -935,6 +935,10 @@ sections "Results corrected since GRASS 8.5".
     layers, or one map selected twice with the same layer, into a wrong
     archive. Now this is refused before anything is written
     ([t.vect.export](t.vect.export.md#notes)).
+- **Working directory of t.vect.export.** The default of **directory** was
+    `/tmp`, which does not exist on Windows. Now it is the temporary
+    directory of the system
+    ([t.vect.export](t.vect.export.md#archive-and-compression)).
 
 ### t.rast.extract, t.rast3d.extract and t.vect.extract
 

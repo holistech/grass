@@ -47,7 +47,10 @@ The option <b>compression</b> compresses the archive: <code>bzip2</code> (the de
 module <code>tarfile</code> recognises the compression by itself.
 
 <p>
-The option <b>directory</b> names the working directory, by default <code>/tmp</code>.
+The option <b>directory</b> names the working directory, by default the
+temporary directory of the system: the first of the environment variables
+<code>TMPDIR</code>, <code>TEMP</code> and <code>TMP</code> that names a writable directory, otherwise a
+directory such as <code>/tmp</code> or <code>C:\TEMP</code> (see the Python module <code>tempfile</code>).
 <em>t.vect.export</em> exports the maps into a temporary subdirectory of it, packs
 them there, moves the archive to the path given by <b>output</b> and removes the
 subdirectory. The archive is therefore not written to <b>directory</b>, and a
