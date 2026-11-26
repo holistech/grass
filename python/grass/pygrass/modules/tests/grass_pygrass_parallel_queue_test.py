@@ -97,6 +97,16 @@ class Helpers:
         self.script = directory / "queue_helper.py"
         self.script.write_text(HELPER)
         self.script.chmod(self.script.stat().st_mode | stat.S_IXUSR)
+        self.program = self.script
+        if sys.platform == "win32":
+            # Windows runs no script by its shebang and grass.script finds
+            # no program without an extension of PATHEXT, so a batch file
+            # starts the script, as the wrappers of the Python tools do.
+            self.program = directory / "queue_helper.bat"
+            self.program.write_text(
+                f'@echo off\n"{sys.executable}" "{self.script}" %*\n'
+                "exit /b %ERRORLEVEL%\n"
+            )
         self.modules = []
 
     def module(self, name, *, slow=False, fail=False, **kwargs):
@@ -109,7 +119,7 @@ class Helpers:
         if fail:
             kwargs["flags"] = "f"
         module = Module(
-            str(self.script), done=str(self.marker(name)), run_=False, **kwargs
+            str(self.program), done=str(self.marker(name)), run_=False, **kwargs
         )
         self.modules.append(module)
         return module
