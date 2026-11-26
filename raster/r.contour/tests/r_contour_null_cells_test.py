@@ -24,8 +24,8 @@ TESTS = Path(__file__).parent
 PADDED = {"n": 12, "s": 0, "w": 0, "e": 14}
 RECTANGLE = {"n": 10, "s": 2, "w": 3, "e": 11}
 INSIDE = "row() >= 3 && row() <= 10 && col() >= 4 && col() <= 11"
-I = "(row() - 2)"
-J = "(col() - 3)"
+NODE_ROW = "(row() - 2)"
+NODE_COL = "(col() - 3)"
 
 # Chessboard of 1 and 0: every cell is a saddle.
 CHESSBOARD = "if(({i} + {j}) % 2 == 0, 1.0, 0.0)"
@@ -65,7 +65,7 @@ def tools(session):
 
 def in_rectangle(expression):
     """Return the expression in {i} and {j} in terms of row() and col()"""
-    return expression.format(i=I, j=J)
+    return expression.format(i=NODE_ROW, j=NODE_COL)
 
 
 def read_lines(tools):
