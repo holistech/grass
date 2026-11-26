@@ -96,7 +96,12 @@ jobs:
           done
           echo "Excluded folders:"
           echo "${new_array[@]}"
-          printf -v extra_exclude './%s/* ' "${new_array[@]}"
+          # printf applies its format once even to no arguments, and the
+          # resulting ".//* " would exclude every test file.
+          extra_exclude=""
+          if [[ ${#new_array[@]} -gt 0 ]]; then
+            printf -v extra_exclude './%s/* ' "${new_array[@]}"
+          fi
           echo "Exclusion string to add to gunittest config"
           echo "${extra_exclude}"
           echo "extra-exclude=${extra_exclude}" >> "${GITHUB_OUTPUT}"
