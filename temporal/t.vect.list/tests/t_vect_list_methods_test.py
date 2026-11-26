@@ -319,7 +319,11 @@ def test_comma_prints_the_ids_in_one_line(tools, stds):
 def test_the_line_format_prints_the_ids_in_one_line(tools, stds):
     ids = [f"{name}@PERMANENT" for name in _names("adjacent")]
 
-    lines = _lines(tools, input="adjacent", format="line", columns="id", separator="|")
+    # The keyword, not "|": on Windows the tool runs through a .bat wrapper
+    # and cmd.exe would read a bare | as a pipe.
+    lines = _lines(
+        tools, input="adjacent", format="line", columns="id", separator="pipe"
+    )
 
     assert lines == ["|".join(ids)]
 

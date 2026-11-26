@@ -23,10 +23,12 @@ from grass.tools import ToolError, Tools
 
 def _maps(tools, strds):
     """(numeric suffix, start, end, min, max) of each registered map, in order"""
+    # The keyword, not "|": on Windows the tool runs through a .bat wrapper
+    # and cmd.exe would read a bare | as a pipe.
     text = tools.t_rast_list(
         input=strds,
         columns="name,start_time,end_time,min,max",
-        separator="|",
+        separator="pipe",
         flags="u",
     ).text
     rows = [line.split("|") for line in text.strip().splitlines()]
@@ -507,7 +509,7 @@ def test_semantic_label_of_the_sampled_map_is_transferred(mapcalc_session):
         basename="char_lab_out",
     )
     text = tools.t_rast_list(
-        input="char_lab_out", columns="name,semantic_label", separator="|", flags="u"
+        input="char_lab_out", columns="name,semantic_label", separator="pipe", flags="u"
     ).text
     assert text.strip().splitlines() == ["char_lab_out_1|S2_1", "char_lab_out_2|S2_1"]
 

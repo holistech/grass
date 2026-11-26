@@ -21,10 +21,12 @@ from grass.tools import ToolError, Tools
 
 def _maps(tools, str3ds):
     """(numeric suffix, start, end, min, max) of each registered 3D map"""
+    # The keyword, not "|": on Windows the tool runs through a .bat wrapper
+    # and cmd.exe would read a bare | as a pipe.
     text = tools.t_rast3d_list(
         input=str3ds,
         columns="name,start_time,end_time,min,max",
-        separator="|",
+        separator="pipe",
         format="plain",
         flags="s",
     ).text
