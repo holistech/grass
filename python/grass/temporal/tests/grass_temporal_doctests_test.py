@@ -116,7 +116,7 @@ def test_the_doctests_of_a_module(name, tmp_path, monkeypatch):
 def test_every_module_with_doctests_is_run():
     root = Path(tgis.__file__).parent
     found = {
-        str(path.relative_to(root).with_suffix("")).replace("/", ".")
+        ".".join(path.relative_to(root).with_suffix("").parts)
         for path in root.rglob("*.py")
         if ">>>" in path.read_text()
         and "ply" not in path.parts
