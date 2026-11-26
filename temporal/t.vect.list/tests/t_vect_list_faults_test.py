@@ -129,7 +129,8 @@ def test_gran_ends_at_end_of_dataset(tools, order):
     ]
 
 
-@pytest.mark.timeout(10)
+# The GitHub macOS runner needed more than 10 s for a run on 26.11.2026.
+@pytest.mark.timeout(60)
 @pytest.mark.parametrize("granule", ["0 days", "0 months", "-1 days"])
 def test_zero_granule_is_refused(tools, granule):
     """A granule of 0 or less ends with a message and does not run on
@@ -153,7 +154,8 @@ def test_zero_granule_is_refused(tools, granule):
     assert inventory(tools) == before
 
 
-@pytest.mark.timeout(10)
+# The GitHub macOS runner needed more than 10 s for a run on 26.11.2026.
+@pytest.mark.timeout(60)
 def test_zero_relative_granule_is_refused(tools, model):
     """The relative granule 0 is refused as well"""
     with pytest.raises(ToolError) as error:
