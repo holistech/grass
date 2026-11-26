@@ -43,14 +43,17 @@ jobs:
           # added as excluded folders, then items included for this matrix
           # job are removed from that exclusion list.
           #
+          # The temporal folder has no gunittest files of its own any more
+          # (its tests run with pytest), so it no longer gets a job of its
+          # own: a job with no test files fails.
+          #
           # Using folded YAML multiline string block chomping (>-) to replace
           # newlines with spaces, and strip newline at end.
           # See https://yaml-multiline.info/
-          - temporal
           - >-
             db display doc docker general gui
             imagery lib misc ps python raster raster3d scripts
-            testsuite utils vector visualization
+            temporal testsuite utils vector visualization
 
         include:
           - name: "24.04"
