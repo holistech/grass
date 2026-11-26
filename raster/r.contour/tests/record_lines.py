@@ -166,8 +166,10 @@ def main(path):
                 gs.run_command(
                     "g.remove", type="vector", name="lines", flags="f", quiet=True
                 )
+    # The layout of the clang-format hook of pre-commit, so that a new
+    # recording passes the hook unchanged.
     with open(path, "w", encoding="utf-8") as stream:
-        json.dump(recording, stream, indent=1, sort_keys=True)
+        json.dump(recording, stream, indent=4, sort_keys=True)
         stream.write("\n")
 
 
