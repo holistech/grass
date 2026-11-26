@@ -58,19 +58,22 @@ OFFSET_IN_JANUARY = {
 def test_the_environment_reaches_the_tools(zone_tools, request):
     # Without this the module would test one zone three times.
     # Python, not "date -d": BSD date on macOS does not know that option.
-    result = zone_tools.run_cmd(
-        [
-            sys.executable,
-            "-c",
-            (
-                "import time; print(time.strftime('%z', "
-                "time.localtime(time.mktime((2001, 1, 1, 12, 0, 0, 0, 1, -1)))))"
-            ),
-        ]
-    )
+    # On Windows the C runtime reads TZ only in the POSIX form such as
+    # "EST5EDT" (documentation of _tzset), not an IANA name, so the offset
+    # there would be that of the runner; the child only shows TZ.
+    code = "import os; print(os.environ['TZ'])"
+    if sys.platform != "win32":
+        code += (
+            "; import time; print(time.strftime('%z', "
+            "time.localtime(time.mktime((2001, 1, 1, 12, 0, 0, 0, 1, -1)))))"
+        )
+    result = zone_tools.run_cmd([sys.executable, "-c", code])
 
     zone = request.node.callspec.params["zone_tools"]
-    assert result.stdout.strip() == OFFSET_IN_JANUARY[zone]
+    expected = [zone]
+    if sys.platform != "win32":
+        expected.append(OFFSET_IN_JANUARY[zone])
+    assert result.stdout.splitlines() == expected
 
 
 def test_start_with_an_offset_is_kept(zone_tools, prefix):

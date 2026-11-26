@@ -593,17 +593,20 @@ def test_the_threshold_lookup_does_not_depend_on_the_time_zone(
     # Without this the module would test one zone twice.
     zone = request.node.callspec.params["zone_tools"]
     # Python, not "date -d": BSD date on macOS does not know that option.
-    offset = zone_tools.run_cmd(
-        [
-            sys.executable,
-            "-c",
-            (
-                "import time; print(time.strftime('%z', "
-                "time.localtime(time.mktime((2001, 1, 1, 12, 0, 0, 0, 1, -1)))))"
-            ),
-        ]
-    )
-    assert offset.stdout.strip() == {"UTC": "+0000", "Asia/Kathmandu": "+0545"}[zone]
+    # On Windows the C runtime reads TZ only in the POSIX form such as
+    # "EST5EDT" (documentation of _tzset), not an IANA name, so the offset
+    # there would be that of the runner; the child only shows TZ.
+    code = "import os; print(os.environ['TZ'])"
+    if sys.platform != "win32":
+        code += (
+            "; import time; print(time.strftime('%z', "
+            "time.localtime(time.mktime((2001, 1, 1, 12, 0, 0, 0, 1, -1)))))"
+        )
+    child = zone_tools.run_cmd([sys.executable, "-c", code])
+    expected = [zone]
+    if sys.platform != "win32":
+        expected.append({"UTC": "+0000", "Asia/Kathmandu": "+0545"}[zone])
+    assert child.stdout.splitlines() == expected
 
     # The result of the test of the minimum that changes over time.
     zone_tools.t_rast_accdetect(
