@@ -499,6 +499,15 @@ def _tools(session):
     return Tools(session=session, consistent_return_value=True, capture_stderr=True)
 
 
+def forward_slashes(text):
+    """text with / for every \\
+
+    The tools name the database by its connection, $GISDBASE/$LOCATION_NAME/
+    $MAPSET/tgis/sqlite.db with /, and Windows gives the project path with \\.
+    """
+    return text.replace("\\", "/")
+
+
 def _strds_view_columns(session):
     with sqlite3.connect(database_file(session)) as connection:
         rows = connection.execute("PRAGMA table_info(strds_view_abs_time)")
@@ -518,11 +527,11 @@ def test_a_column_missing_from_an_old_view_names_t_upgrade(tmp_path):
             tools.t_list(type="strds", columns="name,number_of_semantic_labels")
 
         text = message(raised.value)
-        assert (
+        assert forward_slashes(
             "Column <number_of_semantic_labels> is missing from the views of the"
             f" temporal database <{database_file(session)}>. Run t.upgrade to"
             " create the views anew."
-        ) in text
+        ) in forward_slashes(text)
         assert "Traceback" not in text
         assert tools.t_list(type="strds", columns="name").stdout == "series\n"
 
@@ -546,4 +555,6 @@ def test_all_columns_are_those_that_the_views_of_every_mapset_have(tmp_path):
         assert all("number_of_maps" in row for row in rows)
         with pytest.raises(ToolError) as raised:
             work_tools.t_list(type="strds", columns="name,number_of_semantic_labels")
-        assert f"temporal database <{database_file(other)}>" in message(raised.value)
+        assert forward_slashes(
+            f"temporal database <{database_file(other)}>"
+        ) in forward_slashes(message(raised.value))

@@ -151,6 +151,15 @@ def stored_version(backend, dbstring):
     )[0][0]
 
 
+def forward_slashes(text):
+    """text with / for every \\
+
+    The tools name the database by its connection, $GISDBASE/$LOCATION_NAME/
+    $MAPSET/tgis/sqlite.db with /, and Windows gives the project path with \\.
+    """
+    return text.replace("\\", "/")
+
+
 def test_current_database_is_left_alone(project):
     tools, _, database = project
     before = structure_of(database)
@@ -474,10 +483,10 @@ def test_registering_a_labelled_map_in_version_2_names_t_upgrade(either_backend)
         )
 
     text = message(raised.value)
-    assert (
+    assert forward_slashes(
         f"The temporal database <{dbstring}> has version 2, which cannot store "
         "the semantic label of <a2@PERMANENT>. Run t.upgrade first."
-    ) in text
+    ) in forward_slashes(text)
     assert "Traceback" not in text
     assert "no column named" not in text
     assert registered_ids(backend, dbstring, "raster_base") == [
@@ -549,9 +558,9 @@ def test_t_upgrade_creates_the_views_of_a_current_database_anew(either_backend):
 
     result = tools.t_upgrade()
 
-    assert (
+    assert forward_slashes(
         f"Temporal database <{dbstring}> is up-to-date; its views were created anew."
-    ) in message(result)
+    ) in forward_slashes(message(result))
     assert view_columns(backend, dbstring) == current
     first = (rows_of(backend, dbstring), all_indexes(backend, dbstring))
 
