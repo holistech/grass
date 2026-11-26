@@ -116,6 +116,69 @@ def tools(tmp_path_factory):
         yield tools
 
 
+def _write_sh_stand_in(folder, name, real, status, passing, failing):
+    """Write the stand-in of broken_tools for name as a shell script"""
+    real = shlex.quote(real)
+    run_real = ""
+    final = f"exit {status}\n"
+    if passing:
+        run_real = (
+            f'for arg in "$@"; do\n'
+            f'[ "$arg" = {shlex.quote(passing)} ] && exec {real} "$@"\n'
+            f"done\n"
+        )
+    if failing:
+        # Prefix match on each argument; a call without it runs the real
+        # tool, so there is no exit after the loop.
+        run_real = (
+            f'for arg in "$@"; do\n'
+            f'case "$arg" in {shlex.quote(failing)}*) exit {status} ;; esac\n'
+            f"done\n"
+        )
+        final = f'exec {real} "$@"\n'
+    stand_in = folder / name
+    stand_in.write_text(
+        f'#!/bin/sh\ncase "$1" in\n'
+        f'--interface-description) exec {real} "$@" ;;\n'
+        f"esac\n{run_real}{final}"
+    )
+    stand_in.chmod(0o755)
+
+
+def _write_batch_stand_in(folder, name, real, status, passing):
+    """Write the stand-in of broken_tools for name as a batch file for Windows
+
+    On Windows, the lookup in PATH takes name.bat for name and runs it with
+    cmd.exe, which ends the batch file with the status of exit /b. cmd.exe
+    splits the arguments at '=' as well, which does not matter for passing,
+    a flag. shift leaves %* alone, so the real tool gets all arguments.
+    """
+    lines = [
+        "@echo off",
+        'if "%~1"=="--interface-description" goto real',
+    ]
+    if passing:
+        lines += [
+            ":next",
+            'if "%~1"=="" goto stand_in',
+            f'if "%~1"=="{passing}" goto real',
+            "shift",
+            "goto next",
+            ":stand_in",
+        ]
+    # Without call, cmd.exe does not come back from a real tool that is a
+    # batch file itself, which is right here, and does not expand the
+    # arguments a second time, as call would.
+    lines += [
+        f"exit /b {status}",
+        ":real",
+        f'"{real}" %*',
+        "exit /b %ERRORLEVEL%",
+    ]
+    # Text mode writes the line ends of Windows there.
+    (folder / f"{name}.bat").write_text("\n".join(lines) + "\n")
+
+
 @pytest.fixture
 def broken_tools(tools, tmp_path):
     """Function that gives Tools in which the named tools do not work
@@ -133,41 +196,26 @@ def broken_tools(tools, tmp_path):
     the real tool unless one of its arguments starts with failing, for a tool
     that is called several times with arguments that differ in a prefix, such
     as g.region with and without tbres=. passing and failing exclude each
-    other. The stand-ins only exist for the Tools it returns.
+    other. The stand-ins only exist for the Tools it returns. On Windows, the
+    stand-ins are batch files, and a test that uses failing is skipped.
     """
 
     def make(*names, status=1, passing=None, failing=None):
         if passing and failing:
             msg = "passing and failing exclude each other"
             raise ValueError(msg)
+        if failing and sys.platform == "win32":
+            pytest.skip(
+                "cmd.exe splits the arguments of a batch file at '=', so a "
+                "stand-in cannot match an argument by the prefix failing"
+            )
         search = tools._original_env["PATH"]  # noqa: SLF001
         for name in names:
-            real = shlex.quote(shutil.which(name, path=search))
-            run_real = ""
-            final = f"exit {status}\n"
-            if passing:
-                run_real = (
-                    f'for arg in "$@"; do\n'
-                    f'[ "$arg" = {shlex.quote(passing)} ] && exec {real} "$@"\n'
-                    f"done\n"
-                )
-            if failing:
-                # Prefix match on each argument; a call without it runs the real
-                # tool, so there is no exit after the loop.
-                run_real = (
-                    f'for arg in "$@"; do\n'
-                    f'case "$arg" in {shlex.quote(failing)}*) exit {status} ;; esac\n'
-                    f"done\n"
-                )
-                final = f'exec {real} "$@"\n'
-
-            stand_in = tmp_path / name
-            stand_in.write_text(
-                f'#!/bin/sh\ncase "$1" in\n'
-                f'--interface-description) exec {real} "$@" ;;\n'
-                f"esac\n{run_real}{final}"
-            )
-            stand_in.chmod(0o755)
+            real = shutil.which(name, path=search)
+            if sys.platform == "win32":
+                _write_batch_stand_in(tmp_path, name, real, status, passing)
+            else:
+                _write_sh_stand_in(tmp_path, name, real, status, passing, failing)
         # Tools has no public access to the environment it runs the tools in
         # (grass.tools of 21.10.2026); a session of its own would need the
         # project of the module again.
