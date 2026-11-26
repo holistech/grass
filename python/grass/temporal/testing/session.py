@@ -134,12 +134,17 @@ def find_program(name, env):
     On Windows, subprocess does not add .exe or .bat to a name that already
     has a dot in it, as every GRASS tool name has, so a tool has to be
     resolved before it is started; shutil.which tries the extensions of
-    PATHEXT. Raises FileNotFoundError naming the program and the PATH
-    searched when it is not found.
+    PATHEXT. An env without PATH is searched with the PATH of os.environ,
+    as shutil.which does for no path, because subprocess also starts a
+    program from the PATH of the test process then. Raises
+    FileNotFoundError naming the program and the PATH searched when it is
+    not found.
     """
-    path = shutil.which(name, path=env["PATH"])
+    search = env.get("PATH")
+    path = shutil.which(name, path=search)
     if path is None:
-        msg = f"Program {name} not found in PATH {env['PATH']}"
+        searched = os.environ.get("PATH") if search is None else search
+        msg = f"Program {name} not found in PATH {searched}"
         raise FileNotFoundError(msg)
     return path
 

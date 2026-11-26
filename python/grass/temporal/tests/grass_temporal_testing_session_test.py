@@ -254,3 +254,12 @@ def test_find_program_names_the_program_and_the_path():
         find_program("t.missing", env)
     assert "t.missing" in str(error.value)
     assert env["PATH"] in str(error.value)
+
+
+def test_find_program_without_path_searches_the_path_of_the_process(monkeypatch):
+    folder = os.path.dirname(sys.executable)
+    monkeypatch.setenv("PATH", folder)
+    assert find_program(os.path.basename(sys.executable), {}) == sys.executable
+    with pytest.raises(FileNotFoundError) as error:
+        find_program("t.missing", {})
+    assert f"PATH {folder}" in str(error.value)
