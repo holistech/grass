@@ -1699,6 +1699,9 @@ of the manuals found are fixed as well, but they are not counted.
     with a traceback.
 - ***t.vect.what.strds*:** an invalid **where** gave no error, and an empty
     vector dataset reported that the maps must be intervals.
+- **The command history** of a space time dataset named a tool by its
+    file name on Windows, for example `t.create.py`. Now it names the tool
+    as it is called, `t.create`, on every platform.
 - **The Python library:** 18 further errors that only Python code meets,
     among them a rollback and a close of connections on the paths of
     errors, a closed connection of the caller, labels and relative time

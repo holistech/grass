@@ -229,10 +229,10 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
 
         :return: The command string
         """
-        # The grass module
-
         command = "# {} \n".format(str(datetime.today().strftime("%Y-%m-%d %H:%M:%S")))
-        command += os.path.basename(sys.argv[0])
+        # On Windows the program name of a Python tool is its file name with
+        # the suffix .py; the history names the tool as it is called.
+        command += os.path.basename(sys.argv[0]).removesuffix(".py")
 
         # We will wrap the command line to fit into 80 character
         length = len(command)

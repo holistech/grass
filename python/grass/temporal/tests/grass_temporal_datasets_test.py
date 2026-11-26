@@ -6,6 +6,7 @@ the temporal database when they are built, hence the session.
 
 import copy
 import pickle
+import sys
 
 import pytest
 
@@ -106,3 +107,17 @@ def test_the_abstract_classes_cannot_be_instantiated():
     for generic in (MapDataset, StdsDataset):
         with pytest.raises(TypeError, match="abstract"):
             generic("a@PERMANENT")
+
+
+@pytest.mark.parametrize("program", ["t.create.py", "t.create"])
+def test_the_command_string_names_the_tool_without_the_script_suffix(
+    monkeypatch, program
+):
+    # On Windows the program name of a Python tool is its file name with the
+    # suffix .py (GitHub Windows runner, 26.11.2026); the history is the same
+    # on every platform.
+    monkeypatch.setattr(sys, "argv", [f"/usr/scripts/{program}", "output=a"])
+
+    command = tgis.SpaceTimeRasterDataset("a@PERMANENT").create_command_string()
+
+    assert command.splitlines()[1] == 't.create output="a"'
