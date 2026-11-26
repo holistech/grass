@@ -757,3 +757,36 @@ def test_a_metadata_value_is_found_in_tuples_and_rows_and_may_be_missing():
     assert metadata_value(rows, "tgis_version") == "2"
     assert metadata_value(rows, "a") == "b"
     assert metadata_value(rows, "value") is None
+
+
+def test_all_mapsets_are_listed_by_name(monkeypatch):
+    """mapset=* lists the mapsets sorted by name, other values keep t.connect's order
+
+    t.connect reads the project directory, and the order of that read differs
+    between file systems (found on the GitHub macOS runner, 26.11.2026).
+    """
+    asked = []
+
+    def t_connect(**options):
+        asked.append(options["mapset"])
+        return [
+            {"mapset": name, "driver": "pg", "database": "host=x"}
+            for name in ("t_list_2", "PERMANENT", "t_list")
+        ]
+
+    monkeypatch.setattr(
+        db_module(), "tools", types.SimpleNamespace(t_connect=t_connect)
+    )
+
+    monkeypatch.setattr(
+        db_module(),
+        "get_tgis_c_library_interface",
+        lambda: types.SimpleNamespace(get_database_name=lambda mapset: "host=x"),
+    )
+
+    everything = db_module().get_available_temporal_mapsets("*")
+    named = db_module().get_available_temporal_mapsets("t_list_2,PERMANENT")
+
+    assert asked == ["*", "t_list_2,PERMANENT"]
+    assert list(everything) == ["PERMANENT", "t_list", "t_list_2"]
+    assert list(named) == ["t_list_2", "PERMANENT", "t_list"]

@@ -45,6 +45,9 @@ Without it, these are the mapsets of the search path (see
 
 Quote `*` in the shell: `mapset='*'`.
 
+With `mapset=*` the mapsets are listed in the order of their names, the same on
+every system.
+
 A name that is no mapset of the project stops *t.list* with the error
 `Mapset <name> not found in the project.` and a return code other than 0. A
 mapset that exists but has no temporal database is no error and lists

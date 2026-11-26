@@ -141,13 +141,19 @@ def get_available_temporal_mapsets(mapsets: str | None = None) -> dict:
                        If None, defaults to the current search path.
 
     :returns: A dictionary, mapset names are keys, the tuple (driver,
-              database) are the values
+              database) are the values; for ``*`` the keys are sorted by name,
+              otherwise in the order t.connect returns them
     """
     c_library_interface = get_tgis_c_library_interface()
     message_interface = get_tgis_message_interface()
 
     connections = tools.t_connect(flags="p", format="json", mapset=mapsets, quiet=True)
     mapsets_list = [conn for conn in connections if all(conn.values())]
+    if mapsets == "*":
+        # t.connect lists the project directory in the order the file system
+        # returns it, which is not the same on Linux and macOS (GitHub macOS
+        # runner, 26.11.2026). Named mapsets keep the order they were given in.
+        mapsets_list.sort(key=lambda conn: conn["mapset"])
 
     tgis_mapsets = {}
 
