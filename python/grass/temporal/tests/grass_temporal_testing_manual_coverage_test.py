@@ -238,6 +238,9 @@ def test_an_aborted_run_leaves_no_process(tmp_path, session):
     group = int((workdir / "group").read_text())
     try:
         assert group_exists(group)
+        # bash can write the file before the thread has registered the process
+        # (24 runs on 2 cores, 26.11.2026: 6 failed without this wait, 0 with it).
+        assert wait_for(lambda: bool(me._RUNNING_PROCESSES), 30)
         stop()
         thread.join(30)
         assert not thread.is_alive()
