@@ -102,7 +102,11 @@ static void AttachMetadata(GDALDatasetH hDS, char **papszMetadataOptions)
         CPLFree(pszKey);
     }
 
-    CSLDestroy(papszMetadataOptions);
+    /* The list is the answers of the parser, allocated with G_malloc(), so
+       it is not destroyed here as gdal_translate does with its own list.
+       GDAL frees with the heap of its C runtime, which on Windows need not be
+       the one of GRASS; the OSGeo4W build ended here without a message
+       (GitHub Windows runner, 26.11.2026). */
 }
 
 int main(int argc, char *argv[])
