@@ -135,7 +135,10 @@ def lines_of_three_rows(tools, expression):
     tools.r_mapcalc(expression=f"m = {expression}", overwrite=True)
     tools.r_contour(input="m", output="lines", step=0.1, overwrite=True, quiet=True)
     text = tools.v_out_ascii(input="lines", format="standard", precision=17).text
-    rows = iter(text.splitlines())
+    # v.out.ascii writes no empty row. On Windows it ends each row with
+    # "\r\n" (HOST_NEWLINE) in a stdout in text mode, and the "\r\r\n"
+    # reads as an empty row after each row (OSGeo4W CI, 26.11.2026).
+    rows = (row for row in text.splitlines() if row)
     lines = []
     for row in rows:
         words = row.split()

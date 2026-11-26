@@ -86,7 +86,10 @@ def read_lines(levels):
     """Return the lines of the map as dictionaries of level and vertices"""
     text = gs.read_command("v.out.ascii", input="lines", format="standard")
     lines = []
-    rows = iter(text.splitlines())
+    # v.out.ascii writes no empty row. On Windows it ends each row with
+    # "\r\n" (HOST_NEWLINE) in a stdout in text mode, and the "\r\r\n"
+    # reads as an empty row after each row (OSGeo4W CI, 26.11.2026).
+    rows = (row for row in text.splitlines() if row)
     for row in rows:
         words = row.split()
         # The header block ends at the first "L" or "B" record.

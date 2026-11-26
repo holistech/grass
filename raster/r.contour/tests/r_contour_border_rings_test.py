@@ -33,7 +33,10 @@ def read_lines(tools):
     """Return the vertices (x, y) of each line of the map lines"""
     text = tools.v_out_ascii(input="lines", format="standard").text
     lines = []
-    rows = iter(text.splitlines())
+    # v.out.ascii writes no empty row. On Windows it ends each row with
+    # "\r\n" (HOST_NEWLINE) in a stdout in text mode, and the "\r\r\n"
+    # reads as an empty row after each row (OSGeo4W CI, 26.11.2026).
+    rows = (row for row in text.splitlines() if row)
     for row in rows:
         words = row.split()
         if not words or words[0] not in {"L", "B"}:
