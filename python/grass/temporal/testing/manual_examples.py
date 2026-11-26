@@ -43,6 +43,9 @@ comment is an error, and every other example needs both tabs.
 ``example_session`` makes, ``check_manual`` also compares the shown output and
 the figures. Which options the examples show and whether the
 ``.html`` agrees is the business of ``manual_coverage``.
+
+pytest is imported only by ``needs_bash()``; fixtures belong in conftest.py
+files.
 """
 
 from __future__ import annotations
@@ -627,6 +630,20 @@ def _skip_reason(block: Block) -> str | None:
     if need.startswith("gdal:"):
         return _gdal_reason(need[len("gdal:") :])
     return None
+
+
+def needs_bash():
+    """Return the pytest mark that skips a test where the shell tab cannot run
+
+    The shell tab runs its blocks with bash. In the OSGeo4W job of the CI
+    (26.11.2026), bash is ``C:\\Windows\\System32\\bash.exe``, the launcher
+    of the Windows Subsystem for Linux, which has no distribution there.
+    """
+    import pytest
+
+    return pytest.mark.skipif(
+        sys.platform == "win32", reason="bash of the runner is the WSL launcher"
+    )
 
 
 # The processes of the blocks that run now, for stop_example_processes.

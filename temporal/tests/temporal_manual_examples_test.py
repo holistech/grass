@@ -18,7 +18,6 @@ Carolina sample dataset (grass.temporal.testing.nc_dataset), which the tests
 need: without it, they fail with a message that says where to get it.
 """
 
-import sys
 from functools import partial
 from pathlib import Path
 
@@ -35,6 +34,7 @@ from grass.temporal.testing.manual_examples import (
     ManualFormatError,
     check_manual,
     example_session,
+    needs_bash,
     parse_manual,
     stop_example_processes,
     timeout_for,
@@ -120,24 +120,16 @@ def manual_of(tool):
     return parse_manual(TOOLS / tool / f"{tool}.md")
 
 
-# The shell tab runs its blocks with bash. In the OSGeo4W job of the CI
-# (26.11.2026), bash is C:\Windows\System32\bash.exe, the launcher of the
-# Windows Subsystem for Linux, which has no distribution there.
-NEEDS_BASH = pytest.mark.skipif(
-    sys.platform == "win32", reason="bash of the runner is the WSL launcher"
-)
-
-
 def tab_marks(read_manual, variant):
     """Return the marks of the test of one tab
 
-    NEEDS_BASH for the shell tab, and the time limit of the blocks, none for
+    needs_bash() for the shell tab, and the time limit of the blocks, none for
     a manual that cannot be read: the test of the manual reports the error;
     until then, the limit of the repository applies. Reading the manual while
     the tests are collected must not fail, or one broken manual would stop the
     whole file.
     """
-    marks = [NEEDS_BASH] if variant == "shell" else []
+    marks = [needs_bash()] if variant == "shell" else []
     try:
         manual = read_manual()
     except ManualFormatError:

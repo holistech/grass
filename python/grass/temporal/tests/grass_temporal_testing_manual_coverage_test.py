@@ -13,7 +13,6 @@ import os
 import re
 import signal
 import struct
-import sys
 import threading
 import time
 import zlib
@@ -26,12 +25,7 @@ from grass.temporal.testing import manual_examples as me
 from grass.temporal.testing.postgresql import SERVER_VARIABLE
 from grass.temporal.testing.session import project_session
 
-# The shell tab runs its blocks with bash. In the OSGeo4W job of the CI
-# (26.11.2026), bash is C:\Windows\System32\bash.exe, the launcher of the
-# Windows Subsystem for Linux, which has no distribution there.
-needs_bash = pytest.mark.skipif(
-    sys.platform == "win32", reason="bash of the runner is the WSL launcher"
-)
+needs_bash = me.needs_bash()
 
 
 def tab(label, body):
