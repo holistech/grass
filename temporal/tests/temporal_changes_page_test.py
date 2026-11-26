@@ -39,9 +39,12 @@ def source_pages(root=ROOT):
     find the copies in build trees and in directories that git ignores, and
     take a copy for the page. Without git, the test that uses this is skipped.
     """
+    # No pathspec *.md: on the Windows runner the pattern was expanded against
+    # the files of cwd before git saw it, and no page below the top directory
+    # was found (OSGeo4W CI, 26.11.2026).
     try:
         run = subprocess.run(
-            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "*.md"],
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
             cwd=root,
             capture_output=True,
             text=True,
@@ -49,7 +52,8 @@ def source_pages(root=ROOT):
         )
     except (OSError, subprocess.CalledProcessError):
         pytest.skip("needs a git checkout of the source tree")
-    return {Path(name).name: root / name for name in run.stdout.splitlines()}
+    names = [name for name in run.stdout.splitlines() if name.endswith(".md")]
+    return {Path(name).name: root / name for name in names}
 
 
 def slugify(text):
