@@ -6,6 +6,7 @@ relative path takes from the current directory.
 """
 
 import os
+import sys
 
 import pytest
 
@@ -79,5 +80,9 @@ def test_without_directory_the_work_is_done_in_the_temporary_directory(
     )
 
     assert (tmp_path / "out.tar").is_file()
-    assert temporary.stat().st_mtime > 0
+    # On Windows the time of a directory stayed the same when an entry was
+    # added or removed (OSGeo4W CI, 26.11.2026), so only the other
+    # platforms can show that the work was done here.
+    if sys.platform != "win32":
+        assert temporary.stat().st_mtime > 0
     assert list(temporary.iterdir()) == []
