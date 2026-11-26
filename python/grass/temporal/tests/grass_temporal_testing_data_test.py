@@ -433,7 +433,10 @@ def test_vector_points_coordinates(tools):
 
     out = tools.v_out_ascii(input="vp_xy", format="point", separator="comma")
 
-    assert out.text.splitlines() == ["1,2,1", "3,4,2"]
+    # split(), not splitlines(): on Windows v.out.ascii ends each row with
+    # "\r\n" (HOST_NEWLINE) in a stdout in text mode, which grass.tools
+    # reads as two line ends (OSGeo4W CI, 26.11.2026).
+    assert out.text.split() == ["1,2,1", "3,4,2"]
 
 
 def _tables(tools, name):
