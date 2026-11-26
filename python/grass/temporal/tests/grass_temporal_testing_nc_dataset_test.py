@@ -12,6 +12,7 @@ nothing is ever written into the real one.
 
 import os
 import sqlite3
+import sys
 from pathlib import Path
 
 import pytest
@@ -46,6 +47,12 @@ def fake_dataset(tmp_path):
     return path
 
 
+def set_home(monkeypatch, path):
+    """Make Path.home() give path: it reads HOME on POSIX, USERPROFILE on Windows"""
+    monkeypatch.setenv("HOME", str(path))
+    monkeypatch.setenv("USERPROFILE", str(path))
+
+
 def test_missing_dataset_fails_with_a_message(monkeypatch, tmp_path):
     empty = tmp_path / "empty"
     empty.mkdir()
@@ -64,7 +71,7 @@ def test_without_variable_and_defaults_the_message_names_the_defaults(
     monkeypatch, tmp_path
 ):
     monkeypatch.delenv(nc.VARIABLE, raising=False)
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, tmp_path)
     with pytest.raises(nc.MissingDataset) as error:
         nc.find_dataset()
     message = str(error.value)
@@ -79,7 +86,7 @@ def test_the_variable_comes_before_the_defaults(monkeypatch, tmp_path):
     home = tmp_path / "home"
     (home / "grassdata").mkdir(parents=True)
     gs.create_project(home / "grassdata" / "nc_spm_08_grass7")
-    monkeypatch.setenv("HOME", str(home))
+    set_home(monkeypatch, home)
     monkeypatch.setenv(nc.VARIABLE, str(chosen))
     assert nc.find_dataset() == chosen
 
@@ -92,7 +99,7 @@ def test_without_variable_the_first_default_that_exists_is_taken(
         monkeypatch.delenv(nc.VARIABLE, raising=False)
     else:
         monkeypatch.setenv(nc.VARIABLE, variable)
-    monkeypatch.setenv("HOME", str(tmp_path))
+    set_home(monkeypatch, tmp_path)
     full = tmp_path / "grassdata" / "nc_spm_full_v2beta1"
     gs.create_project(full)
     assert nc.find_dataset() == full
@@ -176,8 +183,11 @@ def test_snapshot_sees_new_changed_and_removed_files(tmp_path):
     assert "new: new" in changes
     assert "changed: WIND" in changes
     assert "missing: DEFAULT_WIND" in changes
-    # The directory changes with every entry that is added or removed.
-    assert "changed: ." in changes
+    # The directory changes with every entry that is added or removed, but
+    # on Windows its time stayed the same (OSGeo4W CI, 26.11.2026); the
+    # entries themselves show the change there.
+    if sys.platform != "win32":
+        assert "changed: ." in changes
 
 
 def test_snapshot_sees_a_changed_time_of_the_same_size(tmp_path):
