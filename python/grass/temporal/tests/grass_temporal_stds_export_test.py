@@ -107,6 +107,21 @@ def failing_modules(monkeypatch):
     return failing
 
 
+@pytest.fixture
+def windows_output(monkeypatch):
+    """Give the output of read_command the line ends of a tool on Windows
+
+    The tools write to stdout in text mode there, and read_command decodes
+    the bytes without translating the line ends.
+    """
+    read_command = gs.read_command
+
+    def read(*args, **kwargs):
+        return read_command(*args, **kwargs).replace("\n", "\r\n")
+
+    monkeypatch.setattr(gs, "read_command", read)
+
+
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session):
     """One dataset of every type, each with a time instant and an interval"""
@@ -167,10 +182,11 @@ def test_the_readme_names_the_files_of_the_format(
 
 @pytest.mark.parametrize(("type_", "format_"), list(README_HEADS))
 def test_the_text_files_of_the_archive_have_unix_line_ends(
-    datasets, tmp_path, type_, format_, failing_modules
+    datasets, tmp_path, type_, format_, failing_modules, windows_output
 ):
-    # The files were written in the line ends of the platform, so an archive
-    # made on Windows differed from one made elsewhere.
+    # The files were written in the line ends of the platform, and proj.txt
+    # and metadata.txt kept those of the tool output, so an archive made on
+    # Windows differed from one made elsewhere.
     archive = _export(tmp_path, datasets[type_], type_, format_)
 
     names = ("list.txt", "proj.txt", "init.txt", "metadata.txt", "readme.txt")

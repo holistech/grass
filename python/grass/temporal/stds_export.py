@@ -494,6 +494,11 @@ def _map_columns(kind: Kind | None) -> str:
     return columns + ",north,south,east,west,top,bottom"
 
 
+def _unix_line_ends(text: str) -> str:
+    """Return the text with every CRLF line end replaced by LF"""
+    return text.replace("\r\n", "\n")
+
+
 def _init_text(sp, format_: str, rows) -> str:
     """Return the text of the init file of the archive"""
     string = ""
@@ -681,7 +686,8 @@ def export_stds(
                 )
             # The text files have Unix line ends on every platform, so that an
             # archive does not depend on where it was made; the import reads
-            # both.
+            # both. The tools write their output in the line ends of the
+            # platform, and read_command does not translate them.
             with open(list_file_name, "w", newline="\n") as list_file:
                 if rows:
                     _export_maps(
@@ -690,11 +696,14 @@ def export_stds(
 
             # Write projection and metadata
             Path(proj_file_name).write_text(
-                gs.read_command("g.proj", flags="p", format="proj4"), newline="\n"
+                _unix_line_ends(gs.read_command("g.proj", flags="p", format="proj4")),
+                newline="\n",
             )
             Path(init_file_name).write_text(_init_text(sp, format_, rows), newline="\n")
             Path(metadata_file_name).write_text(
-                gs.read_command("t.info", type=sp.get_type(), input=sp.get_id()),
+                _unix_line_ends(
+                    gs.read_command("t.info", type=sp.get_type(), input=sp.get_id())
+                ),
                 newline="\n",
             )
             shared = any("@" in name for name in _archive_names(rows))
