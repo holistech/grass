@@ -39,7 +39,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import contextlib
-import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -62,23 +61,6 @@ _MAP_KINDS = tuple(MAP_TYPE_OF_STDS.values())
 
 # The form in which the tools print and read times
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
-
-
-@contextlib.contextmanager
-def working_directory(path):
-    """Make path the working directory of the process for the block
-
-    The tools inherit the directory of the process (``grass.tools.Tools`` has
-    no ``cwd`` option). A tool given a relative file name then stores that
-    name in its command history, which does not depend on where the
-    temporary directory is. The previous directory is restored afterwards.
-    """
-    previous = Path.cwd()
-    os.chdir(path)
-    try:
-        yield
-    finally:
-        os.chdir(previous)
 
 
 # In the OSGeo4W job of the CI (26.11.2026), eight tests ran out of their
@@ -291,8 +273,10 @@ def register_stds(
             options = {} if unit is None else {"unit": unit}
             # t.register opens the file itself, so it cannot read stdin.
             # The relative name keeps the command history of the dataset
-            # independent of the path of the temporary directory.
-            with TemporaryDirectory() as directory, working_directory(directory):
+            # independent of the path of the temporary directory; the tools
+            # inherit the directory of the process (grass.tools.Tools has no
+            # cwd option).
+            with TemporaryDirectory() as directory, contextlib.chdir(directory):
                 register_file(Path("maps.txt"), _rows(maps))
                 tools.t_register(
                     type=map_type,

@@ -169,7 +169,7 @@ def _write_scenario(tools) -> None:
     # command is wrapped at 80 characters before the recording replaces the
     # temporary directory, so an absolute path would wrap differently for a
     # longer temporary path (macOS).
-    with TemporaryDirectory() as directory, data.working_directory(directory):
+    with TemporaryDirectory() as directory, contextlib.chdir(directory):
         data.register_file(Path("maps.txt"), ["img_4"])
         tools.t_unregister(type="raster", input="abs_raster", file="maps.txt")
     tools.t_unregister(type="vector", input="abs_vector", maps="pts_b")
