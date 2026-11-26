@@ -416,7 +416,7 @@ class _BlockParser:
         """A line right after a list item that is less indented than its
         content continues the item for CommonMark (a lazy line) and starts a
         paragraph for others; the meaning is not clear, so it is refused"""
-        if end < len(lines) and end > 0:
+        if 0 < end < len(lines):
             number, text = lines[end]
             if (
                 lines[end - 1][1].strip()
