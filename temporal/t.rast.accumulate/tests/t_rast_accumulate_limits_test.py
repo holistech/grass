@@ -7,6 +7,8 @@ threshold of the granule from it. The expected sums are derived in the
 comments.
 """
 
+import sys
+
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day, small_region
@@ -241,7 +243,17 @@ def zone_tools(request, tmp_path_factory):
 def test_the_threshold_lookup_does_not_depend_on_the_time_zone(zone_tools, request):
     # Without this the module would test one zone twice.
     zone = request.node.callspec.params["zone_tools"]
-    offset = zone_tools.run_cmd(["date", "-d", "2001-01-01 12:00", "+%z"])
+    # Python, not "date -d": BSD date on macOS does not know that option.
+    offset = zone_tools.run_cmd(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import time; print(time.strftime('%z', "
+                "time.localtime(time.mktime((2001, 1, 1, 12, 0, 0, 0, 1, -1)))))"
+            ),
+        ]
+    )
     assert offset.stdout.strip() == {"UTC": "+0000", "Asia/Kathmandu": "+0545"}[zone]
 
     # The same sums as for the lower dataset that changes over time: the
