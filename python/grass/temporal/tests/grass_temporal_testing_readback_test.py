@@ -74,6 +74,21 @@ def tools(tmp_path_factory):
         yield tools
 
 
+@pytest.fixture
+def added_rasters_removed(tools):
+    """Remove the rasters which the test adds to the project of the module
+
+    test_inventory_lists_the_maps_and_the_datasets expects the maps of the
+    module fixture only, and pytest-randomly may run it after a test that
+    made a raster.
+    """
+    before = set(tools.g_list(type="raster", mapset=".").text.split())
+    yield
+    added = set(tools.g_list(type="raster", mapset=".").text.split()) - before
+    if added:
+        tools.g_remove(type="raster", name=sorted(added), flags="f")
+
+
 def test_strds_rows_are_typed_and_ordered(tools):
     assert list_maps(tools, "strds", "s") == [
         Row("a", "2001-01-01 00:00:00", None, 1.0, 1.0),
@@ -154,6 +169,7 @@ def test_inventory_lists_the_maps_and_the_datasets(tools):
     ]
 
 
+@pytest.mark.usefixtures("added_rasters_removed")
 def test_map_info_of_a_map_that_is_not_registered_is_none(tools):
     tools.r_mapcalc(expression="loose = 1")
     assert map_info(tools, "raster", "loose") is None
@@ -180,6 +196,7 @@ def test_message_reads_the_text_of_an_error(tools):
     assert "not found" in message(raised.value)
 
 
+@pytest.mark.usefixtures("added_rasters_removed")
 def test_cell_values_reads_every_cell_and_null(tools):
     tools.g_region(n=2, s=0, e=2, w=0, res=1)
     tools.r_mapcalc(expression="cells = if(row() == 1, if(col() == 1, 1.5, null()), 3)")
@@ -187,6 +204,7 @@ def test_cell_values_reads_every_cell_and_null(tools):
     assert cell_values(tools, "cells") == [1.5, None, 3.0, 3.0]
 
 
+@pytest.mark.usefixtures("added_rasters_removed")
 def test_cell_values_rounds_only_fcell_maps_to_six_places(tools):
     tools.g_region(n=1, s=0, e=1, w=0, res=1)
     tools.r_mapcalc(expression="third_d = 1.0 / 3")
