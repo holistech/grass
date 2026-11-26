@@ -402,14 +402,11 @@ def structure_of(path: Path) -> dict:
 def structure_text(structure: dict) -> str:
     """Return the structure as the JSON text of its recording
 
-    A list of plain values stays on one line, so a diff of two recordings
-    shows one column or index per line.
+    The layout is the one that the clang-format hook of pre-commit gives the
+    JSON files of the repository, so that a new recording passes the hook
+    unchanged.
     """
-    text = json.dumps(structure, indent=1)
-    return (
-        re.sub(r"\[[^\[\]{}]*\]", lambda match: json.dumps(json.loads(match[0])), text)
-        + "\n"
-    )
+    return json.dumps(structure, indent=4) + "\n"
 
 
 def load_image(text: str, path: Path) -> None:
