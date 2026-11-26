@@ -56,6 +56,10 @@ def run(tools, seed):
 def checksum(tools):
     """Checksum of the map which run() wrote"""
     text = tools.v_out_ascii(input="out", format="point").stdout
+    # v.out.ascii writes no empty row. On Windows it ends each row with
+    # "\r\n" (HOST_NEWLINE) in a stdout in text mode, and the "\r\r\n" reads
+    # as two line ends (OSGeo4W CI, 26.11.2026); one is the text of Linux.
+    text = text.replace("\n\n", "\n")
     return hashlib.md5(text.encode()).hexdigest()
 
 
