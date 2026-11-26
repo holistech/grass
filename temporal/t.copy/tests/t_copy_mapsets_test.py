@@ -145,7 +145,10 @@ def test_a_failed_c_does_not_copy_any_map(two_mapsets, prefix, stds_type, map_ty
         )
 
     assert "exists already in the current mapset" in message(error.value)
-    assert work.g_list(type=map_type, mapset="work").stdout.split() == [maps[1]]
+    # The maps of this test only; the other tests of the module copy maps
+    # into "work" too.
+    copied = work.g_list(type=map_type, mapset="work", pattern=f"{prefix}_*")
+    assert copied.stdout.split() == [maps[1]]
     assert f"{prefix}_copy" not in work.t_list(type=stds_type, columns="name").stdout
 
 
