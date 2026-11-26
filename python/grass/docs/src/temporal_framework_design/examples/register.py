@@ -27,9 +27,9 @@ def main():
         " - 0.00001 * (y() - 160000)))".format(name, number, number)
         for number, name in enumerate(names)
     ]
-    # The 366 expressions are 60,169 characters long (counted 26.11.2026), more
-    # than the command line of Windows takes (32,767), so they go in through
-    # standard input.
+    # The 366 expressions joined with line ends are 60,169 characters long
+    # (len() of the joined text, 26.11.2026), more than the command line of
+    # Windows takes (32,767), so they go in through standard input.
     tools.r_mapcalc(file=io.StringIO("\n".join(expressions)))
 
     tgis.init()
