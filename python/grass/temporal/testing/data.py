@@ -26,6 +26,9 @@ Which helper makes what:
   ``horizontal_line`` import vector maps from text, ``vector_points`` makes
   points with an attribute table.
 
+``windows_timeouts`` gives the conftest.py files of ``temporal`` and of the
+library tests one rule for the time limits on Windows.
+
 This module must not import pytest; fixtures belong in conftest.py files.
 
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
@@ -37,6 +40,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 import contextlib
 import os
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from io import StringIO
@@ -75,6 +79,42 @@ def working_directory(path):
         yield
     finally:
         os.chdir(previous)
+
+
+# In the OSGeo4W job of the CI (26.11.2026), eight tests ran out of their
+# time limit, among them tests with a limit of 10 s; there pytest-timeout has
+# only its thread method, which ends the whole xdist worker when a limit
+# passes. The factor and the floor are chosen values, not measured ones; the
+# next run on Windows shows whether they hold.
+WINDOWS_TIMEOUT_FACTOR = 5
+WINDOWS_TIMEOUT_MINIMUM = 60
+
+
+def windows_timeouts(items, directory):
+    """Yield the longer timeout marks of the test items below a directory
+
+    Each value is ``(item, args, kwargs)``, the arguments of the timeout mark
+    that the caller puts first on the item. Off Windows nothing is yielded.
+    A conftest.py calls this from ``pytest_collection_modifyitems`` with its
+    own directory: pytest calls that hook of every conftest.py with the items
+    of all directories, so items of other directories are left alone.
+    """
+    if sys.platform != "win32":
+        return
+    for item in items:
+        marker = item.get_closest_marker("timeout")
+        if marker is None or directory not in item.path.parents:
+            continue
+        args, kwargs = list(marker.args), dict(marker.kwargs)
+        seconds = args[0] if args else kwargs.get("timeout")
+        if not seconds:
+            continue
+        seconds = max(WINDOWS_TIMEOUT_MINIMUM, seconds * WINDOWS_TIMEOUT_FACTOR)
+        if args:
+            args[0] = seconds
+        else:
+            kwargs["timeout"] = seconds
+        yield item, args, kwargs
 
 
 def day(offset, *, hours=0):

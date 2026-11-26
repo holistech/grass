@@ -6,11 +6,13 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from tempfile import TemporaryDirectory
 
 import pytest
 
 import grass.temporal as tgis
+import grass.temporal.testing.data
 from grass.exceptions import CalledModuleError
 
 from grass.temporal.testing.data import (
@@ -28,6 +30,7 @@ from grass.temporal.testing.data import (
     small_region,
     timestamp,
     vector_points,
+    windows_timeouts,
 )
 from grass.temporal.testing.readback import list_maps
 from grass.temporal.testing.session import mapset_session, temporal_session
@@ -585,3 +588,43 @@ def test_insert_old_stds_is_read_whole(tmp_path):
         stds3 = tgis.open_old_stds("c.d", "str3ds")
         assert stds3.get_id() == f"c.d@{stds3.get_mapset()}"
         assert stds3.get_temporal_type() == "relative"
+
+
+def _item(path, *args, **kwargs):
+    """A stand-in for a pytest item with a timeout mark, or none without args"""
+    marker = SimpleNamespace(args=args, kwargs=kwargs) if args or kwargs else None
+    return SimpleNamespace(path=Path(path), get_closest_marker=lambda name: marker)
+
+
+def _platform(monkeypatch, platform):
+    """Let windows_timeouts see another platform, and nothing else"""
+    monkeypatch.setattr(
+        grass.temporal.testing.data, "sys", SimpleNamespace(platform=platform)
+    )
+
+
+@pytest.mark.parametrize("platform", ["linux", "darwin"])
+def test_windows_timeouts_yields_nothing_elsewhere(monkeypatch, platform):
+    _platform(monkeypatch, platform)
+
+    assert not list(windows_timeouts([_item("/t/a/x_test.py", 10)], Path("/t")))
+
+
+def test_windows_timeouts_scales_the_marks_below_the_directory(monkeypatch):
+    _platform(monkeypatch, "win32")
+    items = [
+        _item("/t/a/x_test.py", 10),
+        _item("/t/a/x_test.py", 300, method="thread"),
+        _item("/t/b/y_test.py", timeout=20),
+        _item("/t/b/y_test.py"),
+        _item("/t/b/y_test.py", 0),
+        _item("/other/z_test.py", 10),
+    ]
+
+    scaled = windows_timeouts(items, Path("/t"))
+
+    assert [(items.index(item), args, kwargs) for item, args, kwargs in scaled] == [
+        (0, [60], {}),
+        (1, [1500], {"method": "thread"}),
+        (2, [], {"timeout": 100}),
+    ]

@@ -33,6 +33,7 @@ from grass.temporal.testing.data import (  # noqa: E402
     create_stds,
     day,
     make_map,
+    windows_timeouts,
 )
 from grass.temporal.testing.readback import inventory, map_info, message  # noqa: E402
 from grass.temporal.testing.session import (  # noqa: E402
@@ -42,37 +43,10 @@ from grass.temporal.testing.session import (  # noqa: E402
 )
 from grass.tools import ToolError, Tools  # noqa: E402
 
-# In the OSGeo4W job of the CI (26.11.2026), eight tests ran out of their
-# time limit, among them tests with a limit of 10 s; there pytest-timeout has
-# only its thread method, which ends the whole xdist worker when a limit
-# passes. The factor and the floor are chosen values, not measured ones; the
-# next run on Windows shows whether they hold.
-WINDOWS_TIMEOUT_FACTOR = 5
-WINDOWS_TIMEOUT_MINIMUM = 60
-
 
 def pytest_collection_modifyitems(items):
-    """On Windows, give each timeout mark below this directory more time
-
-    pytest calls the hook of a conftest.py with the items of all directories,
-    so it leaves the items of other directories alone.
-    """
-    if sys.platform != "win32":
-        return
-    here = Path(__file__).parent
-    for item in items:
-        marker = item.get_closest_marker("timeout")
-        if marker is None or here not in item.path.parents:
-            continue
-        args, kwargs = list(marker.args), dict(marker.kwargs)
-        seconds = args[0] if args else kwargs.get("timeout")
-        if not seconds:
-            continue
-        seconds = max(WINDOWS_TIMEOUT_MINIMUM, seconds * WINDOWS_TIMEOUT_FACTOR)
-        if args:
-            args[0] = seconds
-        else:
-            kwargs["timeout"] = seconds
+    """On Windows, give each timeout mark below this directory more time"""
+    for item, args, kwargs in windows_timeouts(items, Path(__file__).parent):
         # The closest mark is the first one of the item; pytest-timeout reads it.
         item.add_marker(pytest.mark.timeout(*args, **kwargs), append=False)
 
