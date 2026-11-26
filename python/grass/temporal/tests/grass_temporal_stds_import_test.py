@@ -322,6 +322,36 @@ def test_blank_lines_of_the_list_are_skipped(archives, target, tmp_path, base):
     assert listed.split()[1:] == expected
 
 
+@pytest.mark.parametrize(
+    ("archive", "stds_type"), [("GTiff", "strds"), ("GML", "stvds")]
+)
+def test_an_archive_with_windows_line_ends_is_imported_as_one_with_unix_ones(
+    archives, target, tmp_path, archive, stds_type
+):
+    # The export wrote the platform line ends before, CRLF on Windows.
+    changed = archives[archive]
+    names = ("list.txt", "init.txt", "proj.txt", "readme.txt", "metadata.txt")
+    for number, name in enumerate(names):
+        data = _member(changed, name).replace(b"\n", b"\r\n")
+        changed = _changed(changed, tmp_path / f"{number}.tar", name, data)
+
+    for name, path in (("unix", archives[archive]), ("windows", changed)):
+        tgis.import_stds(
+            str(path), name, tmp_path, base=name, stds_type=stds_type, overr=True
+        )
+
+    tool = {"strds": "t.rast.list", "stvds": "t.vect.list"}[stds_type]
+    listed = {
+        name: gs.read_command(tool, input=name, columns="name,start_time,end_time")
+        for name in ("unix", "windows")
+    }
+    assert listed["windows"] == listed["unix"].replace("unix_", "windows_")
+    assert listed["unix"].splitlines()[1:] == [
+        "unix_1|2001-01-01 00:00:00|2001-02-01 00:00:00",
+        "unix_2|2001-02-01 00:00:00|2001-03-01 00:00:00",
+    ]
+
+
 def test_an_init_line_without_equals_sign_is_refused(archives, target, tmp_path):
     init = _member(archives["GTiff"], "init.txt")
     changed = _changed(

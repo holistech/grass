@@ -679,7 +679,10 @@ def export_stds(
                         "The selection contains no map of <{}>; the archive holds no map."
                     ).format(input)
                 )
-            with open(list_file_name, "w") as list_file:
+            # The text files have Unix line ends on every platform, so that an
+            # archive does not depend on where it was made; the import reads
+            # both.
+            with open(list_file_name, "w", newline="\n") as list_file:
                 if rows:
                     _export_maps(
                         rows, tar, list_file, fs, kind, format_, datatype, kwargs
@@ -687,14 +690,17 @@ def export_stds(
 
             # Write projection and metadata
             Path(proj_file_name).write_text(
-                gs.read_command("g.proj", flags="p", format="proj4")
+                gs.read_command("g.proj", flags="p", format="proj4"), newline="\n"
             )
-            Path(init_file_name).write_text(_init_text(sp, format_, rows))
+            Path(init_file_name).write_text(_init_text(sp, format_, rows), newline="\n")
             Path(metadata_file_name).write_text(
-                gs.read_command("t.info", type=sp.get_type(), input=sp.get_id())
+                gs.read_command("t.info", type=sp.get_type(), input=sp.get_id()),
+                newline="\n",
             )
             shared = any("@" in name for name in _archive_names(rows))
-            Path(read_file_name).write_text(_readme_text(sp, kind, format_, shared))
+            Path(read_file_name).write_text(
+                _readme_text(sp, kind, format_, shared), newline="\n"
+            )
 
             # Append the file list
             tar.add(list_file_name)

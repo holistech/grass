@@ -165,6 +165,23 @@ def test_the_readme_names_the_files_of_the_format(
     assert _text(archive, "readme.txt") == expected
 
 
+@pytest.mark.parametrize(("type_", "format_"), list(README_HEADS))
+def test_the_text_files_of_the_archive_have_unix_line_ends(
+    datasets, tmp_path, type_, format_, failing_modules
+):
+    # The files were written in the line ends of the platform, so an archive
+    # made on Windows differed from one made elsewhere.
+    archive = _export(tmp_path, datasets[type_], type_, format_)
+
+    names = ("list.txt", "proj.txt", "init.txt", "metadata.txt", "readme.txt")
+    with tarfile.open(archive) as tar:
+        texts = {name: tar.extractfile(name).read() for name in names}
+    assert all(texts.values())
+    assert {name: b"\r" in text for name, text in texts.items()} == dict.fromkeys(
+        names, False
+    )
+
+
 @pytest.mark.parametrize("type_", ["str3ds", "raster3d", "rast3d"])
 def test_a_3d_raster_dataset_is_refused_before_anything_is_made(
     datasets, tmp_path, failing_modules, type_
