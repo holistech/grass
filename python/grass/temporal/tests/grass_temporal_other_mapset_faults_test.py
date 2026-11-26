@@ -127,10 +127,10 @@ KIND_OF = {
 }
 
 
-def phantoms(tools):
-    """The maps of "first" that "second" lists as its own"""
+def phantoms(tools, names=OWNER_MAPS):
+    """The maps of "first" among names that "second" lists as its own"""
     listed = tools.g_list(type="raster,raster_3d,vector", mapset=CURRENT).stdout
-    return OWNER_MAPS & set(listed.split())
+    return set(names) & set(listed.split())
 
 
 def snapshot_of_owner(owner):
@@ -659,7 +659,7 @@ def test_register_of_map_of_other_mapset_makes_no_map_of_the_owner(tools, owner)
         overwrite=True,
     )
 
-    assert "u3_1" not in tools.g_list(type="raster_3d", mapset=CURRENT).stdout.split()
+    assert not phantoms(tools, OWNER_MAPS | {"u3_1"})
 
 
 @pytest.fixture(scope="module")
