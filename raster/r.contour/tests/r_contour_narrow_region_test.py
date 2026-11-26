@@ -89,8 +89,11 @@ def read_lines(tools):
 def assert_one_line(lines, expected):
     """Compare the single line with the expected vertices, in either direction"""
     assert len(lines) == 1
-    forward = lines[0] == pytest.approx(expected)
-    backward = lines[0][::-1] == pytest.approx(expected)
+    # pytest.approx refuses nested sequences since pytest 9.2, so compare the
+    # coordinates of the vertices as one flat list.
+    wanted = pytest.approx([c for vertex in expected for c in vertex])
+    forward = [c for vertex in lines[0] for c in vertex] == wanted
+    backward = [c for vertex in lines[0][::-1] for c in vertex] == wanted
     assert forward or backward
 
 
