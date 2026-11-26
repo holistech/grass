@@ -1,926 +1,926 @@
 [
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "raster",
-  "setter": "set_end_time",
-  "keyword": "end_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "raster",
-  "setter": "set_start_time",
-  "keyword": "start_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "raster3d",
-  "setter": "set_end_time",
-  "keyword": "end_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "raster3d",
-  "setter": "set_start_time",
-  "keyword": "start_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "str3ds",
-  "setter": "set_end_time",
-  "keyword": "end_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "str3ds",
-  "setter": "set_granularity",
-  "keyword": "granularity"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "str3ds",
-  "setter": "set_map_time",
-  "keyword": "map_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "str3ds",
-  "setter": "set_start_time",
-  "keyword": "start_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "strds",
-  "setter": "set_end_time",
-  "keyword": "end_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "strds",
-  "setter": "set_granularity",
-  "keyword": "granularity"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "strds",
-  "setter": "set_map_time",
-  "keyword": "map_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "strds",
-  "setter": "set_start_time",
-  "keyword": "start_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "stvds",
-  "setter": "set_end_time",
-  "keyword": "end_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "stvds",
-  "setter": "set_granularity",
-  "keyword": "granularity"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "stvds",
-  "setter": "set_map_time",
-  "keyword": "map_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "stvds",
-  "setter": "set_start_time",
-  "keyword": "start_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "vector",
-  "setter": "set_end_time",
-  "keyword": "end_time"
- },
- {
-  "class": "AbsoluteTimeRow",
-  "kind": "vector",
-  "setter": "set_start_time",
-  "keyword": "start_time"
- },
- {
-  "class": "BaseRow",
-  "kind": "raster",
-  "setter": "set_creator",
-  "keyword": "creator"
- },
- {
-  "class": "BaseRow",
-  "kind": "raster",
-  "setter": "set_layer",
-  "keyword": "layer"
- },
- {
-  "class": "BaseRow",
-  "kind": "raster",
-  "setter": "set_mapset",
-  "keyword": "mapset"
- },
- {
-  "class": "BaseRow",
-  "kind": "raster",
-  "setter": "set_name",
-  "keyword": "name"
- },
- {
-  "class": "BaseRow",
-  "kind": "raster3d",
-  "setter": "set_creator",
-  "keyword": "creator"
- },
- {
-  "class": "BaseRow",
-  "kind": "raster3d",
-  "setter": "set_layer",
-  "keyword": "layer"
- },
- {
-  "class": "BaseRow",
-  "kind": "raster3d",
-  "setter": "set_mapset",
-  "keyword": "mapset"
- },
- {
-  "class": "BaseRow",
-  "kind": "raster3d",
-  "setter": "set_name",
-  "keyword": "name"
- },
- {
-  "class": "BaseRow",
-  "kind": "str3ds",
-  "setter": "set_creator",
-  "keyword": "creator"
- },
- {
-  "class": "BaseRow",
-  "kind": "str3ds",
-  "setter": "set_layer",
-  "keyword": "layer"
- },
- {
-  "class": "BaseRow",
-  "kind": "str3ds",
-  "setter": "set_mapset",
-  "keyword": "mapset"
- },
- {
-  "class": "BaseRow",
-  "kind": "str3ds",
-  "setter": "set_name",
-  "keyword": "name"
- },
- {
-  "class": "BaseRow",
-  "kind": "str3ds",
-  "setter": "set_semantic_type",
-  "keyword": "semantic_type"
- },
- {
-  "class": "BaseRow",
-  "kind": "strds",
-  "setter": "set_creator",
-  "keyword": "creator"
- },
- {
-  "class": "BaseRow",
-  "kind": "strds",
-  "setter": "set_layer",
-  "keyword": "layer"
- },
- {
-  "class": "BaseRow",
-  "kind": "strds",
-  "setter": "set_mapset",
-  "keyword": "mapset"
- },
- {
-  "class": "BaseRow",
-  "kind": "strds",
-  "setter": "set_name",
-  "keyword": "name"
- },
- {
-  "class": "BaseRow",
-  "kind": "strds",
-  "setter": "set_semantic_type",
-  "keyword": "semantic_type"
- },
- {
-  "class": "BaseRow",
-  "kind": "stvds",
-  "setter": "set_creator",
-  "keyword": "creator"
- },
- {
-  "class": "BaseRow",
-  "kind": "stvds",
-  "setter": "set_layer",
-  "keyword": "layer"
- },
- {
-  "class": "BaseRow",
-  "kind": "stvds",
-  "setter": "set_mapset",
-  "keyword": "mapset"
- },
- {
-  "class": "BaseRow",
-  "kind": "stvds",
-  "setter": "set_name",
-  "keyword": "name"
- },
- {
-  "class": "BaseRow",
-  "kind": "stvds",
-  "setter": "set_semantic_type",
-  "keyword": "semantic_type"
- },
- {
-  "class": "BaseRow",
-  "kind": "vector",
-  "setter": "set_creator",
-  "keyword": "creator"
- },
- {
-  "class": "BaseRow",
-  "kind": "vector",
-  "setter": "set_layer",
-  "keyword": "layer"
- },
- {
-  "class": "BaseRow",
-  "kind": "vector",
-  "setter": "set_mapset",
-  "keyword": "mapset"
- },
- {
-  "class": "BaseRow",
-  "kind": "vector",
-  "setter": "set_name",
-  "keyword": "name"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster",
-  "setter": "set_cols",
-  "keyword": "cols"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster",
-  "setter": "set_datatype",
-  "keyword": "datatype"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster",
-  "setter": "set_ewres",
-  "keyword": "ewres"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster",
-  "setter": "set_max",
-  "keyword": "max"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster",
-  "setter": "set_min",
-  "keyword": "min"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster",
-  "setter": "set_nsres",
-  "keyword": "nsres"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster",
-  "setter": "set_number_of_cells",
-  "keyword": "number_of_cells"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster",
-  "setter": "set_rows",
-  "keyword": "rows"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster",
-  "setter": "set_semantic_label",
-  "keyword": "semantic_label"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster3d",
-  "setter": "set_cols",
-  "keyword": "cols"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster3d",
-  "setter": "set_datatype",
-  "keyword": "datatype"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster3d",
-  "setter": "set_depths",
-  "keyword": "depths"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster3d",
-  "setter": "set_ewres",
-  "keyword": "ewres"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster3d",
-  "setter": "set_max",
-  "keyword": "max"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster3d",
-  "setter": "set_min",
-  "keyword": "min"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster3d",
-  "setter": "set_nsres",
-  "keyword": "nsres"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster3d",
-  "setter": "set_number_of_cells",
-  "keyword": "number_of_cells"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster3d",
-  "setter": "set_rows",
-  "keyword": "rows"
- },
- {
-  "class": "MetadataRow",
-  "kind": "raster3d",
-  "setter": "set_tbres",
-  "keyword": "tbres"
- },
- {
-  "class": "MetadataRow",
-  "kind": "str3ds",
-  "setter": "set_aggregation_type",
-  "keyword": "aggregation_type"
- },
- {
-  "class": "MetadataRow",
-  "kind": "str3ds",
-  "setter": "set_command",
-  "keyword": "command"
- },
- {
-  "class": "MetadataRow",
-  "kind": "str3ds",
-  "setter": "set_description",
-  "keyword": "description"
- },
- {
-  "class": "MetadataRow",
-  "kind": "str3ds",
-  "setter": "set_raster3d_register",
-  "keyword": "raster3d_register"
- },
- {
-  "class": "MetadataRow",
-  "kind": "str3ds",
-  "setter": "set_title",
-  "keyword": "title"
- },
- {
-  "class": "MetadataRow",
-  "kind": "strds",
-  "setter": "set_aggregation_type",
-  "keyword": "aggregation_type"
- },
- {
-  "class": "MetadataRow",
-  "kind": "strds",
-  "setter": "set_command",
-  "keyword": "command"
- },
- {
-  "class": "MetadataRow",
-  "kind": "strds",
-  "setter": "set_description",
-  "keyword": "description"
- },
- {
-  "class": "MetadataRow",
-  "kind": "strds",
-  "setter": "set_raster_register",
-  "keyword": "raster_register"
- },
- {
-  "class": "MetadataRow",
-  "kind": "strds",
-  "setter": "set_title",
-  "keyword": "title"
- },
- {
-  "class": "MetadataRow",
-  "kind": "stvds",
-  "setter": "set_command",
-  "keyword": "command"
- },
- {
-  "class": "MetadataRow",
-  "kind": "stvds",
-  "setter": "set_description",
-  "keyword": "description"
- },
- {
-  "class": "MetadataRow",
-  "kind": "stvds",
-  "setter": "set_title",
-  "keyword": "title"
- },
- {
-  "class": "MetadataRow",
-  "kind": "stvds",
-  "setter": "set_vector_register",
-  "keyword": "vector_register"
- },
- {
-  "class": "MetadataRow",
-  "kind": "vector",
-  "setter": "set_3d_info",
-  "keyword": "is_3d"
- },
- {
-  "class": "MetadataRow",
-  "kind": "vector",
-  "setter": "set_number_of_areas",
-  "keyword": "number_of_areas"
- },
- {
-  "class": "MetadataRow",
-  "kind": "vector",
-  "setter": "set_number_of_boundaries",
-  "keyword": "number_of_boundaries"
- },
- {
-  "class": "MetadataRow",
-  "kind": "vector",
-  "setter": "set_number_of_centroids",
-  "keyword": "number_of_centroids"
- },
- {
-  "class": "MetadataRow",
-  "kind": "vector",
-  "setter": "set_number_of_faces",
-  "keyword": "number_of_faces"
- },
- {
-  "class": "MetadataRow",
-  "kind": "vector",
-  "setter": "set_number_of_holes",
-  "keyword": "number_of_holes"
- },
- {
-  "class": "MetadataRow",
-  "kind": "vector",
-  "setter": "set_number_of_islands",
-  "keyword": "number_of_islands"
- },
- {
-  "class": "MetadataRow",
-  "kind": "vector",
-  "setter": "set_number_of_kernels",
-  "keyword": "number_of_kernels"
- },
- {
-  "class": "MetadataRow",
-  "kind": "vector",
-  "setter": "set_number_of_lines",
-  "keyword": "number_of_lines"
- },
- {
-  "class": "MetadataRow",
-  "kind": "vector",
-  "setter": "set_number_of_nodes",
-  "keyword": "number_of_nodes"
- },
- {
-  "class": "MetadataRow",
-  "kind": "vector",
-  "setter": "set_number_of_points",
-  "keyword": "number_of_points"
- },
- {
-  "class": "MetadataRow",
-  "kind": "vector",
-  "setter": "set_number_of_primitives",
-  "keyword": "number_of_primitives"
- },
- {
-  "class": "MetadataRow",
-  "kind": "vector",
-  "setter": "set_number_of_volumes",
-  "keyword": "number_of_volumes"
- },
- {
-  "class": "RegisterRow",
-  "kind": "raster",
-  "setter": "set_registered_stds",
-  "keyword": "registered_stds"
- },
- {
-  "class": "RegisterRow",
-  "kind": "raster3d",
-  "setter": "set_registered_stds",
-  "keyword": "registered_stds"
- },
- {
-  "class": "RegisterRow",
-  "kind": "vector",
-  "setter": "set_registered_stds",
-  "keyword": "registered_stds"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "raster",
-  "setter": "set_end_time",
-  "keyword": "end_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "raster",
-  "setter": "set_start_time",
-  "keyword": "start_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "raster",
-  "setter": "set_unit",
-  "keyword": "unit"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "raster3d",
-  "setter": "set_end_time",
-  "keyword": "end_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "raster3d",
-  "setter": "set_start_time",
-  "keyword": "start_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "raster3d",
-  "setter": "set_unit",
-  "keyword": "unit"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "str3ds",
-  "setter": "set_end_time",
-  "keyword": "end_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "str3ds",
-  "setter": "set_granularity",
-  "keyword": "granularity"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "str3ds",
-  "setter": "set_map_time",
-  "keyword": "map_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "str3ds",
-  "setter": "set_start_time",
-  "keyword": "start_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "str3ds",
-  "setter": "set_unit",
-  "keyword": "unit"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "strds",
-  "setter": "set_end_time",
-  "keyword": "end_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "strds",
-  "setter": "set_granularity",
-  "keyword": "granularity"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "strds",
-  "setter": "set_map_time",
-  "keyword": "map_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "strds",
-  "setter": "set_start_time",
-  "keyword": "start_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "strds",
-  "setter": "set_unit",
-  "keyword": "unit"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "stvds",
-  "setter": "set_end_time",
-  "keyword": "end_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "stvds",
-  "setter": "set_granularity",
-  "keyword": "granularity"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "stvds",
-  "setter": "set_map_time",
-  "keyword": "map_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "stvds",
-  "setter": "set_start_time",
-  "keyword": "start_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "stvds",
-  "setter": "set_unit",
-  "keyword": "unit"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "vector",
-  "setter": "set_end_time",
-  "keyword": "end_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "vector",
-  "setter": "set_start_time",
-  "keyword": "start_time"
- },
- {
-  "class": "RelativeTimeRow",
-  "kind": "vector",
-  "setter": "set_unit",
-  "keyword": "unit"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "raster",
-  "setter": "set_bottom",
-  "keyword": "bottom"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "raster",
-  "setter": "set_east",
-  "keyword": "east"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "raster",
-  "setter": "set_north",
-  "keyword": "north"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "raster",
-  "setter": "set_south",
-  "keyword": "south"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "raster",
-  "setter": "set_top",
-  "keyword": "top"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "raster",
-  "setter": "set_west",
-  "keyword": "west"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "raster3d",
-  "setter": "set_bottom",
-  "keyword": "bottom"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "raster3d",
-  "setter": "set_east",
-  "keyword": "east"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "raster3d",
-  "setter": "set_north",
-  "keyword": "north"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "raster3d",
-  "setter": "set_south",
-  "keyword": "south"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "raster3d",
-  "setter": "set_top",
-  "keyword": "top"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "raster3d",
-  "setter": "set_west",
-  "keyword": "west"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "str3ds",
-  "setter": "set_bottom",
-  "keyword": "bottom"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "str3ds",
-  "setter": "set_east",
-  "keyword": "east"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "str3ds",
-  "setter": "set_north",
-  "keyword": "north"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "str3ds",
-  "setter": "set_south",
-  "keyword": "south"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "str3ds",
-  "setter": "set_top",
-  "keyword": "top"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "str3ds",
-  "setter": "set_west",
-  "keyword": "west"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "strds",
-  "setter": "set_bottom",
-  "keyword": "bottom"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "strds",
-  "setter": "set_east",
-  "keyword": "east"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "strds",
-  "setter": "set_north",
-  "keyword": "north"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "strds",
-  "setter": "set_south",
-  "keyword": "south"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "strds",
-  "setter": "set_top",
-  "keyword": "top"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "strds",
-  "setter": "set_west",
-  "keyword": "west"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "stvds",
-  "setter": "set_bottom",
-  "keyword": "bottom"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "stvds",
-  "setter": "set_east",
-  "keyword": "east"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "stvds",
-  "setter": "set_north",
-  "keyword": "north"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "stvds",
-  "setter": "set_south",
-  "keyword": "south"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "stvds",
-  "setter": "set_top",
-  "keyword": "top"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "stvds",
-  "setter": "set_west",
-  "keyword": "west"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "vector",
-  "setter": "set_bottom",
-  "keyword": "bottom"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "vector",
-  "setter": "set_east",
-  "keyword": "east"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "vector",
-  "setter": "set_north",
-  "keyword": "north"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "vector",
-  "setter": "set_south",
-  "keyword": "south"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "vector",
-  "setter": "set_top",
-  "keyword": "top"
- },
- {
-  "class": "SpatialExtentRow",
-  "kind": "vector",
-  "setter": "set_west",
-  "keyword": "west"
- }
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "raster",
+        "setter": "set_end_time",
+        "keyword": "end_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "raster",
+        "setter": "set_start_time",
+        "keyword": "start_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "raster3d",
+        "setter": "set_end_time",
+        "keyword": "end_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "raster3d",
+        "setter": "set_start_time",
+        "keyword": "start_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "str3ds",
+        "setter": "set_end_time",
+        "keyword": "end_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "str3ds",
+        "setter": "set_granularity",
+        "keyword": "granularity"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "str3ds",
+        "setter": "set_map_time",
+        "keyword": "map_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "str3ds",
+        "setter": "set_start_time",
+        "keyword": "start_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "strds",
+        "setter": "set_end_time",
+        "keyword": "end_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "strds",
+        "setter": "set_granularity",
+        "keyword": "granularity"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "strds",
+        "setter": "set_map_time",
+        "keyword": "map_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "strds",
+        "setter": "set_start_time",
+        "keyword": "start_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "stvds",
+        "setter": "set_end_time",
+        "keyword": "end_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "stvds",
+        "setter": "set_granularity",
+        "keyword": "granularity"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "stvds",
+        "setter": "set_map_time",
+        "keyword": "map_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "stvds",
+        "setter": "set_start_time",
+        "keyword": "start_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "vector",
+        "setter": "set_end_time",
+        "keyword": "end_time"
+    },
+    {
+        "class": "AbsoluteTimeRow",
+        "kind": "vector",
+        "setter": "set_start_time",
+        "keyword": "start_time"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "raster",
+        "setter": "set_creator",
+        "keyword": "creator"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "raster",
+        "setter": "set_layer",
+        "keyword": "layer"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "raster",
+        "setter": "set_mapset",
+        "keyword": "mapset"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "raster",
+        "setter": "set_name",
+        "keyword": "name"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "raster3d",
+        "setter": "set_creator",
+        "keyword": "creator"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "raster3d",
+        "setter": "set_layer",
+        "keyword": "layer"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "raster3d",
+        "setter": "set_mapset",
+        "keyword": "mapset"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "raster3d",
+        "setter": "set_name",
+        "keyword": "name"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "str3ds",
+        "setter": "set_creator",
+        "keyword": "creator"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "str3ds",
+        "setter": "set_layer",
+        "keyword": "layer"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "str3ds",
+        "setter": "set_mapset",
+        "keyword": "mapset"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "str3ds",
+        "setter": "set_name",
+        "keyword": "name"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "str3ds",
+        "setter": "set_semantic_type",
+        "keyword": "semantic_type"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "strds",
+        "setter": "set_creator",
+        "keyword": "creator"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "strds",
+        "setter": "set_layer",
+        "keyword": "layer"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "strds",
+        "setter": "set_mapset",
+        "keyword": "mapset"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "strds",
+        "setter": "set_name",
+        "keyword": "name"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "strds",
+        "setter": "set_semantic_type",
+        "keyword": "semantic_type"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "stvds",
+        "setter": "set_creator",
+        "keyword": "creator"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "stvds",
+        "setter": "set_layer",
+        "keyword": "layer"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "stvds",
+        "setter": "set_mapset",
+        "keyword": "mapset"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "stvds",
+        "setter": "set_name",
+        "keyword": "name"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "stvds",
+        "setter": "set_semantic_type",
+        "keyword": "semantic_type"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "vector",
+        "setter": "set_creator",
+        "keyword": "creator"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "vector",
+        "setter": "set_layer",
+        "keyword": "layer"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "vector",
+        "setter": "set_mapset",
+        "keyword": "mapset"
+    },
+    {
+        "class": "BaseRow",
+        "kind": "vector",
+        "setter": "set_name",
+        "keyword": "name"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster",
+        "setter": "set_cols",
+        "keyword": "cols"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster",
+        "setter": "set_datatype",
+        "keyword": "datatype"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster",
+        "setter": "set_ewres",
+        "keyword": "ewres"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster",
+        "setter": "set_max",
+        "keyword": "max"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster",
+        "setter": "set_min",
+        "keyword": "min"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster",
+        "setter": "set_nsres",
+        "keyword": "nsres"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster",
+        "setter": "set_number_of_cells",
+        "keyword": "number_of_cells"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster",
+        "setter": "set_rows",
+        "keyword": "rows"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster",
+        "setter": "set_semantic_label",
+        "keyword": "semantic_label"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster3d",
+        "setter": "set_cols",
+        "keyword": "cols"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster3d",
+        "setter": "set_datatype",
+        "keyword": "datatype"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster3d",
+        "setter": "set_depths",
+        "keyword": "depths"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster3d",
+        "setter": "set_ewres",
+        "keyword": "ewres"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster3d",
+        "setter": "set_max",
+        "keyword": "max"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster3d",
+        "setter": "set_min",
+        "keyword": "min"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster3d",
+        "setter": "set_nsres",
+        "keyword": "nsres"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster3d",
+        "setter": "set_number_of_cells",
+        "keyword": "number_of_cells"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster3d",
+        "setter": "set_rows",
+        "keyword": "rows"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "raster3d",
+        "setter": "set_tbres",
+        "keyword": "tbres"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "str3ds",
+        "setter": "set_aggregation_type",
+        "keyword": "aggregation_type"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "str3ds",
+        "setter": "set_command",
+        "keyword": "command"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "str3ds",
+        "setter": "set_description",
+        "keyword": "description"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "str3ds",
+        "setter": "set_raster3d_register",
+        "keyword": "raster3d_register"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "str3ds",
+        "setter": "set_title",
+        "keyword": "title"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "strds",
+        "setter": "set_aggregation_type",
+        "keyword": "aggregation_type"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "strds",
+        "setter": "set_command",
+        "keyword": "command"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "strds",
+        "setter": "set_description",
+        "keyword": "description"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "strds",
+        "setter": "set_raster_register",
+        "keyword": "raster_register"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "strds",
+        "setter": "set_title",
+        "keyword": "title"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "stvds",
+        "setter": "set_command",
+        "keyword": "command"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "stvds",
+        "setter": "set_description",
+        "keyword": "description"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "stvds",
+        "setter": "set_title",
+        "keyword": "title"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "stvds",
+        "setter": "set_vector_register",
+        "keyword": "vector_register"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "vector",
+        "setter": "set_3d_info",
+        "keyword": "is_3d"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "vector",
+        "setter": "set_number_of_areas",
+        "keyword": "number_of_areas"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "vector",
+        "setter": "set_number_of_boundaries",
+        "keyword": "number_of_boundaries"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "vector",
+        "setter": "set_number_of_centroids",
+        "keyword": "number_of_centroids"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "vector",
+        "setter": "set_number_of_faces",
+        "keyword": "number_of_faces"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "vector",
+        "setter": "set_number_of_holes",
+        "keyword": "number_of_holes"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "vector",
+        "setter": "set_number_of_islands",
+        "keyword": "number_of_islands"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "vector",
+        "setter": "set_number_of_kernels",
+        "keyword": "number_of_kernels"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "vector",
+        "setter": "set_number_of_lines",
+        "keyword": "number_of_lines"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "vector",
+        "setter": "set_number_of_nodes",
+        "keyword": "number_of_nodes"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "vector",
+        "setter": "set_number_of_points",
+        "keyword": "number_of_points"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "vector",
+        "setter": "set_number_of_primitives",
+        "keyword": "number_of_primitives"
+    },
+    {
+        "class": "MetadataRow",
+        "kind": "vector",
+        "setter": "set_number_of_volumes",
+        "keyword": "number_of_volumes"
+    },
+    {
+        "class": "RegisterRow",
+        "kind": "raster",
+        "setter": "set_registered_stds",
+        "keyword": "registered_stds"
+    },
+    {
+        "class": "RegisterRow",
+        "kind": "raster3d",
+        "setter": "set_registered_stds",
+        "keyword": "registered_stds"
+    },
+    {
+        "class": "RegisterRow",
+        "kind": "vector",
+        "setter": "set_registered_stds",
+        "keyword": "registered_stds"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "raster",
+        "setter": "set_end_time",
+        "keyword": "end_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "raster",
+        "setter": "set_start_time",
+        "keyword": "start_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "raster",
+        "setter": "set_unit",
+        "keyword": "unit"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "raster3d",
+        "setter": "set_end_time",
+        "keyword": "end_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "raster3d",
+        "setter": "set_start_time",
+        "keyword": "start_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "raster3d",
+        "setter": "set_unit",
+        "keyword": "unit"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "str3ds",
+        "setter": "set_end_time",
+        "keyword": "end_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "str3ds",
+        "setter": "set_granularity",
+        "keyword": "granularity"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "str3ds",
+        "setter": "set_map_time",
+        "keyword": "map_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "str3ds",
+        "setter": "set_start_time",
+        "keyword": "start_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "str3ds",
+        "setter": "set_unit",
+        "keyword": "unit"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "strds",
+        "setter": "set_end_time",
+        "keyword": "end_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "strds",
+        "setter": "set_granularity",
+        "keyword": "granularity"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "strds",
+        "setter": "set_map_time",
+        "keyword": "map_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "strds",
+        "setter": "set_start_time",
+        "keyword": "start_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "strds",
+        "setter": "set_unit",
+        "keyword": "unit"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "stvds",
+        "setter": "set_end_time",
+        "keyword": "end_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "stvds",
+        "setter": "set_granularity",
+        "keyword": "granularity"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "stvds",
+        "setter": "set_map_time",
+        "keyword": "map_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "stvds",
+        "setter": "set_start_time",
+        "keyword": "start_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "stvds",
+        "setter": "set_unit",
+        "keyword": "unit"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "vector",
+        "setter": "set_end_time",
+        "keyword": "end_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "vector",
+        "setter": "set_start_time",
+        "keyword": "start_time"
+    },
+    {
+        "class": "RelativeTimeRow",
+        "kind": "vector",
+        "setter": "set_unit",
+        "keyword": "unit"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "raster",
+        "setter": "set_bottom",
+        "keyword": "bottom"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "raster",
+        "setter": "set_east",
+        "keyword": "east"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "raster",
+        "setter": "set_north",
+        "keyword": "north"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "raster",
+        "setter": "set_south",
+        "keyword": "south"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "raster",
+        "setter": "set_top",
+        "keyword": "top"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "raster",
+        "setter": "set_west",
+        "keyword": "west"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "raster3d",
+        "setter": "set_bottom",
+        "keyword": "bottom"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "raster3d",
+        "setter": "set_east",
+        "keyword": "east"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "raster3d",
+        "setter": "set_north",
+        "keyword": "north"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "raster3d",
+        "setter": "set_south",
+        "keyword": "south"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "raster3d",
+        "setter": "set_top",
+        "keyword": "top"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "raster3d",
+        "setter": "set_west",
+        "keyword": "west"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "str3ds",
+        "setter": "set_bottom",
+        "keyword": "bottom"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "str3ds",
+        "setter": "set_east",
+        "keyword": "east"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "str3ds",
+        "setter": "set_north",
+        "keyword": "north"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "str3ds",
+        "setter": "set_south",
+        "keyword": "south"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "str3ds",
+        "setter": "set_top",
+        "keyword": "top"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "str3ds",
+        "setter": "set_west",
+        "keyword": "west"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "strds",
+        "setter": "set_bottom",
+        "keyword": "bottom"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "strds",
+        "setter": "set_east",
+        "keyword": "east"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "strds",
+        "setter": "set_north",
+        "keyword": "north"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "strds",
+        "setter": "set_south",
+        "keyword": "south"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "strds",
+        "setter": "set_top",
+        "keyword": "top"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "strds",
+        "setter": "set_west",
+        "keyword": "west"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "stvds",
+        "setter": "set_bottom",
+        "keyword": "bottom"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "stvds",
+        "setter": "set_east",
+        "keyword": "east"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "stvds",
+        "setter": "set_north",
+        "keyword": "north"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "stvds",
+        "setter": "set_south",
+        "keyword": "south"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "stvds",
+        "setter": "set_top",
+        "keyword": "top"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "stvds",
+        "setter": "set_west",
+        "keyword": "west"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "vector",
+        "setter": "set_bottom",
+        "keyword": "bottom"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "vector",
+        "setter": "set_east",
+        "keyword": "east"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "vector",
+        "setter": "set_north",
+        "keyword": "north"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "vector",
+        "setter": "set_south",
+        "keyword": "south"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "vector",
+        "setter": "set_top",
+        "keyword": "top"
+    },
+    {
+        "class": "SpatialExtentRow",
+        "kind": "vector",
+        "setter": "set_west",
+        "keyword": "west"
+    }
 ]
