@@ -359,9 +359,12 @@ def test_rows_of_masks_the_temporary_directory_in_a_command_history(tmp_path):
         # directory.
         data.make_map(tools, "raster", "one", 1)
         tools.t_create(
-            type="strds", output="listed", temporaltype="absolute", title="t",
+            type="strds",
+            output="listed",
+            temporaltype="absolute",
+            title="t",
             description="d",
-        )  # fmt: skip
+        )
         with tempfile.TemporaryDirectory() as directory:
             names = data.register_file(
                 Path(directory) / "maps.txt", [("one", data.day(1), data.day(2))]
