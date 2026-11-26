@@ -17,20 +17,6 @@ STEP = timedelta(minutes=5)
 METERS_PER_STEP = 20000 / 12
 STEPS_AT_GAUGE = 6
 
-tools = Tools()
-lines = tools.v_out_ascii(
-    input="usgsgages",
-    columns="SITE_ID",
-    where="SITE_NAME LIKE 'Crabtree Creek%'",
-    format="point",
-).text.splitlines()
-# USGS site numbers grow downstream.
-rows = [line.split("|") for line in lines]
-gauges = [
-    (float(east), float(north))
-    for east, north, _cat, _site in sorted(rows, key=lambda row: row[3])
-]
-
 
 def track(stops, start):
     """The positions (east, north, time) of a crew that visits the stops"""
@@ -58,19 +44,38 @@ def track(stops, start):
     return positions
 
 
-crews = {
-    "crew_a.csv": track(gauges, datetime(2020, 7, 15, 8, 0)),
-    "crew_b.csv": track(gauges[::-1], datetime(2020, 7, 15, 8, 10)),
-}
-for filename, positions in crews.items():
-    with open(filename, "w", newline="") as output:
-        writer = csv.writer(output)
-        for east, north, time in positions:
-            writer.writerow(
-                ["{:.1f}".format(east), "{:.1f}".format(north), time.isoformat(" ")]
+def main():
+    tools = Tools()
+    lines = tools.v_out_ascii(
+        input="usgsgages",
+        columns="SITE_ID",
+        where="SITE_NAME LIKE 'Crabtree Creek%'",
+        format="point",
+    ).text.splitlines()
+    # USGS site numbers grow downstream.
+    rows = [line.split("|") for line in lines]
+    gauges = [
+        (float(east), float(north))
+        for east, north, _cat, _site in sorted(rows, key=lambda row: row[3])
+    ]
+
+    crews = {
+        "crew_a.csv": track(gauges, datetime(2020, 7, 15, 8, 0)),
+        "crew_b.csv": track(gauges[::-1], datetime(2020, 7, 15, 8, 10)),
+    }
+    for filename, positions in crews.items():
+        with open(filename, "w", newline="") as output:
+            writer = csv.writer(output)
+            for east, north, time in positions:
+                writer.writerow(
+                    ["{:.1f}".format(east), "{:.1f}".format(north), time.isoformat(" ")]
+                )
+        print(
+            "{}: {} positions from {} to {}".format(
+                filename, len(positions), positions[0][2], positions[-1][2]
             )
-    print(
-        "{}: {} positions from {} to {}".format(
-            filename, len(positions), positions[0][2], positions[-1][2]
         )
-    )
+
+
+if __name__ == "__main__":
+    main()

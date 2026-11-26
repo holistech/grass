@@ -62,32 +62,37 @@ def temporal_relation(position, other):
     return None
 
 
-tgis.init()
-crew_a = read_track("crew_a.csv")
-crew_b = read_track("crew_b.csv")
-for positions in (crew_a, crew_b):
-    tgis.AbstractSpaceTimeDataset.snap_map_list(positions)
-    buffer_positions(positions)
+def main():
+    tgis.init()
+    crew_a = read_track("crew_a.csv")
+    crew_b = read_track("crew_b.csv")
+    for positions in (crew_a, crew_b):
+        tgis.AbstractSpaceTimeDataset.snap_map_list(positions)
+        buffer_positions(positions)
 
-builder = tgis.SpatioTemporalTopologyBuilder()
-builder.build(mapsA=crew_a, mapsB=crew_b, spatial="2D")
+    builder = tgis.SpatioTemporalTopologyBuilder()
+    builder.build(mapsA=crew_a, mapsB=crew_b, spatial="2D")
 
-for position in crew_a:
-    for spatial, others in position.get_spatial_relations().items():
-        if spatial not in SPATIAL:
-            continue
-        for other in others:
-            temporal = temporal_relation(position, other)
-            if temporal is None:
+    for position in crew_a:
+        for spatial, others in position.get_spatial_relations().items():
+            if spatial not in SPATIAL:
                 continue
-            space = position.spatial_intersection(other)
-            time = position.temporal_intersection(other)
-            print(
-                "{:%H:%M}-{:%H:%M} {} m2 {} {}".format(
-                    time.get_start_time(),
-                    time.get_end_time(),
-                    round(space.get_area()),
-                    spatial.lower(),
-                    temporal.lower(),
+            for other in others:
+                temporal = temporal_relation(position, other)
+                if temporal is None:
+                    continue
+                space = position.spatial_intersection(other)
+                time = position.temporal_intersection(other)
+                print(
+                    "{:%H:%M}-{:%H:%M} {} m2 {} {}".format(
+                        time.get_start_time(),
+                        time.get_end_time(),
+                        round(space.get_area()),
+                        spatial.lower(),
+                        temporal.lower(),
+                    )
                 )
-            )
+
+
+if __name__ == "__main__":
+    main()

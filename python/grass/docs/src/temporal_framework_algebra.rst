@@ -140,20 +140,26 @@ The script:
     import grass.temporal as tgis
     import grass.temporal.algebra as ta
 
-    tgis.init()
-    temperature = ta.source("temperature")
-    periods = ta.granules("2020-01-01", "2020-01-05", "2 days")
-    mean = ta.gather(periods, ta.contains, temperature, reduce="mean")
-    rounded = ta.apply("round", mean)
 
-    chain = ta.plan(rounded, "temperature_two_days")
-    for planned in chain.maps:
-        print(planned.name, planned.extent.start, planned.extent.end)
-        for call in planned.calls:
-            options = [f"{key}={value}" for key, value in call.parameters.items()]
-            print("   ", call.name, " ".join(options))
+    def main():
+        tgis.init()
+        temperature = ta.source("temperature")
+        periods = ta.granules("2020-01-01", "2020-01-05", "2 days")
+        mean = ta.gather(periods, ta.contains, temperature, reduce="mean")
+        rounded = ta.apply("round", mean)
 
-    ta.materialize(rounded, "temperature_two_days")
+        chain = ta.plan(rounded, "temperature_two_days")
+        for planned in chain.maps:
+            print(planned.name, planned.extent.start, planned.extent.end)
+            for call in planned.calls:
+                options = [f"{key}={value}" for key, value in call.parameters.items()]
+                print("   ", call.name, " ".join(options))
+
+        ta.materialize(rounded, "temperature_two_days")
+
+
+    if __name__ == "__main__":
+        main()
 
 It prints the plan:
 

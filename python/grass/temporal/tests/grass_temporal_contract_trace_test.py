@@ -13,13 +13,22 @@ from grass.temporal.testing.contract_trace import called_names, missing_from_con
 
 pytestmark = pytest.mark.usefixtures("temporal_module_session")
 
+# The work runs in main() behind the guard, as every documented example does:
+# on macOS and Windows a child process of the library imports the main module
+# again, and code at module level would run once more in it.
 SCRIPT = """\
 import grass.temporal as tgis
 
-tgis.init()
-stds = tgis.SpaceTimeRasterDataset("trace@PERMANENT")
-stds.get_temporal_type()
-stds.metadata.set_title("x")
+
+def main():
+    tgis.init()
+    stds = tgis.SpaceTimeRasterDataset("trace@PERMANENT")
+    stds.get_temporal_type()
+    stds.metadata.set_title("x")
+
+
+if __name__ == "__main__":
+    main()
 """
 
 TRACED = {
