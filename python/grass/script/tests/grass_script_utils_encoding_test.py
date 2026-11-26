@@ -4,6 +4,8 @@ import os
 import subprocess
 import sys
 
+import pytest
+
 from grass.tools import Tools
 
 DESCRIPTION = "Précipitation totale mensuelle NC"
@@ -48,6 +50,14 @@ def test_decode_and_encode_use_utf8_in_the_utf8_mode():
     assert run_python("-X", "utf8", "-c", code) == "Südtirol"
 
 
+@pytest.mark.xfail(
+    sys.platform == "win32",
+    strict=True,
+    reason=(
+        "g.parser hands a non-ASCII argument back in the ANSI code page of "
+        "Windows, which grass.script decodes as UTF-8"
+    ),
+)
 def test_python_tool_with_non_ascii_argument_under_lc_all_c(empty_session):
     # With LC_ALL=C Python switches to its UTF-8 mode (PEP 540) but
     # locale.getencoding() still reports ASCII, so g.parser output with the

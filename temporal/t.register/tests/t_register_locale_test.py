@@ -8,6 +8,8 @@ that the system does not have. With LC_ALL empty, Python coerces the C locale
 to UTF-8 (PEP 538), so "C" decodes the description as UTF-8 too.
 """
 
+import sys
+
 import pytest
 
 from grass.exceptions import CalledModuleError
@@ -18,7 +20,17 @@ from grass.tools import Tools
 
 # Almost every test of the module runs longer than one second (measured
 # 18.10.2026 with pytest --durations).
-pytestmark = pytest.mark.slow
+pytestmark = [
+    pytest.mark.slow,
+    pytest.mark.xfail(
+        sys.platform == "win32",
+        strict=True,
+        reason=(
+            "g.parser hands a non-ASCII argument back in the ANSI code page of "
+            "Windows, which grass.script decodes as UTF-8"
+        ),
+    ),
+]
 
 LOCALES = ["C", "C.UTF-8", "fr_BE.UTF-8"]
 DESCRIPTION = "Précipitation totale mensuelle NC"

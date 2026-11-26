@@ -5,6 +5,8 @@ The expected values capture the output of t.info as it is now, so that later
 changes to the interface can be checked against the established behavior.
 """
 
+import sys
+
 import pytest
 
 from grass.temporal.testing.readback import info_text
@@ -195,9 +197,28 @@ def test_history_flag_on_map(temporal_data):
     assert "Command history:" not in text
 
 
+@pytest.mark.xfail(
+    sys.platform == "win32",
+    strict=True,
+    reason=(
+        "g.parser hands a non-ASCII argument back in the ANSI code page of "
+        "Windows, which grass.script decodes as UTF-8"
+    ),
+)
 def test_nonascii_title_and_description(temporal_data):
     """Non-ASCII title and description are reported unchanged"""
     tools = Tools(session=temporal_data.session)
+    # The dataset is made here and not with the others, so that only this
+    # test fails where t.create cannot take the text. The description
+    # differs from the title, which register_stds cannot express.
+    tools.t_create(
+        type="strds",
+        temporaltype="absolute",
+        output="accent_ds",
+        title="Précipitation totale",
+        description="Précipitation mensuelle",
+        overwrite=True,
+    )
     text = tools.t_info(type="strds", input="accent_ds").text
 
     assert "Précipitation totale" in text

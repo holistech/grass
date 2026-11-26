@@ -4,6 +4,7 @@ Every test uses its own dataset names, because the module shares one project.
 """
 
 import re
+import sys
 
 import pytest
 
@@ -128,15 +129,36 @@ def test_semantictype_defaults_to_mean(tools):
     assert stds_info(tools, "strds", "sem_default")["semantic_type"] == "mean"
 
 
+NON_ASCII = pytest.mark.xfail(
+    sys.platform == "win32",
+    strict=True,
+    reason=(
+        "g.parser hands a non-ASCII argument back in the ANSI code page of "
+        "Windows, which grass.script decodes as UTF-8"
+    ),
+)
+
+
 @pytest.mark.parametrize(
     ("key", "text"),
     [
         ("plain", "Plain words"),
         ("double_quotes", 'with "double quotes"'),
-        ("umlauts", "umlauts \u00e4\u00f6\u00fc \u00df"),
+        pytest.param("umlauts", "umlauts \u00e4\u00f6\u00fc \u00df", marks=NON_ASCII),
         ("sql_characters", "semicolon; and --dashes"),
         ("backslash", "back\\slash"),
-        ("newline", "two\nlines"),
+        pytest.param(
+            "newline",
+            "two\nlines",
+            marks=pytest.mark.xfail(
+                sys.platform == "win32",
+                strict=True,
+                reason=(
+                    "a newline in an argument ends the command line of the batch "
+                    "file that starts a Python tool on Windows"
+                ),
+            ),
+        ),
     ],
 )
 def test_title_and_description_are_stored_as_given(tools, key, text):

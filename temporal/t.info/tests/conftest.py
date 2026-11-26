@@ -99,15 +99,4 @@ def temporal_data(tmp_path_factory):
         # A dataset without registered maps reports empty metadata fields.
         register_stds(tools, "strds", "empty_ds", [], title="An empty test")
 
-        # Non-ASCII text has to survive the round trip through the database.
-        # The description differs from the title, which register_stds cannot
-        # express.
-        tools.t_create(
-            type="strds",
-            temporaltype="absolute",
-            output="accent_ds",
-            title="Précipitation totale",
-            description="Précipitation mensuelle",
-        )
-
         yield SimpleNamespace(session=session, mapset=MAPSET, tools=tools)
