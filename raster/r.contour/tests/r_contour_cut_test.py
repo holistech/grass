@@ -165,13 +165,15 @@ def _vertex_blocks(text):
     # v.out.ascii writes no empty row. On Windows it ends each row with
     # "\r\n" (HOST_NEWLINE) in a stdout in text mode, and the "\r\r\n"
     # reads as an empty row after each row (OSGeo4W CI, 26.11.2026).
-    rows = (row for row in text.splitlines() if row)
-    for row in rows:
-        words = row.split()
+    rows = [row for row in text.splitlines() if row]
+    index = 0
+    while index < len(rows):
+        words = rows[index].split()
+        index += 1
         if words and words[0] in {"L", "B"}:
-            yield [next(rows) for _ in range(int(words[1]))]
-            for _ in range(int(words[2])):
-                next(rows)
+            vertices, categories = int(words[1]), int(words[2])
+            yield rows[index : index + vertices]
+            index += vertices + categories
 
 
 def test_a_group_of_short_pieces_is_removed(tools):
