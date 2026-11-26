@@ -71,6 +71,7 @@ from grass.grassdb.create import create_mapset
 from . import nc_dataset, postgresql
 from .session import (
     STOPPED_RETURNCODE,
+    output_after_stop,
     project_session,
     start_process_tree,
     stop_process_tree,
@@ -684,7 +685,7 @@ def _run(arguments, *, env, cwd, seconds, stdin=None) -> tuple[int, str, str]:
         stdout, stderr = process.communicate(stdin, timeout=seconds)
     except subprocess.TimeoutExpired:
         stop_process_tree(process)
-        stdout, stderr = process.communicate()
+        stdout, stderr = output_after_stop(process)
         stderr += f"\nStopped after {seconds} s.\n"
         returncode = STOPPED_RETURNCODE
     else:

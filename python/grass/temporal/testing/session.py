@@ -166,11 +166,16 @@ def start_process_tree(arguments, **options):
 
 
 def stop_process_tree(process):
-    """Kill a process of start_process_tree and every process it started
+    """Kill a process of start_process_tree and the processes it started
 
     Killing the process alone is not enough: a tool runs below the wrapper
     that subprocess knows, and a block of a manual starts tools below bash
     or Python. A tree that is gone already is no error.
+
+    Not reached are, on POSIX, descendants that left the process group (as
+    with setsid) and, on Windows, descendants whose parent had ended before:
+    taskkill /T follows only the links of living parents. Such a process
+    can keep the pipes open; output_after_stop waits for them with a limit.
     """
     if sys.platform == "win32":
         # Windows has no os.killpg; taskkill /T follows the parent process
@@ -184,6 +189,27 @@ def stop_process_tree(process):
         return
     with contextlib.suppress(ProcessLookupError):
         os.killpg(process.pid, signal.SIGKILL)
+
+
+# A chosen value, not a measured one: after the kill the pipes close at
+# once unless a process that stop_process_tree did not reach holds them.
+STOPPED_OUTPUT_SECONDS = 10
+
+
+def output_after_stop(process):
+    """Return the rest of stdout and stderr of a process after stop_process_tree
+
+    The values are those of communicate(). When the pipes are still open
+    after STOPPED_OUTPUT_SECONDS, the rest is lost: each piped stream gives
+    an empty text, each other None.
+    """
+    try:
+        return process.communicate(timeout=STOPPED_OUTPUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        return tuple(
+            None if stream is None else ""
+            for stream in (process.stdout, process.stderr)
+        )
 
 
 def run_with_timeout(session, arguments, seconds):
@@ -205,6 +231,6 @@ def run_with_timeout(session, arguments, seconds):
         _, messages = process.communicate(timeout=seconds)
     except subprocess.TimeoutExpired:
         stop_process_tree(process)
-        process.communicate()
+        output_after_stop(process)
         return None
     return process.returncode, messages

@@ -4,14 +4,18 @@ SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
+import contextlib
 import os
+import signal
 import subprocess
 import sys
+import time
 
 import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
+import grass.temporal.testing.session
 from grass.temporal.state import get_raise_on_error, set_raise_on_error
 from grass.exceptions import FatalError
 from grass.pygrass.messages import get_msgr
@@ -20,6 +24,7 @@ from grass.temporal.testing.session import (
     add_mapset,
     find_program,
     mapset_session,
+    output_after_stop,
     project_session,
     start_process_tree,
     stop_process_tree,
@@ -196,6 +201,32 @@ def test_killing_only_the_process_leaves_its_child():
             process.communicate(timeout=2)
     finally:
         stop_process_tree(process)
+        process.communicate(timeout=30)
+
+
+def test_output_after_stop_gives_up_on_a_descendant_that_holds_the_pipe(
+    monkeypatch,
+):
+    # Killing only the parent leaves the child with the pipe, as
+    # stop_process_tree leaves a descendant that it does not reach.
+    monkeypatch.setattr(grass.temporal.testing.session, "STOPPED_OUTPUT_SECONDS", 1)
+    process = start_process_tree(
+        [sys.executable, "-c", PARENT_WITH_CHILD], stdout=subprocess.PIPE, text=True
+    )
+    child = int(process.stdout.readline())
+    try:
+        process.kill()
+        process.wait(timeout=30)
+        start = time.monotonic()
+
+        output = output_after_stop(process)
+
+        # The child sleeps 120 s; without the limit the wait would last that long.
+        assert time.monotonic() - start < 30
+        assert output == ("", None)
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(child, signal.SIGTERM)
         process.communicate(timeout=30)
 
 
