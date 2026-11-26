@@ -587,7 +587,11 @@ int main(int argc, char *argv[])
 
     /* User-specified nodata-value ? */
     if (nodataopt->answer) {
-        nodataval = atof(nodataopt->answer);
+        /* The values are read as the parser checked them, with strtod().
+           With atof() the OSGeo4W build wrote the nodata value 0 for nan,
+           which the parser had accepted (GitHub Windows runner,
+           26.11.2026). */
+        nodataval = strtod(nodataopt->answer, NULL);
         default_nodataval = 0;
         /* Check if given nodata value can be represented by selected GDAL
          * datatype */
@@ -604,14 +608,14 @@ int main(int argc, char *argv[])
     double offsetval = 0; /* not defined */
 
     if (offsetopt->answer != NULL) {
-        offsetval = atof(offsetopt->answer);
+        offsetval = strtod(offsetopt->answer, NULL);
     }
 
     /* Scale value */
     double scaleval = 1; /* not defined */
 
     if (scaleopt->answer != NULL) {
-        scaleval = atof(scaleopt->answer);
+        scaleval = strtod(scaleopt->answer, NULL);
     }
 
     /* exact range and nodata checks for each band */
