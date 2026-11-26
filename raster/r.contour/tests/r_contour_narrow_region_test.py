@@ -1,8 +1,10 @@
 """Test that r.contour ends on regions of one or two rows or columns"""
 
 import os
+import shutil
 import signal
 import subprocess
+import sys
 
 import pytest
 
@@ -36,11 +38,20 @@ def run_contour(session, level):
     """Run r.contour with a time limit and return its exit code
 
     A hung process would block the test run, so it gets its own process
-    group and the whole group is killed when the limit passes.
+    group and the whole group is killed when the limit passes; the group
+    includes the database driver that r.contour starts.
     """
+    # On Windows, subprocess does not add .exe to a name that has a dot in it;
+    # shutil.which tries the extensions of PATHEXT.
+    program = shutil.which("r.contour", path=session.env["PATH"])
+    assert program, f"r.contour not found in PATH {session.env['PATH']}"
+    if sys.platform == "win32":
+        group = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+    else:
+        group = {"start_new_session": True}
     process = subprocess.Popen(
         [
-            "r.contour",
+            program,
             "input=m",
             "output=lines",
             f"levels={level}",
@@ -51,12 +62,18 @@ def run_contour(session, level):
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
         text=True,
-        start_new_session=True,
+        **group,
     )
     try:
         _, stderr = process.communicate(timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
+        if sys.platform == "win32":
+            # Windows has no os.killpg; taskkill /T follows the parent ids.
+            subprocess.run(
+                ["taskkill", "/T", "/F", "/PID", str(process.pid)], check=False
+            )
+        else:
+            os.killpg(process.pid, signal.SIGKILL)
         process.communicate()
         pytest.fail(f"r.contour did not end within {TIMEOUT} s")
     assert process.returncode == 0, stderr
