@@ -13,6 +13,7 @@ import os
 import re
 import signal
 import struct
+import sys
 import threading
 import time
 import zlib
@@ -24,6 +25,13 @@ from grass.temporal.testing import manual_coverage as mc
 from grass.temporal.testing import manual_examples as me
 from grass.temporal.testing.postgresql import SERVER_VARIABLE
 from grass.temporal.testing.session import project_session
+
+# The shell tab runs its blocks with bash. In the OSGeo4W job of the CI
+# (26.11.2026), bash is C:\Windows\System32\bash.exe, the launcher of the
+# Windows Subsystem for Linux, which has no distribution there.
+needs_bash = pytest.mark.skipif(
+    sys.platform == "win32", reason="bash of the runner is the WSL launcher"
+)
 
 
 def tab(label, body):
@@ -93,6 +101,7 @@ def png(width, height):
     )
 
 
+@needs_bash
 def test_one_changed_character_in_a_shown_output_fails(tmp_path, session):
     printed = gs.read_command("g.region", flags="p", env=session.env)
     changed = printed.replace("rows:       3", "rows:       4")
@@ -117,7 +126,7 @@ def test_one_changed_character_in_a_shown_output_fails(tmp_path, session):
     assert "@@" in message
 
 
-@pytest.mark.parametrize("variant", ["shell", "python"])
+@pytest.mark.parametrize("variant", [pytest.param("shell", marks=needs_bash), "python"])
 def test_a_failing_command_shows_its_stderr(tmp_path, session, variant):
     manual = write_manual(
         tmp_path,
@@ -180,7 +189,7 @@ def test_a_python_block_that_ends_the_process_fails_the_next(tmp_path, session):
     assert "ended before this block" in results[1].stderr
 
 
-@pytest.mark.parametrize("variant", ["shell", "python"])
+@pytest.mark.parametrize("variant", [pytest.param("shell", marks=needs_bash), "python"])
 def test_a_hanging_block_is_stopped(tmp_path, session, monkeypatch, variant):
     monkeypatch.setattr(me, "BLOCK_SECONDS", 1)
     manual = write_manual(
@@ -214,6 +223,7 @@ def group_exists(group):
     return True
 
 
+@needs_bash
 def test_an_aborted_run_leaves_no_process(tmp_path, session):
     stop = me.stop_example_processes
     # The echo after sleep keeps bash from replacing itself by sleep, so the
@@ -259,6 +269,7 @@ VERSION = (
 )
 
 
+@needs_bash
 def test_old_database_turns_the_database_into_version_2(tmp_path):
     shell = (
         blocks("sh", "t.info -d > /dev/null\n")
@@ -394,6 +405,7 @@ def test_shell_calls_find_a_command_after_a_keyword():
     ]
 
 
+@needs_bash
 def test_a_shell_block_that_cannot_be_read_names_its_line(tmp_path, session):
     # bash takes $'...' with an escaped quote, shlex does not.
     unreadable = "echo $'it\\'s'\n"
@@ -415,6 +427,7 @@ def test_a_shell_block_that_cannot_be_read_names_its_line(tmp_path, session):
         me.check_manual(drawing, "shell", session, tmp_path / "unreadable" / "work")
 
 
+@needs_bash
 def test_a_block_runs_where_its_gdal_driver_exists(tmp_path, session):
     gdal = pytest.importorskip("osgeo.gdal")
     assert gdal.GetDriverByName("GTiff") is not None
@@ -426,6 +439,7 @@ def test_a_block_runs_where_its_gdal_driver_exists(tmp_path, session):
     assert (results[0].stdout, results[0].skipped) == ("ran\n", None)
 
 
+@needs_bash
 def test_a_skipped_block_names_its_condition(tmp_path, session, monkeypatch):
     monkeypatch.delenv(SERVER_VARIABLE, raising=False)
     shell = (
@@ -477,6 +491,7 @@ def image_manual(tmp_path, shell, name):
 DRAW = "d.mon start=cairo output=x.png width=60 height=40\nd.erase\nd.mon stop=cairo\n"
 
 
+@needs_bash
 def test_an_image_must_exist_with_the_given_size(tmp_path, session):
     good = image_manual(tmp_path, DRAW, "good")
     me.check_manual(good, "shell", session, tmp_path / "good" / "shell")
