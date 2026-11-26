@@ -255,11 +255,14 @@ def test_overwrite_replaces_the_dataset_and_the_vector(tools, rasters, points, p
     assert _rows(tools, vector, 1, "obs") == [("1.5",)] * 4
 
 
-# About 100 seconds (measured 26.11.2026 with a serial pytest --durations=0).
-# The mark repeats the limit of pyproject.toml so that temporal/conftest.py
-# can give it more time on Windows, where it ran out in the CI.
+# About 80 seconds alone on 4 cores (26.11.2026, pytest --durations with
+# taskset -c 0-3), but more than the 300 s of pyproject.toml in two of three
+# runs of the whole suite with 4 workers on 4 cores the same day. The limit
+# only has to catch a hang, so it is a chosen value well above both; the mark
+# also lets temporal/conftest.py give it more time on Windows, where it ran
+# out in the CI.
 @pytest.mark.slow
-@pytest.mark.timeout(300)
+@pytest.mark.timeout(900)
 def test_more_than_256_layers_keep_their_values(tools, points, prefix):
     # The case of the old script test.t.vect.observe.strds.layer_bug.sh ("the
     # limit of the number of layers"), which an exit statement had disabled
