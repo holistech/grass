@@ -8,6 +8,7 @@ SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
+import sys
 import tarfile
 from datetime import datetime
 from pathlib import Path
@@ -251,6 +252,10 @@ def test_a_module_that_fails_stops_the_export_with_a_message(
     assert not (tmp_path / "out.tar").exists()
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="chmod does not make a directory read-only on Windows",
+)
 def test_an_output_directory_that_cannot_be_written_is_refused(datasets, tmp_path):
     locked = tmp_path / "locked"
     locked.mkdir()
