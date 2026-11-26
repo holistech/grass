@@ -46,12 +46,15 @@ def track(stops, start):
 
 def main():
     tools = Tools()
+    # split() rather than splitlines(): on Windows, Python reads two line
+    # ends after each row of v.out.ascii, which writes "\r\n" to a stdout
+    # in text mode.
     lines = tools.v_out_ascii(
         input="usgsgages",
         columns="SITE_ID",
         where="SITE_NAME LIKE 'Crabtree Creek%'",
         format="point",
-    ).text.splitlines()
+    ).text.split()
     # USGS site numbers grow downstream.
     rows = [line.split("|") for line in lines]
     gauges = [
