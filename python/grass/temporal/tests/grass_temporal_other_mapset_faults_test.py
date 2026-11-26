@@ -311,11 +311,14 @@ def test_dataset_of_other_mapset(tools, owner, tmp_path):
     what = tools.t_rast_what(strds="ds@first", coordinates="0.5,0.5")
     assert [line.split("|")[-1] for line in lines(what)] == ["1", "2", "3", "4"]
 
+    # Other tests of the module leave their 3D maps in "second" too.
+    before = set(tools.g_list(type="raster_3d", mapset=CURRENT).stdout.split())
     tools.t_rast_to_rast3(input="ds@first", output="stack")
     info = tools.r3_info(map="stack", flags="g").keyval
     assert info["depths"] == 4
     # The maps of the original are read, the result is made in "second".
-    assert tools.g_list(type="raster_3d", mapset=CURRENT).stdout.split() == ["stack"]
+    after = set(tools.g_list(type="raster_3d", mapset=CURRENT).stdout.split())
+    assert after - before == {"stack"}
 
 
 # The tools that look for a name without a mapset: the call with the name of
@@ -638,9 +641,12 @@ def test_copy_and_merge_without_maps_make_no_map_of_the_owner(tools):
     assert not phantoms(tools)
 
 
-def test_register_of_map_of_other_mapset_makes_no_map_of_the_owner(tools):
+def test_register_of_map_of_other_mapset_makes_no_map_of_the_owner(tools, owner):
     """An update of a map of another mapset writes no time stamp either"""
-    tools.t_copy(type="str3ds", input="ds3@first", output="update_copy3")
+    # A dataset of its own: the update moves the map to 2002 in the temporal
+    # database of "second", where the other tests read the maps of ds3.
+    create_daily_stds(owner, "str3ds", ["update3"], 1, map_prefix="u3")
+    tools.t_copy(type="str3ds", input="update3@first", output="update_copy3")
     tools.t_create(
         type="str3ds", output="update_target", title="t", description="d", quiet=True
     )
@@ -648,12 +654,12 @@ def test_register_of_map_of_other_mapset_makes_no_map_of_the_owner(tools):
     tools.t_register(
         type="raster_3d",
         input="update_target",
-        maps="r3_1@first",
+        maps="u3_1@first",
         start="2002-01-01",
         overwrite=True,
     )
 
-    assert not phantoms(tools)
+    assert "u3_1" not in tools.g_list(type="raster_3d", mapset=CURRENT).stdout.split()
 
 
 @pytest.fixture(scope="module")
