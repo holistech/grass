@@ -598,7 +598,9 @@ def shadowed_maps(temporal_module_session):
     yield tools
     tools.g_mapset(mapset="PERMANENT")
     tgis.stop_subprocesses()
-    tgis.init()
+    # The other tests of the module expect FatalError: init() sets the error
+    # mode to its argument, by default to exit.
+    tgis.init(raise_fatal_error=True)
 
 
 @pytest.mark.parametrize(
@@ -612,7 +614,8 @@ def test_the_export_reads_each_map_from_its_mapset(
     dataset = "shadow_r" if type_ == "strds" else "shadow_v"
     archive = _export(tmp_path, dataset, type_, format_)
     tgis.stop_subprocesses()
-    tgis.init()
+    # Keep the error mode of the module session, see shadowed_maps.
+    tgis.init(raise_fatal_error=True)
 
     tools.g_mapset(mapset="shadow_imported", flags="c")
     try:
