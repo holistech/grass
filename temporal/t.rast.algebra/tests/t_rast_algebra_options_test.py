@@ -120,7 +120,9 @@ def test_dry_run_creates_nothing(algebra, tool):
     assert "OPT_DRY" in result.stdout
     with pytest.raises(ToolError):
         tool.t_info(input="OPT_DRY")
-    assert not tool.g_list(type="raster", pattern="opt_dry_*").stdout.strip()
+    # Only the names of the plan: the dry run test with overwrite makes
+    # opt_dry_ow_*, and pytest-randomly may run it before.
+    assert not tool.g_list(type="raster", pattern="opt_dry_[0-9]*").stdout.strip()
 
 
 def test_dry_run_requires_overwrite_as_the_real_run(algebra, tool):
