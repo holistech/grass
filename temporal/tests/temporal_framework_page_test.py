@@ -293,7 +293,9 @@ def test_code_blocks_of_the_page_run(block, page_session):
 
 @pytest.mark.timeout(300)
 @pytest.mark.parametrize("block", block_params())
-def test_code_blocks_of_the_page_use_only_the_contract(block, page_session):
+def test_code_blocks_of_the_page_use_only_the_contract(
+    block, page_session, temporal_module_session
+):
     """Each code block calls only functions that the public contract lists"""
     session, work = page_session
     script, env = prepared_script(block[0], block[1], session, work)
@@ -956,7 +958,7 @@ def test_example_tool_runs_as_the_page_shows(page_session):
 
 
 @pytest.mark.timeout(300)
-def test_example_tool_uses_only_the_contract(page_session):
+def test_example_tool_uses_only_the_contract(page_session, temporal_module_session):
     """The tool calls only functions that the public contract lists"""
     session, work = page_session
     env = dict(session.env)
@@ -1096,7 +1098,7 @@ def test_algebra_example_runs_as_the_page_shows(page_session):
 
 
 @pytest.mark.timeout(300)
-def test_algebra_example_uses_only_the_contract(page_session):
+def test_algebra_example_uses_only_the_contract(page_session, temporal_module_session):
     """The script calls the core API it is meant to show, all of it in the contract"""
     session, work = page_session
     env = dict(session.env)

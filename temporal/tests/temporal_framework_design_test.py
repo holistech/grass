@@ -168,10 +168,11 @@ FIGURE_CLASSES = {
 def sample_objects():
     """One object of each class whose instance attributes a figure draws
 
-    Compositions and instance attributes exist only on objects. The datasets
-    build their rows without a database, so this needs no session. The rows
-    and the algebra values are built the way the datasets and the core build
-    them.
+    Compositions and instance attributes exist only on objects. The rows and
+    the algebra values are built the way the datasets and the core build them.
+    Building a dataset reads the version of the temporal database as soon as
+    tgis.init() has run once in the process, so the caller needs a temporal
+    session (the fixture temporal_module_session), whatever ran before it.
     """
     import grass.temporal as tgis
     from grass.temporal import algebra as ta
@@ -390,7 +391,7 @@ def figure_files():
 
 
 @pytest.mark.parametrize("figure", figure_files(), ids=lambda path: path.stem)
-def test_figure_names_exist(figure):
+def test_figure_names_exist(figure, temporal_module_session):
     """Every class, base, member and link of a figure exists in the code"""
     classes = parse_figure(figure)
     assert classes, f"{figure.name} draws no class and names no Class.member()"
@@ -496,7 +497,7 @@ def test_example_runs_and_prints_the_shown_output(name, example_mapset, tmp_path
 
 @pytest.mark.timeout(600)
 @pytest.mark.parametrize("name", sorted(EXAMPLE_RUNS))
-def test_example_uses_only_the_contract(name, example_mapset):
+def test_example_uses_only_the_contract(name, example_mapset, temporal_module_session):
     session, work = example_mapset
     env = dict(session.env)
     run_prerequisites(name, env, work)
