@@ -1,6 +1,8 @@
 """Fixtures for the tests of grass.temporal"""
 
 import datetime
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -15,6 +17,40 @@ from grass.temporal.state import set_raise_on_error  # noqa: E402
 from grass.temporal.testing import io_cache  # noqa: E402
 from grass.temporal.testing import postgresql  # noqa: E402
 from grass.temporal.testing.session import temporal_session  # noqa: E402
+
+
+# Windows starts processes several times slower than Linux, and there
+# pytest-timeout has only its thread method, which ends the whole xdist worker
+# when a limit passes. In the OSGeo4W job of the CI (26.11.2026), eight
+# workers ended so, among them tests with a limit of 10 s.
+WINDOWS_TIMEOUT_FACTOR = 5
+WINDOWS_TIMEOUT_MINIMUM = 60
+
+
+def pytest_collection_modifyitems(items):
+    """On Windows, give each timeout mark below this directory more time
+
+    pytest calls the hook of a conftest.py with the items of all directories,
+    so it leaves the items of other directories alone.
+    """
+    if sys.platform != "win32":
+        return
+    here = Path(__file__).parent
+    for item in items:
+        marker = item.get_closest_marker("timeout")
+        if marker is None or here not in item.path.parents:
+            continue
+        args, kwargs = list(marker.args), dict(marker.kwargs)
+        seconds = args[0] if args else kwargs.get("timeout")
+        if not seconds:
+            continue
+        seconds = max(WINDOWS_TIMEOUT_MINIMUM, seconds * WINDOWS_TIMEOUT_FACTOR)
+        if args:
+            args[0] = seconds
+        else:
+            kwargs["timeout"] = seconds
+        # The closest mark is the first one of the item; pytest-timeout reads it.
+        item.add_marker(pytest.mark.timeout(*args, **kwargs), append=False)
 
 
 def _extent(span, unit):
