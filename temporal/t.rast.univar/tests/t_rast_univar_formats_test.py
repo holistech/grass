@@ -23,6 +23,20 @@ def _refused(tools, **options):
     return message(error.value)
 
 
+@pytest.fixture
+def region_restored(tools):
+    """Set the region of the module back after the test
+
+    The statistics are computed in the current region, and the expected
+    values are those in the region of the module fixture values. A test
+    that changes the region would leave it to the tests that pytest-randomly
+    runs after it.
+    """
+    tools.g_region(save="region_of_the_module", overwrite=True)
+    yield
+    tools.g_region(region="region_of_the_module")
+
+
 def test_a_separator_replaces_the_bar(tools, values):
     result = tools.t_rast_univar(input=values, where=ONE_MAP, separator=";")
 
@@ -206,6 +220,7 @@ def test_a_dash_as_output_means_the_standard_output(tools, values):
     assert result.stdout.splitlines()[1].split("|") == FIRST_ROW
 
 
+@pytest.mark.usefixtures("region_restored")
 def test_json_writes_a_relative_start_of_zero(tools, values):
     # Two maps of one cell, 5 and 7, in a relative dataset in days; the first
     # starts at 0. The start of a map is the number as text, so the first map
