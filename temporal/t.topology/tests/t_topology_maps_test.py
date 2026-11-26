@@ -249,8 +249,10 @@ def test_an_unknown_dataset_is_refused(tools):
 
 
 def test_the_input_is_required(tools):
+    # One option, so that the parser gets an argument: without any, it prints
+    # the usage when stdin is a terminal, as on the Windows runner.
     with pytest.raises(ToolError, match=r"Required\s+parameter\s+<input>\s+not\s+set"):
-        tools.t_topology()
+        tools.t_topology(quiet=True)
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).

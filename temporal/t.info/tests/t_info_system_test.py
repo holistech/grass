@@ -11,8 +11,10 @@ from grass.tools import ToolError, Tools
 
 
 def test_without_d_the_input_is_required(tools):
+    # One option, so that the parser gets an argument: without any, it prints
+    # the usage when stdin is a terminal, as on the Windows runner.
     with pytest.raises(ToolError) as error:
-        tools.t_info()
+        tools.t_info(quiet=True)
 
     assert "Required parameter <input> not set" in message(error.value)
 

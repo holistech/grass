@@ -160,7 +160,9 @@ def test_a_missing_dataset_is_named(tools, series):
 
 
 def test_the_input_is_required(tools, series):
-    assert "Required parameter <input> not set" in _refused(tools)
+    # One option, so that the parser gets an argument: without any, it prints
+    # the usage when stdin is a terminal, as on the Windows runner.
+    assert "Required parameter <input> not set" in _refused(tools, quiet=True)
 
 
 def test_an_empty_dataset_is_refused_by_cols(tools, series):

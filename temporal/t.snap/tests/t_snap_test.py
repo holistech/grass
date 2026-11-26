@@ -311,7 +311,9 @@ def test_the_type_selects_the_dataset(tools, prefix):
 
 
 def test_input_is_required(tools):
+    # One option, so that the parser gets an argument: without any, it prints
+    # the usage when stdin is a terminal, as on the Windows runner.
     with pytest.raises(ToolError) as error:
-        tools.t_snap()
+        tools.t_snap(quiet=True)
 
     assert "Required parameter <input> not set" in message(error.value)
