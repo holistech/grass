@@ -25,6 +25,7 @@ from .manual_examples import (
     block_shell_calls,
     python_calls,
 )
+from .session import find_program
 
 # The flags that the parser gives every tool. A tool does not have to show
 # them; the shell spells them --overwrite, grass.tools takes keywords.
@@ -43,7 +44,7 @@ def tool_options(tool: str, env) -> set[str]:
     standard flags of the parser are left out.
     """
     process = subprocess.run(
-        [tool, "--interface-description"],
+        [find_program(tool, env), "--interface-description"],
         env=env,
         capture_output=True,
         text=True,

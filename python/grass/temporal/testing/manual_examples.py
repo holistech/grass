@@ -55,7 +55,6 @@ import json
 import os
 import re
 import shlex
-import signal
 import struct
 import subprocess
 import sys
@@ -67,7 +66,12 @@ import grass.script as gs
 from grass.grassdb.create import create_mapset
 
 from . import nc_dataset, postgresql
-from .session import project_session
+from .session import (
+    STOPPED_RETURNCODE,
+    project_session,
+    start_process_tree,
+    stop_process_tree,
+)
 from .versions import downgrade_to_version_2
 
 TABS = {"Command line": "shell", "Python (grass.tools)": "python"}
@@ -588,7 +592,8 @@ class BlockResult:
 
     ``skipped`` is None for a block that ran, otherwise the reason why it did
     not run; a skipped block has empty output and return code 0. A return
-    code below 0 is the signal that stopped a block after BLOCK_SECONDS.
+    code below 0 (session.STOPPED_RETURNCODE) tells a block that was stopped
+    after BLOCK_SECONDS.
     """
 
     block: Block
@@ -624,32 +629,31 @@ def _skip_reason(block: Block) -> str | None:
     return None
 
 
-# The process groups of the blocks that run now, for stop_example_processes.
-_RUNNING_GROUPS: set[int] = set()
+# The processes of the blocks that run now, for stop_example_processes.
+_RUNNING_PROCESSES: set[subprocess.Popen] = set()
 
 
 def stop_example_processes() -> None:
-    """Kill the process groups of the blocks that are still running
+    """Kill the processes of the blocks that are still running
 
     A block ends on its own or after BLOCK_SECONDS. A test that is ended
     before, as pytest-timeout does with an exception in the middle of a
-    block, leaves the group running; a fixture calls this in its teardown.
+    block, leaves the processes running; a fixture calls this in its teardown.
     """
-    for group in list(_RUNNING_GROUPS):
-        with contextlib.suppress(ProcessLookupError):
-            os.killpg(group, signal.SIGKILL)
-        _RUNNING_GROUPS.discard(group)
+    for process in list(_RUNNING_PROCESSES):
+        stop_process_tree(process)
+        _RUNNING_PROCESSES.discard(process)
 
 
 def _run(arguments, *, env, cwd, seconds, stdin=None) -> tuple[int, str, str]:
-    """Run a process in a group of its own; kill the group after seconds
+    """Run a process; kill it with its descendants after seconds
 
-    As session.run_with_timeout, but with stdout kept. The whole group is
-    killed, because a tool started below bash or python survives the kill of
-    its parent alone. The group stays in _RUNNING_GROUPS while it runs, and
-    after an exception that ends the wait.
+    As session.run_with_timeout, but with stdout kept. The descendants are
+    killed too, because a tool started below bash or python survives the
+    kill of its parent alone. The process stays in _RUNNING_PROCESSES while
+    it runs, and after an exception that ends the wait.
     """
-    process = subprocess.Popen(
+    process = start_process_tree(
         arguments,
         env=env,
         cwd=cwd,
@@ -657,19 +661,18 @@ def _run(arguments, *, env, cwd, seconds, stdin=None) -> tuple[int, str, str]:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        start_new_session=True,
     )
-    _RUNNING_GROUPS.add(process.pid)
+    _RUNNING_PROCESSES.add(process)
     try:
         stdout, stderr = process.communicate(stdin, timeout=seconds)
     except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
+        stop_process_tree(process)
         stdout, stderr = process.communicate()
         stderr += f"\nStopped after {seconds} s.\n"
-        returncode = -signal.SIGKILL
+        returncode = STOPPED_RETURNCODE
     else:
         returncode = process.returncode
-    _RUNNING_GROUPS.discard(process.pid)
+    _RUNNING_PROCESSES.discard(process)
     return returncode, stdout, stderr
 
 

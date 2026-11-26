@@ -15,8 +15,10 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 import contextlib
 import os
+import shutil
 import signal
 import subprocess
+import sys
 from pathlib import Path
 
 import grass.script as gs
@@ -119,24 +121,85 @@ def temporal_session(path, *, crs=None, mapset=None):
         os.environ.update(saved_environ)
 
 
-def run_with_timeout(session, arguments, seconds):
-    """Run a tool in a process group of its own; None if it did not end in time
+# The return code that a process stopped by stop_process_tree gets from the
+# helpers that report it: on POSIX the one subprocess reports for SIGKILL.
+# Windows has no SIGKILL; the number only has to be below 0, which tells a
+# stopped process from one that ended by itself.
+STOPPED_RETURNCODE = -getattr(signal, "SIGKILL", 9)
 
-    Returns the return code and the messages. The tool starts a Python process
-    below the wrapper that subprocess knows, so the whole group is killed.
+
+def find_program(name, env):
+    """Return the path of the program name in the PATH of env
+
+    On Windows, subprocess does not add .exe or .bat to a name that already
+    has a dot in it, as every GRASS tool name has, so a tool has to be
+    resolved before it is started; shutil.which tries the extensions of
+    PATHEXT. Raises FileNotFoundError naming the program and the PATH
+    searched when it is not found.
     """
-    process = subprocess.Popen(
+    path = shutil.which(name, path=env["PATH"])
+    if path is None:
+        msg = f"Program {name} not found in PATH {env['PATH']}"
+        raise FileNotFoundError(msg)
+    return path
+
+
+def start_process_tree(arguments, **options):
+    """Start a process that stop_process_tree can stop with its descendants
+
+    options are passed on to subprocess.Popen. On POSIX the process leads a
+    session and process group of its own; on Windows it starts a process
+    group of its own.
+    """
+    if sys.platform == "win32":
+        options["creationflags"] = (
+            options.get("creationflags", 0) | subprocess.CREATE_NEW_PROCESS_GROUP
+        )
+    else:
+        options["start_new_session"] = True
+    return subprocess.Popen(arguments, **options)
+
+
+def stop_process_tree(process):
+    """Kill a process of start_process_tree and every process it started
+
+    Killing the process alone is not enough: a tool runs below the wrapper
+    that subprocess knows, and a block of a manual starts tools below bash
+    or Python. A tree that is gone already is no error.
+    """
+    if sys.platform == "win32":
+        # Windows has no os.killpg; taskkill /T follows the parent process
+        # ids down from the process.
+        subprocess.run(
+            ["taskkill", "/T", "/F", "/PID", str(process.pid)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        return
+    with contextlib.suppress(ProcessLookupError):
+        os.killpg(process.pid, signal.SIGKILL)
+
+
+def run_with_timeout(session, arguments, seconds):
+    """Run a tool with a time limit; None if it did not end in time
+
+    Returns the return code and the messages. The tool name in arguments is
+    looked up in the PATH of the session (find_program). At the limit, the
+    tool and every process it started are killed (stop_process_tree).
+    """
+    arguments = [find_program(arguments[0], session.env), *arguments[1:]]
+    process = start_process_tree(
         arguments,
         env=session.env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
         text=True,
-        start_new_session=True,
     )
     try:
         _, messages = process.communicate(timeout=seconds)
     except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
+        stop_process_tree(process)
         process.communicate()
         return None
     return process.returncode, messages

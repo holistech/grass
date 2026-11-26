@@ -5,6 +5,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import os
+import subprocess
+import sys
 
 import pytest
 
@@ -16,8 +18,11 @@ from grass.pygrass.messages import get_msgr
 from grass.temporal.state import STATE
 from grass.temporal.testing.session import (
     add_mapset,
+    find_program,
     mapset_session,
     project_session,
+    start_process_tree,
+    stop_process_tree,
     temporal_session,
 )
 
@@ -147,3 +152,105 @@ def test_mapset_session_takes_an_existing_mapset(tmp_path):
         with mapset_session(work, "other") as other:
             current = gs.read_command("g.gisenv", get="MAPSET", env=other.env)
             assert current.strip() == "other"
+
+
+# The parent starts a child that sleeps, prints the pid of the child and
+# sleeps itself. Both write to the stdout pipe of the test, so the test reads
+# the end of the pipe only when both processes are gone; that works the same
+# on every platform.
+PARENT_WITH_CHILD = (
+    "import subprocess, sys, time\n"
+    "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])\n"
+    "print(child.pid, flush=True)\n"
+    "time.sleep(120)\n"
+)
+
+
+def start_parent_with_child():
+    process = start_process_tree(
+        [sys.executable, "-c", PARENT_WITH_CHILD],
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    assert process.stdout.readline().strip().isdigit()
+    return process
+
+
+def test_stop_process_tree_kills_the_process_and_its_child():
+    process = start_parent_with_child()
+    try:
+        stop_process_tree(process)
+        # Raises TimeoutExpired while the child still holds the pipe open.
+        process.communicate(timeout=30)
+    finally:
+        stop_process_tree(process)
+    assert process.returncode != 0
+
+
+def test_killing_only_the_process_leaves_its_child():
+    """The check of the test above sees a child that survives"""
+    process = start_parent_with_child()
+    try:
+        process.kill()
+        with pytest.raises(subprocess.TimeoutExpired):
+            process.communicate(timeout=2)
+    finally:
+        stop_process_tree(process)
+        process.communicate(timeout=30)
+
+
+def test_stop_process_tree_of_an_ended_process_is_no_error():
+    process = start_process_tree([sys.executable, "-c", "pass"])
+    process.wait(timeout=30)
+    stop_process_tree(process)
+
+
+def test_on_windows_the_tree_starts_as_a_process_group(monkeypatch):
+    # The flag exists in subprocess on Windows only.
+    monkeypatch.setattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200, raising=False)
+    monkeypatch.setattr(sys, "platform", "win32")
+    calls = []
+    monkeypatch.setattr(
+        subprocess, "Popen", lambda arguments, **options: calls.append(options)
+    )
+    start_process_tree(["tool"], creationflags=0x8, text=True)
+    assert calls == [{"creationflags": 0x208, "text": True}]
+
+
+def test_on_windows_taskkill_stops_the_tree(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.delattr(os, "killpg")
+    calls = []
+    monkeypatch.setattr(
+        subprocess, "run", lambda arguments, **options: calls.append(arguments)
+    )
+
+    class Process:
+        pid = 4321
+
+    stop_process_tree(Process())
+    assert calls == [["taskkill", "/T", "/F", "/PID", "4321"]]
+
+
+def test_find_program_finds_a_tool_with_a_dot_in_its_name(tmp_path):
+    with project_session(tmp_path / "p") as session:
+        path = find_program("g.region", session.env)
+        assert os.path.basename(path).startswith("g.region")
+        # The path is what subprocess can start on every platform.
+        result = subprocess.run(
+            [path, "--interface-description"],
+            env=session.env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert '<task name="g.region">' in result.stdout
+
+
+def test_find_program_names_the_program_and_the_path():
+    env = {"PATH": os.pathsep.join(["/no/such/dir", "/nor/this"])}
+    with pytest.raises(FileNotFoundError) as error:
+        find_program("t.missing", env)
+    assert "t.missing" in str(error.value)
+    assert env["PATH"] in str(error.value)
