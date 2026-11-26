@@ -663,6 +663,13 @@ sections "Results corrected since GRASS 8.5".
     time. Now every tool that reads it stops with a message that names the
     map and the text; *t.register* stops before it writes anything
     ([t.register](t.register.md#notes)).
+- **Numbers beyond the range of an integer in a time stamp file.** A number
+    in a time stamp file that does not fit into an `int` of C, such as the
+    year in `1 Jan 99999999999`, overflowed: on Linux it was read as some
+    other year, on Windows the file could not be read. Now such a file
+    cannot be read on any platform, and *t.register* stops with "Unable to
+    read timestamp file" before it writes anything
+    ([t.register](t.register.md#notes)).
 - **A dot in the name of a new dataset.** A new dataset could have a dot in
     its name, which was then read as the separator of a semantic label, and
     *t.create* made names that GRASS refuses as file names. Now a dot in the

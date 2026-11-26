@@ -670,6 +670,13 @@ a time stamp file that cannot be read, gave a traceback or an empty
 time. Now every tool that reads it stops with a message that names the
 map and the text; <em>t.register</em> stops before it writes anything
 (<a href="t.register.html#notes">t.register</a>).</li>
+<li><b>Numbers beyond the range of an integer in a time stamp file.</b> A number
+in a time stamp file that does not fit into an <code>int</code> of C, such as the
+year in <code>1 Jan 99999999999</code>, overflowed: on Linux it was read as some
+other year, on Windows the file could not be read. Now such a file
+cannot be read on any platform, and <em>t.register</em> stops with "Unable to
+read timestamp file" before it writes anything
+(<a href="t.register.html#notes">t.register</a>).</li>
 <li><b>A dot in the name of a new dataset.</b> A new dataset could have a dot in
 its name, which was then read as the separator of a semantic label, and
 <em>t.create</em> made names that GRASS refuses as file names. Now a dot in the
