@@ -165,9 +165,13 @@ def _write_scenario(tools) -> None:
     tools.t_copy(input="abs_raster", output="copied", type="strds")
     tools.t_merge(input="abs_raster,lib_abs", output="merged", type="strds")
 
-    with TemporaryDirectory() as directory:
-        names = data.register_file(Path(directory) / "maps.txt", ["img_4"])
-        tools.t_unregister(type="raster", input="abs_raster", file=names)
+    # The command history of the dataset keeps the file name as given. The
+    # command is wrapped at 80 characters before the recording replaces the
+    # temporary directory, so an absolute path would wrap differently for a
+    # longer temporary path (macOS).
+    with TemporaryDirectory() as directory, data.working_directory(directory):
+        data.register_file(Path("maps.txt"), ["img_4"])
+        tools.t_unregister(type="raster", input="abs_raster", file="maps.txt")
     tools.t_unregister(type="vector", input="abs_vector", maps="pts_b")
     data.create_stds(
         tools,
@@ -276,7 +280,7 @@ def normalized_dump(path: Path) -> str:
 
         def clean(text: str) -> str:
             text = register_names(text)
-            text = _COMMAND_TIME.sub("# TIME ", text)
+            text = _COMMAND_TIME.sub("# TIME", text)
             return _TEMPORARY_DIRECTORY.sub("TMPDIR/", text)
 
         lines = []

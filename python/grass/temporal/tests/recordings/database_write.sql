@@ -757,25 +757,25 @@ INSERT INTO "raster_stds_register" VALUES('rel_3@PERMANENT','rel_raster@PERMANEN
 INSERT INTO "str3ds_absolute_time" VALUES('abs_raster3d@PERMANENT','2001-02-02 00:00:00','2001-02-05 00:00:00','1 day','interval');
 INSERT INTO "str3ds_base" VALUES('abs_raster3d@PERMANENT','abs_raster3d','PERMANENT','user','absolute','mean','2000-01-01 00:00:00','2000-01-01 00:00:00');
 INSERT INTO "str3ds_base" VALUES('rel_raster3d@PERMANENT','rel_raster3d','PERMANENT','user','relative','mean','2000-01-01 00:00:00','2000-01-01 00:00:00');
-INSERT INTO "str3ds_metadata" VALUES('abs_raster3d@PERMANENT','raster3d_map_register_ba841f5ed408aa3b1114defc53dc2ff2',3,1.0,1.0,3.0,3.0,1.0,1.0,1.0,1.0,1.0,1.0,NULL,'Absolute 3D raster','Absolute 3D raster','# TIME 
+INSERT INTO "str3ds_metadata" VALUES('abs_raster3d@PERMANENT','raster3d_map_register_ba841f5ed408aa3b1114defc53dc2ff2',3,1.0,1.0,3.0,3.0,1.0,1.0,1.0,1.0,1.0,1.0,NULL,'Absolute 3D raster','Absolute 3D raster','# TIME
 t.create type="str3ds" output="abs_raster3d"
     temporaltype="absolute" title="Absolute 3D raster"
     description="Absolute 3D raster"
-# TIME 
+# TIME
 t.register type="raster_3d" input="abs_raster3d"
-    file="TMPDIR/maps.txt"
-# TIME 
+    file="maps.txt"
+# TIME
 t.support -m input="abs_raster3d" type="str3ds"
-# TIME 
+# TIME
 t.shift input="abs_raster3d" type="str3ds"
     granularity="1 month"
 ');
-INSERT INTO "str3ds_metadata" VALUES('rel_raster3d@PERMANENT','raster3d_map_register_7f402c6f1a3eb2af4c63c569ee489d93',2,1.0,1.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0,NULL,'rel_raster3d','rel_raster3d','# TIME 
+INSERT INTO "str3ds_metadata" VALUES('rel_raster3d@PERMANENT','raster3d_map_register_7f402c6f1a3eb2af4c63c569ee489d93',2,1.0,1.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0,NULL,'rel_raster3d','rel_raster3d','# TIME
 t.create type="str3ds" output="rel_raster3d"
     temporaltype="relative" title="rel_raster3d" description="rel_raster3d"
-# TIME 
+# TIME
 t.register type="raster_3d" input="rel_raster3d"
-    file="TMPDIR/maps.txt" unit="years"
+    file="maps.txt" unit="years"
 ');
 INSERT INTO "str3ds_relative_time" VALUES('rel_raster3d@PERMANENT',1,4,2,'years','interval');
 INSERT INTO "str3ds_spatial_extent" VALUES('abs_raster3d@PERMANENT',1.0,0.0,1.0,0.0,1.0,0.0,'XY');
@@ -790,63 +790,63 @@ INSERT INTO "strds_base" VALUES('lib_abs@PERMANENT','lib_abs','PERMANENT','user'
 INSERT INTO "strds_base" VALUES('merged@PERMANENT','merged','PERMANENT','user','absolute','mean','2000-01-01 00:00:00','2000-01-01 00:00:00');
 INSERT INTO "strds_base" VALUES('rel_raster@PERMANENT','rel_raster','PERMANENT','user','relative','mean','2000-01-01 00:00:00','2000-01-01 00:00:00');
 INSERT INTO "strds_base" VALUES('renamed_rel@PERMANENT','renamed_rel','PERMANENT','user','relative','mean','2000-01-01 00:00:00','2000-01-01 00:00:00');
-INSERT INTO "strds_metadata" VALUES('abs_raster@PERMANENT','raster_map_register_638463c28b29c46ee1ff78f2993f2bc1',3,1.0,1.0,3.0,3.0,1.0,1.0,1.0,1.0,NULL,2,'Changed title','Changed description','# TIME 
+INSERT INTO "strds_metadata" VALUES('abs_raster@PERMANENT','raster_map_register_638463c28b29c46ee1ff78f2993f2bc1',3,1.0,1.0,3.0,3.0,1.0,1.0,1.0,1.0,NULL,2,'Changed title','Changed description','# TIME
 t.create type="strds" output="abs_raster"
     temporaltype="absolute" title="Absolute raster"
     description="Absolute raster"
-# TIME 
+# TIME
 t.register type="raster" input="abs_raster"
-    file="TMPDIR/maps.txt"
-# TIME 
+    file="maps.txt"
+# TIME
 t.support -m input="abs_raster" type="strds"
     title="Changed title" description="Changed description"
     semantictype="max"
-# TIME 
+# TIME
 t.support -m input="abs_raster" type="strds"
-# TIME 
+# TIME
 t.snap input="abs_raster" type="strds"
-# TIME 
+# TIME
 t.unregister type="raster" input="abs_raster"
-    file="TMPDIR/maps.txt"
+    file="maps.txt"
 ');
-INSERT INTO "strds_metadata" VALUES('copied@PERMANENT','raster_map_register_22e3c261135396136fb4632c4a1f5601',4,1.0,1.0,4.0,4.0,1.0,1.0,1.0,1.0,NULL,3,'Changed title','Changed description','# TIME 
+INSERT INTO "strds_metadata" VALUES('copied@PERMANENT','raster_map_register_22e3c261135396136fb4632c4a1f5601',4,1.0,1.0,4.0,4.0,1.0,1.0,1.0,1.0,NULL,3,'Changed title','Changed description','# TIME
 t.copy input="abs_raster" output="copied"
     type="strds"
 ');
-INSERT INTO "strds_metadata" VALUES('lib_abs@PERMANENT','raster_map_register_f258237acb32c393a438f22c9634201b',2,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,NULL,0,'lib_abs','lib_abs','# TIME 
+INSERT INTO "strds_metadata" VALUES('lib_abs@PERMANENT','raster_map_register_f258237acb32c393a438f22c9634201b',2,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,NULL,0,'lib_abs','lib_abs','# TIME
 scenario
-# TIME 
+# TIME
 scenario
-# TIME 
+# TIME
 scenario
-# TIME 
+# TIME
 t.shift input="lib_abs" type="strds"
     granularity="2 days"
 ');
-INSERT INTO "strds_metadata" VALUES('merged@PERMANENT','raster_map_register_a9894a19e40d453484aac2241aa57ab7',6,1.0,1.0,4.0,4.0,1.0,1.0,1.0,1.0,NULL,3,'Merged space time dataset','Merged space time dataset','# TIME 
+INSERT INTO "strds_metadata" VALUES('merged@PERMANENT','raster_map_register_a9894a19e40d453484aac2241aa57ab7',6,1.0,1.0,4.0,4.0,1.0,1.0,1.0,1.0,NULL,3,'Merged space time dataset','Merged space time dataset','# TIME
 t.merge input="abs_raster,lib_abs" output="merged"
     type="strds"
 ');
-INSERT INTO "strds_metadata" VALUES('rel_raster@PERMANENT','raster_map_register_61faa24dfaecfe07b7c99ea4666187c8',3,1.0,1.0,3.0,3.0,1.0,1.0,1.0,1.0,NULL,0,'Relative raster','Relative raster','# TIME 
+INSERT INTO "strds_metadata" VALUES('rel_raster@PERMANENT','raster_map_register_61faa24dfaecfe07b7c99ea4666187c8',3,1.0,1.0,3.0,3.0,1.0,1.0,1.0,1.0,NULL,0,'Relative raster','Relative raster','# TIME
 t.create type="strds" output="rel_raster"
     temporaltype="relative" title="Relative raster"
     description="Relative raster"
-# TIME 
+# TIME
 t.register type="raster" input="rel_raster"
-    file="TMPDIR/maps.txt" unit="days"
-# TIME 
+    file="maps.txt" unit="days"
+# TIME
 t.shift input="rel_raster" type="strds"
     granularity="5"
-# TIME 
+# TIME
 t.snap input="rel_raster" type="strds"
 ');
-INSERT INTO "strds_metadata" VALUES('renamed_rel@PERMANENT','raster_map_register_a9ad879a5ba0038ca0ea7257d239a0d1',2,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,NULL,0,'lib_rel','lib_rel','# TIME 
+INSERT INTO "strds_metadata" VALUES('renamed_rel@PERMANENT','raster_map_register_a9ad879a5ba0038ca0ea7257d239a0d1',2,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,NULL,0,'lib_rel','lib_rel','# TIME
 scenario
-# TIME 
+# TIME
 scenario
-# TIME 
+# TIME
 scenario
-# TIME 
+# TIME
 t.rename input="lib_rel" output="renamed_rel"
     type="strds"
 ');
@@ -861,24 +861,24 @@ INSERT INTO "strds_spatial_extent" VALUES('renamed_rel@PERMANENT',1.0,0.0,1.0,0.
 INSERT INTO "stvds_absolute_time" VALUES('abs_vector@PERMANENT','2001-01-01 00:00:00','2001-01-31 00:00:00','10 days','interval');
 INSERT INTO "stvds_base" VALUES('abs_vector@PERMANENT','abs_vector','PERMANENT','user','absolute','mean','2000-01-01 00:00:00','2000-01-01 00:00:00');
 INSERT INTO "stvds_base" VALUES('rel_vector@PERMANENT','rel_vector','PERMANENT','user','relative','mean','2000-01-01 00:00:00','2000-01-01 00:00:00');
-INSERT INTO "stvds_metadata" VALUES('abs_vector@PERMANENT','vector_map_register_46aab9946b1c5c16112d3e4b761007e7',3,'abs_vector','abs_vector','# TIME 
+INSERT INTO "stvds_metadata" VALUES('abs_vector@PERMANENT','vector_map_register_46aab9946b1c5c16112d3e4b761007e7',3,'abs_vector','abs_vector','# TIME
 t.create type="stvds" output="abs_vector"
     temporaltype="absolute" title="abs_vector" description="abs_vector"
-# TIME 
+# TIME
 t.register type="vector" input="abs_vector"
-    file="TMPDIR/maps.txt"
-# TIME 
+    file="maps.txt"
+# TIME
 t.support -m input="abs_vector" type="stvds"
-# TIME 
+# TIME
 t.unregister type="vector" input="abs_vector"
     maps="pts_b"
 ',5,0,0,0,0,0,5,0,0,0,0,0);
-INSERT INTO "stvds_metadata" VALUES('rel_vector@PERMANENT','vector_map_register_88f60c6d82d6b5d5a15b96d6d64da7d4',2,'rel_vector','rel_vector','# TIME 
+INSERT INTO "stvds_metadata" VALUES('rel_vector@PERMANENT','vector_map_register_88f60c6d82d6b5d5a15b96d6d64da7d4',2,'rel_vector','rel_vector','# TIME
 t.create type="stvds" output="rel_vector"
     temporaltype="relative" title="rel_vector" description="rel_vector"
-# TIME 
+# TIME
 t.register type="vector" input="rel_vector"
-    file="TMPDIR/maps.txt" unit="months"
+    file="maps.txt" unit="months"
 ',2,0,0,0,0,0,2,0,0,0,0,0);
 INSERT INTO "stvds_relative_time" VALUES('rel_vector@PERMANENT',1,8,1,'months','interval');
 INSERT INTO "stvds_spatial_extent" VALUES('abs_vector@PERMANENT',3.0,0.2,3.0,0.2,0.0,0.0,'XY');

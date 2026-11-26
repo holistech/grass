@@ -12,6 +12,7 @@ import re
 import sqlite3
 import tempfile
 import types
+from pathlib import Path
 
 import pytest
 
@@ -353,10 +354,19 @@ def test_rows_of_masks_the_temporary_directory_in_a_command_history(tmp_path):
     with temporal_session(tmp_path / "project") as session:
         tools = Tools(session=session, consistent_return_value=True)
         data.small_region(tools, 1, 1)
-        # Registers from a file in a new temporary directory
-        data.create_stds(
-            tools, "strds", "listed", [data.MapSpec("one", 1, data.day(1))]
-        )
+        # data.register_stds() hands the tool a relative file name, so the
+        # file is given here by its absolute path in a new temporary
+        # directory.
+        data.make_map(tools, "raster", "one", 1)
+        tools.t_create(
+            type="strds", output="listed", temporaltype="absolute", title="t",
+            description="d",
+        )  # fmt: skip
+        with tempfile.TemporaryDirectory() as directory:
+            names = data.register_file(
+                Path(directory) / "maps.txt", [("one", data.day(1), data.day(2))]
+            )
+            tools.t_register(type="raster", input="listed", file=names)
         rows = postgresql.rows_of("sqlite", tgis.get_tgis_database_string())
 
     (history,) = [row[-1] for row in rows["VIEW strds_view_abs_time"]]
