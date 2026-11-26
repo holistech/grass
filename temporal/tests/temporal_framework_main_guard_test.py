@@ -83,30 +83,37 @@ def callee_name(call):
 def module_level_calls(source):
     """The calls of a source that run when the file is imported, as text
 
-    Function and class bodies and the body of the main guard do not count.
-    Decorators, default values and base classes do run at import, so they are
-    searched too.
+    Function bodies and the body of the main guard do not count. A class body
+    runs at import, so it is searched, without the bodies of the functions it
+    defines. Decorators, default values, base classes and class keywords run
+    at import too, so they are searched as well.
     """
+    return calls_in_body(ast.parse(source).body)
+
+
+def calls_in_body(body):
+    """The calls that run when the statements of body run, as text"""
     found = []
-    for node in ast.parse(source).body:
+    for node in body:
         if is_main_guard(node):
             continue
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            runs = [*node.decorator_list]
-            if isinstance(node, ast.ClassDef):
-                runs += node.bases
-            else:
-                runs += [*node.args.defaults, *node.args.kw_defaults]
-            parts = [part for part in runs if part is not None]
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            parts = [*node.decorator_list, *node.args.defaults, *node.args.kw_defaults]
+        elif isinstance(node, ast.ClassDef):
+            parts = [*node.decorator_list, *node.bases, *node.keywords]
         else:
             parts = [node]
         for part in parts:
+            if part is None:
+                continue
             found += [
                 ast.unparse(call)
                 for call in ast.walk(part)
                 if isinstance(call, ast.Call)
                 and callee_name(call) not in VALUE_CONSTRUCTORS
             ]
+        if isinstance(node, ast.ClassDef):
+            found += calls_in_body(node.body)
     return found
 
 
@@ -138,6 +145,10 @@ def documented_sources():
         ("def f(x=h()):\n    pass\n", ["h()"]),
         ("@deco()\ndef f():\n    pass\n", ["deco()"]),
         ("if True:\n    run()\n", ["run()"]),
+        ("class A:\n    x = run()\n", ["run()"]),
+        ("class A:\n    def f(self):\n        run()\n", []),
+        ("class A(metaclass=meta()):\n    pass\n", ["meta()"]),
+        ("class A:\n    class B:\n        y = run()\n", ["run()"]),
     ],
 )
 def test_the_reader_sees_calls_that_run_at_import(source, expected):
