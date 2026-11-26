@@ -90,7 +90,7 @@ def _specs(stds_type, case):
     """Three maps for case "interval", "point" or "relative"."""
     names = [f"{stds_type}_{case}_{number}" for number in (1, 2, 3)]
     if case == "interval":
-        times = [(start, end) for start, end in intervals(3)]
+        times = list(intervals(3))
     elif case == "point":
         times = [(day(number), None) for number in (0, 10, 20)]
     else:

@@ -43,7 +43,7 @@ def test_the_package_example_runs(temporal_module_session):
         ]
         create_stds(tools, "strds", name, maps)
     # The code is the docstring of the package under test, not outside input.
-    exec(example_code(), {})  # noqa: S102
+    exec(example_code(), {})  # noqa: S102  # pylint: disable=exec-used
     # January: 0 on the 30th (3 degrees) + 2 on the 31st; February: 4 on the
     # 1st + 0 on the 2nd (2 degrees). The other ten months relate no map.
     rows = list_maps(tools, "strds", "precip_warm_monthly")

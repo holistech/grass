@@ -1,5 +1,7 @@
 """Test the registry of dataset types and the entry functions that use it"""
 
+# pylint: disable=unidiomatic-typecheck; the tests check the exact class
+
 import re
 from pathlib import Path
 

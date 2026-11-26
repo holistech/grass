@@ -4,6 +4,8 @@ Extents are plain value objects, so no GRASS session and no temporal database
 are needed here.
 """
 
+# pylint: disable=unidiomatic-typecheck; the tests check the exact class
+
 import copy
 import itertools
 import pickle

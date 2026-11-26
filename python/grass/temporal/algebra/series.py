@@ -200,7 +200,7 @@ class Series:
     def __iter__(self):
         return iter(self.slots)
 
-    def __bool__(self):
+    def __bool__(self):  # pylint: disable=invalid-bool-returned; it only raises
         msg = "The truth value of a series is ambiguous; use len()"
         raise TypeError(msg)
 

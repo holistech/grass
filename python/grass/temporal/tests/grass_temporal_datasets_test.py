@@ -4,6 +4,8 @@ The datasets are not registered in a database. The space time datasets look up
 the temporal database when they are built, hence the session.
 """
 
+# pylint: disable=unidiomatic-typecheck; the tests check the exact class
+
 import copy
 import pickle
 
@@ -100,6 +102,7 @@ def test_a_dataset_survives_copy_and_pickle(cls, name, other, register):
 
 
 def test_the_abstract_classes_cannot_be_instantiated():
+    # pylint: disable=abstract-class-instantiated; the refusal is under test
     for abstract in (AbstractDataset, AbstractMapDataset, AbstractSpaceTimeDataset):
         with pytest.raises(TypeError, match="abstract"):
             abstract()

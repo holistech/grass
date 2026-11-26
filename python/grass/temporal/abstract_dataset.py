@@ -30,9 +30,6 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
     The datasets are raster, vector, raster3d, strds, stvds and str3ds.
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-
     @property
     def msgr(self):
         """The messenger of the current session

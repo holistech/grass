@@ -107,9 +107,6 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-
     @property
     def ciface(self):
         """The C-library interface of the current session

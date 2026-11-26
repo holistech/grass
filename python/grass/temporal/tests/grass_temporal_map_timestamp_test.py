@@ -17,7 +17,7 @@ from grass.temporal.state import STATE
 class RecordingInterface(CLibrariesInterface):
     """The C interface without a server: every call is recorded and answered"""
 
-    def __init__(self):
+    def __init__(self):  # pylint: disable=super-init-not-called; no server
         self.calls = []
         self.answers = {}
 
