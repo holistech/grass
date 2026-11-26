@@ -145,7 +145,7 @@ January map, row by row, the southern row first. The line that starts with
     g.region n=210000 s=208000 w=600000 e=603000 res=1000
     mkdir vtk
     t.rast.out.vtk input=temperature_monthly directory=vtk
-    ls vtk | wc -l
+    ls vtk | wc -l | tr -d ' '
     ls vtk | head -n 3
     head -n 8 vtk/000000_temperature_monthly.vtk
     tail -n 2 vtk/000000_temperature_monthly.vtk | sed 's/ *$//'
@@ -596,7 +596,7 @@ is as it was. The call with **--overwrite** replaces the files.
     ```sh
     t.rast.out.vtk input=temperature_monthly directory=vtk 2>&1 | grep "exists" || true
     t.rast.out.vtk --overwrite input=temperature_monthly directory=vtk
-    ls vtk | wc -l
+    ls vtk | wc -l | tr -d ' '
     ```
 
     ```text

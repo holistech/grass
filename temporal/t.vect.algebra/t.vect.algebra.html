@@ -2305,7 +2305,7 @@ t.register -i type=vector input=A maps=fig_a_1,fig_a_2,fig_a_3 \
 t.create type=stvds output=B title="Figure A3, B" \
     description="Ten daily maps in January 2001"
 t.register -i type=vector input=B \
-    maps=$(seq -s, -f "fig_b_%g" 1 10) start=2001-01-01 increment="1 day"
+    maps=$(seq 1 10 | sed "s/^/fig_b_/" | paste -sd, -) start=2001-01-01 increment="1 day"
 t.vect.algebra \
     expression='C = if({equal|contains}, start_date(A) &lt;= "2001-01-03", A, B)' \
     basename=fig

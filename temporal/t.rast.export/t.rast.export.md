@@ -196,7 +196,7 @@ Carolina, not that of the narrowed region.
     t.rast.export input=precipitation_monthly output=precipitation.tar.bz2
     tar -tf precipitation.tar.bz2 | sed -n 1,4p
     tar -tf precipitation.tar.bz2 | tail -5
-    tar -tf precipitation.tar.bz2 | wc -l
+    tar -tf precipitation.tar.bz2 | wc -l | tr -d ' '
     ```
 
     ```text
@@ -345,7 +345,7 @@ it.
         where="start_time >= '2020-11-01'"
     tar -tf later.tar.bz2
     tar -xOf later.tar.bz2 init.txt | grep number_of_maps
-    ls -A work | wc -l
+    ls -A work | wc -l | tr -d ' '
     ```
 
     ```text
@@ -418,13 +418,13 @@ and `tar` reads them without being told the compression.
     for compression in no gzip bzip2; do
         t.rast.export input=precipitation_monthly output=all.tar \
             compression=$compression where="start_time < '2020-04-01'" --overwrite
-        magic=$(od -An -tx1 -N2 all.tar | tr -d ' ')
+        magic=$(od -An -tx1 -N2 all.tar | tr -d ' \n')
         case $magic in
             1f8b) kind=gzip ;;
             425a) kind=bzip2 ;;
             *) kind="plain tar" ;;
         esac
-        echo "$compression: $kind, $(tar -tf all.tar | wc -l) files"
+        echo "$compression: $kind, $(tar -tf all.tar | wc -l | tr -d ' ') files"
     done
     ```
 

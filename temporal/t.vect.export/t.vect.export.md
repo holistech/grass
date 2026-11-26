@@ -417,7 +417,7 @@ and `tarfile` read all three the same way.
     ```sh
     for method in no gzip bzip2; do
         t.vect.export input=discharge output=discharge_$method.tar compression=$method
-        od -An -tx1 -N2 discharge_$method.tar | tr -d ' '
+        od -An -tx1 -N2 discharge_$method.tar | tr -d ' \n'; echo
         tar -tf discharge_$method.tar | sed -n 1p
     done
     ```

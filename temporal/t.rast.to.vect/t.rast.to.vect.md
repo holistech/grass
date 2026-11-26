@@ -642,7 +642,7 @@ without the flag, not one category for each value.
     v.out.ascii input=height_2020_02 format=point separator=space layer=-1 \
         | head -n 3
     v.out.ascii input=height_2020_02 format=point separator=space layer=-1 \
-        | cut -d" " -f3 | sort -u | paste -sd,
+        | cut -d" " -f3 | sort -u | paste -sd, -
     v.info -e map=height_2020_02 | grep num_dblinks
     ```
 

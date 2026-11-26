@@ -598,8 +598,8 @@ its default region is one cell.
     t.vect.import -c input=stations.tar output=stations project=empty_project \
         directory=work
     g.mapset project=empty_project mapset=PERMANENT
-    g.list type=vector | wc -l
-    t.list type=stvds | wc -l
+    g.list type=vector | wc -l | tr -d ' '
+    t.list type=stvds | wc -l | tr -d ' '
     g.region -dg | grep -E "^(n|s|e|w)="
     g.mapset project=nc_spm_08_grass7 mapset=t_vect_import
     ```
@@ -720,7 +720,7 @@ GML archive needs the GML driver).
         sed -n '/^ERROR/,$p'); then
         echo "t.vect.import failed"
     fi
-    t.list type=stvds | wc -l
+    t.list type=stvds | wc -l | tr -d ' '
     t.vect.import -o input=stations.tar output=again basename=again \
         directory=work
     t.vect.list input=again columns=name,start_time

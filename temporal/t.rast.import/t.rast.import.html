@@ -449,8 +449,8 @@ its default region is one cell.
 t.rast.import -c input=precipitation.tar.bz2 output=precipitation \
     project=empty_project
 g.mapset project=empty_project mapset=PERMANENT
-g.list type=raster | wc -l
-t.list type=strds | wc -l
+g.list type=raster | wc -l | tr -d ' '
+t.list type=strds | wc -l | tr -d ' '
 g.region -dg | grep -E "^(n|s|e|w)="
 g.mapset project=nc_spm_08_grass7 mapset=t_rast_import
 </pre></div>

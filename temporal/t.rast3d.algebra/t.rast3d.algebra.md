@@ -1551,7 +1551,7 @@ no such map of `A` contains or equals: the values 1, 2 and 15 to 20.
     t.create type=str3ds output=B title="Figure A3, B" \
         description="Ten daily maps in January 2001"
     t.register -i type=raster_3d input=B \
-        maps=$(seq -s, -f "fig_b_%g" 1 10) start=2001-01-01 increment="1 day"
+        maps=$(seq 1 10 | sed "s/^/fig_b_/" | paste -sd, -) start=2001-01-01 increment="1 day"
     t.rast3d.algebra \
         expression='C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)' \
         basename=fig
