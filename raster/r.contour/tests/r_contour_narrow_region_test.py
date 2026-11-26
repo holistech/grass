@@ -67,10 +67,16 @@ def run_contour(session, level):
     try:
         _, stderr = process.communicate(timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
+        # The same as stop_process_tree of grass.temporal.testing.session,
+        # which the tests of r.contour do not use: they must not depend on
+        # the temporal package.
         if sys.platform == "win32":
             # Windows has no os.killpg; taskkill /T follows the parent ids.
             subprocess.run(
-                ["taskkill", "/T", "/F", "/PID", str(process.pid)], check=False
+                ["taskkill", "/T", "/F", "/PID", str(process.pid)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
             )
         else:
             os.killpg(process.pid, signal.SIGKILL)
