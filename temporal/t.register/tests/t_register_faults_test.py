@@ -12,6 +12,7 @@ import pytest
 
 from grass.temporal.testing.data import register_file
 from grass.temporal.testing.readback import inventory, list_maps, message
+from grass.temporal.testing.session import find_program
 from grass.tools import ToolError
 
 IGNORED = "will be ignored because of time stamps"
@@ -32,13 +33,14 @@ def test_file_dash_in_the_shell(tools, make_maps, dataset):
     name = dataset()
     text = f"{maps[0]}|2001-01-01|2001-01-02\n{maps[1]}|2001-01-02|2001-01-03\n"
 
+    # The session environment of the tools, which has the project.
+    env = tools._original_env  # noqa: SLF001
     result = subprocess.run(
-        ["t.register", f"input={name}", "file=-"],
+        [find_program("t.register", env), f"input={name}", "file=-"],
         input=text,
         text=True,
         capture_output=True,
-        # The session environment of the tools, which has the project.
-        env=tools._original_env,  # noqa: SLF001
+        env=env,
         check=False,
     )
 
