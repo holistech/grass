@@ -398,7 +398,8 @@ def _write_timestamp_file(tools, name, text):
     ("text", "expected"),
     [
         ("garbage text\n", "Unable to read timestamp file for raster map"),
-        ("1 Jan 99999999999\n", "is not a valid date or time"),
+        ("1 Jan 99999999999\n", "Unable to read timestamp file for raster map"),
+        ("1 Jan 99999\n", "is not a valid date or time"),
     ],
 )
 def test_an_unparseable_time_stamp_file_stops_t_register(
@@ -406,8 +407,10 @@ def test_an_unparseable_time_stamp_file_stops_t_register(
 ):
     # The C library answers -2 for a file it cannot parse. That code once
     # stood for "reads but names no date" too and the message showed
-    # <(None, None, None)>. The second text probes a year beyond what
-    # datetime can hold.
+    # <(None, None, None)>. The second text has a year beyond the range of
+    # an int, which the C library refuses on every platform; the year
+    # overflowed before and was valid on Linux only. The third has a year
+    # that the C library reads but Python's datetime cannot hold.
     good, broken = make_maps(2)
     name = dataset()
     tools.r_timestamp(map=good, date="1 Jan 2020")

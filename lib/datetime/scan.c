@@ -4,6 +4,7 @@
  * SPDX-FileCopyrightText: GRASS Development Team
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <grass/datetime.h>
@@ -277,8 +278,15 @@ static int get_int(const char **s, int *n, int *ndigits)
     skip_space(s);
     p = *s;
     for (*ndigits = 0; is_digit(*p); (*ndigits)++) {
-        *n *= 10;
-        *n += *p - '0';
+        int digit = *p - '0';
+
+        /* More digits than an int holds overflowed *n, which is undefined
+           behavior: "1 jan 99999999999" was a valid year on Linux and an
+           invalid date on Windows (GitHub Windows runner, 26.11.2026). Such
+           a number is not read, so the scan fails on every platform. */
+        if (*n > (INT_MAX - digit) / 10)
+            return 0;
+        *n = *n * 10 + digit;
         p++;
     }
     if (*ndigits > 0)
