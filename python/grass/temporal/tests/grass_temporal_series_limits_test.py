@@ -12,7 +12,21 @@ import sys
 
 import pytest
 
+from grass.script import utils as script_utils
 from grass.temporal import series_limits
+
+
+def _pin_cpus(monkeypatch, count):
+    """Fix the usable processor count in both places that read it
+
+    ``resolve_nprocs()`` reads ``grass.script.utils.available_cpus``, the
+    fallback of ``series_threads()`` reads the name imported into
+    ``series_limits``. Replacing only the second one left the first at the
+    real count, so these tests failed on the 4-core GitHub runner
+    (26.11.2026).
+    """
+    monkeypatch.setattr(script_utils, "available_cpus", lambda: count)
+    monkeypatch.setattr(series_limits, "available_cpus", lambda: count)
 
 
 def _session(monkeypatch, tmp_path, nprocs=None, omp=None, cpus=24):
@@ -27,7 +41,7 @@ def _session(monkeypatch, tmp_path, nprocs=None, omp=None, cpus=24):
         monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
     else:
         monkeypatch.setenv("OMP_NUM_THREADS", omp)
-    monkeypatch.setattr(series_limits, "available_cpus", lambda: cpus)
+    _pin_cpus(monkeypatch, cpus)
 
 
 def _soft_limit(monkeypatch, soft):
@@ -80,7 +94,7 @@ def _project(monkeypatch, tmp_path, rasters):
     monkeypatch.setenv("GISRC", str(rc))
     monkeypatch.delenv("GRASS_MASK", raising=False)
     monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
-    monkeypatch.setattr(series_limits, "available_cpus", lambda: 24)
+    _pin_cpus(monkeypatch, 24)
     for raster in rasters:
         name, _at, mapset = raster.partition("@")
         cell = database / "xy" / mapset / "cell" / name

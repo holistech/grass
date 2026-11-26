@@ -9,6 +9,7 @@ from dataclasses import replace
 
 import pytest
 
+from grass.script import utils as script_utils
 from grass.temporal import series_limits
 from grass.temporal.algebra import _messages
 from grass.temporal.algebra import parser as algebra_parser
@@ -29,6 +30,19 @@ from grass.temporal.algebra.time_functions import retime, timevar
 
 A1 = MapRef("a1@PERMANENT")
 A2 = MapRef("a2@PERMANENT")
+
+
+def _pin_cpus(monkeypatch, count):
+    """Fix the usable processor count in both places that read it
+
+    ``resolve_nprocs()`` reads ``grass.script.utils.available_cpus``, the
+    fallback of ``series_threads()`` reads the name imported into
+    ``series_limits``. Replacing only the second one left the first at the
+    real count, so these tests failed on the 4-core GitHub runner
+    (26.11.2026).
+    """
+    monkeypatch.setattr(script_utils, "available_cpus", lambda: count)
+    monkeypatch.setattr(series_limits, "available_cpus", lambda: count)
 
 
 @pytest.mark.parametrize(
@@ -357,7 +371,7 @@ def test_a_reduction_skipping_nulls_keeps_its_maps_open_within_the_open_files(
 
 def test_without_a_thread_count_every_usable_processor_runs_a_thread(monkeypatch):
     monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
-    monkeypatch.setattr(series_limits, "available_cpus", lambda: 4)
+    _pin_cpus(monkeypatch, 4)
     _open_files(monkeypatch, 79)
     calls, _ = RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
     assert calls[0].parameters["flags"] == "z"
@@ -415,7 +429,7 @@ def test_the_threads_are_counted_as_r_series_counts_them(
     """r.series takes NPROCS of the session file, then OMP_NUM_THREADS, then
     the usable processors, here 24 (measured 2026-10-31 for NPROCS, 4,2 and
     a negative NPROCS: the open files r.series needed matched these counts)"""
-    monkeypatch.setattr(series_limits, "available_cpus", lambda: 24)
+    _pin_cpus(monkeypatch, 24)
     if gisrc is None:
         monkeypatch.delenv("GISRC", raising=False)
     else:

@@ -12,12 +12,26 @@ import datetime
 import pytest
 
 import grass.temporal as tgis
+from grass.script import utils as script_utils
 from grass.temporal import aggregation, series_limits
 from grass.tools import Tools
 
 resource = pytest.importorskip("resource")
 
 MAPS = 20
+
+
+def _pin_cpus(monkeypatch, count):
+    """Fix the usable processor count in both places that read it
+
+    ``resolve_nprocs()`` reads ``grass.script.utils.available_cpus``, the
+    fallback of ``series_threads()`` reads the name imported into
+    ``series_limits``. Replacing only the second one left the first at the
+    real count, so these tests failed on the 4-core GitHub runner
+    (26.11.2026).
+    """
+    monkeypatch.setattr(script_utils, "available_cpus", lambda: count)
+    monkeypatch.setattr(series_limits, "available_cpus", lambda: count)
 
 
 class _Messages:
@@ -85,7 +99,7 @@ def _limits(monkeypatch, tmp_path, soft, nprocs_of_session=None):
         rc = tmp_path / "rc"
         rc.write_text(f"NPROCS: {nprocs_of_session}\n")
         monkeypatch.setenv("GISRC", str(rc))
-    monkeypatch.setattr(series_limits, "available_cpus", lambda: 24)
+    _pin_cpus(monkeypatch, 24)
     monkeypatch.setattr(
         resource, "getrlimit", lambda resource_: (soft, resource.RLIM_INFINITY)
     )
