@@ -61,7 +61,7 @@ import pytest
 
 import grass.script as gs
 from grass.temporal.testing.contract_trace import called_names, missing_from_contract
-from grass.temporal.testing.session import project_session
+from grass.temporal.testing.session import find_program, project_session
 
 REPOSITORY = Path(__file__).resolve().parents[2]
 PAGE = REPOSITORY / "python/grass/docs/src/temporal_framework.rst"
@@ -899,10 +899,11 @@ def run_example(blocks, session_env, work, *, trace=False):
                     work / tool, env=session_env, cwd=work, argv=tuple(command[2:])
                 )
                 continue
-            argv = [
-                sys.executable if command[0] == "python3" else command[0],
-                *command[1:],
-            ]
+            if command[0] == "python3":
+                program = sys.executable
+            else:
+                program = find_program(command[0], session_env)
+            argv = [program, *command[1:]]
             result = subprocess.run(
                 argv,
                 env=session_env,

@@ -18,6 +18,7 @@ Carolina sample dataset (grass.temporal.testing.nc_dataset), which the tests
 need: without it, they fail with a message that says where to get it.
 """
 
+import sys
 from functools import partial
 from pathlib import Path
 
@@ -119,26 +120,36 @@ def manual_of(tool):
     return parse_manual(TOOLS / tool / f"{tool}.md")
 
 
-def time_limit(read_manual, variant):
-    """The time limit of the blocks of one tab as a mark, none for a manual
-    that cannot be read
+# The shell tab runs its blocks with bash. In the OSGeo4W job of the CI
+# (26.11.2026), bash is C:\Windows\System32\bash.exe, the launcher of the
+# Windows Subsystem for Linux, which has no distribution there.
+NEEDS_BASH = pytest.mark.skipif(
+    sys.platform == "win32", reason="bash of the runner is the WSL launcher"
+)
 
-    The test of the manual reports the error; until then, the limit of the
-    repository applies. Reading the manual while the tests are collected must
-    not fail, or one broken manual would stop the whole file.
+
+def tab_marks(read_manual, variant):
+    """Return the marks of the test of one tab
+
+    NEEDS_BASH for the shell tab, and the time limit of the blocks, none for
+    a manual that cannot be read: the test of the manual reports the error;
+    until then, the limit of the repository applies. Reading the manual while
+    the tests are collected must not fail, or one broken manual would stop the
+    whole file.
     """
+    marks = [NEEDS_BASH] if variant == "shell" else []
     try:
         manual = read_manual()
     except ManualFormatError:
-        return ()
-    return pytest.mark.timeout(timeout_for(manual, variant))
+        return marks
+    return [*marks, pytest.mark.timeout(timeout_for(manual, variant))]
 
 
 def example_runs():
-    """Each reviewed manual and tab, with the time limit of its blocks"""
+    """Each reviewed manual and tab, with the marks of its test"""
     for tool in REVIEWED_MANUALS:
         for variant in ("shell", "python"):
-            marks = time_limit(partial(manual_of, tool), variant)
+            marks = tab_marks(partial(manual_of, tool), variant)
             yield pytest.param(tool, variant, marks=marks, id=f"{tool}-{variant}")
 
 
@@ -231,7 +242,7 @@ def test_markdown_and_html_agree(tool):
     [
         pytest.param(
             variant,
-            marks=time_limit(lambda: parse_manual(INTRODUCTION), variant),
+            marks=tab_marks(lambda: parse_manual(INTRODUCTION), variant),
             id=variant,
         )
         for variant in ("shell", "python")
@@ -259,7 +270,7 @@ def test_introduction_markdown_and_html_agree():
     [
         pytest.param(
             variant,
-            marks=time_limit(lambda: parse_manual(CHANGES), variant),
+            marks=tab_marks(lambda: parse_manual(CHANGES), variant),
             id=variant,
         )
         for variant in ("shell", "python")
