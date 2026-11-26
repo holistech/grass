@@ -296,8 +296,11 @@ def fake_pg(log):
     )
 
 
-def scenario():
+def scenario(monkeypatch):
     log = []
+    # The connection constructor names the psycopg2 module, which a machine
+    # without the driver (the GitHub Ubuntu runner, 26.11.2026) does not have.
+    monkeypatch.setattr(db_module(), "psycopg2", fake_pg(log), raising=False)
     conn = db_module().DBConnection(backend="pg", dbstring="host=x dbname=y")
     conn.dbmi = fake_pg(log)
     out = {}
@@ -367,8 +370,8 @@ def test_sqlite_literals_unchanged():
     )
 
 
-def test_postgresql_calls_unchanged():
-    assert scenario() == PG_CALLS
+def test_postgresql_calls_unchanged(monkeypatch):
+    assert scenario(monkeypatch) == PG_CALLS
 
 
 @pytest.mark.parametrize(("value", "literal"), list(zip(VALUES, LITERALS, strict=True)))
@@ -573,11 +576,14 @@ def test_an_old_value_reads_in_whole_seconds():
     assert naive == convert_datetime(b"2001-01-01 06:30:00")
 
 
-def test_postgresql_gets_whole_seconds():
+def test_postgresql_gets_whole_seconds(monkeypatch):
     # A time with a time zone never gets here: PostgreSQL has no column for it
     # and the connection refuses it (see the test of the refusal).
     moment = datetime.datetime(2001, 1, 1, 6, 30, 0, 123456)
     log = []
+    # The connection constructor names the psycopg2 module, which a machine
+    # without the driver (the GitHub Ubuntu runner, 26.11.2026) does not have.
+    monkeypatch.setattr(db_module(), "psycopg2", fake_pg(log), raising=False)
     conn = db_module().DBConnection(backend="pg", dbstring="host=x dbname=y")
     conn.dbmi = fake_pg(log)
 
@@ -611,12 +617,13 @@ def test_postgresql_refuses_a_time_with_a_time_zone():
     assert [c for c in log if c[0] in {"cursor.execute", "cursor.mogrify"}] == []
 
 
-def test_a_failing_mogrify_prints_nothing(capsys):
+def test_a_failing_mogrify_prints_nothing(capsys, monkeypatch):
     """A statement that psycopg2 cannot mogrify leaves stdout alone
 
     Tools write their results to stdout; a debug print of the statement and
     its arguments would end up in the pipes that read them.
     """
+    monkeypatch.setattr(db_module(), "psycopg2", fake_pg([]), raising=False)
     conn = db_module().DBConnection(backend="pg", dbstring="host=x dbname=y")
     conn.dbmi = fake_pg([])
     conn.connected = True
