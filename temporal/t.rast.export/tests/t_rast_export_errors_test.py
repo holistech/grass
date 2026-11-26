@@ -40,7 +40,10 @@ def test_a_missing_directory_is_refused(tools, absolute, tmp_path):
     assert f"Directory {tmp_path / 'nope'} not found" in text
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root can write to any directory")
+@pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0,
+    reason="root writes to any directory and Windows has no directory modes",
+)
 def test_a_directory_that_is_not_writable_is_refused(tools, absolute, tmp_path):
     read_only = tmp_path / "ro"
     read_only.mkdir()

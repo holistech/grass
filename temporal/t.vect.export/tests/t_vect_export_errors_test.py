@@ -59,7 +59,10 @@ def _read_only_directory(tools, absolute, tmp_path):
         read_only.chmod(0o700)
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root can write to any directory")
+@pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0,
+    reason="root writes to any directory and Windows has no directory modes",
+)
 def test_a_directory_that_is_not_writable_is_refused_with_a_message(
     tools, absolute, tmp_path
 ):
