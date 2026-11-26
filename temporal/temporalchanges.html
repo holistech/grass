@@ -1394,7 +1394,8 @@ overflow such as <code>1e400</code> as infinity. Now all of these are refused
 (blanks around the number are allowed, an underflow of a floating point
 value is valid), and each value of a tuple is checked. Pass whole
 numbers to integer options, for example <code>nprocs=4</code> instead of
-<code>nprocs=4.0</code> (<a href="g.parser.html">g.parser</a>).</li>
+<code>nprocs=4.0</code> (<a href="g.parser.html">g.parser</a>). <em>r.smooth.edgepreserve</em> still
+takes a decimal number for <b>memory</b>, because it reads the value as one.</li>
 <li><b>The temporal database.</b> The PostgreSQL back end did not work
 throughout, new SQLite databases had 27 indices that repeat the primary
 key, and the C library set up a new environment in each call. Now

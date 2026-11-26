@@ -88,6 +88,8 @@ int main(int argc, char *argv[])
     opt.met->answer = G_store("tukey");
 
     opt.mem = G_define_standard_option(G_OPT_MEMORYMB);
+    /* The value is read with atof() below, so fractions of a MB are valid. */
+    opt.mem->type = TYPE_DOUBLE;
     opt.nprocs = G_define_standard_option(G_OPT_M_NPROCS);
 
     opt.pres = G_define_flag();

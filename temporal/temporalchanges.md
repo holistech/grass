@@ -1314,7 +1314,8 @@ sections "Results corrected since GRASS 8.5".
     (blanks around the number are allowed, an underflow of a floating point
     value is valid), and each value of a tuple is checked. Pass whole
     numbers to integer options, for example `nprocs=4` instead of
-    `nprocs=4.0` ([g.parser](g.parser.md)).
+    `nprocs=4.0` ([g.parser](g.parser.md)). *r.smooth.edgepreserve* still
+    takes a decimal number for **memory**, because it reads the value as one.
 - **The temporal database.** The PostgreSQL back end did not work
     throughout, new SQLite databases had 27 indices that repeat the primary
     key, and the C library set up a new environment in each call. Now
