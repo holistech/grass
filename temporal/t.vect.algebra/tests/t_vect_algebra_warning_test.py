@@ -11,9 +11,16 @@ pytestmark = pytest.mark.real_io
 
 
 def run_tool(session, expression):
-    """Run the tool and return its stderr"""
+    """Run the tool and return its stderr
+
+    The fixture keeps one session for all tests, which pytest-xdist may run in
+    any order, so the maps take the name of the result as basename: with one
+    basename for all, the run of a test after another one warned that it
+    overwrote the maps of that test.
+    """
     tools = Tools(session=session, overwrite=True, consistent_return_value=True)
-    return tools.t_vect_algebra(expression=expression, basename="warn").stderr
+    basename = expression.split("=")[0].strip()
+    return tools.t_vect_algebra(expression=expression, basename=basename).stderr
 
 
 def test_result_with_maps_gives_no_warning(vector_series):
@@ -38,8 +45,5 @@ def test_empty_result_gives_a_warning(vector_series):
 )
 def test_the_modules_run_quietly(vector_series, expression, message):
     """The progress of the modules does not drown the warnings of the tool"""
-    tools = Tools(
-        session=vector_series.session, overwrite=True, consistent_return_value=True
-    )
-    result = tools.t_vect_algebra(expression=expression, basename="warn")
-    assert message not in result.stderr
+    stderr = run_tool(vector_series.session, expression)
+    assert message not in stderr
