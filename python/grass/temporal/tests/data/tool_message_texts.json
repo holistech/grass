@@ -1,0 +1,4 @@
+[
+    "Invalid date <{}> of the option <{}>",
+    "Unable to update dataset <%(ds)s> of type %(type)s in the temporal database. The mapset of the database does not match the current mapset"
+]
