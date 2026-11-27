@@ -12,6 +12,10 @@ from grass.gunittest.main import test
 
 import grass.temporal as tgis
 
+# The old algebra under test: the package exports the parser of the algebra
+# core from now on. The file goes with the old algebra.
+from grass.temporal.temporal_raster_algebra import TemporalRasterAlgebraParser
+
 
 class TestTemporalRasterAlgebraConditionals(TestCase):
     @classmethod
@@ -116,7 +120,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         """Testing the conditional time dimension bug, that uses the time
         dimension of the conditional statement instead the time dimension
         of the then/else statement."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="R = if({contains}, B == 5,  A - 1,  A + 1)",
             basename="r",
@@ -138,7 +142,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         """Testing the conditional time dimension bug, that uses the time
         dimension of the conditional statement instead the time dimension
         of the then/else statement."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="R = if(td(A) == 1,  D * 2, D)", basename="r", overwrite=True
         )
@@ -158,7 +162,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         """Testing the conditional time dimension bug, that uses the time
         dimension of the conditional statement instead the time dimension
         of the then/else statement."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="R = if({during},exist(A),  B - 1,  B + 1)",
             basename="r",
@@ -179,7 +183,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
     def test_spatial_conditional_1(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="R = if(A > 1 && A < 4 && isntnull(A), A)",
             basename="r",
@@ -200,7 +204,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
     def test_spatial_conditional_2(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="R = if(A > 1 && A < 4 && isntnull(A), A, null())",
             basename="r",
@@ -221,7 +225,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
     def test_spatial_conditional_3(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(expression="R = if(A > 1, A, D)", basename="r", overwrite=True)
 
         R = tgis.open_old_stds("R", type="strds")
@@ -238,7 +242,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
     def test_spatial_conditional_4(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(expression="R = if(A > 0, A)", basename="r", overwrite=True)
 
         R = tgis.open_old_stds("R", type="strds")
@@ -255,7 +259,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
     def test_spatial_conditional_5(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="R = if(B > 5 {&&,contains,l} A < 5, B)",
             basename="r",
@@ -276,7 +280,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
     def test_spatial_conditional_relation_1(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="R = if({contains},B > 5, D)", basename="r", overwrite=True
         )
@@ -294,7 +298,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatial_conditional_relation_2(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="R = if({contains}, B <= 5, A, A * 2)",
             basename="r",
@@ -314,7 +318,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatial_conditional_numeric_relation_1(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="R = if({contains}, B > 5, A, 10)", basename="r", overwrite=True
         )
@@ -333,7 +337,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
     def test_spatial_conditional_numeric_relation_2(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="R = if({contains},B > 5, A + 2 / 4.0)",
             basename="r",
@@ -353,7 +357,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatial_conditional_numeric_1(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(expression="R = if(A > 2, 0, A)", basename="r", overwrite=True)
 
         R = tgis.open_old_stds("R", type="strds")
@@ -369,7 +373,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatial_conditional_numeric_2(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(expression="R = if(A > 2, A, 8)", basename="r", overwrite=True)
 
         R = tgis.open_old_stds("R", type="strds")
@@ -385,7 +389,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatial_conditional_numeric_3(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(expression="R = if(A > 2, 1, 0)", basename="r", overwrite=True)
 
         R = tgis.open_old_stds("R", type="strds")
@@ -401,7 +405,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatial_conditional_numeric_4(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(expression="R = if(A > 2, null())", basename="r", overwrite=True)
 
         R = tgis.open_old_stds("R", type="strds")
@@ -417,7 +421,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatiotemporal_conditional_1(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression='R = if(A < 2 && start_date(A) < "2001-01-03", A)',
             basename="r",
@@ -437,7 +441,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatiotemporal_conditional_2(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression='R = if(A < 3 || start_date(A) < "2001-01-04", A + 1, A - 1)',
             basename="r",
@@ -457,7 +461,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatiotemporal_conditional_relation_1(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="R = if({contains},B > 5 && start_day(B) < 3, D)",
             basename="r",
@@ -477,7 +481,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatiotemporal_conditional_relation_2(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression='R = if({contains}, start_date(B) < "2001-01-03" || B <= 5, A, A * 2)',
             basename="r",
@@ -497,7 +501,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatiotemporal_conditional_numeric_relation_1(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression='R = if({contains}, start_date(B) >= "2001-01-03" && B > 5, A, 10)',
             basename="r",
@@ -518,7 +522,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
     def test_spatiotemporal_conditional_numeric_relation_2(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression='R = if({contains},td(B) == 2 && start_date(B) == "2001-01-03" && B > 5 , A + 2 / 4.0)',
             basename="r",
@@ -538,7 +542,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatiotemporal_conditional_numeric_1(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression='R = if(start_date(A) < "2001-01-04" && A > 2, 0, A)',
             basename="r",
@@ -558,7 +562,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatiotemporal_conditional_numeric_2(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression='R = if(A > 2 || start_date(A) > "2001-01-01" && start_date(A) < "2001-01-04", A, 8)',
             basename="r",
@@ -578,7 +582,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatiotemporal_conditional_numeric_3(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression='R = if(start_date(A) < "2001-01-04" && A > 2, 1, 0)',
             basename="r",
@@ -598,7 +602,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatiotemporal_conditional_numeric_4(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
             expression='R = if(A > 2 || start_date(A) > "2001-01-01", null())',
             basename="r",

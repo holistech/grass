@@ -10,6 +10,10 @@ from grass.exceptions import FatalError
 from . import core, datetime_math, list_stds, space_time_datasets
 from .abstract_space_time_dataset import AbstractSpaceTimeDataset
 from .aggregation import aggregate_raster_maps, collect_map_names
+from .algebra.parser.facade import (
+    TemporalRaster3DAlgebraParser,
+    TemporalRasterAlgebraParser,
+)
 from .db import SQLDatabaseInterfaceConnection, SQLStatementError, init_dbif
 from .schema import (
     get_sql_template_path,
@@ -88,12 +92,10 @@ from .univar_statistics import (
     print_vector_dataset_univar_statistics,
 )
 
-# The algebra tools and tests of the package still run on the old temporal
-# algebra. The three parsers come from the algebra core once it carries the
-# algebra tools; the other names go with the tools and tests that use them.
+# t.vect.algebra, t.select and the old algebra tests of the package still run on
+# the old temporal algebra; these names go with it once the vector algebra and
+# the selection move to the algebra core.
 from .temporal_algebra import TemporalAlgebraParser
-from .temporal_raster3d_algebra import TemporalRaster3DAlgebraParser
-from .temporal_raster_algebra import TemporalRasterAlgebraParser
 from .temporal_raster_base_algebra import TemporalRasterAlgebraLexer
 from .temporal_vector_algebra import TemporalVectorAlgebraParser
 

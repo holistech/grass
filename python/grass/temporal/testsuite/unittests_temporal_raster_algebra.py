@@ -12,6 +12,10 @@ from grass.gunittest.main import test
 
 import grass.temporal as tgis
 
+# The old algebra under test: the package exports the parser of the algebra
+# core from now on. The file goes with the old algebra.
+from grass.temporal.temporal_raster_algebra import TemporalRasterAlgebraParser
+
 
 class TestTemporalRasterAlgebra(TestCase):
     @classmethod
@@ -127,7 +131,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_extent1(self) -> None:
         """Testing the temporal extent operators."""
-        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        ta = TemporalRasterAlgebraParser(run=True, debug=False)
         ta.parse(expression="R = A {:,during,r} C", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -141,7 +145,7 @@ class TestTemporalRasterAlgebra(TestCase):
         self.assertEqual(D.check_temporal_topology(), False)
         self.assertEqual(D.get_granularity(), "2 days")
 
-        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=False, dry_run=True)
+        ta = TemporalRasterAlgebraParser(run=True, debug=False, dry_run=True)
         pc = ta.parse(expression="R = A {:,during,r} C", basename="r", overwrite=True)
 
         self.assertEqual(len(pc["register"]), 2)
@@ -155,7 +159,7 @@ class TestTemporalRasterAlgebra(TestCase):
         """Testing the conditional time dimension bug, that uses the time
         dimension of the conditional statement instead the time dimension
         of the then/else statement."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(
             expression="R = if({contains}, B == 5,  A - 1,  A + 1)",
             basename="r",
@@ -189,9 +193,7 @@ class TestTemporalRasterAlgebra(TestCase):
         r4 = a4 + 1
 
         """
-        tra = tgis.TemporalRasterAlgebraParser(
-            run=True, debug=False, time_suffix="gran"
-        )
+        tra = TemporalRasterAlgebraParser(run=True, debug=False, time_suffix="gran")
         tra.parse(expression="R = A + (A {#, equal,l} A)", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -230,9 +232,7 @@ class TestTemporalRasterAlgebra(TestCase):
         r4 = a4 + 1
 
         """
-        tra = tgis.TemporalRasterAlgebraParser(
-            run=True, debug=False, time_suffix="time"
-        )
+        tra = TemporalRasterAlgebraParser(run=True, debug=False, time_suffix="time")
         tra.parse(expression="R = A + td(A)", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -271,7 +271,7 @@ class TestTemporalRasterAlgebra(TestCase):
         r3 = a3 / 1
         r4 = a4 / 1
         """
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A / td(A)", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -298,7 +298,7 @@ class TestTemporalRasterAlgebra(TestCase):
         r4 = a4 + 1
 
         """
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A {+,equal} td(A)", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -325,7 +325,7 @@ class TestTemporalRasterAlgebra(TestCase):
         r4 = a4 + 1
 
         """
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A {/, equal} td(A)", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -349,7 +349,7 @@ class TestTemporalRasterAlgebra(TestCase):
         r4 = a4 + a4
 
         """
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(
             expression='R = if({equal}, start_date(A) >= "2001-01-02", A + A)',
             basename="r",
@@ -385,7 +385,7 @@ class TestTemporalRasterAlgebra(TestCase):
         r4 = a4 - a4
 
         """
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(
             expression="R = if({equal}, A#A == 1, A - A)", basename="r", overwrite=True
         )
@@ -413,7 +413,7 @@ class TestTemporalRasterAlgebra(TestCase):
               will compute a3 + c1
 
         """
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(
             expression='R = if(start_date(A) < "2001-01-03" && A#A == 1, A{+, starts,l}C, A{+, finishes,l}C)',
             basename="r",
@@ -431,7 +431,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_simple_arith_1(self) -> None:
         """Simple arithmetic test"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(
             expression="R = A {*, equal} A {+, equal} A", basename="r", overwrite=True
         )
@@ -447,7 +447,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_simple_arith_2(self) -> None:
         """Simple arithmetic test that creates an empty strds"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(
             expression="R = A {*, during} A {+, during} A", basename="r", overwrite=True
         )
@@ -457,7 +457,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_simple_arith_3(self) -> None:
         """Simple arithmetic test"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A / A + A*A/A", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -471,7 +471,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_intersection_1(self) -> None:
         """Simple temporal intersection test"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A {+,equal,i} B", basename="r", overwrite=True)
         D = tgis.open_old_stds("R", type="strds")
         D.select()
@@ -479,7 +479,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_intersection_2(self) -> None:
         """Simple temporal intersection test"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A {+,during,i} B", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -493,7 +493,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_intersection_3(self) -> None:
         """Simple temporal intersection test"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A {+,starts,i} B", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -507,7 +507,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_intersection_4(self) -> None:
         """Simple temporal intersection test"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(
             expression="R = A {+,finishes,intersect} B", basename="r", overwrite=True
         )
@@ -523,7 +523,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_intersection_5(self) -> None:
         """Simple temporal intersection test"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(
             expression="R = A {+,starts|finishes,i} B", basename="r", overwrite=True
         )
@@ -539,7 +539,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_intersection_6(self) -> None:
         """Simple temporal intersection test"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = B {+,overlaps,u} C", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -553,7 +553,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_intersection_7(self) -> None:
         """Simple temporal intersection test"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = B {+,overlapped,u} C", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -567,7 +567,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_intersection_8(self) -> None:
         """Simple temporal intersection test"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(
             expression='R = A {+,during,l} buff_t(C, "1 day") ',
             basename="r",
@@ -585,7 +585,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_neighbors_1(self) -> None:
         """Simple temporal neighborhood computation test"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A[-1] + A[1]", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -599,7 +599,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_neighbors_2(self) -> None:
         """Simple temporal neighborhood computation test"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A[0,0,-1] + A[0,0,1]", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -613,7 +613,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_tmap_function1(self) -> None:
         """Testing the tmap function."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = tmap(singletmap)", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -630,7 +630,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_tmap_function2(self) -> None:
         """Testing the tmap function."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = tmap(singletmap) + 1", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -647,7 +647,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_map_function1(self) -> None:
         """Testing the map function."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = map(singlemap) + A", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -664,7 +664,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_map_function2(self) -> None:
         """Testing the map function."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R =  A * map(singlemap)", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -681,7 +681,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_select_same_left_right(self) -> None:
         """Testing the temporal select operator with the same map for left and right."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A : A", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -697,7 +697,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_select(self) -> None:
         """Testing the temporal select operator."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A : D", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -713,7 +713,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_select_operators1(self) -> None:
         """Testing the temporal select operator. Including temporal relations."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A : D", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -729,7 +729,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_select_operators2(self) -> None:
         """Testing the temporal select operator. Including temporal relations."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A {!:,during} C", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -746,7 +746,7 @@ class TestTemporalRasterAlgebra(TestCase):
     def test_temporal_select_operators3(self) -> None:
         """Testing the temporal select operator. Including temporal relations and
         different temporal operators (lr|+&)"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A {:,during,d} B", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -763,7 +763,7 @@ class TestTemporalRasterAlgebra(TestCase):
     def test_temporal_select_operators4(self) -> None:
         """Testing the temporal select operator. Including temporal relations and
         different temporal operators (lr|+&)"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A {:,equal|during,r} C", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -784,7 +784,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_hash_operator1(self) -> None:
         """Testing the temporal hash operator in the raster algebra."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = if(A # D == 1, A)", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -800,7 +800,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_hash_operator2(self) -> None:
         """Testing the temporal hash operator in the raster algebra."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = A # D", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -816,7 +816,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_hash_operator3(self) -> None:
         """Testing the temporal hash operator in the raster algebra."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = C {#,contains} A", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -832,7 +832,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_temporal_hash_operator4(self) -> None:
         """Testing the temporal hash operator in the raster algebra."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(
             expression="R = if({contains},A # D == 1, C {#,contains} A)",
             basename="r",
@@ -852,7 +852,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_raster_arithmetic_relation_1(self) -> None:
         """Arithmetic test with temporal intersection"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = B {+,contains,l} A ", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -868,7 +868,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_raster_arithmetic_relation_2(self) -> None:
         """Arithmetic test with temporal intersection"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = B {*,contains,l} A ", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -884,7 +884,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_raster_arithmetic_relation_3(self) -> None:
         """Arithmetic test with temporal intersection"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = B {+,contains,l} A ", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -900,7 +900,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_raster_arithmetic_relation_4(self) -> None:
         """Arithmetic test with temporal intersection"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(expression="R = B {+,contains,r} A ", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -916,7 +916,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_raster_arithmetic_relation_5(self) -> None:
         """Complex arithmetic test with temporal intersection"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         tra.parse(
             expression="R = tmap(singletmap) {+,equal| precedes| follows,l} A + map(singlemap)",
             basename="r",
@@ -936,7 +936,7 @@ class TestTemporalRasterAlgebra(TestCase):
 
     def test_capacity_1(self) -> None:
         """Arithmetic test with temporal intersection"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False)
         expr = "R = (((((((A + A) - A) * A) / A) % A) - td(A)) - (A # A))"
         tra.parse(expression=expr, basename="r", overwrite=True)
 
@@ -951,7 +951,7 @@ class TestTemporalRasterAlgebra(TestCase):
         self.assertEqual(D.check_temporal_topology(), True)
         self.assertEqual(D.get_granularity(), "1 day")
 
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False, dry_run=True)
+        tra = TemporalRasterAlgebraParser(run=True, debug=False, dry_run=True)
         pc = tra.parse(expression=expr, basename="r", overwrite=True)
 
         self.assertEqual(len(pc["register"]), 4)
