@@ -55,7 +55,8 @@ converted to the same type as the input map.
 
 The module will try to keep all temporary data in RAM. Thus it is important
 to set the **`memory`** parameter as high as possible.  If the map does
-not fit into RAM, a temporary file will be used instead.
+not fit into RAM, a temporary file will be used instead. The **`memory`**
+parameter is a decimal number, so fractions of a MB are accepted.
 
 The original *Perona & Malik* paper uses von Neumann (4-connected)
 neighbourhood for value calculation, but this module uses Moore
