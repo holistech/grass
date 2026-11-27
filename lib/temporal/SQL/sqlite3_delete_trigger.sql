@@ -1,8 +1,9 @@
---#############################################################################
--- This SQL script generates the sqlite3 trigger
+-- Create the SQLite triggers that delete the dependent rows of a map
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
 
 -- Create trigger for automated deletion of dependent rows
 
