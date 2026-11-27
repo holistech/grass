@@ -1,0 +1,1332 @@
+"""Test import_stds and export_stds in the process that calls them
+
+The tools run both in a process of their own, so a change of the working
+directory or of GISRC that outlives a failed call shows only when the library
+is called in the test process. The sessions here are real: the target project
+differs from the one the archives were made in.
+
+SPDX-FileCopyrightText: 2026 GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+"""
+
+import io
+import os
+import tarfile
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+
+import grass.script as gs
+import grass.temporal as tgis
+from grass.temporal.state import get_raise_on_error
+from grass.temporal import stds_import
+from grass.pygrass.messages import FatalError
+from grass.exceptions import CalledModuleError
+from grass.temporal.testing.data import (
+    MapSpec,
+    create_stds,
+    register_stds,
+    small_region,
+    vector_points,
+)
+from grass.temporal.stds_export import FORMAT_SUFFIX
+from grass.temporal.testing.readback import inventory, list_maps, message
+from grass.temporal.testing.session import (
+    mapset_session,
+    project_session,
+    temporal_session,
+)
+from grass.tools import Tools, ToolError
+
+EPSG = 3358
+
+
+def _tools(session):
+    return Tools(session=session, consistent_return_value=True, overwrite=True)
+
+
+def _process_state():
+    """The working directory, GISRC and mapset the process sees now"""
+    return Path.cwd(), os.environ.get("GISRC"), gs.gisenv()["MAPSET"]
+
+
+def _changed(source, target, name, data=None):
+    """Copy the tar archive source to target; drop member name or give it data"""
+    with tarfile.open(source) as old, tarfile.open(target, "w") as new:
+        for member in old.getmembers():
+            if Path(member.name).name != name:
+                new.addfile(member, old.extractfile(member))
+            elif data is not None:
+                member.size = len(data)
+                new.addfile(member, io.BytesIO(data))
+    return target
+
+
+def _listed_twice(source, target, name, suffix):
+    """Copy the tar archive source to target with the map name listed twice
+
+    Older exports of maps of one name from several mapsets wrote the line of
+    list.txt under that one name for each of them, and except for v.pack also
+    the file: the file of map name is a member twice and its line follows in a
+    second line for the next month. A v.pack export wrote one pack file per
+    name; the second member there only makes the archive like the others.
+    """
+    with tarfile.open(source) as old, tarfile.open(target, "w") as new:
+        for member in old.getmembers():
+            data = old.extractfile(member).read()
+            if member.name == "list.txt":
+                lines = data.decode().splitlines()
+                first = next(
+                    line for line in lines if line.split("|")[0].split(":")[0] == name
+                )
+                first_fields = first.split("|")
+                again = "|".join(
+                    [first_fields[0], "2001-03-01", "2001-04-01", *first_fields[3:]]
+                )
+                data = ("\n".join([*lines, again]) + "\n").encode()
+            elif member.name == "init.txt":
+                data = data.replace(b"number_of_maps=2", b"number_of_maps=3")
+            member.size = len(data)
+            new.addfile(member, io.BytesIO(data))
+            if Path(member.name).name == name + suffix:
+                new.addfile(member, io.BytesIO(data))
+    return target
+
+
+def _member(archive, name):
+    with tarfile.open(archive) as tar:
+        return tar.extractfile(name).read()
+
+
+@pytest.fixture
+def failing_modules(monkeypatch):
+    """The names of the modules that fail when run, once
+
+    The restoring of the session runs t.connect again, which must not fail
+    on top of the first failure.
+    """
+    failing = set()
+    run_command = gs.run_command
+
+    def run(name, *args, **kwargs):
+        if name in failing:
+            failing.discard(name)
+            raise CalledModuleError(name, "", 1)
+        return run_command(name, *args, **kwargs)
+
+    monkeypatch.setattr(gs, "run_command", run)
+    return failing
+
+
+@pytest.fixture(autouse=True)
+def _restore_working_directory(monkeypatch):
+    # A call that leaves its working directory must not move the later tests.
+    monkeypatch.chdir(Path.cwd())
+
+
+@pytest.fixture(scope="module")
+def archives(tmp_path_factory):
+    """Archives of a raster and a vector dataset made in a project with a CRS
+
+    "GTiff", "AAIGrid" and "pack" hold two raster maps in that format;
+    "vector" holds two vector maps as v.pack files, "GML" and "GPKG" the same
+    in the format of their name.
+    """
+    base = tmp_path_factory.mktemp("stds_io_archives")
+    made = {}
+    with project_session(base / "source") as session:
+        tools = _tools(session)
+        tools.g_proj(flags="c", epsg=EPSG)
+        small_region(tools, 2, 3)
+        create_stds(
+            tools,
+            "strds",
+            "src",
+            [
+                MapSpec("srca", "10", datetime(2001, 1, 1), datetime(2001, 2, 1)),
+                MapSpec("srcb", "20", datetime(2001, 2, 1), datetime(2001, 3, 1)),
+            ],
+        )
+        for format_ in ("GTiff", "AAIGrid", "pack"):
+            path = base / f"{format_}.tar"
+            tools.t_rast_export(
+                input="src",
+                output=str(path),
+                compression="no",
+                format=format_,
+                directory=str(base),
+            )
+            made[format_] = path
+        for number in (1, 2):
+            vector_points(tools, f"vsrc{number}", [(number, 1), (number, 2)])
+        register_stds(
+            tools,
+            "stvds",
+            "vsrc",
+            [
+                MapSpec("vsrc1", None, datetime(2001, 1, 1), datetime(2001, 2, 1)),
+                MapSpec("vsrc2", None, datetime(2001, 2, 1), datetime(2001, 3, 1)),
+            ],
+        )
+        for format_, key in (("pack", "vector"), ("GML", "GML"), ("GPKG", "GPKG")):
+            path = base / f"{key}.tar"
+            tools.t_vect_export(
+                input="vsrc",
+                output=str(path),
+                compression="no",
+                format=format_,
+                directory=str(base),
+            )
+            made[key] = path
+    return made
+
+
+@pytest.fixture
+def target(tmp_path):
+    """A session in an unprojected project, different from the archives' one"""
+    with temporal_session(tmp_path / "target") as session:
+        yield session
+
+
+def test_a_later_map_that_cannot_be_read_leaves_the_process_as_it_was(
+    archives, target, tmp_path
+):
+    broken = _changed(
+        archives["GTiff"], tmp_path / "broken.tar", "srcb.tif", b"no image"
+    )
+    before = _process_state()
+
+    with pytest.raises(FatalError, match="Unable to import/link raster map"):
+        tgis.import_stds(
+            str(broken),
+            "out",
+            tmp_path,
+            overr=True,
+            base="imp",
+        )
+
+    assert _process_state() == before
+
+
+def test_a_later_map_that_cannot_be_read_in_a_new_project_leaves_the_process_as_it_was(
+    archives, target, tmp_path
+):
+    broken = _changed(
+        archives["GTiff"], tmp_path / "broken.tar", "srcb.tif", b"no image"
+    )
+    before = _process_state()
+
+    with pytest.raises(FatalError, match="Unable to import/link raster map"):
+        tgis.import_stds(str(broken), "out", tmp_path, location="newproject")
+
+    assert _process_state() == before
+    # The new project exists, the failed import does not remove it.
+    assert (Path(gs.gisenv()["GISDBASE"]) / "newproject" / "PERMANENT").is_dir()
+
+
+def test_a_missing_file_in_a_new_project_leaves_the_process_as_it_was(
+    archives, target, tmp_path
+):
+    broken = _changed(archives["GTiff"], tmp_path / "broken.tar", "srcb.tif")
+    before = _process_state()
+
+    with pytest.raises(FatalError, match="Unable to find GeoTIFF raster file"):
+        tgis.import_stds(str(broken), "out", tmp_path, location="newproject")
+
+    assert _process_state() == before
+
+
+def test_a_new_project_without_import_leaves_the_process_as_it_was(
+    archives, target, tmp_path
+):
+    before = _process_state()
+
+    tgis.import_stds(
+        str(archives["GTiff"]), "out", tmp_path, location="newproject", create=True
+    )
+
+    assert _process_state() == before
+    assert (Path(gs.gisenv()["GISDBASE"]) / "newproject" / "PERMANENT").is_dir()
+
+
+@pytest.mark.parametrize("format_", ["GTiff", "AAIGrid", "pack"])
+def test_the_files_of_every_map_must_be_in_the_archive(
+    archives, target, tmp_path, format_
+):
+    suffix = {"GTiff": ".tif", "AAIGrid": ".asc", "pack": ".pack"}[format_]
+    broken = _changed(archives[format_], tmp_path / "broken.tar", "srcb" + suffix)
+    word = {
+        "GTiff": "GeoTIFF raster file",
+        "AAIGrid": "AAIGrid raster file",
+        "pack": "GRASS package file",
+    }[format_]
+
+    with pytest.raises(FatalError, match=f"Unable to find {word} <srcb{suffix}>"):
+        tgis.import_stds(str(broken), "out", tmp_path, overr=True)
+
+
+@pytest.mark.parametrize(
+    ("format_", "suffix", "word"),
+    [
+        ("GML", ".xml", "GML vector file"),
+        ("GPKG", ".gpkg", "GPKG vector file"),
+        ("vector", ".pack", "GRASS package file"),
+    ],
+)
+def test_the_files_of_every_vector_map_must_be_in_the_archive(
+    archives, target, tmp_path, format_, suffix, word
+):
+    broken = _changed(archives[format_], tmp_path / "broken.tar", "vsrc2" + suffix)
+
+    with pytest.raises(FatalError, match=f"Unable to find {word} <vsrc2{suffix}>"):
+        tgis.import_stds(str(broken), "out", tmp_path, stds_type="stvds", overr=True)
+
+
+def test_an_unknown_format_is_refused(archives, target, tmp_path):
+    init = _member(archives["GTiff"], "init.txt").replace(b"format=GTiff", b"format=x")
+    changed = _changed(archives["GTiff"], tmp_path / "x.tar", "init.txt", init)
+
+    with pytest.raises(FatalError, match="Unsupported input format"):
+        tgis.import_stds(str(changed), "out", tmp_path, overr=True)
+
+
+def test_a_wrong_number_of_maps_in_the_init_file_is_refused(archives, target, tmp_path):
+    init = _member(archives["GTiff"], "init.txt")
+    changed = _changed(
+        archives["GTiff"],
+        tmp_path / "x.tar",
+        "init.txt",
+        init.replace(b"number_of_maps=2", b"number_of_maps=5"),
+    )
+
+    with pytest.raises(FatalError, match="Number of maps mismatch"):
+        tgis.import_stds(str(changed), "out", tmp_path, overr=True)
+
+
+@pytest.mark.parametrize("base", [None, "pre"])
+def test_blank_lines_of_the_list_are_skipped(archives, target, tmp_path, base):
+    listed = _member(archives["GTiff"], "list.txt").decode().splitlines()
+    assert len(listed) == 2
+    # A blank line in the middle, one at the end and one with only blanks.
+    edited = "\n".join([listed[0], "", listed[1], "   ", ""]).encode() + b"\n"
+    changed = _changed(archives["GTiff"], tmp_path / "x.tar", "list.txt", edited)
+    init = _member(changed, "init.txt")
+    changed = _changed(changed, tmp_path / "y.tar", "init.txt", b"\n" + init + b"\n\n")
+
+    tgis.import_stds(str(changed), "out", tmp_path, base=base, overr=True)
+
+    expected = ["srca", "srcb"] if base is None else ["pre_1", "pre_2"]
+    assert gs.read_command("g.list", type="raster").split() == expected
+    listed = gs.read_command("t.rast.list", input="out", columns="name")
+    assert listed.split()[1:] == expected
+
+
+@pytest.mark.parametrize(
+    ("archive", "stds_type"), [("GTiff", "strds"), ("GML", "stvds")]
+)
+def test_an_archive_with_windows_line_ends_is_imported_as_one_with_unix_ones(
+    archives, target, tmp_path, archive, stds_type
+):
+    # The export wrote the platform line ends before, CRLF on Windows.
+    changed = archives[archive]
+    names = ("list.txt", "init.txt", "proj.txt", "readme.txt", "metadata.txt")
+    for number, name in enumerate(names):
+        data = _member(changed, name).replace(b"\n", b"\r\n")
+        changed = _changed(changed, tmp_path / f"{number}.tar", name, data)
+
+    for name, path in (("unix", archives[archive]), ("windows", changed)):
+        tgis.import_stds(
+            str(path), name, tmp_path, base=name, stds_type=stds_type, overr=True
+        )
+
+    tool = {"strds": "t.rast.list", "stvds": "t.vect.list"}[stds_type]
+    listed = {
+        name: gs.read_command(tool, input=name, columns="name,start_time,end_time")
+        for name in ("unix", "windows")
+    }
+    assert listed["windows"] == listed["unix"].replace("unix_", "windows_")
+    assert listed["unix"].splitlines()[1:] == [
+        "unix_1|2001-01-01 00:00:00|2001-02-01 00:00:00",
+        "unix_2|2001-02-01 00:00:00|2001-03-01 00:00:00",
+    ]
+
+
+def test_an_init_line_without_equals_sign_is_refused(archives, target, tmp_path):
+    init = _member(archives["GTiff"], "init.txt")
+    changed = _changed(
+        archives["GTiff"], tmp_path / "x.tar", "init.txt", init + b"stray words\n"
+    )
+
+    with pytest.raises(
+        FatalError, match="Invalid line <stray words> in the init file of the archive"
+    ):
+        tgis.import_stds(str(changed), "out", tmp_path, overr=True)
+
+
+def test_an_init_value_keeps_its_equals_sign(tmp_path, monkeypatch):
+    # No key of an archive carries such a value today; the reader must not
+    # cut a value at its first equals sign all the same.
+    (tmp_path / "init.txt").write_text("\ndescription=a=b \n\ntitle=t\n")
+    monkeypatch.chdir(tmp_path)
+
+    assert stds_import._read_init_file() == {"description": "a=b", "title": "t"}
+
+
+@pytest.mark.parametrize(
+    ("archive", "options", "module", "message"),
+    [
+        (
+            "GTiff",
+            {},
+            "r.in.gdal",
+            "Unable to import/link raster map <srca> from file srca.tif",
+        ),
+        (
+            "GTiff",
+            {"link": True},
+            "r.external",
+            "Unable to import/link raster map <srca> from file srca.tif",
+        ),
+        (
+            "GTiff",
+            {},
+            "r.colors",
+            "Unable to set the color rules for raster map <srca>",
+        ),
+        (
+            "pack",
+            {},
+            "r.unpack",
+            "Unable to unpack raster map <srca> from file srca.pack",
+        ),
+        (
+            "GML",
+            {"stds_type": "stvds"},
+            "v.in.ogr",
+            "Unable to import vector map <vsrc1> from file vsrc1.xml",
+        ),
+        (
+            "GPKG",
+            {"stds_type": "stvds", "link": True},
+            "v.external",
+            "Unable to import vector map <vsrc1> from file vsrc1.gpkg",
+        ),
+        (
+            "vector",
+            {"stds_type": "stvds"},
+            "v.unpack",
+            "Unable to unpack vector map <vsrc1> from file vsrc1.pack",
+        ),
+    ],
+)
+def test_a_module_that_fails_stops_the_import_with_a_message(
+    archives, target, tmp_path, failing_modules, archive, options, module, message
+):
+    failing_modules.add(module)
+
+    with pytest.raises(FatalError, match=message):
+        tgis.import_stds(str(archives[archive]), "out", tmp_path, overr=True, **options)
+
+    assert "out" not in gs.read_command("t.list", type="strds").split()
+
+
+def test_an_extraction_without_the_data_filter_is_refused(
+    archives, target, tmp_path, monkeypatch
+):
+    monkeypatch.delattr(tarfile, "data_filter")
+
+    with pytest.raises(FatalError, match="Extracting may be unsafe"):
+        tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, overr=True)
+
+
+def test_an_aaigrid_file_without_projection_is_imported_into_a_project_with_one(
+    archives, tmp_path
+):
+    with temporal_session(tmp_path / "target", crs=f"EPSG:{EPSG}"):
+        tgis.import_stds(str(archives["AAIGrid"]), "out", tmp_path)
+
+        assert gs.read_command("g.list", type="raster").split() == ["srca", "srcb"]
+
+
+def test_the_region_is_set_from_the_last_map_if_asked(archives, tmp_path):
+    with temporal_session(tmp_path / "target", crs=f"EPSG:{EPSG}"):
+        before = gs.region()
+
+        tgis.import_stds(
+            str(archives["pack"]), "out", tmp_path, set_current_region=True
+        )
+
+        region = gs.region()
+        assert (region["rows"], region["cols"]) == (2, 3)
+        assert (before["rows"], before["cols"]) != (2, 3)
+
+
+def test_an_archive_of_another_dataset_type_is_refused(archives, target, tmp_path):
+    with pytest.raises(FatalError, match="wrong space time dataset type"):
+        tgis.import_stds(str(archives["vector"]), "out", tmp_path, overr=True)
+
+
+def _gisdbase():
+    return Path(gs.gisenv()["GISDBASE"])
+
+
+def test_a_projection_that_differs_leaves_the_process_as_it_was(
+    archives, target, tmp_path
+):
+    before = _process_state()
+
+    with pytest.raises(FatalError, match="Projection information does not match"):
+        tgis.import_stds(str(archives["GTiff"]), "out", tmp_path)
+
+    assert _process_state() == before
+
+
+def test_a_project_that_cannot_be_made_leaves_the_process_as_it_was(
+    archives, target, tmp_path
+):
+    (_gisdbase() / "taken").mkdir()
+    before = _process_state()
+
+    with pytest.raises(FatalError, match="Unable to create location taken"):
+        tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="taken")
+
+    assert _process_state() == before
+
+
+def test_a_projection_file_that_cannot_be_decoded_is_refused_with_a_message(
+    archives, target, tmp_path
+):
+    broken = _changed(
+        archives["GTiff"], tmp_path / "broken.tar", "proj.txt", b"\xff\xfe"
+    )
+    before = _process_state()
+
+    with pytest.raises(FatalError, match="Unable to create location newproject"):
+        tgis.import_stds(str(broken), "out", tmp_path, location="newproject")
+
+    assert _process_state() == before
+
+
+def test_an_environment_that_cannot_be_made_leaves_the_process_as_it_was(
+    archives, target, tmp_path, monkeypatch
+):
+    def refuse(*args):
+        msg = "no room"
+        raise OSError(msg)
+
+    monkeypatch.setattr(gs, "create_environment", refuse)
+    before = _process_state()
+
+    with pytest.raises(
+        FatalError, match="Unable to create environment for location newproject"
+    ):
+        tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="newproject")
+
+    assert _process_state() == before
+
+
+def test_a_new_project_without_the_temporal_database_leaves_the_process_as_it_was(
+    archives, target, tmp_path, failing_modules
+):
+    failing_modules.add("t.connect")
+    before = _process_state()
+
+    with pytest.raises(FatalError, match="Unable to create default temporal"):
+        tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="newproject")
+
+    assert _process_state() == before
+
+
+def test_the_vector_maps_of_one_archive_can_be_imported_twice_in_one_process(
+    archives, tmp_path
+):
+    # The second import is into a project of its own, so the maps are not
+    # there yet and must be imported. v.unpack needs a project with a CRS.
+    for number in (1, 2):
+        with temporal_session(tmp_path / f"target{number}", crs=f"EPSG:{EPSG}"):
+            tgis.import_stds(
+                str(archives["vector"]),
+                "vout",
+                tmp_path,
+                stds_type="stvds",
+                overr=True,
+            )
+
+            names = gs.read_command("g.list", type="vector").split()
+            assert names == ["vsrc1", "vsrc2"], f"import {number}"
+
+
+@pytest.fixture(scope="module")
+def dotted_archive(tmp_path_factory):
+    """An archive of raster maps with a dot in their name"""
+    base = tmp_path_factory.mktemp("stds_io_dotted")
+    with project_session(base / "source") as session:
+        tools = _tools(session)
+        tools.g_proj(flags="c", epsg=EPSG)
+        small_region(tools, 2, 3)
+        create_stds(
+            tools,
+            "strds",
+            "dotted",
+            [
+                MapSpec("dot.a", "10", datetime(2001, 1, 1), datetime(2001, 2, 1)),
+                MapSpec("dot.b", "20", datetime(2001, 2, 1), datetime(2001, 3, 1)),
+            ],
+        )
+        path = base / "dotted.tar"
+        tools.t_rast_export(
+            input="dotted",
+            output=str(path),
+            compression="no",
+            format="GTiff",
+            directory=str(base),
+        )
+    return path
+
+
+def test_raster_maps_with_a_dot_in_their_name_are_imported(
+    dotted_archive, target, tmp_path
+):
+    tgis.import_stds(str(dotted_archive), "out", tmp_path, overr=True)
+
+    assert gs.read_command("g.list", type="raster").split() == ["dot.a", "dot.b"]
+
+
+@pytest.mark.parametrize("directory", [None, ""])
+def test_a_new_project_without_an_extraction_directory_uses_a_temporary_one(
+    archives, target, tmp_path, monkeypatch, directory
+):
+    # The tools pass an empty string for an option that is not given.
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+
+    tgis.import_stds(
+        str(archives["GTiff"]), "out", directory, location="newproject", create=True
+    )
+
+    assert (Path(gs.gisenv()["GISDBASE"]) / "newproject" / "PERMANENT").is_dir()
+    # Nothing of the archive is extracted into the working directory.
+    assert not list(work.iterdir())
+
+
+def test_an_archive_without_color_rules_is_imported(archives, target, tmp_path):
+    changed = _changed(archives["GTiff"], tmp_path / "x.tar", "srca.color")
+    changed = _changed(changed, tmp_path / "y.tar", "srcb.color")
+
+    tgis.import_stds(str(changed), "out", tmp_path, overr=True)
+
+    assert gs.read_command("g.list", type="raster").split() == ["srca", "srcb"]
+
+
+@pytest.fixture(scope="module")
+def two_layer_archive(tmp_path_factory):
+    """A pack archive of a dataset that holds both layers of one vector map"""
+    base = tmp_path_factory.mktemp("stds_io_layers")
+    with project_session(base / "source") as session:
+        tools = _tools(session)
+        tools.g_proj(flags="c", epsg=EPSG)
+        vector_points(tools, "lay_one", [(1, 1)])
+        tools.v_category(
+            input="lay_one", output="lay", option="add", layer=2, type="point"
+        )
+        tools.t_create(type="stvds", output="lay_ds", title="t", description="t")
+        tools.t_register(
+            type="vector",
+            input="lay_ds",
+            maps="lay:1,lay:2",
+            start="2001-01-01",
+            increment="1 months",
+        )
+        path = base / "lay.tar"
+        tools.t_vect_export(
+            input="lay_ds",
+            output=str(path),
+            compression="no",
+            format="pack",
+            directory=str(base),
+        )
+    return path
+
+
+def test_a_vector_map_with_two_layers_is_unpacked_once(
+    two_layer_archive, tmp_path, monkeypatch
+):
+    unpacked = []
+    run_command = gs.run_command
+
+    def run(name, *args, **kwargs):
+        if name == "v.unpack":
+            unpacked.append(kwargs["output"])
+        return run_command(name, *args, **kwargs)
+
+    monkeypatch.setattr(gs, "run_command", run)
+    with temporal_session(tmp_path / "target", crs=f"EPSG:{EPSG}"):
+        tgis.import_stds(
+            str(two_layer_archive), "out", tmp_path, stds_type="stvds", overr=True
+        )
+
+        assert gs.read_command("g.list", type="vector").split() == ["lay"]
+        listed = gs.read_command("t.vect.list", input="out", columns="name,layer")
+        assert listed.split()[1:] == ["lay|1", "lay|2"]
+    assert unpacked == ["lay"]
+
+
+def test_a_vector_map_with_two_layers_round_trips(
+    two_layer_archive, tmp_path, monkeypatch
+):
+    assert _member(two_layer_archive, "list.txt").decode().count("\n") == 2
+    unpacked = []
+    run_command = gs.run_command
+
+    def run(name, *args, **kwargs):
+        if name == "v.unpack":
+            unpacked.append(kwargs["output"])
+        return run_command(name, *args, **kwargs)
+
+    monkeypatch.setattr(gs, "run_command", run)
+    for base, expected in ((None, "lay"), ("pre", "pre_1")):
+        unpacked.clear()
+        with temporal_session(tmp_path / f"target_{base}", crs=f"EPSG:{EPSG}"):
+            tgis.import_stds(
+                str(two_layer_archive),
+                "out",
+                tmp_path,
+                base=base,
+                stds_type="stvds",
+                overr=True,
+            )
+
+            assert gs.read_command("g.list", type="vector").split() == [expected]
+            listed = gs.read_command("t.vect.list", input="out", columns="name,layer")
+            assert listed.split()[1:] == [f"{expected}|1", f"{expected}|2"]
+        assert unpacked == [expected]
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_the_error_mode_of_grass_script_is_the_one_of_the_caller_afterwards(
+    archives, target, tmp_path, fails
+):
+    # init() lets the temporal framework raise whenever grass.script raises, so
+    # grass.script must not be left raising while the import runs it.
+    gs.set_raise_on_error(False)
+    seen = []
+    init = stds_import.init
+
+    def recording(**kwargs):
+        seen.append(gs.get_raise_on_error())
+        init(**kwargs)
+
+    stds_import.init = recording
+    try:
+        if fails:
+            with pytest.raises(FatalError):
+                tgis.import_stds(str(archives["vector"]), "out", tmp_path, overr=True)
+        else:
+            tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, overr=True)
+    finally:
+        stds_import.init = init
+
+    assert seen
+    assert seen == [False] * len(seen)
+    assert gs.get_raise_on_error() is False
+    # The framework of the session still raises, as the session set it up.
+    assert get_raise_on_error() is True
+
+
+def test_making_a_project_leaves_the_error_mode_of_grass_script_alone(
+    archives, target, tmp_path
+):
+    gs.set_raise_on_error(False)
+
+    tgis.import_stds(
+        str(archives["GTiff"]), "out", tmp_path, location="modeproject", create=True
+    )
+
+    assert gs.get_raise_on_error() is False
+    assert get_raise_on_error() is True
+
+
+# Every case overrides the projection check: without it the import of an
+# archive made in another projection stops before any map is read.
+@pytest.mark.parametrize(
+    ("archive", "options", "module", "kwargs"),
+    [
+        ("GTiff", {}, "r.in.gdal", {"memory": 300, "flags": "o"}),
+        ("GTiff", {"memory": 50}, "r.in.gdal", {"memory": 50, "flags": "o"}),
+        ("GTiff", {"exp": True}, "r.in.gdal", {"memory": 300, "flags": "oe"}),
+        ("AAIGrid", {}, "r.in.gdal", {"memory": 300, "flags": "o"}),
+        ("GTiff", {"link": True}, "r.external", {"flags": "o"}),
+        ("GTiff", {"link": True, "exp": True}, "r.external", {"flags": "oe"}),
+        ("GML", {"stds_type": "stvds"}, "v.in.ogr", {"flags": "o"}),
+        ("GML", {"stds_type": "stvds", "exp": True}, "v.in.ogr", {"flags": "oe"}),
+        ("GPKG", {"stds_type": "stvds", "link": True}, "v.external", {"flags": "o"}),
+        (
+            "GPKG",
+            {"stds_type": "stvds", "link": True, "exp": True},
+            "v.external",
+            {"flags": "o"},
+        ),
+    ],
+)
+def test_the_import_module_gets_the_flags_and_the_memory_of_the_call(
+    archives, target, tmp_path, monkeypatch, archive, options, module, kwargs
+):
+    calls = []
+    run_command = gs.run_command
+
+    def run(name, *args, **given):
+        if name != module:
+            return run_command(name, *args, **given)
+        calls.append(given)
+        raise CalledModuleError(name, "", 1)
+
+    monkeypatch.setattr(gs, "run_command", run)
+
+    with pytest.raises(FatalError, match="Unable to"):
+        tgis.import_stds(str(archives[archive]), "out", tmp_path, overr=True, **options)
+
+    assert len(calls) == 1
+    given = calls[0]
+    assert Path(given.pop("input")).name.startswith(given.pop("output"))
+    assert given == {"overwrite": gs.overwrite(), **kwargs}
+
+
+def _read_list(tmp_path, monkeypatch, lines, base=None):
+    (tmp_path / "list.txt").write_text("".join(f"{line}\n" for line in lines))
+    monkeypatch.chdir(tmp_path)
+    maplist, count = stds_import._read_map_list(base, "m")
+    assert count == len(lines)
+    return [(row["filename"], row["layer"], row["name"]) for row in maplist]
+
+
+def test_a_list_of_an_older_archive_is_read_as_before(tmp_path, monkeypatch):
+    # Archives written before the mapset could be part of a field have none.
+    lines = ["a:2|2001-01-01|2001-02-01", "b|2001-02-01|2001-03-01|label"]
+
+    assert _read_list(tmp_path, monkeypatch, lines) == [
+        ("a", "2", "a"),
+        ("b", "", "b"),
+    ]
+    assert _read_list(tmp_path, monkeypatch, lines, base="pre") == [
+        ("a", "2", "pre_1"),
+        ("b", "", "pre_2"),
+    ]
+
+
+def test_a_field_with_a_mapset_names_the_file_and_the_map_after_it(
+    tmp_path, monkeypatch
+):
+    lines = [
+        "dup@PERMANENT|2001-01-01|2001-02-01",
+        "dup:2@my.set|2001-02-01|2001-03-01",
+        "dup_other|2001-03-01|2001-04-01",
+    ]
+
+    assert _read_list(tmp_path, monkeypatch, lines) == [
+        ("dup@PERMANENT", "", "dup_PERMANENT"),
+        ("dup@my.set", "2", "dup_my_set"),
+        ("dup_other", "", "dup_other"),
+    ]
+
+
+def test_the_layers_of_one_file_share_the_number_of_the_base(tmp_path, monkeypatch):
+    lines = [
+        "lay:1@A|2001-01-01|2001-02-01",
+        "lay:2@A|2001-02-01|2001-03-01",
+        "lay:1@B|2001-03-01|2001-04-01",
+    ]
+
+    assert _read_list(tmp_path, monkeypatch, lines, base="b") == [
+        ("lay@A", "1", "b_1"),
+        ("lay@A", "2", "b_1"),
+        ("lay@B", "1", "b_2"),
+    ]
+
+
+def test_each_map_keeps_the_field_of_its_line(tmp_path, monkeypatch):
+    (tmp_path / "list.txt").write_text(
+        "dup:2@my.set|2001-01-01|2001-02-01\n a |2001-02-01|2001-03-01\n"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    maplist, _count = stds_import._read_map_list(None, "m")
+
+    assert [row["field"] for row in maplist] == ["dup:2@my.set", "a"]
+
+
+def test_a_map_listed_twice_is_refused(target):
+    def row(filename, layer, field):
+        return {"filename": filename, "layer": layer, "field": field}
+
+    maplist = [
+        row("lay", "1", "lay:1"),
+        row("lay", "2", "lay:2"),
+        row("dup@A", "", "dup@A"),
+        row("dup@B", "", "dup@B"),
+    ]
+    stds_import._refuse_repeated_list_lines(maplist)
+
+    with pytest.raises(
+        FatalError,
+        match=(
+            "The archive lists the map <lay:1> more than once and cannot be imported"
+        ),
+    ):
+        stds_import._refuse_repeated_list_lines([*maplist, row("lay", "1", "lay:1")])
+
+
+@pytest.mark.parametrize("base", [None, "pre"])
+@pytest.mark.parametrize("overwrite", [True, False])
+@pytest.mark.parametrize(
+    ("key", "stds_type", "name", "suffix"),
+    [
+        ("GTiff", "strds", "srca", ".tif"),
+        ("pack", "strds", "srca", ".pack"),
+        ("vector", "stvds", "vsrc1", ".pack"),
+        ("GML", "stvds", "vsrc1", ".xml"),
+    ],
+)
+def test_an_archive_that_lists_a_map_twice_is_refused(
+    archives, tmp_path, monkeypatch, key, stds_type, name, suffix, overwrite, base
+):
+    twice = _listed_twice(archives[key], tmp_path / "twice.tar", name, suffix)
+    element = "raster" if stds_type == "strds" else "vector"
+    # The message names the field as written: a v.pack archive has the layer.
+    listed = _member(archives[key], "list.txt").decode().splitlines()
+    field = next(
+        line.split("|")[0]
+        for line in listed
+        if line.split("|")[0].split(":")[0] == name
+    )
+
+    # The project has the CRS of the archive, so that the import does not stop
+    # at the projection check before the list is looked at.
+    with temporal_session(tmp_path / "target", crs=f"EPSG:{EPSG}"):
+        if overwrite:
+            monkeypatch.setenv("GRASS_OVERWRITE", "1")
+        with pytest.raises(
+            FatalError,
+            match=(
+                f"The archive lists the map <{field}> more than once "
+                "and cannot be imported"
+            ),
+        ):
+            tgis.import_stds(
+                str(twice), "out", tmp_path, stds_type=stds_type, overr=False, base=base
+            )
+
+        assert gs.read_command("g.list", type=element).split() == []
+        assert gs.read_command("t.list", type=stds_type).split() == []
+
+
+def test_two_files_with_one_import_name_are_refused(target):
+    maplist = [
+        {"filename": "lay@A", "name": "lay_A"},
+        {"filename": "lay@A", "name": "lay_A"},
+        {"filename": "dup_other", "name": "dup_other"},
+        {"filename": "dup@other", "name": "dup_other"},
+    ]
+
+    with pytest.raises(
+        FatalError,
+        match=(
+            "The maps <dup_other> and <dup@other> of the archive would both be "
+            "imported as <dup_other>; use basename to name the maps"
+        ),
+    ):
+        stds_import._refuse_duplicate_import_names(maplist)
+
+
+# The value of the raster map "dup" and the number of points of the vector
+# maps "dup" and "lay" in each mapset of the project of shared_source.
+SHARED_MAPSETS = {"PERMANENT": 1, "other": 2, "third": 3, "my.set": 4}
+
+# The month of 2001 that each map of shared_source is registered for, until
+# the next month. A map has one time stamp in the temporal database, whichever
+# datasets hold it.
+SHARED_MONTHS = {
+    "dup@PERMANENT": 1,
+    "dup@other": 2,
+    "dup@third": 3,
+    "dup@my.set": 4,
+    "dup_other@PERMANENT": 5,
+    "a@PERMANENT": 6,
+    "b@other": 7,
+    "lay:1@PERMANENT": 8,
+    "lay:2@PERMANENT": 9,
+    "lay:1@other": 10,
+    "lay:2@other": 11,
+}
+
+# The maps of the datasets of shared_source in the order of their months. The
+# maps "lay" are vector maps, so "layers" and "split" are vector datasets only.
+SHARED_DATASETS = {
+    "two": ["dup@PERMANENT", "dup@other"],
+    "three": ["dup@PERMANENT", "dup@other", "dup@third"],
+    "dot": ["dup@PERMANENT", "dup@my.set"],
+    "clash": ["dup@PERMANENT", "dup@other", "dup_other@PERMANENT"],
+    "plain": ["a@PERMANENT", "b@other"],
+    "layers": ["lay:1@PERMANENT", "lay:2@PERMANENT", "lay:1@other"],
+    "split": ["lay:1@PERMANENT", "lay:2@other"],
+}
+
+
+def _month(number):
+    return f"2001-{number:02}-01 00:00:00"
+
+
+def _shared_maps(tools, value):
+    """Make the maps "dup" and "lay" of a mapset of shared_source"""
+    small_region(tools, 2, 3)
+    tools.r_mapcalc(expression=f"dup = {value}")
+    points = [(number / 2, 1) for number in range(1, value + 1)]
+    vector_points(tools, "dup", points)
+    vector_points(tools, "lay", points, layers=(1, 2))
+
+
+@pytest.fixture(scope="module")
+def shared_source(tmp_path_factory):
+    """Tools in a project whose mapsets hold maps of one name, and its datasets
+
+    The datasets are in PERMANENT, named after the keys of SHARED_DATASETS
+    with "_r" for the raster and "_v" for the vector one. PERMANENT also
+    holds the raster and vector maps "dup_other" (value 5, five points) and
+    "a" (value 6, six points), "other" the map "b" (value 7, seven points).
+    """
+    base = tmp_path_factory.mktemp("stds_shared")
+    with project_session(base / "source") as session:
+        tools = _tools(session)
+        for mapset, value in SHARED_MAPSETS.items():
+            if mapset == "PERMANENT":
+                _shared_maps(tools, value)
+                continue
+            with mapset_session(session, mapset) as other:
+                _shared_maps(_tools(other), value)
+            tools.g_mapsets(mapset=mapset, operation="add")
+        for name, value in (("dup_other", 5), ("a", 6)):
+            tools.r_mapcalc(expression=f"{name} = {value}")
+            vector_points(tools, name, [(number / 2, 1) for number in range(value)])
+        with mapset_session(session, "other") as other:
+            other_tools = _tools(other)
+            other_tools.r_mapcalc(expression="b = 7")
+            vector_points(other_tools, "b", [(number / 2, 1) for number in range(7)])
+        for name, maps in SHARED_DATASETS.items():
+            kinds = ("stvds",) if ":" in maps[0] else ("strds", "stvds")
+            for stds_type in kinds:
+                register_stds(
+                    tools,
+                    stds_type,
+                    f"{name}_{stds_type[2]}",
+                    [
+                        MapSpec(
+                            map_id,
+                            None,
+                            datetime(2001, SHARED_MONTHS[map_id], 1),
+                            datetime(2001, SHARED_MONTHS[map_id] + 1, 1),
+                        )
+                        for map_id in maps
+                    ],
+                )
+        yield tools
+
+
+def _shared_export(tools, tmp_path, dataset, stds_type, format_):
+    """Export a dataset of shared_source with its tool; return the archive"""
+    archive = tmp_path / f"{dataset}_{stds_type}_{format_}.tar"
+    export = tools.t_rast_export if stds_type == "strds" else tools.t_vect_export
+    export(
+        input=f"{dataset}_{stds_type[2]}",
+        output=str(archive),
+        compression="no",
+        format=format_,
+        directory=str(tmp_path),
+    )
+    return archive
+
+
+def _members(archive):
+    with tarfile.open(archive) as tar:
+        return tar.getnames()
+
+
+def _list_lines(archive):
+    return _member(archive, "list.txt").decode().splitlines()
+
+
+def _shared_import(tmp_path, archive, stds_type, base=None):
+    """Import archive with its tool into a new project
+
+    Return one tuple per registered map in start time order: the name, the
+    layer for a vector map, the start and the value of a raster map or the
+    number of points of a vector map.
+    """
+    with project_session(tmp_path / f"target_{base}") as session:
+        tools = _tools(session)
+        options = {"basename": base} if base else {}
+        if stds_type == "strds":
+            tools.t_rast_import(
+                input=str(archive),
+                output="back",
+                directory=str(tmp_path),
+                flags="o",
+                **options,
+            )
+            return [
+                (row.name, row.start, row.min)
+                for row in list_maps(tools, "strds", "back")
+            ]
+        tools.t_vect_import(
+            input=str(archive),
+            output="back",
+            directory=str(tmp_path),
+            flags="o",
+            **options,
+        )
+        records = tools.t_vect_list(
+            input="back",
+            columns="name,layer,start_time",
+            order="start_time",
+            format="json",
+        ).json["data"]
+        return [
+            (
+                record["name"],
+                str(record["layer"]),
+                record["start_time"],
+                tools.v_info(map=record["name"], flags="t").keyval["points"],
+            )
+            for record in records
+        ]
+
+
+# The files of one map in the archive of a format, by their suffixes.
+SHARED_FILES = {
+    ("strds", "pack"): (".pack",),
+    ("strds", "GTiff"): (".tif", ".color"),
+    ("strds", "AAIGrid"): (".asc", ".color"),
+    ("stvds", "pack"): (".pack",),
+    ("stvds", "GML"): (".xml", ".xsd"),
+    ("stvds", "GPKG"): (".gpkg",),
+}
+
+
+def _shared_line(stds_type, format_, map_id):
+    """The list line of a map of shared_source whose name several mapsets share
+
+    Only a packed vector map has a layer, 1 for a map registered without one.
+    A raster line ends with the semantic label, which these maps have none of.
+    """
+    head, _at, mapset = map_id.partition("@")
+    name, _colon, layer = head.partition(":")
+    if stds_type == "stvds" and format_ == "pack":
+        field = f"{name}:{layer or 1}@{mapset}"
+    else:
+        field = f"{name}@{mapset}"
+    month = SHARED_MONTHS[map_id]
+    line = f"{field}|{_month(month)}|{_month(month + 1)}"
+    return line + "|None" if stds_type == "strds" else line
+
+
+def _imported_layer(stds_type, format_):
+    """The layer of an imported map in the tuples of _shared_import
+
+    A packed vector map keeps the layer it was registered with. An OGR file
+    holds the one layer of its map, which the import registers without layer.
+    """
+    if stds_type == "strds":
+        return ()
+    return ("1",) if format_ == "pack" else ("None",)
+
+
+@pytest.mark.parametrize(("stds_type", "format_"), list(SHARED_FILES))
+def test_maps_of_one_name_from_two_mapsets_are_exported_under_their_ids(
+    shared_source, tmp_path, stds_type, format_
+):
+    archive = _shared_export(shared_source, tmp_path, "two", stds_type, format_)
+
+    members = _members(archive)
+    for mapset in ("PERMANENT", "other"):
+        for suffix in SHARED_FILES[stds_type, format_]:
+            assert members.count(f"dup@{mapset}{suffix}") == 1, (mapset, suffix)
+    assert not [member for member in members if member.startswith("dup.")]
+    assert _list_lines(archive) == [
+        _shared_line(stds_type, format_, map_id) for map_id in SHARED_DATASETS["two"]
+    ]
+    assert "name@mapset" in _member(archive, "readme.txt").decode()
+    assert "name:layer@mapset" in _member(archive, "readme.txt").decode()
+
+
+@pytest.mark.parametrize(("stds_type", "format_"), list(SHARED_FILES))
+def test_maps_of_one_name_from_two_mapsets_are_imported_as_two_maps(
+    shared_source, tmp_path, stds_type, format_
+):
+    archive = _shared_export(shared_source, tmp_path, "two", stds_type, format_)
+    layer = _imported_layer(stds_type, format_)
+
+    for base, names in ((None, ["dup_PERMANENT", "dup_other"]), ("b", ["b_1", "b_2"])):
+        assert _shared_import(tmp_path, archive, stds_type, base) == [
+            (names[0], *layer, _month(1), 1),
+            (names[1], *layer, _month(2), 2),
+        ], base
+
+
+# list.txt and the members of the archives of the dataset "plain", whose maps
+# have names of their own in two mapsets. Measured on 27.10.2026 by running
+# the test below against the export before maps of one name from several
+# mapsets were named name@mapset in the archive; it passed unchanged.
+PLAIN_LISTS = {
+    "strds": [
+        "a|2001-06-01 00:00:00|2001-07-01 00:00:00|None",
+        "b|2001-07-01 00:00:00|2001-08-01 00:00:00|None",
+    ],
+    "stvds": [
+        "a|2001-06-01 00:00:00|2001-07-01 00:00:00",
+        "b|2001-07-01 00:00:00|2001-08-01 00:00:00",
+    ],
+    "stvds_pack": [
+        "a:1|2001-06-01 00:00:00|2001-07-01 00:00:00",
+        "b:1|2001-07-01 00:00:00|2001-08-01 00:00:00",
+    ],
+}
+PLAIN_TAIL = ["list.txt", "proj.txt", "init.txt", "readme.txt", "metadata.txt"]
+PLAIN_MEMBERS = {
+    ("strds", "pack"): ["a.pack", "b.pack", *PLAIN_TAIL],
+    ("strds", "GTiff"): ["a.tif", "a.color", "b.tif", "b.color", *PLAIN_TAIL],
+    ("strds", "AAIGrid"): ["a.asc", "a.color", "b.asc", "b.color", *PLAIN_TAIL],
+    ("stvds", "pack"): ["a.pack", "b.pack", *PLAIN_TAIL],
+    ("stvds", "GML"): ["a.xml", "a.xsd", "b.xml", "b.xsd", *PLAIN_TAIL],
+    ("stvds", "GPKG"): ["a.gpkg", "b.gpkg", *PLAIN_TAIL],
+}
+
+
+@pytest.mark.parametrize(("stds_type", "format_"), list(PLAIN_MEMBERS))
+def test_an_archive_without_shared_names_is_written_as_before(
+    shared_source, tmp_path, stds_type, format_
+):
+    archive = _shared_export(shared_source, tmp_path, "plain", stds_type, format_)
+
+    lines = "stvds_pack" if (stds_type, format_) == ("stvds", "pack") else stds_type
+    assert _list_lines(archive) == PLAIN_LISTS[lines]
+    assert _members(archive) == PLAIN_MEMBERS[stds_type, format_]
+
+
+@pytest.mark.parametrize("stds_type", ["strds", "stvds"])
+def test_maps_of_one_name_from_three_mapsets_are_three_maps(
+    shared_source, tmp_path, stds_type
+):
+    archive = _shared_export(shared_source, tmp_path, "three", stds_type, "pack")
+
+    maps = SHARED_DATASETS["three"]
+    assert _members(archive)[:3] == [f"{map_id}.pack" for map_id in maps]
+    assert _list_lines(archive) == [
+        _shared_line(stds_type, "pack", map_id) for map_id in maps
+    ]
+    layer = _imported_layer(stds_type, "pack")
+    assert _shared_import(tmp_path, archive, stds_type) == [
+        ("dup_PERMANENT", *layer, _month(1), 1),
+        ("dup_other", *layer, _month(2), 2),
+        ("dup_third", *layer, _month(3), 3),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("stds_type", "format_"),
+    [("strds", "pack"), ("strds", "GTiff"), ("stvds", "pack"), ("stvds", "GML")],
+)
+def test_a_mapset_with_a_dot_gives_a_legal_map_name(
+    shared_source, tmp_path, stds_type, format_
+):
+    archive = _shared_export(shared_source, tmp_path, "dot", stds_type, format_)
+
+    suffix = SHARED_FILES[stds_type, format_][0]
+    assert f"dup@my.set{suffix}" in _members(archive)
+    assert _list_lines(archive)[1] == _shared_line(stds_type, format_, "dup@my.set")
+    layer = _imported_layer(stds_type, format_)
+    assert _shared_import(tmp_path, archive, stds_type) == [
+        ("dup_PERMANENT", *layer, _month(1), 1),
+        ("dup_my_set", *layer, _month(4), 4),
+    ]
+
+
+@pytest.mark.parametrize("stds_type", ["strds", "stvds"])
+def test_an_import_name_that_two_maps_of_the_archive_get_is_refused(
+    shared_source, tmp_path, stds_type
+):
+    # "dup" of two mapsets is named "dup@other" in the archive and would be
+    # imported as "dup_other", the name of another map of the archive.
+    archive = _shared_export(shared_source, tmp_path, "clash", stds_type, "pack")
+    import_tool = "t_rast_import" if stds_type == "strds" else "t_vect_import"
+
+    with project_session(tmp_path / "target") as session:
+        tools = _tools(session)
+        before = inventory(tools)
+        with pytest.raises(ToolError) as error:
+            getattr(tools, import_tool)(
+                input=str(archive),
+                output="back",
+                directory=str(tmp_path),
+                flags="o",
+            )
+        assert (
+            "The maps <dup@other> and <dup_other> of the archive would both be "
+            "imported as <dup_other>; use basename to name the maps"
+        ) in message(error.value)
+        assert inventory(tools) == before
+
+    # With base every file of the archive gets a number of its own.
+    layer = _imported_layer(stds_type, "pack")
+    assert _shared_import(tmp_path, archive, stds_type, "b") == [
+        ("b_1", *layer, _month(1), 1),
+        ("b_2", *layer, _month(2), 2),
+        ("b_3", *layer, _month(5), 5),
+    ]
+
+
+def test_a_vector_map_with_two_layers_and_a_namesake_round_trips(
+    shared_source, tmp_path
+):
+    archive = _shared_export(shared_source, tmp_path, "layers", "stvds", "pack")
+
+    members = _members(archive)
+    assert members.count("lay@PERMANENT.pack") == 1
+    assert members.count("lay@other.pack") == 1
+    assert _list_lines(archive) == [
+        "lay:1@PERMANENT|2001-08-01 00:00:00|2001-09-01 00:00:00",
+        "lay:2@PERMANENT|2001-09-01 00:00:00|2001-10-01 00:00:00",
+        "lay:1@other|2001-10-01 00:00:00|2001-11-01 00:00:00",
+    ]
+    assert _shared_import(tmp_path, archive, "stvds") == [
+        ("lay_PERMANENT", "1", _month(8), 1),
+        ("lay_PERMANENT", "2", _month(9), 1),
+        ("lay_other", "1", _month(10), 2),
+    ]
+
+
+@pytest.mark.parametrize("format_", ["GML", "GPKG"])
+def test_one_layer_each_of_two_namesakes_is_exported_as_ogr_files(
+    shared_source, tmp_path, format_
+):
+    # The OGR formats hold one layer per file; here every file gets one.
+    archive = _shared_export(shared_source, tmp_path, "split", "stvds", format_)
+
+    suffix = FORMAT_SUFFIX[format_]
+    members = _members(archive)
+    assert f"lay@PERMANENT{suffix}" in members
+    assert f"lay@other{suffix}" in members
+    assert _shared_import(tmp_path, archive, "stvds") == [
+        ("lay_PERMANENT", "None", _month(8), 1),
+        ("lay_other", "None", _month(11), 2),
+    ]
+
+
+def test_a_dot_in_the_output_name_is_refused_before_any_map_is_imported(
+    archives, target, tmp_path
+):
+    """The import builds its dataset itself, so it checks the new name"""
+    with pytest.raises(FatalError, match="a dot is not allowed"):
+        tgis.import_stds(str(archives["GTiff"]), "out.label", tmp_path, overr=True)
+
+    assert not tgis.get_dataset_list("strds", "absolute", columns="name")
+    assert not gs.list_strings("raster")
