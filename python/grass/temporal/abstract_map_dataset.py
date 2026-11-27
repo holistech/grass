@@ -1,6 +1,7 @@
 """
-The abstract_map_dataset module provides the AbstractMapDataset class
-that is the base class for all map layer.
+Base class of all map layers.
+
+The abstract_map_dataset module provides the AbstractMapDataset class.
 
 SPDX-FileCopyrightText: 2011-2013 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,27 +11,80 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
+from fractions import Fraction
 
 import grass.script as gs
-from grass.exceptions import ImplementationError
 
 from .abstract_dataset import AbstractDataset
-from .core import (
-    get_current_mapset,
-    get_enable_mapset_check,
-    get_enable_timestamp_write,
-    get_tgis_c_library_interface,
-    init_dbif,
-)
+from .base import check_identifier
 from .datetime_math import (
     datetime_to_grass_datetime_string,
     decrement_datetime_by_string,
     increment_datetime_by_string,
 )
+from .db import connection, db_datetime
+from .state import (
+    get_current_mapset,
+    get_enable_mapset_check,
+    get_enable_timestamp_write,
+    get_tgis_c_library_interface,
+    get_tgis_message_interface,
+)
 from .temporal_extent import AbsoluteTemporalExtent, RelativeTemporalExtent
 
 
-class AbstractMapDataset(AbstractDataset):
+def layer_form(has_layer, with_layer, without_layer):
+    """Pick the message of a map with a layer or the one of a map without
+
+    A map with a layer has a sentence of its own rather than the plain one with
+    words inserted, so that a translator can inflect it. Each caller passes
+    both ``_()`` literals, so that the message ids are found in the source,
+    and the condition that tells a layer: some callers test ``is not None``,
+    some the truth value, and an empty layer counts as a layer in the first
+    form only.
+    """
+    return with_layer if has_layer else without_layer
+
+
+def other_temporal_type_message(stds_id: str, map_) -> str:
+    """Return the message that a dataset and a map differ in the temporal type"""
+    values = {"id": stds_id, "map": map_.get_map_id(), "l": map_.get_layer()}
+    return (
+        layer_form(
+            values["l"],
+            _(
+                "Temporal type of space time dataset "
+                "<%(id)s> and map <%(map)s> with layer %(l)s"
+                " are different"
+            ),
+            _(
+                "Temporal type of space time dataset <%(id)s> and map <%(map)s> are different"
+            ),
+        )
+        % values
+    )
+
+
+def other_time_unit_message(stds_id: str, map_) -> str:
+    """Return the message that a dataset and a map differ in the time unit"""
+    values = {"id": stds_id, "map": map_.get_map_id(), "l": map_.get_layer()}
+    return (
+        layer_form(
+            values["l"],
+            _(
+                "Relative time units of space time dataset "
+                "<%(id)s> and map <%(map)s> with layer %(l)s"
+                " are different"
+            ),
+            _(
+                "Relative time units of space time dataset <%(id)s> and map <%(map)s> are different"
+            ),
+        )
+        % values
+    )
+
+
+class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
     """This is the base class for all maps (raster, vector, raster3d).
 
     The temporal extent, the spatial extent and the metadata of maps
@@ -53,37 +107,40 @@ class AbstractMapDataset(AbstractDataset):
 
     """
 
-    __metaclass__ = ABCMeta
-
     def __init__(self) -> None:
-        AbstractDataset.__init__(self)
-        self.ciface = get_tgis_c_library_interface()
+        super().__init__()
+
+    # The old aggregate_by_topology() still reads the relations of a granule as
+    # attributes (granule.during); they go when the aggregation moves to the
+    # algebra core. TopologyLinks has "contains" as a property already.
+    equal = property(lambda self: self.get_temporal_relations().get("EQUAL"))
+    during = property(lambda self: self.get_temporal_relations().get("DURING"))
+    starts = property(lambda self: self.get_temporal_relations().get("STARTS"))
+    started = property(lambda self: self.get_temporal_relations().get("STARTED"))
+    finishes = property(lambda self: self.get_temporal_relations().get("FINISHES"))
+    finished = property(lambda self: self.get_temporal_relations().get("FINISHED"))
+    overlaps = property(lambda self: self.get_temporal_relations().get("OVERLAPS"))
+    overlapped = property(lambda self: self.get_temporal_relations().get("OVERLAPPED"))
+
+    @property
+    def ciface(self):
+        """The C-library interface of the current session
+
+        Fetched at each use: a session change replaces the C-library
+        interface, and an object that kept the one of its construction would
+        talk to the stopped server.
+        """
+        return get_tgis_c_library_interface()
 
     @abstractmethod
     def get_new_stds_instance(self, ident):
-        """Return a new space time dataset instance that store maps with the
-        type of this map object (raster, raster_3d or vector)
+        """Return a new space time dataset instance for maps of this map type.
+
+        The map type is raster, raster_3d or vector.
 
         :param ident: The identifier of the space time dataset
         :return: The new space time dataset instance
         """
-
-    def check_resolution_with_current_region(self):
-        """Check if the raster or voxel resolution is
-        finer than the current resolution
-
-        - Return "finer" in case the raster/voxel resolution is finer
-          than the current region
-        - Return "coarser" in case the raster/voxel resolution is coarser
-          than the current region
-
-        Vector maps have no resolution, since they store the coordinates
-        directly.
-
-        :return: "finer" or "coarser"
-        """
-        msg = "This method must be implemented in the subclasses"
-        raise ImplementationError(msg)
 
     @abstractmethod
     def has_grass_timestamp(self):
@@ -95,23 +152,22 @@ class AbstractMapDataset(AbstractDataset):
 
     @abstractmethod
     def write_timestamp_to_grass(self):
-        """Write the timestamp of this map into the map metadata
-        in the grass file system based spatial database.
+        """Write the timestamp of this map into the map metadata.
+
+        The metadata live in the GRASS file system based spatial database.
         """
 
     @abstractmethod
     def read_timestamp_from_grass(self):
-        """Read the timestamp of this map from the map metadata
-        in the grass file system based spatial database and
-        set the internal time stamp that should be insert/updated
-        in the temporal database.
+        """Read the timestamp of this map from the map metadata.
+
+        The metadata live in the GRASS file system based spatial database. The internal
+        time stamp that is inserted or updated in the temporal database is set from it.
         """
 
     @abstractmethod
     def remove_timestamp_from_grass(self):
-        """Remove the timestamp from the grass file
-        system based spatial database
-        """
+        """Remove the timestamp from the grass file system based spatial database"""
 
     @abstractmethod
     def map_exists(self):
@@ -122,12 +178,10 @@ class AbstractMapDataset(AbstractDataset):
 
     @abstractmethod
     def load(self):
-        """Load the content of this object from the grass
-        file system based database"""
+        """Load the content of this object from the grass file system based database"""
 
     def _convert_timestamp(self):
-        """Convert the valid time into a grass datetime library
-        compatible timestamp string
+        """Convert the valid time into a timestamp string of the grass datetime library
 
         This methods works for relative and absolute time
 
@@ -140,22 +194,23 @@ class AbstractMapDataset(AbstractDataset):
             start = datetime_to_grass_datetime_string(start_time)
             if end_time is not None:
                 end = datetime_to_grass_datetime_string(end_time)
-                start += " / %s" % (end)
+                start += f" / {end}"
         else:
             start_time, end_time, unit = self.get_relative_time()
-            start = "%i %s" % (int(start_time), unit)
+            start = f"{int(start_time)} {unit}"
             if end_time is not None:
-                end = "%i %s" % (int(end_time), unit)
-                start += " / %s" % (end)
+                end = f"{int(end_time)} {unit}"
+                start += f" / {end}"
 
         return start
 
     def get_map_id(self):
-        """Return the map id. The map id is the unique identifier
-        in grass and must not be equal to the
-        primary key identifier (id) of the map in the database.
-        Since vector maps may have layer information,
-        the unique id is a combination of name, layer and mapset.
+        """Return the map id.
+
+        The map id is the unique identifier in grass and must not be equal to the
+        primary key identifier (id) of the map in the database. Since vector maps may
+        have layer information, the unique id is a combination of name, layer and
+        mapset.
 
         Use get_map_id() every time your need to access the grass map
         in the file system but not to identify
@@ -166,16 +221,19 @@ class AbstractMapDataset(AbstractDataset):
         return self.base.get_map_id()
 
     def get_readonly(self) -> bool:
-        """Return True if this map is read-only (belongs to a foreign mapset)"""
+        """Tell whether this map is of another mapset than the current one
+
+        :return: True if its file metadata must not be written
+        """
         return self.base.get_readonly()
 
     @staticmethod
     def split_name(name: str, layer=None, mapset=None):
-        """Convenient method to split a map name into three potentially
-        contained parts: map name, map layer and mapset. For the layer and
-        mapset, default keyword arguments can be given if not present in
-        the name. Layer and mapset present in the name will overwrite
-        the keyword arguments.
+        """Split a map name into the map name, the map layer and the mapset.
+
+        Default keyword arguments can be given for the layer and the mapset if they are
+        not present in the name. A layer and a mapset present in the name overwrite the
+        keyword arguments.
 
         :param name: The name of the map
         :param layer: The layer of the vector map, use None in case no layer exists
@@ -185,20 +243,21 @@ class AbstractMapDataset(AbstractDataset):
                  layer is optional
         """
 
+        check_identifier(name)
+
         # Check if the name includes any mapset
         if name.find("@") >= 0:
-            name, mapset = name.split("@")[0:2]
+            name, mapset = name.split("@")
 
         # Check for layer number in map name
         if name.find(":") >= 0:
-            name, layer = name.split(":")[0:2]
+            name, layer = name.split(":")
 
         return name, layer, mapset
 
     @staticmethod
     def build_id_from_search_path(name: str, element) -> str:
-        """Convenient method to build the unique identifier while
-        checking the current search path for the correct mapset.
+        """Build the unique identifier of a map.
 
         Existing mapset definitions in the name string will be reused.
 
@@ -225,10 +284,10 @@ class AbstractMapDataset(AbstractDataset):
             if result["mapset"]:
                 mapset = result["mapset"]
             else:
-                gs.fatal(
+                get_tgis_message_interface().fatal(
                     _(
-                        "Map <{map_name}> of element type '{element}' not found on \
-                            search path"
+                        "Map <{map_name}> of element type '{element}' not found "
+                        "on search path"
                     ).format(element=element, map_name=name)
                 )
 
@@ -315,7 +374,7 @@ class AbstractMapDataset(AbstractDataset):
                 if count == 0:
                     string += ds
                 else:
-                    string += ",%s" % ds
+                    string += f",{ds}"
                 count += 1
         print(" | Registered datasets ........ " + string)
         print(
@@ -336,7 +395,7 @@ class AbstractMapDataset(AbstractDataset):
                 if count == 0:
                     string += ds
                 else:
-                    string += ",%s" % ds
+                    string += f",{ds}"
                 count += 1
             print("registered_datasets=" + string)
 
@@ -344,8 +403,7 @@ class AbstractMapDataset(AbstractDataset):
             self.print_topology_shell_info()
 
     def insert(self, dbif=None, execute: bool = True):
-        """Insert the map content into the database from the internal
-        structure
+        """Insert the map content into the database from the internal structure
 
         This functions assures that the timestamp is written to the
         grass file system based database in addition to the temporal
@@ -360,13 +418,19 @@ class AbstractMapDataset(AbstractDataset):
         :return: The SQL insert statement in case execute=False, or an
                  empty string otherwise
         """
-        if get_enable_timestamp_write() and not self.get_readonly():
+        # The time stamp of a map of another mapset stays as it is: writing
+        # it would put a file into the current mapset for a map that is not
+        # there (for a 3D raster map a directory that g.list shows as a map).
+        # Measured 05.11.2026 with t.rast3d.extract of a dataset of another
+        # mapset, which inserts the maps of the dataset in the current one.
+        if get_enable_timestamp_write() and self.get_mapset() == get_current_mapset():
             self.write_timestamp_to_grass()
         return AbstractDataset.insert(self, dbif=dbif, execute=execute)
 
     def update(self, dbif=None, execute: bool = True):
-        """Update the map content in the database from the internal structure
-        excluding None variables
+        """Update the map content in the database from the internal structure.
+
+        Variables that are None are excluded from the update.
 
         This functions assures that the timestamp is written to the
         grass file system based database in addition to the temporal
@@ -379,13 +443,14 @@ class AbstractMapDataset(AbstractDataset):
         :return: The SQL insert statement in case execute=False, or an
                  empty string otherwise
         """
-        if get_enable_timestamp_write() and not self.get_readonly():
+        if get_enable_timestamp_write() and self.get_mapset() == get_current_mapset():
             self.write_timestamp_to_grass()
         return AbstractDataset.update(self, dbif, execute)
 
     def update_all(self, dbif=None, execute: bool = True):
-        """Update the map content in the database from the internal structure
-        including None variables
+        """Update the map content in the database from the internal structure.
+
+        Variables that are None are included in the update.
 
         This functions assures that the timestamp is written to the
         grass file system based database in addition to the temporal
@@ -399,7 +464,7 @@ class AbstractMapDataset(AbstractDataset):
                  empty string otherwise
 
         """
-        if get_enable_timestamp_write() and not self.get_readonly():
+        if get_enable_timestamp_write() and self.get_mapset() == get_current_mapset():
             self.write_timestamp_to_grass()
         return AbstractDataset.update_all(self, dbif, execute)
 
@@ -422,76 +487,66 @@ class AbstractMapDataset(AbstractDataset):
 
         :param start_time: A datetime object specifying the start time of the map
         :param end_time: A datetime object specifying the end time of the
-                         map, None in case or time instance
+                         map, None in case of a time instance
 
         :return: True for success and False otherwise
         """
+        values = {
+            "type": self.get_type(),
+            "id": self.get_map_id(),
+            "l": self.get_layer(),
+        }
         if start_time and not isinstance(start_time, datetime):
-            if self.get_layer() is not None:
-                self.msgr.error(
+            self.msgr.error(
+                layer_form(
+                    self.get_layer() is not None,
                     _(
                         "Start time must be of type datetime for "
                         "%(type)s map <%(id)s> with layer: %(l)s"
-                    )
-                    % {
-                        "type": self.get_type(),
-                        "id": self.get_map_id(),
-                        "l": self.get_layer(),
-                    }
+                    ),
+                    _("Start time must be of type datetime for %(type)s map <%(id)s>"),
                 )
-                return False
-            self.msgr.error(
-                _("Start time must be of type datetime for %(type)s map <%(id)s>")
-                % {"type": self.get_type(), "id": self.get_map_id()}
+                % values
             )
             return False
 
         if end_time and not isinstance(end_time, datetime):
-            if self.get_layer():
-                self.msgr.error(
+            self.msgr.error(
+                layer_form(
+                    self.get_layer(),
                     _(
                         "End time must be of type datetime for "
                         "%(type)s map <%(id)s> with layer: %(l)s"
-                    )
-                    % {
-                        "type": self.get_type(),
-                        "id": self.get_map_id(),
-                        "l": self.get_layer(),
-                    }
+                    ),
+                    _("End time must be of type datetime for %(type)s map <%(id)s>"),
                 )
-                return False
-            self.msgr.error(
-                _("End time must be of type datetime for %(type)s map <%(id)s>")
-                % {"type": self.get_type(), "id": self.get_map_id()}
+                % values
             )
             return False
 
         if start_time is not None and end_time is not None:
             if start_time > end_time:
-                if self.get_layer():
-                    self.msgr.error(
+                self.msgr.error(
+                    layer_form(
+                        self.get_layer(),
                         _(
                             "End time must be greater than start "
                             "time for %(type)s map <%(id)s> with "
                             "layer: %(l)s"
-                        )
-                        % {
-                            "type": self.get_type(),
-                            "id": self.get_map_id(),
-                            "l": self.get_layer(),
-                        }
+                        ),
+                        _(
+                            "End time must be greater than start "
+                            "time for %(type)s map <%(id)s>"
+                        ),
                     )
-                    return False
-                self.msgr.error(
-                    _(
-                        "End time must be greater than start "
-                        "time for %(type)s map <%(id)s>"
-                    )
-                    % {"type": self.get_type(), "id": self.get_map_id()}
+                    % values
                 )
                 return False
-            # Do not create an interval in case start and end time are equal
-            if start_time == end_time:
+            # Do not create an interval in case start and end time are equal.
+            # They are compared as the database stores them, in whole
+            # seconds: an interval inside one second would otherwise be
+            # written with equal times and refused when it is read back.
+            if db_datetime(start_time) == db_datetime(end_time):
                 end_time = None
 
         self.base.set_ttype("absolute")
@@ -500,22 +555,8 @@ class AbstractMapDataset(AbstractDataset):
 
         return True
 
-    def update_absolute_time(self, start_time, end_time=None, dbif=None) -> None:
-        """Update the absolute time
-
-        The end time is optional and must be set to None in case of time
-        instance.
-
-        This functions assures that the timestamp is written to the
-        grass file system based database in addition to the temporal
-        database entry.
-
-        :param start_time: A datetime object specifying the start time of the map
-        :param end_time: A datetime object specifying the end time of the
-                                     map, None in case or time instance
-        :param dbif: The database interface to be used
-        """
-
+    def _refuse_foreign_mapset(self) -> None:
+        """Refuse to update a map of another mapset, if the mapset check is on"""
         if (
             get_enable_mapset_check() is True
             and self.get_mapset() != get_current_mapset()
@@ -530,16 +571,35 @@ class AbstractMapDataset(AbstractDataset):
                 % {"ds": self.get_id(), "type": self.get_type()}
             )
 
-        if self.set_absolute_time(start_time, end_time):
-            dbif, connection_state_changed = init_dbif(dbif)
-            self.absolute_time.update_all(dbif)
+    def _store_time(self, time_table, dbif) -> None:
+        """Write the time just set to the database and the GRASS file system"""
+        with connection(dbif) as dbif:
+            time_table.update_all(dbif)
             self.base.update(dbif)
 
-            if connection_state_changed:
-                dbif.close()
+        if get_enable_timestamp_write() and self.get_mapset() == get_current_mapset():
+            self.write_timestamp_to_grass()
 
-            if get_enable_timestamp_write() and not self.get_readonly():
-                self.write_timestamp_to_grass()
+    def update_absolute_time(self, start_time, end_time=None, dbif=None) -> None:
+        """Update the absolute time
+
+        The end time is optional and must be set to None in case of time
+        instance.
+
+        This functions assures that the timestamp is written to the
+        grass file system based database in addition to the temporal
+        database entry.
+
+        :param start_time: A datetime object specifying the start time of the map
+        :param end_time: A datetime object specifying the end time of the
+                                     map, None in case of a time instance
+        :param dbif: The database interface to be used
+        """
+
+        self._refuse_foreign_mapset()
+
+        if self.set_absolute_time(start_time, end_time):
+            self._store_time(self.absolute_time, dbif)
 
     def set_relative_time(self, start_time, end_time, unit) -> bool:
         """Set the relative time interval
@@ -550,65 +610,70 @@ class AbstractMapDataset(AbstractDataset):
          This method only modifies this object and does not commit
          the modifications to the temporal database.
 
-        :param start_time: An integer value
-        :param end_time: An integer value, None in case or time instance
+        :param start_time: A number; it is compared with the end time as
+                           given and stored truncated toward zero
+        :param end_time: A number, None in case of a time instance. An end
+                         before the start is refused; an end that equals
+                         the start after truncation makes a time instance.
         :param unit: The unit of the relative time. Supported units:
                      year(s), month(s), day(s), hour(s), minute(s), second(s)
 
         :return: True for success and False otherwise
 
         """
+        # The layer form of the message about the end before the start names
+        # the type "typ"; its message id stays as it is.
+        values = {
+            "type": self.get_type(),
+            "typ": self.get_type(),
+            "id": self.get_id(),
+            "l": self.get_layer(),
+            "u": unit,
+        }
         if not self.check_relative_time_unit(unit):
-            if self.get_layer() is not None:
-                self.msgr.error(
+            self.msgr.error(
+                layer_form(
+                    self.get_layer() is not None,
                     _(
                         "Unsupported relative time unit type for "
                         "%(type)s map <%(id)s> with layer %(l)s: "
                         "%(u)s"
-                    )
-                    % {
-                        "type": self.get_type(),
-                        "id": self.get_id(),
-                        "l": self.get_layer(),
-                        "u": unit,
-                    }
-                )
-            else:
-                self.msgr.error(
+                    ),
                     _(
                         "Unsupported relative time unit type for "
                         "%(type)s map <%(id)s>: %(u)s"
-                    )
-                    % {"type": self.get_type(), "id": self.get_id(), "u": unit}
+                    ),
                 )
+                % values
+            )
             return False
 
         if start_time is not None and end_time is not None:
-            if int(start_time) > int(end_time):
-                if self.get_layer() is not None:
-                    self.msgr.error(
+            # Compare before int() truncates: 1.7 to 1.2 would otherwise
+            # both become 1 and pass as an instance. Fraction compares
+            # exactly (float() rounds above 2**53) and takes numeric text as
+            # a number ("10" before "9" as text).
+            if Fraction(start_time) > Fraction(end_time):
+                self.msgr.error(
+                    layer_form(
+                        self.get_layer() is not None,
                         _(
                             "End time must be greater than start "
                             "time for %(typ)s map <%(id)s> with "
                             "layer %(l)s"
-                        )
-                        % {
-                            "typ": self.get_type(),
-                            "id": self.get_id(),
-                            "l": self.get_layer(),
-                        }
-                    )
-                else:
-                    self.msgr.error(
+                        ),
                         _(
                             "End time must be greater than start "
                             "time for %(type)s map <%(id)s>"
-                        )
-                        % {"type": self.get_type(), "id": self.get_id()}
+                        ),
                     )
+                    % values
+                )
                 return False
-            # Do not create an interval in case start and end time are equal
-            if start_time == end_time:
+            # Compare what is stored: both values go through int(), so an
+            # interval inside one unit would otherwise be saved as an
+            # interval whose start equals its end.
+            if int(start_time) == int(end_time):
                 end_time = None
 
         self.base.set_ttype("relative")
@@ -632,39 +697,21 @@ class AbstractMapDataset(AbstractDataset):
         grass file system based database in addition to the temporal
         database entry.
 
-        :param start_time: An integer value
-        :param end_time: An integer value, None in case or time instance
+        :param start_time: A number; it is compared with the end time as
+                           given and stored truncated toward zero
+        :param end_time: A number, None in case of a time instance. An end
+                         before the start is refused; an end that equals
+                         the start after truncation makes a time instance.
         :param unit: The relative time unit
         :param dbif: The database interface to be used
         """
-        if (
-            get_enable_mapset_check() is True
-            and self.get_mapset() != get_current_mapset()
-        ):
-            self.msgr.fatal(
-                _(
-                    "Unable to update dataset <%(ds)s> of type "
-                    "%(type)s in the temporal database. The mapset "
-                    "of the dataset does not match the current "
-                    "mapset"
-                )
-                % {"ds": self.get_id(), "type": self.get_type()}
-            )
+        self._refuse_foreign_mapset()
 
         if self.set_relative_time(start_time, end_time, unit):
-            dbif, connection_state_changed = init_dbif(dbif)
-            self.relative_time.update_all(dbif)
-            self.base.update(dbif)
-
-            if connection_state_changed:
-                dbif.close()
-
-            if get_enable_timestamp_write() and not self.get_readonly():
-                self.write_timestamp_to_grass()
+            self._store_time(self.relative_time, dbif)
 
     def set_temporal_extent(self, extent) -> None:
-        """Convenient method to set the temporal extent from a temporal extent
-        object
+        """Convenient method to set the temporal extent from a temporal extent object
 
         :param extent: The temporal extent that should be set for this object
 
@@ -673,14 +720,16 @@ class AbstractMapDataset(AbstractDataset):
             >>> import datetime
             >>> import grass.temporal as tgis
             >>> map = tgis.RasterDataset(None)
-            >>> temp_ext = tgis.RasterRelativeTime(
-            ...     start_time=1, end_time=2, unit="years"
+            >>> from grass.temporal.kinds import KINDS
+            >>> temp_ext = tgis.temporal_extent.RelativeTimeRow(
+            ...     KINDS["raster"], start_time=1, end_time=2, unit="years"
             ... )
             >>> map.set_temporal_extent(temp_ext)
             >>> print(map.get_temporal_extent_as_tuple())
             (1, 2)
             >>> map = tgis.VectorDataset(None)
-            >>> temp_ext = tgis.VectorAbsoluteTime(
+            >>> temp_ext = tgis.temporal_extent.AbsoluteTimeRow(
+            ...     KINDS["vector"],
             ...     start_time=datetime.datetime(2000, 1, 1),
             ...     end_time=datetime.datetime(2001, 1, 1),
             ... )
@@ -732,6 +781,7 @@ class AbstractMapDataset(AbstractDataset):
         :param update: Perform an immediate database update to store the
                        modified temporal extent, otherwise only this object
                        will be modified
+        :param dbif: The database interface to be used for the update
 
         Usage:
 
@@ -852,7 +902,7 @@ class AbstractMapDataset(AbstractDataset):
             >>> import datetime
             >>> import grass.temporal as tgis
             >>> map = tgis.RasterDataset(None)
-            >>> spat_ext = tgis.SpatialExtent(
+            >>> spat_ext = tgis.spatial_extent.SpatialExtent(
             ...     north=10, south=-10, east=20, west=-20, top=5, bottom=-5
             ... )
             >>> map.set_spatial_extent(spat_ext)
@@ -863,8 +913,7 @@ class AbstractMapDataset(AbstractDataset):
         self.spatial_extent.set_spatial_extent(spatial_extent)
 
     def spatial_buffer(self, size, update: bool = False, dbif=None) -> None:
-        """Buffer the spatial extent by a given size in all
-        spatial directions.
+        """Buffer the spatial extent by a given size in all spatial directions.
 
         :param size: The buffer size, using the unit of the grass region
         :param update: If True perform an immediate database update, otherwise only the
@@ -875,7 +924,7 @@ class AbstractMapDataset(AbstractDataset):
 
             >>> import grass.temporal as tgis
             >>> map = tgis.RasterDataset(None)
-            >>> spat_ext = tgis.SpatialExtent(
+            >>> spat_ext = tgis.spatial_extent.SpatialExtent(
             ...     north=10, south=-10, east=20, west=-20, top=5, bottom=-5
             ... )
             >>> map.set_spatial_extent(spat_ext)
@@ -895,8 +944,7 @@ class AbstractMapDataset(AbstractDataset):
             self.spatial_extent.update(dbif)
 
     def spatial_buffer_2d(self, size, update: bool = False, dbif=None) -> None:
-        """Buffer the spatial extent by a given size in 2d
-        spatial directions.
+        """Buffer the spatial extent by a given size in 2d spatial directions.
 
         :param size: The buffer size, using the unit of the grass region
         :param update: If True perform an immediate database update, otherwise only the
@@ -907,7 +955,7 @@ class AbstractMapDataset(AbstractDataset):
 
             >>> import grass.temporal as tgis
             >>> map = tgis.RasterDataset(None)
-            >>> spat_ext = tgis.SpatialExtent(
+            >>> spat_ext = tgis.spatial_extent.SpatialExtent(
             ...     north=10, south=-10, east=20, west=-20, top=5, bottom=-5
             ... )
             >>> map.set_spatial_extent(spat_ext)
@@ -925,7 +973,9 @@ class AbstractMapDataset(AbstractDataset):
             self.spatial_extent.update(dbif)
 
     def check_for_correct_time(self) -> bool:
-        """Check for correct time
+        """Check that the start time is set and lies before the end time.
+
+        An error message names the map if the time is incorrect.
 
         :return: True in case of success, False otherwise
         """
@@ -937,27 +987,26 @@ class AbstractMapDataset(AbstractDataset):
         if start is None:
             self.msgr.error(_("Map <%s> has incorrect start time") % self.get_map_id())
             return False
-        if end is not None:
-            if start >= end:
-                if self.get_layer() is not None:
-                    self.msgr.error(
-                        _(
-                            "Map <%(id)s> with layer %(layer)s "
-                            "has incorrect time interval, start "
-                            "time is greater than end time"
-                        )
-                        % {"id": self.get_map_id(), "layer": self.get_layer()}
+        if end is not None and start >= end:
+            # A map with a layer has a sentence of its own rather than one
+            # with words inserted, so that a translator can inflect each.
+            if self.get_layer():
+                self.msgr.error(
+                    _(
+                        "Map <%(id)s> with layer %(layer)s has incorrect time "
+                        "interval, start time is greater than end time"
                     )
-                else:
-                    self.msgr.error(
-                        _(
-                            "Map <%s> has incorrect time "
-                            "interval, start time is greater "
-                            "than end time"
-                        )
-                        % (self.get_map_id())
+                    % {"id": self.get_map_id(), "layer": self.get_layer()}
+                )
+            else:
+                self.msgr.error(
+                    _(
+                        "Map <%s> has incorrect time interval, start time is "
+                        "greater than end time"
                     )
-                return False
+                    % self.get_map_id()
+                )
+            return False
 
         return True
 
@@ -971,10 +1020,12 @@ class AbstractMapDataset(AbstractDataset):
          - Remove the space time dataset register table
 
         :param dbif: The database interface to be used
-        :param update: Call for each unregister statement the update from
-                       registered maps of the space time dataset.
-                       This can slow down the un-registration process
-                       significantly.
+        :param update: Update each space time dataset that held the map from
+                       its registered maps once the map is deleted. This can
+                       slow down the deletion significantly. It has no effect
+                       with execute=False: the caller then updates the
+                       datasets, which it can list with get_registered_stds()
+                       before the call.
         :param execute: If True the SQL DELETE and DROP table statements
                         will be executed.
                         If False the prepared SQL statements are
@@ -990,42 +1041,54 @@ class AbstractMapDataset(AbstractDataset):
 
         mapset = get_current_mapset()
 
-        dbif, connection_state_changed = init_dbif(dbif)
-        statement = ""
-
-        if self.is_in_db(dbif, mapset=mapset):
-            # SELECT all needed information from the database
-            self.metadata.select(dbif)
-
-            # First we unregister from all dependent space time datasets
-            statement += self.unregister(dbif=dbif, update=update, execute=False)
-
-            self.msgr.verbose(
-                _("Delete %s dataset <%s> from temporal database")
-                % (self.get_type(), self.get_id())
-            )
-
-            # Delete yourself from the database, trigger functions will
-            # take care of dependencies
-            statement += self.base.get_delete_statement()
-
-        if execute:
-            dbif.execute_transaction(statement, mapset=mapset)
+        with connection(dbif) as dbif:
             statement = ""
+            datasets = None
 
-        # Remove the timestamp from the file system
-        self.remove_timestamp_from_grass()
+            if self.is_in_db(dbif, mapset=mapset):
+                # SELECT all needed information from the database
+                self.metadata.select(dbif, mapset=mapset)
 
-        self.reset(None)
+                # Remember the datasets that hold the map: after the delete the
+                # database no longer says which they were.
+                if execute and update:
+                    datasets = self.get_registered_stds(dbif, mapset=mapset)
 
-        if connection_state_changed:
-            dbif.close()
+                # First we unregister from all dependent space time datasets
+                statement += self.unregister(dbif=dbif, update=update, execute=False)
 
-        return statement
+                self.msgr.verbose(
+                    _("Delete %s dataset <%s> from temporal database")
+                    % (self.get_type(), self.get_id())
+                )
+
+                # Delete yourself from the database, trigger functions will
+                # take care of dependencies
+                statement += self.base.get_delete_statement()
+
+            if execute:
+                dbif.execute_transaction(statement, mapset=mapset)
+                statement = ""
+                # unregister() was asked for its statements only, so it could not
+                # update the datasets; do it now that the rows are gone.
+                if update and datasets:
+                    for dataset_id in datasets:
+                        stds = self.get_new_stds_instance(dataset_id)
+                        stds.select(dbif)
+                        stds.update_from_registered_maps(dbif)
+
+            # Remove the timestamp from the file system. GRASS removes it by name in
+            # the current mapset, so for a map of another mapset it would remove
+            # the time stamp of a map of the same name here.
+            if self.get_mapset() == mapset:
+                self.remove_timestamp_from_grass()
+
+            self.reset(None)
+
+            return statement
 
     def unregister(self, dbif=None, update: bool = True, execute: bool = True):
-        """Remove the map entry in each space time dataset in which this map
-        is registered
+        """Remove the map entry from each space time dataset that registers this map
 
         :param dbif: The database interface to be used
         :param update: Call for each unregister statement the update from
@@ -1042,75 +1105,64 @@ class AbstractMapDataset(AbstractDataset):
         if self.get_layer() is not None:
             self.msgr.debug(
                 1,
-                "Unregister %(type)s map <%(map)s> with "
-                "layer %(layer)s from space time datasets"
-                % {
-                    "type": self.get_type(),
-                    "map": self.get_map_id(),
-                    "layer": self.get_layer(),
-                },
+                f"Unregister {self.get_type()} map <{self.get_map_id()}> with "
+                f"layer {self.get_layer()} from space time datasets",
             )
         else:
             self.msgr.debug(
                 1,
-                "Unregister %(type)s map <%(map)s> "
-                "from space time datasets"
-                % {"type": self.get_type(), "map": self.get_map_id()},
+                f"Unregister {self.get_type()} map <{self.get_map_id()}> "
+                "from space time datasets",
             )
 
         mapset = get_current_mapset()
 
         statement = ""
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            # Get all datasets in which this map is registered
+            datasets = self.get_registered_stds(dbif, mapset=mapset)
 
-        # Get all datasets in which this map is registered
-        datasets = self.get_registered_stds(dbif, mapset=mapset)
+            # For each stds in which the map is registered
+            if datasets is not None:
+                for dataset in datasets:
+                    # Create a space time dataset object to remove the map
+                    # from its register
+                    stds = self.get_new_stds_instance(dataset)
+                    stds.metadata.select(dbif)
+                    statement += stds.unregister_map(self, dbif, False)
+                    # Take care to update the space time dataset after
+                    # the map has been unregistered
+                    if update is True and execute is True:
+                        stds.update_from_registered_maps(dbif)
 
-        # For each stds in which the map is registered
-        if datasets is not None:
-            for dataset in datasets:
-                # Create a space time dataset object to remove the map
-                # from its register
-                stds = self.get_new_stds_instance(dataset)
-                stds.metadata.select(dbif)
-                statement += stds.unregister_map(self, dbif, False)
-                # Take care to update the space time dataset after
-                # the map has been unregistered
-                if update is True and execute is True:
-                    stds.update_from_registered_maps(dbif)
+            if execute:
+                dbif.execute_transaction(statement, mapset=mapset)
+                statement = ""
 
-        if execute:
-            dbif.execute_transaction(statement, mapset=mapset)
-            statement = ""
-
-        if connection_state_changed:
-            dbif.close()
-
-        return statement
+            return statement
 
     def get_registered_stds(self, dbif=None, mapset=None):
-        """Return all space time dataset ids in which this map is registered
-        as as a list of strings, or None if this map is not
-        registered in any space time dataset.
+        """Return the ids of all space time datasets in which this map is registered.
+
+        The ids are a list of strings. The result is None if this map is not registered
+        in any space time dataset.
 
         :param dbif: The database interface to be used
+        :param mapset: The mapset of the temporal database that holds the
+                       register of the map, None for the mapset of the map
         :return: A list of ids of all space time datasets in
                      which this map is registered
         """
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            self.stds_register.select(dbif, mapset)
+            datasets = self.stds_register.get_registered_stds()
 
-        self.stds_register.select(dbif, mapset)
-        datasets = self.stds_register.get_registered_stds()
+            if datasets is not None and datasets != "" and datasets.find("@") >= 0:
+                datasets = datasets.split(",")
+            else:
+                datasets = None
 
-        if datasets is not None and datasets != "" and datasets.find("@") >= 0:
-            datasets = datasets.split(",")
-        else:
-            datasets = None
-
-        if connection_state_changed:
-            dbif.close()
-
-        return datasets
+            return datasets
 
     # this fn should not be in a class for maps,
     # but instead in a class for stds: AbstractSpaceTimeDataset ?
@@ -1128,40 +1180,34 @@ class AbstractMapDataset(AbstractDataset):
         """
         self.msgr.debug(2, "AbstractMapDataset.add_stds_to_register")
 
-        dbif, connection_state_changed = init_dbif(dbif=dbif)
+        with connection(dbif) as dbif:
+            # only modify database in current mapset
+            mapset = get_current_mapset()
+            datasets = self.get_registered_stds(dbif=dbif, mapset=mapset)
 
-        # only modify database in current mapset
-        mapset = get_current_mapset()
-        datasets = self.get_registered_stds(dbif=dbif, mapset=mapset)
+            if stds_id is None or stds_id == "":
+                return ""
 
-        if stds_id is None or stds_id == "":
-            return ""
+            # Check if no datasets are present
+            if datasets is None:
+                datasets = []
 
-        # Check if no datasets are present
-        if datasets is None:
-            datasets = []
+            # Check if the dataset is already present
+            if stds_id in datasets:
+                return ""
 
-        # Check if the dataset is already present
-        if stds_id in datasets:
-            if connection_state_changed:
-                dbif.close()
-            return ""
+            datasets.append(stds_id)
 
-        datasets.append(stds_id)
+            self.stds_register.set_registered_stds(",".join(datasets))
 
-        self.stds_register.set_registered_stds(",".join(datasets))
+            statement = ""
 
-        statement = ""
+            if execute is True:
+                self.stds_register.update(dbif=dbif)
+            else:
+                statement = self.stds_register.get_update_statement_mogrified(dbif=dbif)
 
-        if execute is True:
-            self.stds_register.update(dbif=dbif)
-        else:
-            statement = self.stds_register.get_update_statement_mogrified(dbif=dbif)
-
-        if connection_state_changed:
-            dbif.close()
-
-        return statement
+            return statement
 
     def remove_stds_from_register(self, stds_id, dbif=None, execute: bool = True):
         """Remove a space time dataset from the register
@@ -1177,45 +1223,38 @@ class AbstractMapDataset(AbstractDataset):
         :return: The SQL statements if execute=False, else an empty string
         """
         self.msgr.debug(2, "AbstractMapDataset.remove_stds_from_register")
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            # only modify database in current mapset
+            mapset = get_current_mapset()
+            datasets = self.get_registered_stds(dbif=dbif, mapset=mapset)
 
-        # only modify database in current mapset
-        mapset = get_current_mapset()
-        datasets = self.get_registered_stds(dbif=dbif, mapset=mapset)
+            # Check if no datasets are present
+            if datasets is None:
+                return ""
 
-        # Check if no datasets are present
-        if datasets is None:
-            if connection_state_changed:
-                dbif.close()
-            return ""
+            # Check if the dataset is already present
+            if stds_id not in datasets:
+                return ""
 
-        # Check if the dataset is already present
-        if stds_id not in datasets:
-            if connection_state_changed:
-                dbif.close()
-            return ""
+            datasets.remove(stds_id)
 
-        datasets.remove(stds_id)
+            self.stds_register.set_registered_stds(",".join(datasets))
 
-        self.stds_register.set_registered_stds(",".join(datasets))
+            statement = ""
 
-        statement = ""
+            if execute is True:
+                self.stds_register.update(dbif=dbif)
+            else:
+                statement = self.stds_register.get_update_statement_mogrified(dbif=dbif)
 
-        if execute is True:
-            self.stds_register.update(dbif=dbif)
-        else:
-            statement = self.stds_register.get_update_statement_mogrified(dbif=dbif)
-
-        if connection_state_changed:
-            dbif.close()
-
-        return statement
+            return statement
 
     def read_semantic_label_from_grass(self) -> None:
-        """Read the band identifier of this map from the map metadata
-        in the GRASS file system based spatial database and
-        set the internal band identifier that should be insert/updated
-        in the temporal database.
+        """Read the band identifier of this map from the map metadata.
+
+        The metadata live in the GRASS file system based spatial database. The internal
+        band identifier that is inserted or updated in the temporal database is set from
+        it.
 
         Currently only implemented in RasterDataset. Otherwise
         silently pass.
@@ -1228,11 +1267,3 @@ class AbstractMapDataset(AbstractDataset):
         report a warning.
         """
         self.msgr.warning(_("semantic labels can only be assigned to raster maps"))
-
-
-###############################################################################
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()
