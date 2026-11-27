@@ -769,7 +769,9 @@ tools.t_rast_to_vect(
 result = tools.v_out_ascii(
     input="height_2020_02", format="point", separator="space", layer=-1
 )
-points = result.text.splitlines()
+# On Windows v.out.ascii ends each point with one more carriage return,
+# which splitlines() takes for an empty line.
+points = [point for point in result.text.splitlines() if point]
 print("\n".join(points[:3]))
 print(",".join(sorted({point.split()[2] for point in points})))
 info = tools.v_info(map="height_2020_02", flags="e").keyval
