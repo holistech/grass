@@ -28,8 +28,8 @@
 
 # %option G_OPT_M_DIR
 # % key: directory
-# % label: Path to the directory where output is written
-# % description: If not given, the default is the current working directory
+# % label: Working directory for the export (the archive is written to output)
+# % description: The maps are exported and packed in a temporary subdirectory of it, which is removed afterwards
 # % required: no
 # % multiple: no
 # % answer: ./
@@ -95,8 +95,6 @@
 # %option G_OPT_T_WHERE
 # %end
 
-import os
-from pathlib import Path
 
 import grass.script as gs
 
@@ -118,24 +116,29 @@ def main():
         key: options[key] for key in ("createopt", "metaopt", "nodata") if options[key]
     }
 
-    if not directory or not Path(directory).exists():
-        gs.fatal(_("Directory {} not found").format(directory))
-
-    if not os.access(directory, os.W_OK):
-        gs.fatal(_("Directory {} is not writable").format(directory))
-
     if type_ and format_ in {"pack", "AAIGrid"}:
         gs.warning(
-            _("Type options is not working with pack format, it will be skipped")
+            _(
+                "The type option is not used with the {} format, it will be skipped."
+            ).format(format_)
         )
-        if kws:
-            gs.warning(
-                _(
-                    "Createopt, metaopt and nodata options are not "
-                    "working with pack and AAIGrid formats, "
-                    "they will be skipped"
-                )
+    # AAIGrid is written by r.out.gdal, which takes nodata and createopt like
+    # for GTiff. metaopt ends up in a side file (<map>.asc.aux.xml) that the
+    # archive does not hold, so it is lost for AAIGrid.
+    if format_ == "AAIGrid" and kws.get("metaopt"):
+        gs.warning(
+            _(
+                "The metaopt option is not used with the AAIGrid format, "
+                "it will be skipped."
             )
+        )
+    if format_ == "pack" and kws:
+        gs.warning(
+            _(
+                "Createopt, metaopt and nodata options are not "
+                "working with pack format, they will be skipped"
+            )
+        )
     # Make sure the temporal database exists
     tgis.init()
     # Export the space time raster dataset
