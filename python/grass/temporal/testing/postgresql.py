@@ -41,15 +41,29 @@ SERVER_VARIABLE = "GRASS_TEMPORAL_TEST_POSTGRESQL"
 _MASKED_COLUMNS = frozenset({"creation_time", "modification_time", "creator"})
 # The command history of a dataset starts each entry with the time of the call
 _HISTORY_TIME = re.compile(r"^# \d{4}-\d\d-\d\d \d\d:\d\d:\d\d ", re.MULTILINE)
-# A file handed to a tool, such as the map list of data.register_stds(), lies
-# in a directory of tempfile with a random name, which the history records
-_TEMPORARY_DIRECTORY = re.compile(re.escape(tempfile.gettempdir()) + r"/tmp\w+")
 _REGISTER_TABLE = re.compile(r"(raster|raster3d|vector)_map_register_[0-9a-f]+")
 _REGISTER_COLUMN = {
     "strds": "raster_register",
     "str3ds": "raster3d_register",
     "stvds": "vector_register",
 }
+
+
+def _masked_temporary_directory(text: str, directory: str) -> str:
+    """Replace a directory of tempfile below directory in text
+
+    A file handed to a tool, such as the map list of data.register_stds(),
+    lies in a directory of tempfile with a random name, which the history
+    records. Windows separates the parts of the path by backslashes; the
+    separator after the masked directory becomes "/", so that the text is
+    the same on every platform.
+    """
+    pattern = re.escape(directory) + r"[\\/]tmp\w+(?P<separator>[\\/]?)"
+    return re.sub(
+        pattern,
+        lambda match: "<temporary directory>" + ("/" if match["separator"] else ""),
+        text,
+    )
 
 
 def server_string() -> str | None:
@@ -183,7 +197,7 @@ def _cell(column, value, declared, register_names):
     if isinstance(value, str) and value in register_names:
         return f"REGISTER({register_names[value]})"
     if isinstance(value, str):
-        value = _TEMPORARY_DIRECTORY.sub("<temporary directory>", value)
+        value = _masked_temporary_directory(value, tempfile.gettempdir())
         return _HISTORY_TIME.sub("# <time> ", value)
     return _comparable(value, declared.get(column))
 

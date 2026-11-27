@@ -378,6 +378,23 @@ def test_rows_of_masks_the_temporary_directory_in_a_command_history(tmp_path):
 
 
 @pytest.mark.parametrize(
+    ("directory", "text"),
+    [
+        ("/tmp", 'file="/tmp/tmpab12_x/maps.txt"'),
+        (
+            r"C:\Users\RUNNER~1\AppData\Local\Temp",
+            r'file="C:\Users\RUNNER~1\AppData\Local\Temp\tmp9resoxv7\maps.txt"',
+        ),
+    ],
+)
+def test_a_temporary_directory_is_masked_with_either_separator(directory, text):
+    # The second path is the one Windows recorded (GitHub Windows runner,
+    # 26.11.2026), which a mask for "/" alone left as it was.
+    masked = postgresql._masked_temporary_directory(text, directory)
+    assert masked == 'file="<temporary directory>/maps.txt"'
+
+
+@pytest.mark.parametrize(
     "backend",
     ["sqlite", pytest.param("postgresql", marks=pytest.mark.postgresql)],
 )
