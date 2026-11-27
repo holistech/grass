@@ -1,0 +1,169 @@
+"""The ported grouping against the picks of the classic routine it replaced
+
+sample_by_dataset() was the routine the old tool called to group the related
+maps per sampler granule. The port groups them with
+grass.temporal.related_maps instead, the same functions the tool calls. The
+file data/sample_groupings.json holds 20 random scenarios, with random extents
+and with maps that share a start time, and for every method list, with and
+without the spatial check, the grouping that sample_by_dataset() made, recorded
+from the reference implementation on 2026-11-12: the related maps in the same
+order per granule, gap granules and empty granules included. A granule or map
+is named by its number (the id is the name of the dataset and the number), a
+gap granule by None. The file also holds the time stamps, the shuffled numbers
+and the boxes of each scenario, so the datasets are rebuilt exactly and no
+random generator is involved.
+
+One difference is wanted: the method "start" lists the maps whose start time
+lies in the granule, from its start to its end without the end.
+sample_by_dataset() listed maps that start before the granule and missed maps
+that start in it and end after it or have its time. For a method list with
+"start" the grouping in the file was derived on 25.11.2026 from that rule:
+per granule the maps that start in it, relation by relation in the order
+starts, started, contains, equal, overlaps after the plain names, by start
+time and then by id within a relation.
+"""
+
+import json
+from datetime import datetime
+from pathlib import Path
+
+from grass.temporal.algebra.sources import source
+from grass.temporal.related_maps import (
+    method_relations,
+    related_per_granule,
+    with_gaps,
+)
+from grass.temporal.testing.data import MapSpec, register_stds
+from grass.tools import Tools
+
+SCENARIOS = json.loads(
+    (Path(__file__).parent / "data" / "sample_groupings.json").read_text()
+)
+# Every method of G_OPT_T_SAMPLE on its own, a few lists, and the default.
+METHODS = [
+    ["start"],
+    ["during"],
+    ["overlap"],
+    ["contain"],
+    ["equal"],
+    ["follows"],
+    ["precedes"],
+    ["contain", "start"],
+    ["precedes", "follows", "overlap"],
+    ["during", "overlap", "contain", "equal"],
+]
+
+
+def register(tools, name, spans, numbers, boxes):
+    """One strds whose maps have the given day spans; end None is an instant
+
+    The map ids are numbered as given, so that the order of the ids is
+    neither the order of the start times nor the order of registration. The
+    maps are registered with the library because the grouping tests do not
+    test t.register. Measured 2026-11-12 with pytest -n 0 on both tests of
+    this file, with the sources read once per scenario: 45.7 s with
+    t.create and t.register, 13.2 s with the library; the datasets of all
+    20 scenarios were identical in t.info -g and t.rast.list.
+    """
+    specs = []
+    for number, (start, end), box in zip(numbers, spans, boxes, strict=True):
+        map_name = f"{name}_{number}"
+        tools.g_region(res=10, **box)
+        tools.r_mapcalc(expression=f"{map_name} = {number}", overwrite=True)
+        specs.append(
+            MapSpec(
+                map_name,
+                number,
+                datetime(2001, 1, start + 1),
+                None if end is None else datetime(2001, 1, end + 1),
+            )
+        )
+    register_stds(tools, "strds", name, specs, via="library", overwrite=True)
+
+
+def number_of(ident):
+    """The number of a map id such as name_3@PERMANENT, None for a gap"""
+    if ident is None or ident == "None":
+        return None
+    return int(ident.split("@")[0].rsplit("_", 1)[1])
+
+
+def sources(sampler_name, input_name):
+    """The granules of the sampler with their gaps and the Series of the input
+
+    Both are read once and used for every method list: the Series are not
+    changed by related_per_granule(), the tool reads them once as well.
+    """
+    return (
+        with_gaps(source(sampler_name, stds_type="strds")),
+        source(input_name, stds_type="strds"),
+    )
+
+
+def grouping(granules, inputs, method, spatial):
+    """(granule numbers, related map numbers per granule) from the library
+    functions"""
+    rows = related_per_granule(
+        granules,
+        method_relations(method),
+        inputs,
+        spatial=spatial,
+    )
+    granule_ids = [number_of(str(slot.origin)) for slot in granules.slots]
+    return granule_ids, [
+        [number_of(slot.content.ident) for slot in row] for row in rows
+    ]
+
+
+def tool_grouping(sampler_name, input_name, method, spatial):
+    """The grouping of one method list for the datasets of the given names"""
+    return grouping(*sources(sampler_name, input_name), method, spatial)
+
+
+def test_core_groups_as_sample_by_dataset(temporal_module_session):
+    tools = Tools(session=temporal_module_session)
+    for scenario, recorded in enumerate(SCENARIOS):
+        sampler_name = f"csamp_{scenario}"
+        input_name = f"cinput_{scenario}"
+        for name, role in ((sampler_name, "sampler"), (input_name, "input")):
+            data = recorded[role]
+            register(
+                tools,
+                name,
+                data["spans"],
+                data["numbers"],
+                data["boxes"],
+            )
+        granules, inputs = sources(sampler_name, input_name)
+        for method in METHODS:
+            for spatial in (False, True):
+                expected = recorded["groupings"][f"{'+'.join(method)}|{spatial}"]
+                assert list(grouping(granules, inputs, method, spatial)) == (
+                    expected
+                ), (
+                    scenario,
+                    method,
+                    spatial,
+                )
+
+
+def test_equal_start_times_come_in_map_id_order(temporal_module_session):
+    """Three maps start on day 1 and lie in one granule; by end time they
+    would be ids 1, 3, 2, and sample_by_dataset() listed them by id
+
+    The random scenarios rarely produce such a tie inside one granule, so
+    this case makes sure the order of the ids is compared (checked
+    2026-10-14: ordering the ties by end time instead lets the random test
+    pass and fails this one).
+    """
+    tools = Tools(session=temporal_module_session)
+    box = {"w": 0, "e": 10, "s": 0, "n": 10}
+    register(tools, "tsamp", [(0, 6)], [1], [box])
+    register(
+        tools,
+        "tinput",
+        [(1, 2), (1, 3), (1, 4)],
+        [1, 3, 2],
+        [box, box, box],
+    )
+    assert tool_grouping("tsamp", "tinput", ["contain"], False) == ([1], [[1, 2, 3]])
