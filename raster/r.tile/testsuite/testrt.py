@@ -31,8 +31,8 @@ class Testrr(TestCase):
             "r.tile",
             input=self.input,
             output=self.output,
-            width=1500 / 2,
-            height=1350 / 2,
+            width=1500 // 2,
+            height=1350 // 2,
         )
 
     def test_univar(self):
@@ -44,8 +44,8 @@ class Testrr(TestCase):
             "r.tile",
             input=self.input,
             output=self.output,
-            width=1500 / 2,
-            height=1350 / 2,
+            width=1500 // 2,
+            height=1350 // 2,
         )
         self.assertRasterFitsUnivar("tile-000-001", reference=string, precision=2)
 
@@ -56,8 +56,8 @@ class Testrr(TestCase):
             "r.tile",
             input=self.input,
             output=self.output,
-            width=1500 / 2,
-            height=1350 / 2,
+            width=1500 // 2,
+            height=1350 // 2,
             overlap=250,
         )
         self.assertRasterMinMax(
@@ -74,8 +74,8 @@ class Testrr(TestCase):
             "r.tile",
             input=self.input,
             output=self.output,
-            width=1500 / 2,
-            height=1350 / 2,
+            width=1500 // 2,
+            height=1350 // 2,
         )
         self.assertRasterMinMax(
             map=tile1,
