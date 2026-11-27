@@ -136,10 +136,12 @@ def main():
 if __name__ == "__main__":
     options, flags = gs.parser()
 
-    # lazy imports
+    # Not in main(): profile_function() needs the library before main() runs.
+    # gs.parser() has already answered --help and --interface-description.
     import grass.temporal as tgis
 
     try:
         tgis.profile_function(main)
-    except Exception as e:
+    # Any failure of the tool ends as a GRASS fatal message, not a traceback.
+    except Exception as e:  # noqa: BLE001
         gs.fatal(e)

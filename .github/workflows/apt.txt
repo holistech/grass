@@ -1,6 +1,7 @@
 bison
 build-essential
 flex
+gdal-bin
 libbz2-dev
 libcairo-dev
 libfftw3-dev
@@ -16,6 +17,7 @@ libproj-dev
 libreadline-dev
 libsvm-dev
 libzstd-dev
+mupdf-tools
 pdal
 proj-bin
 python3-dateutil

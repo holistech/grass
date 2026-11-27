@@ -42,9 +42,153 @@ import grass.script as gs
 ############################################################################
 
 
+def _layer(map, maptype):
+    """Return the layer of a vector map and None for all other maps"""
+    return map.get_layer() if maptype == "vector" else None
+
+
+def map_type_and_element(stdstype):
+    """Return the map type of a dataset type and the element of that map type"""
+    if stdstype == "str3ds":
+        return "raster_3d", "grid3"
+    if stdstype == "stvds":
+        return "vector", "vector"
+    return "raster", "cell"
+
+
+def check_output_mapset(output, mapset):
+    """Refuse an output name that is in another mapset than the current one"""
+    if "@" in output:
+        check_identifier(output)
+        _outname, outmapset = output.split("@")
+        if outmapset != mapset:
+            gs.fatal(
+                _("The output dataset <%s> must be in the current mapset<%s>.")
+                % (output, mapset)
+            )
+
+
+def check_maps_can_be_copied(
+    old_maps, mapset, maptype, element, overwrite, dbif, output_id
+):
+    """Stop if a map of another mapset cannot be copied into the current one
+
+    Everything that can refuse the copy is checked before the first map is
+    copied, so that a refusal does not leave copied maps behind. With
+    overwrite a map of the current mapset is replaced, unless it is registered
+    in a space time dataset other than the output: that dataset would lose a
+    map it still lists.
+    """
+    for map in old_maps:
+        map_name, map_mapset = map.get_name(), map.get_mapset()
+        if map_mapset != mapset:
+            found = gs.find_file(name=map_name, element=element, mapset=mapset)
+            if found["name"] is not None and len(found["name"]) > 0:
+                if not overwrite:
+                    gs.fatal(
+                        _("A %s map <%s> exists already in the current mapset <%s>.")
+                        % (maptype, map_name, mapset)
+                    )
+                check_replaced_map(map, mapset, maptype, dbif, output_id)
+        tgis.check_new_map_dataset(
+            map_name, _layer(map, maptype), maptype, overwrite, dbif
+        )
+
+
+def check_replaced_map(map, mapset, maptype, dbif, output_id):
+    """Refuse to replace a map that a space time dataset other than the output holds"""
+    existing = tgis.dataset_factory(
+        maptype, map.build_id(map.get_name(), mapset, _layer(map, maptype))
+    )
+    if not existing.is_in_db(dbif, mapset):
+        return
+    others = [
+        stds
+        for stds in existing.get_registered_stds(dbif, mapset) or []
+        if stds != output_id
+    ]
+    if others:
+        gs.fatal(
+            _(
+                "The %s map <%s> exists in the current mapset and is registered "
+                "in the space time dataset <%s>, so it cannot be replaced."
+            )
+            % (maptype, map.get_name(), ",".join(others))
+        )
+
+
+def copy_maps_to_mapset(old_maps, mapset, maptype, overwrite, dbif):
+    """Copy the maps of other mapsets into the current one; return all maps
+
+    A map that is in the current mapset already is not copied: it keeps its
+    entry in the temporal database.
+    """
+    msgr = tgis.get_tgis_message_interface()
+
+    new_maps = []
+    num_maps = len(old_maps)
+    count = 0
+
+    for map in old_maps:
+        count += 1
+        map_name, map_mapset = map.get_name(), map.get_mapset()
+
+        if map_mapset != mapset:
+            # The id of a vector map carries its layer, which g.copy refuses.
+            kwargs = {maptype: f"{map_name}@{map_mapset},{map_name}"}
+            gs.run_command("g.copy", **kwargs)
+            new_map = tgis.open_new_map_dataset(
+                map_name,
+                _layer(map, maptype),
+                type=maptype,
+                temporal_extent=map.get_temporal_extent(),
+                overwrite=overwrite,
+                dbif=dbif,
+            )
+            # Semantic labels exist for raster maps only
+            if maptype == "raster":
+                semantic_label = map.metadata.get_semantic_label()
+                if semantic_label is not None and semantic_label != "None":
+                    new_map.metadata.set_semantic_label(semantic_label)
+        else:
+            # The map is already in the current mapset. It keeps its entry
+            # in the temporal database, and so its registration in the
+            # source dataset, and joins the new dataset in addition.
+            gs.message(
+                _("The %s map <%s> is already in the current mapset, not copying")
+                % (maptype, map_name)
+            )
+            new_map = map
+
+        if count % 10 == 0:
+            msgr.percent(count, num_maps, 1)
+
+        new_maps.append(new_map)
+    return new_maps
+
+
+def register_maps(new_sp, new_maps, mapset, maptype, dbif):
+    """Insert the maps that the temporal database lacks and register them"""
+    for map in new_maps:
+        # Insert map in temporal database
+        if not map.is_in_db(dbif, mapset):
+            # Only the metadata of raster maps has a semantic label.
+            semantic_label = (
+                map.metadata.get_semantic_label() if maptype == "raster" else None
+            )
+            map.load()
+            if semantic_label is not None and semantic_label != "None":
+                map.metadata.set_semantic_label(semantic_label)
+            map.insert(dbif)
+        new_sp.register_map(map, dbif)
+
+
 def main():
-    # lazy imports
+    global check_identifier, tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
     import grass.temporal as tgis
+    from grass.temporal.base import check_identifier
 
     # Get the options
     input = options["input"]
@@ -52,14 +196,7 @@ def main():
     stdstype = options["type"]
     copy_maps = flags["c"]
 
-    maptype = "raster"
-    element = "cell"
-    if stdstype == "str3ds":
-        maptype = "raster_3d"
-        element = "g3dcell"
-    elif stdstype == "stvds":
-        maptype = "vector"
-        element = "vector"
+    maptype, element = map_type_and_element(stdstype)
 
     # Make sure the temporal database exists
     tgis.init()
@@ -67,22 +204,7 @@ def main():
     # Get the current mapset to create the id of the space time dataset
     mapset = gs.gisenv()["MAPSET"]
 
-    inname = input
-    inmapset = mapset
-    if "@" in input:
-        inname, inmapset = input.split("@")
-
-    outname = output
-    outmapset = mapset
-    if "@" in output:
-        outname, outmapset = output.split("@")
-        if outmapset != mapset:
-            gs.fatal(
-                _("The output dataset <%s> must be in the current mapset<%s>.")
-                % (input, mapset)
-            )
-
-    msgr = tgis.get_tgis_message_interface()
+    check_output_mapset(output, mapset)
 
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
@@ -100,70 +222,20 @@ def main():
     overwrite = gs.overwrite()
 
     # Check the new stds
-    new_sp = tgis.check_new_stds(output, stdstype, dbif, overwrite)
+    tgis.check_new_stds(output, stdstype, dbif, overwrite)
 
-    new_maps = None
     if copy_maps:
         gs.message(_("Copying %s maps to the current mapset...") % maptype)
-        new_maps = []
-        num_maps = len(old_maps)
-        count = 0
-
-        for map in old_maps:
-            count += 1
-            map_id = map.get_id()
-            map_name = map_id
-            map_mapset = mapset
-            if "@" in map_id:
-                map_name, map_mapset = map_id.split("@")
-
-            if map_mapset != mapset:
-                found = gs.find_file(name=map_name, element=element, mapset=mapset)
-                if found["name"] is not None and len(found["name"]) > 0:
-                    gs.fatal(
-                        _("A %s map <%s> exists already in the current mapset <%s>.")
-                        % (maptype, map_name, mapset)
-                    )
-
-                kwargs = {maptype: "%s,%s" % (map_id, map_name)}
-                gs.run_command("g.copy", **kwargs)
-            else:
-                # the map is already in the current mapset
-                gs.message(
-                    _("The %s map <%s> is already in the current mapset, not copying")
-                    % (maptype, map_name)
-                )
-
-            if count % 10 == 0:
-                msgr.percent(count, num_maps, 1)
-
-            # We need to build the id
-            if maptype != "vector":
-                map_id = tgis.AbstractMapDataset.build_id(map_name, mapset)
-            else:
-                map_id = tgis.AbstractMapDataset.build_id(
-                    map_name, mapset, map.get_layer()
-                )
-
-            new_map = tgis.open_new_map_dataset(
-                map_name,
-                None,
-                type="raster",
-                temporal_extent=map.get_temporal_extent(),
-                overwrite=overwrite,
-                dbif=dbif,
-            )
-            # semantic label
-            semantic_label = map.metadata.get_semantic_label()
-            if semantic_label is not None and semantic_label != "None":
-                new_map.metadata.set_semantic_label(semantic_label)
-
-            new_maps.append(new_map)
+        output_id = output if "@" in output else f"{output}@{mapset}"
+        check_maps_can_be_copied(
+            old_maps, mapset, maptype, element, overwrite, dbif, output_id
+        )
+        new_maps = copy_maps_to_mapset(old_maps, mapset, maptype, overwrite, dbif)
     else:
         # don't copy maps, use old maps
         new_maps = old_maps
 
-    temporal_type, semantic_type, title, description = old_sp.get_initial_values()
+    _temporal_type, semantic_type, title, description = old_sp.get_initial_values()
     new_sp = tgis.open_new_stds(
         output,
         stdstype,
@@ -176,20 +248,7 @@ def main():
     )
 
     # Register the maps in the database
-    num_maps = len(new_maps)
-    count = 0
-    for map in new_maps:
-        count += 1
-
-        # Insert map in temporal database
-        if not map.is_in_db(dbif, mapset):
-            semantic_label = map.metadata.get_semantic_label()
-            map.load()
-            # semantic labels are not yet properly implemented in TGIS
-            if semantic_label is not None and semantic_label != "None":
-                map.metadata.set_semantic_label(semantic_label)
-            map.insert(dbif)
-        new_sp.register_map(map, dbif)
+    register_maps(new_sp, new_maps, mapset, maptype, dbif)
 
     # Update the spatio-temporal extent and the metadata table entries
     new_sp.update_from_registered_maps(dbif)

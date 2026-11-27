@@ -1,88 +1,144 @@
-"""Fixture for t.vect.db.select tests"""
+"""Datasets for the tests of t.vect.db.select
 
-import os
-from types import SimpleNamespace
+Every map has points at x = k and y = 1, 2, 3 (cat 1 to 3 in the order of
+the points); the tables have the columns x, y and cat in front of the
+attributes.
+
+- dbs_int has three monthly maps di_1 to di_3 (March to May 2001) with the
+  columns observation (100 k for map k, in all three rows) and label (a, b, c),
+- dbs_inst has three instants dn_1 to dn_3 (2004-01-01, 2004-04-01 and
+  2004-07-01) with the column observation (100 k),
+- dbs_chg has dc_1 (January 2001; two points at (1, 1) and (2, 2); columns a =
+  1, 2 and b = x, y) and dc_2 (February 2001; one point at (1, 1); a = 5 and c =
+  2.5), whose tables differ,
+- dbs_part has dp_1 to dp_3 (January to March 2001) with the column a (k); dp_1
+  and dp_2 also have the column b (x), dp_3 does not,
+- dbs_nest has dx_1 (January to July 2001) and dx_2 (February to March 2001),
+  one point each, whose start order differs from the end order,
+- dbs_lay has the map dl with two layers (a = 1, 2 in layer 1 and 101, 102 in
+  layer 2) registered as dl:2 in January 2001, and the map du with the same
+  tables registered without a layer in February 2001.
+"""
+
+from datetime import datetime
 
 import pytest
 
-import grass.script as gs
-from grass.tools import Tools
+from grass.temporal.testing.data import MapSpec, register_stds, vector_points
 
 
 @pytest.fixture(scope="module")
-def space_time_vector_dataset(tmp_path_factory):
-    """Start a temporary session and create space time vector datasets.
-
-    Returns an object containing metadata attributes about the generated datasets.
-    """
-    tmp_path = tmp_path_factory.mktemp("vector_time_series")
-    project = tmp_path / "test_project_vector"
-    gs.create_project(project)
-
-    with gs.setup.init(project, env=os.environ.copy()) as session:
-        tools = Tools(session=session)
-
-        tools.g_region(s=0, n=80, w=0, e=120, b=0, t=50, res=10, res3=10)
-
-        for i in range(1, 4):
-            tools.r_mapcalc(expression=f"prec_int_{i} = {i}00.0", overwrite=True)
-            tools.r_mapcalc(expression=f"prec_inst_{i} = {i}00.0", overwrite=True)
-
-        tools.v_random(output="prec_points", n=3, seed=1, flags="z", overwrite=True)
-
-        interval_strds = "precip_abs1"
-        tools.t_create(
-            type="strds",
-            temporaltype="absolute",
-            output=interval_strds,
-            title="A test",
-            description="A test",
+def intervals(tools):
+    """The dataset dbs_int described above; returns its name"""
+    for k in (1, 2, 3):
+        vector_points(
+            tools,
+            f"di_{k}",
+            [(k, 1), (k, 2), (k, 3)],
+            attributes={"observation": [100 * k] * 3, "label": ["a", "b", "c"]},
         )
-        tools.t_register(
-            type="raster",
-            flags="i",
-            input=interval_strds,
-            maps=",".join([f"prec_int_{i}" for i in range(1, 4)]),
-            start="2001-03-01 00:00:00",
-            increment="1 months",
-        )
+    register_stds(
+        tools,
+        "stvds",
+        "dbs_int",
+        [
+            MapSpec(f"di_{k}", None, datetime(2001, k + 2, 1), datetime(2001, k + 3, 1))
+            for k in (1, 2, 3)
+        ],
+    )
+    return "dbs_int"
 
-        interval_stvds = "prec_observer_interval"
-        tools.t_vect_observe_strds(
-            input="prec_points",
-            strds=interval_strds,
-            output=interval_stvds,
-            vector=interval_stvds,
-            column="observation",
-        )
 
-        instance_strds = "precip_abs2"
-        tools.t_create(
-            type="strds",
-            temporaltype="absolute",
-            output=instance_strds,
-            title="B test",
-            description="B test",
+@pytest.fixture(scope="module")
+def instants(tools):
+    """The dataset dbs_inst described above; returns its name"""
+    for k in (1, 2, 3):
+        vector_points(
+            tools,
+            f"dn_{k}",
+            [(k, 1), (k, 2), (k, 3)],
+            attributes={"observation": [100 * k] * 3},
         )
-        tools.t_register(
-            type="raster",
-            input=instance_strds,
-            maps=",".join([f"prec_inst_{i}" for i in range(1, 4)]),
-            start="2004-01-01 00:00:00",
-            increment="3 months",
-        )
+    register_stds(
+        tools,
+        "stvds",
+        "dbs_inst",
+        [MapSpec(f"dn_{k}", None, datetime(2004, 3 * k - 2, 1)) for k in (1, 2, 3)],
+    )
+    return "dbs_inst"
 
-        instance_stvds = "prec_observer_instance"
-        tools.t_vect_observe_strds(
-            input="prec_points",
-            strds=instance_strds,
-            output=instance_stvds,
-            vector=instance_stvds,
-            column="observation",
-        )
 
-        yield SimpleNamespace(
-            session=session,
-            interval_name=interval_stvds,
-            instance_name=instance_stvds,
+@pytest.fixture(scope="module")
+def changing(tools):
+    """The dataset dbs_chg described above; returns its name"""
+    vector_points(
+        tools, "dc_1", [(1, 1), (2, 2)], attributes={"a": [1, 2], "b": ["x", "y"]}
+    )
+    vector_points(tools, "dc_2", [(1, 1)], attributes={"a": [5], "c": [2.5]})
+    register_stds(
+        tools,
+        "stvds",
+        "dbs_chg",
+        [
+            MapSpec("dc_1", None, datetime(2001, 1, 1), datetime(2001, 2, 1)),
+            MapSpec("dc_2", None, datetime(2001, 2, 1), datetime(2001, 3, 1)),
+        ],
+    )
+    return "dbs_chg"
+
+
+@pytest.fixture(scope="module")
+def layers(tools):
+    """The dataset dbs_lay described above; returns its name"""
+    for name in ("dl", "du"):
+        vector_points(
+            tools, name, [(1, 1), (2, 2)], attributes={"a": [1, 2]}, layers=(1, 2)
         )
+        tools.db_execute(sql=f"UPDATE {name}_2 SET a = a + 100")
+    register_stds(
+        tools,
+        "stvds",
+        "dbs_lay",
+        [
+            MapSpec("dl:2", None, datetime(2001, 1, 1), datetime(2001, 2, 1)),
+            MapSpec("du", None, datetime(2001, 2, 1), datetime(2001, 3, 1)),
+        ],
+    )
+    return "dbs_lay"
+
+
+@pytest.fixture(scope="module")
+def nested(tools):
+    """The dataset dbs_nest described above; returns its name"""
+    for k in (1, 2):
+        vector_points(tools, f"dx_{k}", [(k, 1)], attributes={"a": [k]})
+    register_stds(
+        tools,
+        "stvds",
+        "dbs_nest",
+        [
+            MapSpec("dx_1", None, datetime(2001, 1, 1), datetime(2001, 7, 1)),
+            MapSpec("dx_2", None, datetime(2001, 2, 1), datetime(2001, 3, 1)),
+        ],
+    )
+    return "dbs_nest"
+
+
+@pytest.fixture(scope="module")
+def partial(tools):
+    """The dataset dbs_part described above; returns its name"""
+    for k in (1, 2, 3):
+        attributes = {"a": [k]}
+        if k < 3:
+            attributes["b"] = ["x"]
+        vector_points(tools, f"dp_{k}", [(k, 1)], attributes=attributes)
+    register_stds(
+        tools,
+        "stvds",
+        "dbs_part",
+        [
+            MapSpec(f"dp_{k}", None, datetime(2001, k, 1), datetime(2001, k + 1, 1))
+            for k in (1, 2, 3)
+        ],
+    )
+    return "dbs_part"

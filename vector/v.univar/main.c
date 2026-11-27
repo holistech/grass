@@ -45,6 +45,8 @@
 static void select_from_geometry(void);
 static void select_from_database(void);
 static void summary(void);
+static void collect_value(double val);
+static int compare_values(const void *a, const void *b);
 
 enum OutputFormat { PLAIN, SHELL, JSON };
 
@@ -79,6 +81,9 @@ double total_size = 0.0; /* total size: length/area */
 
 /* Extended statistics */
 int perc;
+double *values = NULL; /* values of the features counted in count */
+int nvalues = 0;
+int nvalues_alloc = 0;
 
 enum OutputFormat format;
 
@@ -379,6 +384,28 @@ void select_from_geometry(void)
     Vect_destroy_line_struct(iPoints);
 }
 
+/* Order statistics need the population the other statistics are computed
+ * from: one value per feature and category, not one per table row. The table
+ * array has orphan rows and one row per category even if several features
+ * share it. */
+static void collect_value(double val)
+{
+    if (!ext_flag->answer)
+        return;
+    if (nvalues == nvalues_alloc) {
+        nvalues_alloc = nvalues_alloc ? 2 * nvalues_alloc : 1024;
+        values = G_realloc(values, nvalues_alloc * sizeof(double));
+    }
+    values[nvalues++] = val;
+}
+
+static int compare_values(const void *a, const void *b)
+{
+    double x = *(const double *)a, y = *(const double *)b;
+
+    return (x > y) - (x < y);
+}
+
 void select_from_database(void)
 {
     int nrec, ctype, nlines, line, nareas, area;
@@ -461,6 +488,7 @@ void select_from_database(void)
                 }
 
                 count++;
+                collect_value(val);
 
                 if (first) {
                     max = val;
@@ -543,6 +571,7 @@ void select_from_database(void)
                     }
 
                     count++;
+                    collect_value(val);
 
                     if (first) {
                         max = val;
@@ -737,36 +766,21 @@ void summary(void)
         double quartile_25 = 0.0, quartile_75 = 0.0, quartile_perc = 0.0;
         double median = 0.0;
         int qpos_25, qpos_75, qpos_perc;
+        int nvals = nvalues;
 
-        qpos_25 = (int)(count * 0.25 - 0.5);
-        qpos_75 = (int)(count * 0.75 - 0.5);
-        qpos_perc = (int)(count * perc / 100. - 0.5);
+        qpos_25 = (int)(nvals * 0.25 - 0.5);
+        qpos_75 = (int)(nvals * 0.75 - 0.5);
+        qpos_perc = (int)(nvals * perc / 100. - 0.5);
 
-        if (db_CatValArray_sort_by_value(&Cvarr) != DB_OK)
-            G_fatal_error(_("Cannot sort the key/value array"));
+        qsort(values, nvals, sizeof(double), compare_values);
 
-        if (Cvarr.ctype == DB_C_TYPE_INT) {
-            quartile_25 = (Cvarr.value[qpos_25]).val.i;
-            if (count % 2) /* odd */
-                median = (Cvarr.value[(int)(count / 2)]).val.i;
-            else /* even */
-                median = ((Cvarr.value[count / 2 - 1]).val.i +
-                          (Cvarr.value[count / 2]).val.i) /
-                         2.0;
-            quartile_75 = (Cvarr.value[qpos_75]).val.i;
-            quartile_perc = (Cvarr.value[qpos_perc]).val.i;
-        }
-        else { /* must be DB_C_TYPE_DOUBLE */
-            quartile_25 = (Cvarr.value[qpos_25]).val.d;
-            if (count % 2) /* odd */
-                median = (Cvarr.value[(int)(count / 2)]).val.d;
-            else /* even */
-                median = ((Cvarr.value[count / 2 - 1]).val.d +
-                          (Cvarr.value[count / 2]).val.d) /
-                         2.0;
-            quartile_75 = (Cvarr.value[qpos_75]).val.d;
-            quartile_perc = (Cvarr.value[qpos_perc]).val.d;
-        }
+        quartile_25 = values[qpos_25];
+        if (nvals % 2) /* odd */
+            median = values[nvals / 2];
+        else /* even */
+            median = (values[nvals / 2 - 1] + values[nvals / 2]) / 2.0;
+        quartile_75 = values[qpos_75];
+        quartile_perc = values[qpos_perc];
 
         if (format == JSON) {
             G_json_object_set_number(root_object, "first_quartile",
@@ -795,7 +809,7 @@ void summary(void)
         }
         else {
             fprintf(stdout, "1st quartile: %g\n", quartile_25);
-            if (count % 2)
+            if (nvals % 2)
                 fprintf(stdout, "median (odd number of cells): %g\n", median);
             else
                 fprintf(stdout, "median (even number of cells): %g\n", median);
@@ -811,6 +825,10 @@ void summary(void)
                 fprintf(stdout, "%dth percentile: %g\n", perc, quartile_perc);
         }
     }
+
+    /* The block above is skipped for incompatible types with -w, but the
+     * values were collected all the same. */
+    G_free(values);
 
     if (format == JSON) {
         char *serialized_string = G_json_serialize_to_string_pretty(root_value);

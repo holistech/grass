@@ -40,11 +40,98 @@
 # %end
 import grass.script as gs
 
-############################################################################
+#: The summary line of each count of count_temporal_types(), by its key
+TYPE_LINES = {
+    "interval": " | Number of intervals: ....... %s",
+    "point": " | Number of points: .......... %s",
+    "invalid": " | Invalid time stamps: ....... %s",
+}
+
+#: The summary line of each count of count_temporal_relations(), by its key;
+#: a key without a line, such as that of a spatial relation, is not printed.
+RELATION_LINES = {
+    "equal": " | Equal:...................... %s",
+    "during": " | During: .................... %s",
+    "contains": " | Contains: .................. %s",
+    "overlaps": " | Overlaps: .................. %s",
+    "overlapped": " | Overlapped: ................ %s",
+    "starts": " | Starts: .................... %s",
+    "finishes": " | Finishes: .................. %s",
+    "started": " | Started: ................... %s",
+    "finished": " | Finished: .................. %s",
+    "follows": " | Follows: ................... %s",
+    "precedes": " | Precedes: .................. %s",
+}
+
+
+def ordered_maps(sp, where):
+    """Return the maps of sp that where selects, ordered by start time"""
+    try:
+        return sp.get_registered_maps_as_objects(
+            where=where, order="start_time", dbif=None
+        )
+    except tgis.SQLStatementError as error:
+        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+
+
+def print_counts(counts, lines):
+    """Print the line of each count in the order of counts, if it has one"""
+    for key, value in counts.items():
+        if key in lines:
+            print(lines[key] % value)
+
+
+def print_temporal_topology(sp, maps, where):
+    """Print the validity, the counts of the time types, gaps and granularity"""
+    print(
+        " +-------------------- Temporal topology -------------------------------------+"  # noqa: E501
+    )
+    if where:
+        print(" | Is subset of dataset: ...... True")
+    else:
+        print(" | Is subset of dataset: ...... False")
+
+    # No maps break no rule of the topology. The library takes no counts as an
+    # incorrect topology, and the granularity mode of the algebra refuses an
+    # empty input dataset because of that, so the tool decides here.
+    if not maps or sp.check_temporal_topology(maps):
+        print(" | Temporal topology is: ...... valid")
+    else:
+        print(" | Temporal topology is: ...... invalid")
+
+    print_counts(sp.count_temporal_types(maps), TYPE_LINES)
+
+    print(" | Number of gaps: ............ %i" % sp.count_gaps(maps))
+
+    # No maps have no granularity. The function of relative time returns None
+    # for them, the one of absolute time fails on the empty list.
+    if not maps:
+        gran = None
+    elif sp.is_time_absolute():
+        gran = tgis.compute_absolute_time_granularity(maps)
+    else:
+        gran = tgis.compute_relative_time_granularity(maps)
+    print(" | Granularity: ............... %s" % str(gran))
+
+
+def print_relations(sp, maps):
+    """Print the number of each temporal relation between the maps"""
+    print(
+        " +-------------------- Topological relations ---------------------------------+"  # noqa: E501
+    )
+    relations = sp.count_temporal_relations(maps)
+    # Without maps the counts are all zero, and the summary prints no line.
+    if maps:
+        print_counts(relations, RELATION_LINES)
+    print(
+        "+----------------------------------------------------------------------------+"  # noqa: E501
+    )
 
 
 def main():
-    # lazy imports
+    global tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
     import grass.temporal as tgis
 
     # Get the options
@@ -58,97 +145,21 @@ def main():
     tgis.init()
 
     sp = tgis.open_old_stds(name, type)
-
-    # Get ordered map list
-    maps = sp.get_registered_maps_as_objects(where=where, order="start_time", dbif=None)
-
-    spatial = None
-
-    if spatio_temporal_relations:
-        spatial = "2D" if sp.get_type() == "strds" else "3D"
+    maps = ordered_maps(sp, where)
 
     if temporal_relations or spatio_temporal_relations:
+        spatial = None
+        if spatio_temporal_relations:
+            spatial = "2D" if sp.get_type() == "strds" else "3D"
         sp.print_spatio_temporal_relationships(maps=maps, spatial=spatial)
         return
 
     sp.base.print_info()
-
-    #      0123456789012345678901234567890
-    print(
-        " +-------------------- Temporal topology -------------------------------------+"  # noqa: E501
-    )
-    if where:
-        print(" | Is subset of dataset: ...... True")
-    else:
-        print(" | Is subset of dataset: ...... False")
-
-    check = sp.check_temporal_topology(maps)
-    if check:
-        #      0123456789012345678901234567890
-        print(" | Temporal topology is: ...... valid")
-    else:
-        #      0123456789012345678901234567890
-        print(" | Temporal topology is: ...... invalid")
-
-    dict_ = sp.count_temporal_types(maps)
-
-    for key in dict_.keys():
-        if key == "interval":
-            #      0123456789012345678901234567890
-            print(" | Number of intervals: ....... %s" % (dict_[key]))
-        if key == "point":
-            print(" | Number of points: .......... %s" % (dict_[key]))
-        if key == "invalid":
-            print(" | Invalid time stamps: ....... %s" % (dict_[key]))
-
-    #      0123456789012345678901234567890
-    print(" | Number of gaps: ............ %i" % sp.count_gaps(maps))
-
-    if sp.is_time_absolute():
-        gran = tgis.compute_absolute_time_granularity(maps)
-    else:
-        gran = tgis.compute_relative_time_granularity(maps)
-    print(" | Granularity: ............... %s" % str(gran))
-
-    print(
-        " +-------------------- Topological relations ---------------------------------+"  # noqa: E501
-    )
-    dict_ = sp.count_temporal_relations(maps)
-
-    if dict_:
-        for key in dict_.keys():
-            if key == "equal":
-                #      0123456789012345678901234567890
-                print(" | Equal:...................... %s" % (dict_[key]))
-            if key == "during":
-                print(" | During: .................... %s" % (dict_[key]))
-            if key == "contains":
-                print(" | Contains: .................. %s" % (dict_[key]))
-            if key == "overlaps":
-                print(" | Overlaps: .................. %s" % (dict_[key]))
-            if key == "overlapped":
-                print(" | Overlapped: ................ %s" % (dict_[key]))
-            if key == "after":
-                print(" | After: ..................... %s" % (dict_[key]))
-            if key == "before":
-                print(" | Before: .................... %s" % (dict_[key]))
-            if key == "starts":
-                print(" | Starts: .................... %s" % (dict_[key]))
-            if key == "finishes":
-                print(" | Finishes: .................. %s" % (dict_[key]))
-            if key == "started":
-                print(" | Started: ................... %s" % (dict_[key]))
-            if key == "finished":
-                print(" | Finished: .................. %s" % (dict_[key]))
-            if key == "follows":
-                print(" | Follows: ................... %s" % (dict_[key]))
-            if key == "precedes":
-                print(" | Precedes: .................. %s" % (dict_[key]))
-    print(
-        "+----------------------------------------------------------------------------+"  # noqa: E501
-    )
+    print_temporal_topology(sp, maps, where)
+    print_relations(sp, maps)
 
 
 if __name__ == "__main__":
     options, flags = gs.parser()
+
     main()

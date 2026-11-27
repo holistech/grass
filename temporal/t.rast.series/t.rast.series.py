@@ -49,7 +49,7 @@
 # % description: Sort the maps by category
 # % required: no
 # % multiple: yes
-# % options: id, name, creator, mapset, creation_time, modification_time, start_time, end_time, north, south, west, east, min, max
+# % options: id,name,creator,mapset,creation_time,start_time,end_time,north,south,west,east,min,max
 # % answer: start_time
 # %end
 
@@ -108,25 +108,46 @@ def main():
     add_time = flags["t"]
     nulls = flags["n"]
 
-    # Check if number of methods and output maps matches
-    if "quantile" in method:
-        len_method = len(method.split(",")) - 1
-    else:
-        len_method = len(method.split(","))
-
-    if (len(list(filter(None, quantile.split(",")))) + len_method) != len(
-        output.split(",")
+    # Check if the numbers of methods, quantiles and output maps match
+    methods = method.split(",")
+    quantiles = list(filter(None, quantile.split(",")))
+    if len(methods) != len(output.split(",")) or methods.count("quantile") != len(
+        quantiles
     ):
         gs.fatal(_("Number requested methods and output maps do not match."))
+
+    # r.series pairs the values of quantile= with the methods by position, so
+    # a method that is not a quantile needs a placeholder value.
+    quantile_values = iter(quantiles)
+    quantile = ",".join(
+        next(quantile_values) if one_method == "quantile" else "0"
+        for one_method in methods
+    )
+    if not quantiles:
+        quantile = ""
 
     # Make sure the temporal database exists
     tgis.init()
 
     sp = tgis.open_old_stds(input, "strds")
 
-    rows = sp.get_registered_maps("id", where, order, None)
+    try:
+        rows = sp.get_registered_maps("id", where, order, None)
+    except tgis.SQLStatementError as error:
+        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
-    if rows:
+    # A warning, not an error, so that a script that computes possibly empty
+    # selections keeps running. It names the where condition when there is
+    # one, because the dataset itself may have maps.
+    if not rows and where:
+        gs.warning(
+            _(
+                "The where condition selects no map of space time raster dataset <{}>"
+            ).format(sp.get_id())
+        )
+    elif not rows:
+        gs.warning(_("Space time raster dataset <{}> is empty").format(sp.get_id()))
+    else:
         # Create the r.series input file
         filename = gs.tempfile(True)
         Path(filename).write_text("\n".join(str(row["id"]) for row in rows))
@@ -164,12 +185,13 @@ def main():
                 where=where, order=order, dbif=None
             )
             first_map = maps[0]
-            last_map = maps[-1]
-            start_a, end_a = first_map.get_temporal_extent_as_tuple()
-            start_b, end_b = last_map.get_temporal_extent_as_tuple()
-
-            if end_b is None:
-                end_b = start_b
+            # The extent of the result spans the selected maps, whatever
+            # their order.
+            temporal_extents = [m.get_temporal_extent_as_tuple() for m in maps]
+            start_a = min(start for start, _end in temporal_extents)
+            end_b = max(
+                end if end is not None else start for start, end in temporal_extents
+            )
 
             if first_map.is_time_absolute():
                 extent = tgis.AbsoluteTemporalExtent(start_time=start_a, end_time=end_b)

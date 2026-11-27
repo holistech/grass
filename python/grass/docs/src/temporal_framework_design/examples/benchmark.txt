@@ -1,0 +1,4 @@
+Selected rows: 50
+Selected map objects: 50
+Follows: 49
+Precedes: 49

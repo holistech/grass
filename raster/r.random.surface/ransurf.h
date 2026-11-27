@@ -2,6 +2,7 @@
 #ifndef __RANSURF_H__
 #define __RANSURF_H__
 
+#include <stdint.h>
 #include <stdio.h>
 #include <math.h>
 #include <grass/raster.h>
@@ -44,7 +45,8 @@ extern int MapCount, FDM, Rs, Cs, Theory;
 extern CELL *CellBuffer;
 extern FILTER *AllFilters, Filter;
 extern CATINFO CatInfo;
-extern int *Seeds, Seed, NumSeeds, Low, High, NumMaps, NumFilters, OutFD;
+extern int64_t SeedValue;
+extern int SeedGiven, NumSeeds, Low, High, NumMaps, NumFilters, OutFD;
 extern char Buf[240], **OutNames, *TheoryName, *Mapset;
 extern struct Flag *Uniform;
 

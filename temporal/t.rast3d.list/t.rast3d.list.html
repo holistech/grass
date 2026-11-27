@@ -1,20 +1,1349 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast3d.list</em> provides the same functionality as
-<a href="t.rast.list.html">t.rast.list</a>, the only difference is the
-3D raster map layer metadata. Please refer to the manual page of
-<a href="t.rast.list.html">t.rast.list</a>.
+<em>t.rast3d.list</em> lists the 3D raster maps that are registered in a space time
+3D raster dataset, with the metadata that the temporal database holds for each
+map. It reads the temporal database; the maps themselves are not opened. The
+listing is the usual step after <em><a href="t.info.html">t.info</a></em> has shown the dataset as
+a whole and before a tool such as the map algebra works on its maps. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. The tool is the counterpart of <em><a href="t.rast.list.html">t.rast.list</a></em> for
+3D raster maps, with the same options, formats and methods; the differences are
+the columns of the volume (see below), the flag <b>-s</b> instead of <b>-u</b>, and
+the method <code>cols</code> instead of <code>list</code>. Space time vector datasets have their own
+tool, <em><a href="t.vect.list.html">t.vect.list</a></em>, and <em><a href="t.list.html">t.list</a></em> lists the
+datasets themselves.
+
+<h3>Select the maps</h3>
+
+The option <b>input</b> names the space time 3D raster dataset. The option
+<b>where</b> takes an SQL condition on the columns of the registered maps, such
+as <code>max &gt; 5</code>, <code>name = 'temperature_profile_2020_01'</code> or
+<code>start_time &gt;= '2020-03-01'</code>. Times are
+compared as text, so a time with a clock part needs the whole text:
+<code>start_time = '2020-03-01'</code> selects nothing, because the stored value is
+<code>2020-03-01 00:00:00</code>. Use <code>&gt;=</code> and <code>&lt;</code> for a day, or <code>name</code> for a single map.
+The function <code>strftime()</code> of SQLite selects recurring times, such as one day of
+the month or one month of the year. With the methods <code>delta</code>, <code>deltagaps</code> and
+<code>gran</code>, the condition selects the maps before the lengths and distances are
+counted, so the distances start at 0 with the first selected map.
+
+<h3>Columns and order</h3>
+
+The option <b>columns</b> chooses the columns that are printed for each map,
+separated by commas. The columns are:
+
+<ul>
+<li><code>id</code>, the name of the map with its mapset, such as
+<code>temperature_profile_2020_01@t_rast3d_list</code>; <code>name</code> and <code>mapset</code>, the two
+parts of it;</li>
+<li><code>temporal_type</code>, <code>absolute</code> or <code>relative</code>;</li>
+<li><code>start_time</code> and <code>end_time</code>, the time of the map. The end time of a map
+registered as a time instant is <code>None</code>. With relative time, they are numbers
+in the unit of the dataset, printed without the unit;</li>
+<li><code>creator</code> and <code>creation_time</code>, the user who created the entry of the map in
+the temporal database and the time of its creation;</li>
+<li><code>north</code>, <code>south</code>, <code>west</code> and <code>east</code>, the horizontal extent of the map;
+<code>nsres</code> and <code>ewres</code>, its horizontal cell sizes;</li>
+<li><code>tbres</code>, the vertical resolution, which is the thickness of one layer;
+<code>depths</code>, the number of layers; <code>cols</code> and <code>rows</code>, the number of columns and
+rows of one layer; <code>number_of_cells</code>, the number of cells of the whole map,
+which is <code>cols * rows * depths</code>. The vertical extent of the map is the
+number of layers times their thickness;</li>
+<li><code>min</code> and <code>max</code>, the smallest and the largest value of the map, as stored in
+the temporal database;</li>
+<li><code>interval_length</code> and <code>distance_from_begin</code>, the length of the time interval
+of the map and the distance of its start from the start of the first listed
+map. They exist for the methods <code>delta</code>, <code>deltagaps</code> and <code>gran</code> only (see
+below). With absolute time they are numbers of days, with relative time
+numbers of the time unit of the dataset.</li>
+</ul>
+
+<p>
+The option <b>order</b> sorts the maps by one or more columns, separated by
+commas; the possible columns are those of the list above up to <code>max</code>. The
+default is <code>start_time</code>. The order is ascending, and the option takes names of
+columns only, no sort direction. The option works with the methods <code>cols</code> and
+<code>comma</code> only.
+
+<h3>Methods</h3>
+
+The option <b>method</b> chooses what is listed. The default is <code>cols</code>.
+
+<ul>
+<li><code>cols</code> prints one line per registered map with the columns of <b>columns</b>.
+Without <b>columns</b>, these are <code>name</code>, <code>mapset</code>, <code>start_time</code> and
+<code>end_time</code>; with <code>format=line</code>, the column <code>id</code>. It supports all columns
+except <code>interval_length</code> and <code>distance_from_begin</code>, and <b>order</b> applies to
+it.</li>
+<li><code>delta</code> prints the maps ordered by start time with the length of their
+intervals and their distance from the first map. Without <b>columns</b>, the
+columns are <code>id</code>, <code>name</code>, <code>mapset</code>, <code>start_time</code>, <code>end_time</code>,
+<code>interval_length</code> and <code>distance_from_begin</code>. The length of a time instant is
+<code>None</code>. <code>delta</code> supports only these columns.</li>
+<li><code>deltagaps</code> is <code>delta</code> with a line for every temporal gap. A gap is time
+that no map covers. A gap line has <code>None</code> as <code>id</code>, <code>name</code> and <code>mapset</code>; its
+times are the latest end of the maps before the gap and the start of the map
+after it, and its length is the length of the gap. Maps that follow each
+other directly leave no gap, and neither does a map that ends inside a longer
+one.</li>
+<li><code>gran</code> samples the maps by a granule and prints one line per granule, with the
+columns of <code>delta</code>. The times and the length are those of the granule, not of
+the map, so a map that is longer than the granule is listed once for each
+granule it covers. A granule without a map has <code>None</code> as <code>id</code>, <code>name</code> and
+<code>mapset</code>. When more than one map meets a granule, the line names the map with
+the earliest start of the first of these groups that is not empty: maps that
+are equal to the granule, maps that contain it, maps that start inside it and
+end after it, maps that start before it and end inside it, and maps that lie
+inside it.</li>
+<li><code>comma</code> is the old name of <code>cols</code> with <code>format=line</code>: it prints the values of
+the chosen column in one line, the ids without <b>columns</b>. Prefer the option
+<b>format</b>.</li>
+</ul>
+
+<p>
+The option <b>granule</b> is the granule of the method <code>gran</code>. For absolute time it
+is a text with a number and a time unit, such as <code>"2 months"</code>. For relative time
+it is a whole number of at least 1 in the time unit of the dataset, also
+followed by this unit: <code>12</code>, <code>"12 hours"</code> and <code>"12 hour"</code> are the same granule
+of a dataset in hours. Another unit, such as <code>"1 day"</code> for a dataset in hours,
+is refused with the error "Invalid granule". An absolute granule whose number is
+below 1, such as <code>"0 days"</code>, is refused with the error "The granularity '0 days'
+must be positive". Without <b>granule</b>, the granularity of the dataset is used.
+The first granule starts with the first map, and the granules reach the latest
+end of the maps, also when a shorter map starts last. Each later start is
+counted in whole granules from the start of the dataset when the first selected
+map lies whole granules after it, otherwise from the first selected map; this
+matters when <b>where</b> selects later maps only. A step of months or years that
+ends behind the last day of a shorter month ends on that day: with a granule of
+one month and a first map from 31 January, the granules start on 31 January, 28
+February, 31 March and 30 April. Such a series has the granularity one month
+(see <em><a href="t.info.html">t.info</a></em>), so <code>gran</code> without <b>granule</b> samples it by months
+as well. The other methods ignore <b>granule</b>.
+
+<h3>Output</h3>
+
+The option <b>format</b> chooses the form of the output:
+
+<ul>
+<li><code>plain</code> (the default) prints one line per map with the columns separated by
+a vertical bar <code>|</code>, and the column names as the first line;</li>
+<li><code>line</code> prints the values of one column in one line, separated by commas. It
+takes one column only; the default column is <code>id</code>, so the line is a list of
+maps that other tools accept as input;</li>
+<li><code>csv</code> prints comma separated values, with the column names as the first
+line. Text is enclosed in double quotes and numbers are not. A missing value
+(<code>None</code>) is an empty text;</li>
+<li><code>json</code> prints an object with the key <code>data</code>, a list with one object per
+map, and the key <code>metadata</code> with the list <code>column_names</code>. A missing value is
+<code>null</code>, numbers are numbers, and times with absolute time are text;</li>
+<li><code>yaml</code> prints the same structure as YAML. It needs the PyYAML package.</li>
+</ul>
+
+<p>
+The flag <b>-s</b> suppresses the line with the column names in the formats
+<code>plain</code> and <code>csv</code>. The formats <code>json</code> and <code>yaml</code> always name the columns and
+refuse <b>-s</b>.
+
+<p>
+The option <b>separator</b> replaces the separator of the formats <code>plain</code>, <code>csv</code>
+and <code>line</code>. It is a single character or a name such as <code>pipe</code>, <code>comma</code> or
+<code>tab</code>. The format <code>csv</code> accepts one character only, and <code>json</code> and <code>yaml</code>
+refuse <b>separator</b>. The option <b>output</b> writes the listing to a file
+instead of the standard output.
+
+<h2>NOTES</h2>
+
+A column name that is not in the list above is refused by the parser, which
+names the column.
+
+<p>
+If no map is listed, the result depends on the method and the format. The
+methods <code>cols</code> and <code>comma</code> stop with the error "Nothing found in the database
+for space time dataset <code>&lt;name@mapset&gt;</code> (type: str3ds)", followed by "Dataset is
+empty" for a dataset without maps and by "Dataset is empty or where clause is
+too constrained or incorrect" when <b>where</b> selects nothing. With the format
+<code>json</code>, <code>data</code> is an empty list. The methods <code>delta</code> and <code>deltagaps</code> print the
+line with the column names only, both for a dataset without maps and when
+<b>where</b> selects nothing. The method <code>gran</code> does the same when <b>where</b>
+selects nothing in a dataset that has a granularity, but stops for a dataset
+without maps with the error "Nothing found in the database for space time
+dataset <code>&lt;name@mapset&gt;</code> (type: str3ds)", followed by "Dataset is empty". A
+dataset with a single map that is a time instant has no granularity, and <code>gran</code>
+without <b>granule</b> stops for it with the error that the dataset has no
+granularity, whatever <b>where</b> selects. Give a <b>granule</b>, such as <code>"1 day"</code>,
+or use <code>delta</code>.
+
+<p>
+With relative time, the times are numbers of the time unit of the dataset,
+printed without the unit, as the dataset <code>runoff</code> in the fourth example
+shows. The method <code>gran</code> works with relative time with and without
+<b>granule</b>, as the example "Sample the maps by a granule" shows.
+
+<p>
+The option <b>output</b> takes the name of a file; the name <code>-</code> is the standard
+output, as the last block of the "Choose the output format" example shows.
+
+<p>
+<em>t.rast3d.list</em> only reads, so it works on a dataset of another mapset as well.
+The name with the mapset (<code>input=temperature_profile@t_rast3d_list</code>) selects
+it; a name without a mapset is searched in the mapsets of the search path (see
+<em><a href="g.mapsets.html">g.mapsets</a></em>). The last example shows this.
+
+<p>
+Combinations that cannot work are refused with a message that names the
+options. <b>order</b> is refused with <code>delta</code>, <code>deltagaps</code> and <code>gran</code>. These
+three methods list only the columns of <code>delta</code>, so a column of the temporal
+database is refused with them, and <code>interval_length</code> and <code>distance_from_begin</code>
+are refused with <code>cols</code>. More than one column is refused with <code>format=line</code>,
+<b>-s</b> and <b>separator</b> with <code>json</code> and <code>yaml</code>, and a separator of more than
+one character with <code>csv</code>. A granule of absolute time without a time unit
+(<code>"2"</code>) or with an unknown unit (<code>"3 foo"</code>) is refused with the error "Wrong
+granularity".
+
+<h2>EXAMPLES</h2>
+
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_rast3d_list</code> and sets the computational region
+to North Carolina with cells of 1 km, in the plane and in the vertical (the
+option <b>res3</b>), and three layers of 1000 m from 0 to 3000 m; the later
+examples work in this mapset and region, except the last, which creates a
+second mapset with the same region. The examples about times, gaps and
+granules use 3D maps with small constant values, so that the results can be
+checked by hand.
+
+<h3>List the maps of a dataset</h3>
+
+The dataset <code>temperature_profile</code> has twelve 3D raster maps of the monthly
+mean air temperature in 2020, in degrees Celsius rounded to tenths. They are
+generated from the height <code>z()</code> of the cell: 16.5 degrees at sea level and the
+northing 160 km, an annual cycle of plus and minus 10.5 degrees with its
+maximum in July, 6.5 degrees less for every 1000 m of height, and 1 degree
+more for every 100 km to the south. Each map is an interval of one month. The
+region has 839 columns, 335 rows and 3 layers of a thickness of 1000 m, so
+each map has 843,195 cells. A space time 3D raster dataset has the type
+<code>str3ds</code>, and its maps are registered with the type <code>raster_3d</code>.
+
+<p>
+The first block lists the maps with the default columns. The second block adds
+the flag <b>-s</b>, which suppresses the line with the column names, and names the
+default method <code>cols</code>. The third block names the columns, among them the
+smallest and largest value of each map: January is the coldest month, July the
+warmest. The fourth block lists the columns of the volume of the first map: the
+extent in the plane, the cell sizes, the thickness <code>tbres</code> of a layer and the
+number of layers <code>depths</code>.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.mapset -c mapset=t_rast3d_list
+g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
+for month in $(seq 12); do
+    echo "temperature_profile_2020_$(printf %02d $month) = round((16.5" \
+        "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * z()" \
+        "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+done | r3.mapcalc file=-
+t.create type=str3ds output=temperature_profile title="Air temperature" \
+    description="Monthly mean air temperature 2020 in degree Celsius, 0 to 3000 m"
+t.register -i type=raster_3d input=temperature_profile \
+    maps=$(g.list type=raster_3d pattern="temperature_profile_*" mapset=. separator=comma) \
+    start=2020-01-01 increment="1 month"
+t.rast3d.list input=temperature_profile
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+temperature_profile_2020_01|t_rast3d_list|2020-01-01 00:00:00|2020-02-01 00:00:00
+temperature_profile_2020_02|t_rast3d_list|2020-02-01 00:00:00|2020-03-01 00:00:00
+temperature_profile_2020_03|t_rast3d_list|2020-03-01 00:00:00|2020-04-01 00:00:00
+temperature_profile_2020_04|t_rast3d_list|2020-04-01 00:00:00|2020-05-01 00:00:00
+temperature_profile_2020_05|t_rast3d_list|2020-05-01 00:00:00|2020-06-01 00:00:00
+temperature_profile_2020_06|t_rast3d_list|2020-06-01 00:00:00|2020-07-01 00:00:00
+temperature_profile_2020_07|t_rast3d_list|2020-07-01 00:00:00|2020-08-01 00:00:00
+temperature_profile_2020_08|t_rast3d_list|2020-08-01 00:00:00|2020-09-01 00:00:00
+temperature_profile_2020_09|t_rast3d_list|2020-09-01 00:00:00|2020-10-01 00:00:00
+temperature_profile_2020_10|t_rast3d_list|2020-10-01 00:00:00|2020-11-01 00:00:00
+temperature_profile_2020_11|t_rast3d_list|2020-11-01 00:00:00|2020-12-01 00:00:00
+temperature_profile_2020_12|t_rast3d_list|2020-12-01 00:00:00|2021-01-01 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list -s input=temperature_profile method=cols
+</pre></div>
+
+<div class="code"><pre>
+temperature_profile_2020_01|t_rast3d_list|2020-01-01 00:00:00|2020-02-01 00:00:00
+temperature_profile_2020_02|t_rast3d_list|2020-02-01 00:00:00|2020-03-01 00:00:00
+temperature_profile_2020_03|t_rast3d_list|2020-03-01 00:00:00|2020-04-01 00:00:00
+temperature_profile_2020_04|t_rast3d_list|2020-04-01 00:00:00|2020-05-01 00:00:00
+temperature_profile_2020_05|t_rast3d_list|2020-05-01 00:00:00|2020-06-01 00:00:00
+temperature_profile_2020_06|t_rast3d_list|2020-06-01 00:00:00|2020-07-01 00:00:00
+temperature_profile_2020_07|t_rast3d_list|2020-07-01 00:00:00|2020-08-01 00:00:00
+temperature_profile_2020_08|t_rast3d_list|2020-08-01 00:00:00|2020-09-01 00:00:00
+temperature_profile_2020_09|t_rast3d_list|2020-09-01 00:00:00|2020-10-01 00:00:00
+temperature_profile_2020_10|t_rast3d_list|2020-10-01 00:00:00|2020-11-01 00:00:00
+temperature_profile_2020_11|t_rast3d_list|2020-11-01 00:00:00|2020-12-01 00:00:00
+temperature_profile_2020_12|t_rast3d_list|2020-12-01 00:00:00|2021-01-01 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile columns=name,start_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|min|max
+temperature_profile_2020_01|2020-01-01 00:00:00|-11.8|4.6
+temperature_profile_2020_02|2020-02-01 00:00:00|-10.9|5.4
+temperature_profile_2020_03|2020-03-01 00:00:00|-7.5|8.8
+temperature_profile_2020_04|2020-04-01 00:00:00|-2.4|13.9
+temperature_profile_2020_05|2020-05-01 00:00:00|2.9|19.3
+temperature_profile_2020_06|2020-06-01 00:00:00|7.2|23.5
+temperature_profile_2020_07|2020-07-01 00:00:00|9.1|25.4
+temperature_profile_2020_08|2020-08-01 00:00:00|8.3|24.6
+temperature_profile_2020_09|2020-09-01 00:00:00|4.8|21.2
+temperature_profile_2020_10|2020-10-01 00:00:00|-0.2|16.1
+temperature_profile_2020_11|2020-11-01 00:00:00|-5.6|10.7
+temperature_profile_2020_12|2020-12-01 00:00:00|-9.8|6.5
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile \
+    where="name = 'temperature_profile_2020_01'" \
+    columns=id,name,mapset,temporal_type,start_time,end_time,north,south,west,east,nsres,ewres,tbres,cols,rows,depths,number_of_cells,min,max
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|temporal_type|start_time|end_time|north|south|west|east|nsres|ewres|tbres|cols|rows|depths|number_of_cells|min|max
+temperature_profile_2020_01@t_rast3d_list|temperature_profile_2020_01|t_rast3d_list|absolute|2020-01-01 00:00:00|2020-02-01 00:00:00|319000.0|-16000.0|124000.0|963000.0|1000.0|1000.0|1000.0|839|335|3|843195|-11.8|4.6
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_mapset(flags="c", mapset="t_rast3d_list")
+tools.g_region(
+    raster="elev_state_500m", res=1000, res3=1000, t=3000, b=0, tbres=1000, flags="a"
+)
+months = range(1, 13)
+tools.r3_mapcalc(
+    expression="\n".join(
+        f"temperature_profile_2020_{month:02d} = round((16.5"
+        f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * z()"
+        " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+        for month in months
+    )
+)
+tools.t_create(
+    type="str3ds",
+    output="temperature_profile",
+    title="Air temperature",
+    description="Monthly mean air temperature 2020 in degree Celsius, 0 to 3000 m",
+)
+tools.t_register(
+    type="raster_3d",
+    input="temperature_profile",
+    maps=",".join(f"temperature_profile_2020_{month:02d}" for month in months),
+    start="2020-01-01",
+    increment="1 month",
+    flags="i",
+)
+print(tools.t_rast3d_list(input="temperature_profile").text)
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+temperature_profile_2020_01|t_rast3d_list|2020-01-01 00:00:00|2020-02-01 00:00:00
+temperature_profile_2020_02|t_rast3d_list|2020-02-01 00:00:00|2020-03-01 00:00:00
+temperature_profile_2020_03|t_rast3d_list|2020-03-01 00:00:00|2020-04-01 00:00:00
+temperature_profile_2020_04|t_rast3d_list|2020-04-01 00:00:00|2020-05-01 00:00:00
+temperature_profile_2020_05|t_rast3d_list|2020-05-01 00:00:00|2020-06-01 00:00:00
+temperature_profile_2020_06|t_rast3d_list|2020-06-01 00:00:00|2020-07-01 00:00:00
+temperature_profile_2020_07|t_rast3d_list|2020-07-01 00:00:00|2020-08-01 00:00:00
+temperature_profile_2020_08|t_rast3d_list|2020-08-01 00:00:00|2020-09-01 00:00:00
+temperature_profile_2020_09|t_rast3d_list|2020-09-01 00:00:00|2020-10-01 00:00:00
+temperature_profile_2020_10|t_rast3d_list|2020-10-01 00:00:00|2020-11-01 00:00:00
+temperature_profile_2020_11|t_rast3d_list|2020-11-01 00:00:00|2020-12-01 00:00:00
+temperature_profile_2020_12|t_rast3d_list|2020-12-01 00:00:00|2021-01-01 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(input="temperature_profile", method="cols", flags="s")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+temperature_profile_2020_01|t_rast3d_list|2020-01-01 00:00:00|2020-02-01 00:00:00
+temperature_profile_2020_02|t_rast3d_list|2020-02-01 00:00:00|2020-03-01 00:00:00
+temperature_profile_2020_03|t_rast3d_list|2020-03-01 00:00:00|2020-04-01 00:00:00
+temperature_profile_2020_04|t_rast3d_list|2020-04-01 00:00:00|2020-05-01 00:00:00
+temperature_profile_2020_05|t_rast3d_list|2020-05-01 00:00:00|2020-06-01 00:00:00
+temperature_profile_2020_06|t_rast3d_list|2020-06-01 00:00:00|2020-07-01 00:00:00
+temperature_profile_2020_07|t_rast3d_list|2020-07-01 00:00:00|2020-08-01 00:00:00
+temperature_profile_2020_08|t_rast3d_list|2020-08-01 00:00:00|2020-09-01 00:00:00
+temperature_profile_2020_09|t_rast3d_list|2020-09-01 00:00:00|2020-10-01 00:00:00
+temperature_profile_2020_10|t_rast3d_list|2020-10-01 00:00:00|2020-11-01 00:00:00
+temperature_profile_2020_11|t_rast3d_list|2020-11-01 00:00:00|2020-12-01 00:00:00
+temperature_profile_2020_12|t_rast3d_list|2020-12-01 00:00:00|2021-01-01 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="temperature_profile", columns="name,start_time,min,max"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|min|max
+temperature_profile_2020_01|2020-01-01 00:00:00|-11.8|4.6
+temperature_profile_2020_02|2020-02-01 00:00:00|-10.9|5.4
+temperature_profile_2020_03|2020-03-01 00:00:00|-7.5|8.8
+temperature_profile_2020_04|2020-04-01 00:00:00|-2.4|13.9
+temperature_profile_2020_05|2020-05-01 00:00:00|2.9|19.3
+temperature_profile_2020_06|2020-06-01 00:00:00|7.2|23.5
+temperature_profile_2020_07|2020-07-01 00:00:00|9.1|25.4
+temperature_profile_2020_08|2020-08-01 00:00:00|8.3|24.6
+temperature_profile_2020_09|2020-09-01 00:00:00|4.8|21.2
+temperature_profile_2020_10|2020-10-01 00:00:00|-0.2|16.1
+temperature_profile_2020_11|2020-11-01 00:00:00|-5.6|10.7
+temperature_profile_2020_12|2020-12-01 00:00:00|-9.8|6.5
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="temperature_profile",
+    where="name = 'temperature_profile_2020_01'",
+    columns=(
+        "id,name,mapset,temporal_type,start_time,end_time,north,south,west,east,"
+        "nsres,ewres,tbres,cols,rows,depths,number_of_cells,min,max"
+    ),
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|temporal_type|start_time|end_time|north|south|west|east|nsres|ewres|tbres|cols|rows|depths|number_of_cells|min|max
+temperature_profile_2020_01@t_rast3d_list|temperature_profile_2020_01|t_rast3d_list|absolute|2020-01-01 00:00:00|2020-02-01 00:00:00|319000.0|-16000.0|124000.0|963000.0|1000.0|1000.0|1000.0|839|335|3|843195|-11.8|4.6
+</pre></div>
+
+<h3>Select and sort the maps</h3>
+
+The maps of <code>temperature_profile</code> are sorted by start time. The option
+<b>order</b> sorts by another column; the first block sorts by <code>max</code>, so the
+coldest months come first: January, February and December.
+
+<p>
+The option <b>where</b> selects the maps. The second block selects the maps that
+start from 1 March on and before 1 May, so March and April. The third block
+combines a condition on the smallest value with <b>order</b>: it keeps the months
+in which no cell is colder than 3 degrees: June to September, sorted by <code>max</code>,
+so September comes first. The fourth block uses <code>strftime()</code>
+to select the maps that start in January or July, a recurring selection that
+works the same way for every year.
+
+<p>
+The last block shows a trap: a time compared with <code>=</code> must be the whole text
+<code>2020-03-01 00:00:00</code>, and the short form selects no map. The format <code>json</code>
+shows the empty result, <code>data</code> is an empty list; the formats <code>plain</code> and
+<code>line</code> stop with an error here.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile columns=name,max order=max
+</pre></div>
+
+<div class="code"><pre>
+name|max
+temperature_profile_2020_01|4.6
+temperature_profile_2020_02|5.4
+temperature_profile_2020_12|6.5
+temperature_profile_2020_03|8.8
+temperature_profile_2020_11|10.7
+temperature_profile_2020_04|13.9
+temperature_profile_2020_10|16.1
+temperature_profile_2020_05|19.3
+temperature_profile_2020_09|21.2
+temperature_profile_2020_06|23.5
+temperature_profile_2020_08|24.6
+temperature_profile_2020_07|25.4
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile columns=name,start_time \
+    where="start_time &gt;= '2020-03-01' and start_time &lt; '2020-05-01'"
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+temperature_profile_2020_03|2020-03-01 00:00:00
+temperature_profile_2020_04|2020-04-01 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile columns=name,min,max order=max \
+    where="min &gt; 3"
+</pre></div>
+
+<div class="code"><pre>
+name|min|max
+temperature_profile_2020_09|4.8|21.2
+temperature_profile_2020_06|7.2|23.5
+temperature_profile_2020_08|8.3|24.6
+temperature_profile_2020_07|9.1|25.4
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile columns=name,start_time \
+    where="strftime('%m', start_time) in ('01', '07')"
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+temperature_profile_2020_01|2020-01-01 00:00:00
+temperature_profile_2020_07|2020-07-01 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile columns=name format=json \
+    where="start_time = '2020-03-01'"
+echo
+</pre></div>
+
+<div class="code"><pre>
+{"data": [], "metadata": {"column_names": ["name"]}}
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="temperature_profile", columns="name,max", order="max"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|max
+temperature_profile_2020_01|4.6
+temperature_profile_2020_02|5.4
+temperature_profile_2020_12|6.5
+temperature_profile_2020_03|8.8
+temperature_profile_2020_11|10.7
+temperature_profile_2020_04|13.9
+temperature_profile_2020_10|16.1
+temperature_profile_2020_05|19.3
+temperature_profile_2020_09|21.2
+temperature_profile_2020_06|23.5
+temperature_profile_2020_08|24.6
+temperature_profile_2020_07|25.4
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="temperature_profile",
+    columns="name,start_time",
+    where="start_time &gt;= '2020-03-01' and start_time &lt; '2020-05-01'",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+temperature_profile_2020_03|2020-03-01 00:00:00
+temperature_profile_2020_04|2020-04-01 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="temperature_profile",
+    columns="name,min,max",
+    order="max",
+    where="min &gt; 3",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|min|max
+temperature_profile_2020_09|4.8|21.2
+temperature_profile_2020_06|7.2|23.5
+temperature_profile_2020_08|8.3|24.6
+temperature_profile_2020_07|9.1|25.4
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="temperature_profile",
+    columns="name,start_time",
+    where="strftime('%m', start_time) in ('01', '07')",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+temperature_profile_2020_01|2020-01-01 00:00:00
+temperature_profile_2020_07|2020-07-01 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="temperature_profile",
+    columns="name",
+    format="json",
+    where="start_time = '2020-03-01'",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+{"data": [], "metadata": {"column_names": ["name"]}}
+</pre></div>
+
+<h3>Choose the output format</h3>
+
+All blocks list the dataset <code>temperature_profile</code>; the blocks that print the
+values of all twelve maps name the columns, so that the lines stay short. The
+first block prints the maps as a list of ids in one line, the form that other
+tools accept as input; the second block does the same with the old method name
+<code>comma</code>; the third block prints the names only, with another separator. The
+fourth and fifth block print CSV with and without the line of column names;
+text is quoted and numbers are not. The sixth block replaces the separator of
+the plain format. The seventh block prints JSON, which the Python tab reads
+from <code>result.json</code> and prints name and <code>max</code> of each map. The eighth block
+writes the listing to a file and prints the file. The ninth block prints the
+listing with <code>output=-</code>, the standard output.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile format=line
+</pre></div>
+
+<div class="code"><pre>
+temperature_profile_2020_01@t_rast3d_list,temperature_profile_2020_02@t_rast3d_list,temperature_profile_2020_03@t_rast3d_list,temperature_profile_2020_04@t_rast3d_list,temperature_profile_2020_05@t_rast3d_list,temperature_profile_2020_06@t_rast3d_list,temperature_profile_2020_07@t_rast3d_list,temperature_profile_2020_08@t_rast3d_list,temperature_profile_2020_09@t_rast3d_list,temperature_profile_2020_10@t_rast3d_list,temperature_profile_2020_11@t_rast3d_list,temperature_profile_2020_12@t_rast3d_list
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile method=comma
+</pre></div>
+
+<div class="code"><pre>
+temperature_profile_2020_01@t_rast3d_list,temperature_profile_2020_02@t_rast3d_list,temperature_profile_2020_03@t_rast3d_list,temperature_profile_2020_04@t_rast3d_list,temperature_profile_2020_05@t_rast3d_list,temperature_profile_2020_06@t_rast3d_list,temperature_profile_2020_07@t_rast3d_list,temperature_profile_2020_08@t_rast3d_list,temperature_profile_2020_09@t_rast3d_list,temperature_profile_2020_10@t_rast3d_list,temperature_profile_2020_11@t_rast3d_list,temperature_profile_2020_12@t_rast3d_list
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile format=line columns=name separator=" | "
+</pre></div>
+
+<div class="code"><pre>
+temperature_profile_2020_01 | temperature_profile_2020_02 | temperature_profile_2020_03 | temperature_profile_2020_04 | temperature_profile_2020_05 | temperature_profile_2020_06 | temperature_profile_2020_07 | temperature_profile_2020_08 | temperature_profile_2020_09 | temperature_profile_2020_10 | temperature_profile_2020_11 | temperature_profile_2020_12
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile format=csv columns=name,min,max
+</pre></div>
+
+<div class="code"><pre>
+"name","min","max"
+"temperature_profile_2020_01",-11.8,4.6
+"temperature_profile_2020_02",-10.9,5.4
+"temperature_profile_2020_03",-7.5,8.8
+"temperature_profile_2020_04",-2.4,13.9
+"temperature_profile_2020_05",2.9,19.3
+"temperature_profile_2020_06",7.2,23.5
+"temperature_profile_2020_07",9.1,25.4
+"temperature_profile_2020_08",8.3,24.6
+"temperature_profile_2020_09",4.8,21.2
+"temperature_profile_2020_10",-0.2,16.1
+"temperature_profile_2020_11",-5.6,10.7
+"temperature_profile_2020_12",-9.8,6.5
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list -s input=temperature_profile format=csv columns=name,min,max
+</pre></div>
+
+<div class="code"><pre>
+"temperature_profile_2020_01",-11.8,4.6
+"temperature_profile_2020_02",-10.9,5.4
+"temperature_profile_2020_03",-7.5,8.8
+"temperature_profile_2020_04",-2.4,13.9
+"temperature_profile_2020_05",2.9,19.3
+"temperature_profile_2020_06",7.2,23.5
+"temperature_profile_2020_07",9.1,25.4
+"temperature_profile_2020_08",8.3,24.6
+"temperature_profile_2020_09",4.8,21.2
+"temperature_profile_2020_10",-0.2,16.1
+"temperature_profile_2020_11",-5.6,10.7
+"temperature_profile_2020_12",-9.8,6.5
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile columns=name,min,max separator=";"
+</pre></div>
+
+<div class="code"><pre>
+name;min;max
+temperature_profile_2020_01;-11.8;4.6
+temperature_profile_2020_02;-10.9;5.4
+temperature_profile_2020_03;-7.5;8.8
+temperature_profile_2020_04;-2.4;13.9
+temperature_profile_2020_05;2.9;19.3
+temperature_profile_2020_06;7.2;23.5
+temperature_profile_2020_07;9.1;25.4
+temperature_profile_2020_08;8.3;24.6
+temperature_profile_2020_09;4.8;21.2
+temperature_profile_2020_10;-0.2;16.1
+temperature_profile_2020_11;-5.6;10.7
+temperature_profile_2020_12;-9.8;6.5
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile columns=name,max format=json
+echo
+</pre></div>
+
+<div class="code"><pre>
+{"data": [{"name": "temperature_profile_2020_01", "max": 4.6}, {"name": "temperature_profile_2020_02", "max": 5.4}, {"name": "temperature_profile_2020_03", "max": 8.8}, {"name": "temperature_profile_2020_04", "max": 13.9}, {"name": "temperature_profile_2020_05", "max": 19.3}, {"name": "temperature_profile_2020_06", "max": 23.5}, {"name": "temperature_profile_2020_07", "max": 25.4}, {"name": "temperature_profile_2020_08", "max": 24.6}, {"name": "temperature_profile_2020_09", "max": 21.2}, {"name": "temperature_profile_2020_10", "max": 16.1}, {"name": "temperature_profile_2020_11", "max": 10.7}, {"name": "temperature_profile_2020_12", "max": 6.5}], "metadata": {"column_names": ["name", "max"]}}
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile columns=name,max output=maxima.txt
+cat maxima.txt
+</pre></div>
+
+<div class="code"><pre>
+name|max
+temperature_profile_2020_01|4.6
+temperature_profile_2020_02|5.4
+temperature_profile_2020_03|8.8
+temperature_profile_2020_04|13.9
+temperature_profile_2020_05|19.3
+temperature_profile_2020_06|23.5
+temperature_profile_2020_07|25.4
+temperature_profile_2020_08|24.6
+temperature_profile_2020_09|21.2
+temperature_profile_2020_10|16.1
+temperature_profile_2020_11|10.7
+temperature_profile_2020_12|6.5
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=temperature_profile columns=name output=-
+</pre></div>
+
+<div class="code"><pre>
+name
+temperature_profile_2020_01
+temperature_profile_2020_02
+temperature_profile_2020_03
+temperature_profile_2020_04
+temperature_profile_2020_05
+temperature_profile_2020_06
+temperature_profile_2020_07
+temperature_profile_2020_08
+temperature_profile_2020_09
+temperature_profile_2020_10
+temperature_profile_2020_11
+temperature_profile_2020_12
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from pathlib import Path
+
+print(tools.t_rast3d_list(input="temperature_profile", format="line").text)
+</pre></div>
+
+<div class="code"><pre>
+temperature_profile_2020_01@t_rast3d_list,temperature_profile_2020_02@t_rast3d_list,temperature_profile_2020_03@t_rast3d_list,temperature_profile_2020_04@t_rast3d_list,temperature_profile_2020_05@t_rast3d_list,temperature_profile_2020_06@t_rast3d_list,temperature_profile_2020_07@t_rast3d_list,temperature_profile_2020_08@t_rast3d_list,temperature_profile_2020_09@t_rast3d_list,temperature_profile_2020_10@t_rast3d_list,temperature_profile_2020_11@t_rast3d_list,temperature_profile_2020_12@t_rast3d_list
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_rast3d_list(input="temperature_profile", method="comma").text)
+</pre></div>
+
+<div class="code"><pre>
+temperature_profile_2020_01@t_rast3d_list,temperature_profile_2020_02@t_rast3d_list,temperature_profile_2020_03@t_rast3d_list,temperature_profile_2020_04@t_rast3d_list,temperature_profile_2020_05@t_rast3d_list,temperature_profile_2020_06@t_rast3d_list,temperature_profile_2020_07@t_rast3d_list,temperature_profile_2020_08@t_rast3d_list,temperature_profile_2020_09@t_rast3d_list,temperature_profile_2020_10@t_rast3d_list,temperature_profile_2020_11@t_rast3d_list,temperature_profile_2020_12@t_rast3d_list
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="temperature_profile", format="line", columns="name", separator=" | "
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+temperature_profile_2020_01 | temperature_profile_2020_02 | temperature_profile_2020_03 | temperature_profile_2020_04 | temperature_profile_2020_05 | temperature_profile_2020_06 | temperature_profile_2020_07 | temperature_profile_2020_08 | temperature_profile_2020_09 | temperature_profile_2020_10 | temperature_profile_2020_11 | temperature_profile_2020_12
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="temperature_profile", format="csv", columns="name,min,max"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+"name","min","max"
+"temperature_profile_2020_01",-11.8,4.6
+"temperature_profile_2020_02",-10.9,5.4
+"temperature_profile_2020_03",-7.5,8.8
+"temperature_profile_2020_04",-2.4,13.9
+"temperature_profile_2020_05",2.9,19.3
+"temperature_profile_2020_06",7.2,23.5
+"temperature_profile_2020_07",9.1,25.4
+"temperature_profile_2020_08",8.3,24.6
+"temperature_profile_2020_09",4.8,21.2
+"temperature_profile_2020_10",-0.2,16.1
+"temperature_profile_2020_11",-5.6,10.7
+"temperature_profile_2020_12",-9.8,6.5
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="temperature_profile", format="csv", columns="name,min,max", flags="s"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+"temperature_profile_2020_01",-11.8,4.6
+"temperature_profile_2020_02",-10.9,5.4
+"temperature_profile_2020_03",-7.5,8.8
+"temperature_profile_2020_04",-2.4,13.9
+"temperature_profile_2020_05",2.9,19.3
+"temperature_profile_2020_06",7.2,23.5
+"temperature_profile_2020_07",9.1,25.4
+"temperature_profile_2020_08",8.3,24.6
+"temperature_profile_2020_09",4.8,21.2
+"temperature_profile_2020_10",-0.2,16.1
+"temperature_profile_2020_11",-5.6,10.7
+"temperature_profile_2020_12",-9.8,6.5
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="temperature_profile", columns="name,min,max", separator=";"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name;min;max
+temperature_profile_2020_01;-11.8;4.6
+temperature_profile_2020_02;-10.9;5.4
+temperature_profile_2020_03;-7.5;8.8
+temperature_profile_2020_04;-2.4;13.9
+temperature_profile_2020_05;2.9;19.3
+temperature_profile_2020_06;7.2;23.5
+temperature_profile_2020_07;9.1;25.4
+temperature_profile_2020_08;8.3;24.6
+temperature_profile_2020_09;4.8;21.2
+temperature_profile_2020_10;-0.2;16.1
+temperature_profile_2020_11;-5.6;10.7
+temperature_profile_2020_12;-9.8;6.5
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="temperature_profile", columns="name,max", format="json"
+)
+for item in result.json["data"]:
+    print(item["name"], item["max"])
+</pre></div>
+
+<div class="code"><pre>
+temperature_profile_2020_01 4.6
+temperature_profile_2020_02 5.4
+temperature_profile_2020_03 8.8
+temperature_profile_2020_04 13.9
+temperature_profile_2020_05 19.3
+temperature_profile_2020_06 23.5
+temperature_profile_2020_07 25.4
+temperature_profile_2020_08 24.6
+temperature_profile_2020_09 21.2
+temperature_profile_2020_10 16.1
+temperature_profile_2020_11 10.7
+temperature_profile_2020_12 6.5
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast3d_list(
+    input="temperature_profile", columns="name,max", output="maxima.txt"
+)
+print(Path("maxima.txt").read_text(), end="")
+</pre></div>
+
+<div class="code"><pre>
+name|max
+temperature_profile_2020_01|4.6
+temperature_profile_2020_02|5.4
+temperature_profile_2020_03|8.8
+temperature_profile_2020_04|13.9
+temperature_profile_2020_05|19.3
+temperature_profile_2020_06|23.5
+temperature_profile_2020_07|25.4
+temperature_profile_2020_08|24.6
+temperature_profile_2020_09|21.2
+temperature_profile_2020_10|16.1
+temperature_profile_2020_11|10.7
+temperature_profile_2020_12|6.5
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(input="temperature_profile", columns="name", output="-")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name
+temperature_profile_2020_01
+temperature_profile_2020_02
+temperature_profile_2020_03
+temperature_profile_2020_04
+temperature_profile_2020_05
+temperature_profile_2020_06
+temperature_profile_2020_07
+temperature_profile_2020_08
+temperature_profile_2020_09
+temperature_profile_2020_10
+temperature_profile_2020_11
+temperature_profile_2020_12
+</pre></div>
+
+<h3>Intervals, distances and gaps</h3>
+
+The dataset <code>rain</code> has two daily maps, registered with a start and an end:
+<code>rain_1</code> for 1 June 2026 and <code>rain_3</code> for 3 June, so 2 June is a gap. The maps
+hold the constants 4 and 2 mm in every cell. The method <code>delta</code> prints the
+length of each map and its distance from the first map in days; it skips the
+gap. The method <code>deltagaps</code> adds a line for the gap with <code>None</code> as <code>id</code>,
+<code>name</code> and <code>mapset</code>, and its length. The CSV form of this table shows <code>None</code> as
+an empty text.
+
+<p>
+The dataset <code>runoff</code> has relative time: three model steps of 6 hours, with the
+constants 1, 2 and 3 mm of runoff. Its times, lengths and distances are
+numbers of hours, printed without the unit.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r3.mapcalc expression="rain_1 = 4"
+r3.mapcalc expression="rain_3 = 2"
+t.create type=str3ds output=rain title="Rain" \
+    description="Daily rain with a gap"
+t.register type=raster_3d input=rain maps=rain_1 \
+    start=2026-06-01 end=2026-06-02
+t.register type=raster_3d input=rain maps=rain_3 \
+    start=2026-06-03 end=2026-06-04
+t.rast3d.list input=rain method=delta
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+rain_1@t_rast3d_list|rain_1|t_rast3d_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+rain_3@t_rast3d_list|rain_3|t_rast3d_list|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=rain method=deltagaps
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+rain_1@t_rast3d_list|rain_1|t_rast3d_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+rain_3@t_rast3d_list|rain_3|t_rast3d_list|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=rain method=deltagaps format=csv columns=id,interval_length
+</pre></div>
+
+<div class="code"><pre>
+"id","interval_length"
+"rain_1@t_rast3d_list",1.0
+"",1.0
+"rain_3@t_rast3d_list",1.0
+</pre></div>
+
+<div class="code"><pre>
+for step in 1 2 3; do
+    r3.mapcalc expression="runoff_$step = $step"
+done
+t.create type=str3ds output=runoff temporaltype=relative title="Runoff" \
+    description="Simulated runoff in mm per model step of 6 hours"
+t.register -i type=raster_3d input=runoff maps=runoff_1,runoff_2,runoff_3 \
+    start=0 increment=6 unit=hours
+t.rast3d.list input=runoff method=delta
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|6|6|0
+runoff_2@t_rast3d_list|runoff_2|t_rast3d_list|6|12|6|6
+runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|18|6|12
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.r3_mapcalc(expression="rain_1 = 4")
+tools.r3_mapcalc(expression="rain_3 = 2")
+tools.t_create(
+    type="str3ds", output="rain", title="Rain", description="Daily rain with a gap"
+)
+tools.t_register(
+    type="raster_3d",
+    input="rain",
+    maps="rain_1",
+    start="2026-06-01",
+    end="2026-06-02",
+)
+tools.t_register(
+    type="raster_3d",
+    input="rain",
+    maps="rain_3",
+    start="2026-06-03",
+    end="2026-06-04",
+)
+print(tools.t_rast3d_list(input="rain", method="delta").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+rain_1@t_rast3d_list|rain_1|t_rast3d_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+rain_3@t_rast3d_list|rain_3|t_rast3d_list|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_rast3d_list(input="rain", method="deltagaps").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+rain_1@t_rast3d_list|rain_1|t_rast3d_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+rain_3@t_rast3d_list|rain_3|t_rast3d_list|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="rain", method="deltagaps", format="csv", columns="id,interval_length"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+"id","interval_length"
+"rain_1@t_rast3d_list",1.0
+"",1.0
+"rain_3@t_rast3d_list",1.0
+</pre></div>
+
+<div class="code"><pre>
+for step in (1, 2, 3):
+    tools.r3_mapcalc(expression=f"runoff_{step} = {step}")
+tools.t_create(
+    type="str3ds",
+    output="runoff",
+    temporaltype="relative",
+    title="Runoff",
+    description="Simulated runoff in mm per model step of 6 hours",
+)
+tools.t_register(
+    type="raster_3d",
+    input="runoff",
+    maps="runoff_1,runoff_2,runoff_3",
+    start=0,
+    increment=6,
+    unit="hours",
+    flags="i",
+)
+print(tools.t_rast3d_list(input="runoff", method="delta").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|6|6|0
+runoff_2@t_rast3d_list|runoff_2|t_rast3d_list|6|12|6|6
+runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|18|6|12
+</pre></div>
+
+<h3>Sample the maps by a granule</h3>
+
+The dataset <code>moisture</code> has four maps that start on the last day of a month
+and end on the last day of the next one, from 31 January; they hold the
+constants 1 to 4 as the soil moisture in percent. The first block lists them.
+The method <code>gran</code> with a granule of one month prints one line per month
+granule: the granules start on 31 January, 28 February, 31 March and 30 April,
+as each start is counted in months from 31 January and cut to the last day of
+a shorter month. With a granule of two months, each line covers two maps and
+names the first of them. Without a granule, <code>gran</code> takes the granularity of the
+dataset, one month, and prints the same lines as with <code>"1 month"</code>. The last
+blocks sample the relative dataset <code>runoff</code> of the previous example: without a
+granule by the granularity of the dataset, 6 hours, and with the granule <code>12</code>,
+a number of hours; <code>"12 hours"</code> is the same granule.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+for month in 1 2 3 4; do
+    r3.mapcalc expression="moisture_$month = $month"
+done
+t.create type=str3ds output=moisture title="Soil moisture" \
+    description="Monthly soil moisture in percent"
+t.register -i type=raster_3d input=moisture \
+    maps=moisture_1,moisture_2,moisture_3,moisture_4 \
+    start=2026-01-31 increment="1 month"
+t.rast3d.list input=moisture
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+moisture_1|t_rast3d_list|2026-01-31 00:00:00|2026-02-28 00:00:00
+moisture_2|t_rast3d_list|2026-02-28 00:00:00|2026-03-31 00:00:00
+moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-04-30 00:00:00
+moisture_4|t_rast3d_list|2026-04-30 00:00:00|2026-05-31 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=moisture method=gran granule="1 month"
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+moisture_1@t_rast3d_list|moisture_1|t_rast3d_list|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+moisture_2@t_rast3d_list|moisture_2|t_rast3d_list|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+moisture_3@t_rast3d_list|moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+moisture_4@t_rast3d_list|moisture_4|t_rast3d_list|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=moisture method=gran granule="2 months"
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+moisture_1@t_rast3d_list|moisture_1|t_rast3d_list|2026-01-31 00:00:00|2026-03-31 00:00:00|59.0|0.0
+moisture_3@t_rast3d_list|moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-05-31 00:00:00|61.0|59.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=moisture method=gran
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+moisture_1@t_rast3d_list|moisture_1|t_rast3d_list|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+moisture_2@t_rast3d_list|moisture_2|t_rast3d_list|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+moisture_3@t_rast3d_list|moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+moisture_4@t_rast3d_list|moisture_4|t_rast3d_list|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=runoff method=gran
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|6|6|0
+runoff_2@t_rast3d_list|runoff_2|t_rast3d_list|6|12|6|6
+runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|18|6|12
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=runoff method=gran granule=12
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|12|12|0
+runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|24|12|12
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for month in (1, 2, 3, 4):
+    tools.r3_mapcalc(expression=f"moisture_{month} = {month}")
+tools.t_create(
+    type="str3ds",
+    output="moisture",
+    title="Soil moisture",
+    description="Monthly soil moisture in percent",
+)
+tools.t_register(
+    type="raster_3d",
+    input="moisture",
+    maps="moisture_1,moisture_2,moisture_3,moisture_4",
+    start="2026-01-31",
+    increment="1 month",
+    flags="i",
+)
+print(tools.t_rast3d_list(input="moisture").text)
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+moisture_1|t_rast3d_list|2026-01-31 00:00:00|2026-02-28 00:00:00
+moisture_2|t_rast3d_list|2026-02-28 00:00:00|2026-03-31 00:00:00
+moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-04-30 00:00:00
+moisture_4|t_rast3d_list|2026-04-30 00:00:00|2026-05-31 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(input="moisture", method="gran", granule="1 month")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+moisture_1@t_rast3d_list|moisture_1|t_rast3d_list|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+moisture_2@t_rast3d_list|moisture_2|t_rast3d_list|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+moisture_3@t_rast3d_list|moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+moisture_4@t_rast3d_list|moisture_4|t_rast3d_list|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(input="moisture", method="gran", granule="2 months")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+moisture_1@t_rast3d_list|moisture_1|t_rast3d_list|2026-01-31 00:00:00|2026-03-31 00:00:00|59.0|0.0
+moisture_3@t_rast3d_list|moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-05-31 00:00:00|61.0|59.0
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_rast3d_list(input="moisture", method="gran").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+moisture_1@t_rast3d_list|moisture_1|t_rast3d_list|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+moisture_2@t_rast3d_list|moisture_2|t_rast3d_list|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+moisture_3@t_rast3d_list|moisture_3|t_rast3d_list|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+moisture_4@t_rast3d_list|moisture_4|t_rast3d_list|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_rast3d_list(input="runoff", method="gran").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|6|6|0
+runoff_2@t_rast3d_list|runoff_2|t_rast3d_list|6|12|6|6
+runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|18|6|12
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_rast3d_list(input="runoff", method="gran", granule="12 hours").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+runoff_1@t_rast3d_list|runoff_1|t_rast3d_list|0|12|12|0
+runoff_3@t_rast3d_list|runoff_3|t_rast3d_list|12|24|12|12
+</pre></div>
+
+<h3>Use a dataset of another mapset</h3>
+
+<em>t.rast3d.list</em> reads a dataset of another mapset. The new mapset
+<code>t_rast3d_list_2</code> starts with the default region of the dataset, cells of
+500 m, so the example sets the region of the first example again. The mapset
+<code>t_rast3d_list</code> holds the dataset <code>temperature_profile</code>; it is not in the search
+path of the new mapset, and the dataset is named with its mapset. In the second
+block, <em>g.mapsets</em> adds <code>t_rast3d_list</code> to the search path and shows it, because
+a name without a mapset is searched only there (see
+<a href="temporalintro.html#datasets-of-other-mapsets">Datasets of other mapsets</a>); the name
+<code>temperature_profile</code> then finds the same dataset.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.mapset -c mapset=t_rast3d_list_2
+g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
+t.rast3d.list input=temperature_profile@t_rast3d_list \
+    columns=id,start_time where="start_time &lt; '2020-03-01'"
+</pre></div>
+
+<div class="code"><pre>
+id|start_time
+temperature_profile_2020_01@t_rast3d_list|2020-01-01 00:00:00
+temperature_profile_2020_02@t_rast3d_list|2020-02-01 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+g.mapsets mapset=t_rast3d_list operation=add
+g.mapsets -p
+t.rast3d.list input=temperature_profile columns=id,start_time \
+    where="start_time &lt; '2020-03-01'"
+</pre></div>
+
+<div class="code"><pre>
+t_rast3d_list_2 PERMANENT t_rast3d_list
+id|start_time
+temperature_profile_2020_01@t_rast3d_list|2020-01-01 00:00:00
+temperature_profile_2020_02@t_rast3d_list|2020-02-01 00:00:00
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_mapset(flags="c", mapset="t_rast3d_list_2")
+tools.g_region(
+    raster="elev_state_500m", res=1000, res3=1000, t=3000, b=0, tbres=1000, flags="a"
+)
+result = tools.t_rast3d_list(
+    input="temperature_profile@t_rast3d_list",
+    columns="id,start_time",
+    where="start_time &lt; '2020-03-01'",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|start_time
+temperature_profile_2020_01@t_rast3d_list|2020-01-01 00:00:00
+temperature_profile_2020_02@t_rast3d_list|2020-02-01 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+tools.g_mapsets(mapset="t_rast3d_list", operation="add")
+print(tools.g_mapsets(flags="p").text)
+result = tools.t_rast3d_list(
+    input="temperature_profile",
+    columns="id,start_time",
+    where="start_time &lt; '2020-03-01'",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+t_rast3d_list_2 PERMANENT t_rast3d_list
+id|start_time
+temperature_profile_2020_01@t_rast3d_list|2020-01-01 00:00:00
+temperature_profile_2020_02@t_rast3d_list|2020-02-01 00:00:00
+</pre></div>
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="t.rast.list.html">t.rast.list</a>,
-<a href="g.list.html">g.list</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.list.html">t.list</a>,
-<a href="t.vect.list.html">t.vect.list</a>
-</em>
+<em><a href="g.list.html">g.list</a>, <a href="g.mapsets.html">g.mapsets</a>, <a href="t.create.html">t.create</a>,
+<a href="t.info.html">t.info</a>, <a href="t.list.html">t.list</a>, <a href="t.rast.list.html">t.rast.list</a>,
+<a href="t.register.html">t.register</a>, <a href="t.vect.list.html">t.vect.list</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

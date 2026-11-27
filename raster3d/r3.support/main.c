@@ -238,19 +238,17 @@ int main(int argc, char *argv[])
         Rast3d_write_history(raster->answer, &hist);
     }
 
-    if (map_opt->answer) { /* use cats from another map */
-        int fd;
+    if (map_opt->answer) { /* use cats from a 2D raster map */
         struct Categories cats;
 
-        fd = Rast_open_old(infile, "");
-        Rast_init_cats("", &cats);
-        if (Rast3d_read_cats(map_opt->answer, "", &cats) < 0)
+        /* The option names a 2D raster map (see its gisprompt), so its
+         * categories are read with the 2D function. */
+        if (Rast_read_cats(map_opt->answer, "", &cats) < 0)
             G_fatal_error(_("Unable to read category file of raster map <%s>"),
                           map_opt->answer);
 
         Rast3d_write_cats(infile, &cats);
         G_message(_("cats table for [%s] set to %s"), infile, map_opt->answer);
-        Rast_close(fd);
         Rast_free_cats(&cats);
     }
 

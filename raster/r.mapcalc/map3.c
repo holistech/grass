@@ -269,7 +269,7 @@ static void translate_from_cats(map *m, CELL *cell, DCELL *xcell, int ncols)
 {
     struct Categories *pcats;
     BTREE *btree;
-    int i = 0, idx = 0;
+    int i, idx;
     CELL cat, key;
     double vbuf[1 << SHIFT];
     double *values;
@@ -300,10 +300,13 @@ static void translate_from_cats(map *m, CELL *cell, DCELL *xcell, int ncols)
          */
         if (!btree_find(btree, &key, &ptr)) {
             values = vbuf;
-            int cat = i + key;
-
+            /* Each value comes from the label of its own category, as in
+             * map.c. A category set once before the loop gave the whole block
+             * the label of a single category, mostly none, so @map was null. */
             for (i = 0; i < NCATS; i++) {
-                if ((label = Rast_get_c_cat((CELL *)&cat, pcats)) == NULL ||
+                CELL cat = i + key;
+
+                if ((label = Rast_get_c_cat(&cat, pcats)) == NULL ||
                     sscanf(label, "%lf", values) != 1)
                     SET_NULL_D(values);
                 values++;
@@ -518,6 +521,11 @@ int open_map(const char *name, int mod, int row, int col,
 
     if (!m->handle)
         G_fatal_error(_("Unable to open raster map <%s>"), name);
+
+    /* As r.mapcalc with the 2D mask, the 3D mask applies to the maps that
+     * are read, so an expression without a map stays unmasked. Without a
+     * mask file this does nothing. */
+    Rast3d_mask_on(m->handle);
 
     return num_maps++;
 }

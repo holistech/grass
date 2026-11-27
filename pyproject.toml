@@ -62,6 +62,10 @@ ignore-words-list = [
     "expres",      # Abbreviated option names tested in parse_mapcalc_cmd doctests
     "expressio",   # Abbreviated option names tested in parse_mapcalc_cmd doctests
     "loner",       # Name of a raster map that is not in any dataset in a test
+    "emptyin",     # Name of an output map in a vector algebra test
+    "rin",         # Name of a space time dataset in a sampling test
+    "TimeRE",      # Class of the standard library module _strptime
+    "preceedes",   # Misspelling in the caption of the published paper, refused on purpose in tests
 ]
 quiet-level = 3
 skip = [
@@ -448,16 +452,10 @@ known-first-party = ["grass"]
 "python/grass/script/setup.py" = ["PLW1514"]
 "python/grass/script/utils.py" = ["FURB189", "PLW1514"]
 "python/grass/semantic_label/reader.py" = ["PLW1514"]
-"python/grass/temporal/abstract_space_time_dataset.py" = ["PLW1514"]
 "python/grass/temporal/aggregation.py" = ["PLW1514"]
-"python/grass/temporal/c_libraries_interface.py" = ["PIE794"]
-"python/grass/temporal/register.py" = ["PLW1514", "SIM115"]
-"python/grass/temporal/stds_export.py" = ["PLW1514", "SIM115"]
-"python/grass/temporal/stds_import.py" = ["PLW1514"]
-"python/grass/temporal/temporal_algebra.py" = ["D300"]
-"python/grass/temporal/temporal_operator.py" = ["D300"]
-"python/grass/temporal/testsuite/test_temporal_doctests.py" = ["UP036"]
-"python/grass/temporal/univar_statistics.py" = ["PLW1514", "SIM115"]
+"python/grass/temporal/register.py" = ["PLW1514"]
+"python/grass/temporal/tool_steps.py" = ["PLW1514"]
+"python/grass/temporal/univar_statistics.py" = ["PLW1514"]
 "python/grass/tools/support.py" = ["PLR6201"]
 "python/grass/utils/download.py" = ["PTH208"]
 "raster/**.py" = ["I001"]
@@ -513,7 +511,6 @@ known-first-party = ["grass"]
 "temporal/t.rast.colors/t.rast.colors.py" = ["PLW1514"]
 "temporal/t.rast.series/t.rast.series.py" = ["PLW1514"]
 "temporal/t.rast.what/t.rast.what.py" = ["PLW1514"]
-"temporal/t.remove/t.remove.py" = ["PLW1514"]
 "utils/*.py" = ["PLW1514"]
 "vector/**.py" = ["I001"]
 
@@ -541,6 +538,8 @@ addopts = """
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "needs_solo_run: marks tests that must be run without any other tests running in parallel",
+    "real_io: test runs without the test-only caches of grass.temporal.testing.io_cache",
+    "postgresql: test needs the PostgreSQL server named by GRASS_TEMPORAL_TEST_POSTGRESQL; skipped without one",
 ]
 minversion = "8.2"
 python_files = """

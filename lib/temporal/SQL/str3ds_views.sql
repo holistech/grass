@@ -1,8 +1,13 @@
---#############################################################################
--- This SQL script generates the space time 3D raster dataset views.
+-- Create the views of space-time 3D raster datasets that join all of their tables
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
+-- SPDX-FileCopyrightText: 2013-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
+--
+-- A dataset appears in a view only if it has a row in each of the four tables
+-- that the view joins (base data, time, spatial extent and metadata). A dataset
+-- that lacks one of the rows is in no list.
 
 -- Create the views to access all cols for absolute or relative time
 
@@ -23,7 +28,7 @@ CREATE VIEW str3ds_view_abs_time AS SELECT
             A4.title, A4.description, A4.command
             FROM str3ds_base A1, str3ds_absolute_time A2,
             str3ds_spatial_extent A3, str3ds_metadata A4 WHERE A1.id = A2.id AND
-	    A1.id = A3.id AND A1.id = A4.id;
+            A1.id = A3.id AND A1.id = A4.id;
 
 CREATE VIEW str3ds_view_rel_time AS SELECT
             A1.id, A1.name, A1.mapset, A1.temporal_type,
