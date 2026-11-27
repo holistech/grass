@@ -169,9 +169,11 @@ def test_maps_of_another_mapset_go_into_a_dataset_of_the_current_mapset(
         datetime.datetime(2001, 1, 3),
     )
 
-    Tools(
+    result = Tools(
         session=temporal_module_session,
         overwrite=True,
+        consistent_return_value=True,
+        capture_stderr=True,
     ).t_remove(type="strds", inputs="access_abs@access_work", flags="df")
 
     def in_db(name):
@@ -181,7 +183,10 @@ def test_maps_of_another_mapset_go_into_a_dataset_of_the_current_mapset(
     # The dataset of the same name in PERMANENT is another one and stays.
     assert in_db("access_abs@PERMANENT") is True
     # GRASS writes to the current mapset only: -d leaves the maps of another
-    # mapset where they are. The revised t.remove also says so for each of them.
+    # mapset where they are and says so for each of them.
+    text = " ".join(result.stderr.split())
+    for name in ("access_1", "access_2"):
+        assert f"Map <{name}> is in mapset <PERMANENT> and is not removed" in text
     listed = tools.g_list(type="raster", mapset="PERMANENT").stdout.split()
     assert {"access_1", "access_2"} <= set(listed)
 
