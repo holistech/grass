@@ -15,6 +15,9 @@ percentile to the output.
 
 <h2>NOTES</h2>
 
+NULL values of the attribute column are counted (<b>nnull</b>) but are not part of
+the population, also not for the quartiles and percentiles of the <b>-e</b> flag.
+
 When using the <b>-d</b> flag, univariate statistics of distances
 between vector features are calculated. The distances from all features
 to all other features are used. Since the distance from feature A to
