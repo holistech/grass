@@ -76,6 +76,15 @@ void free_univar_stat_struct(univar_stat *stats)
     return;
 }
 
+/* printf prints the sign bit of a NaN on glibc ("-nan"), and the sign depends
+ * on the platform and on how the NaN was computed (0.0 / 0.0 gives a negative
+ * NaN on x86). Statistics without values must read "nan" everywhere, so every
+ * value is passed through here before it is printed. */
+static double unsigned_nan(double value)
+{
+    return isnan(value) ? NAN : value;
+}
+
 /* *************************************************************** */
 /* **** compute and print univar statistics to stdout ************ */
 /* *************************************************************** */
@@ -132,6 +141,10 @@ int print_stats(univar_stat *stats, enum OutputFormat format)
             variance = 0.0;
         stdev = sqrt(variance);
         var_coef = (stdev / mean) * 100.; /* perhaps stdev/fabs(mean) ? */
+        mean = unsigned_nan(mean);
+        variance = unsigned_nan(variance);
+        stdev = unsigned_nan(stdev);
+        var_coef = unsigned_nan(var_coef);
 
         if (stats[z].n == 0)
             stats[z].sum = stats[z].sum_abs = NAN;
@@ -178,12 +191,13 @@ int print_stats(univar_stat *stats, enum OutputFormat format)
             fprintf(stdout, "Of the non-null cells:\n----------------------\n");
 
             fprintf(stdout, "n: %zu\n", stats[z].n);
-            fprintf(stdout, "minimum: %g\n", stats[z].min);
-            fprintf(stdout, "maximum: %g\n", stats[z].max);
-            fprintf(stdout, "range: %g\n", stats[z].max - stats[z].min);
+            fprintf(stdout, "minimum: %g\n", unsigned_nan(stats[z].min));
+            fprintf(stdout, "maximum: %g\n", unsigned_nan(stats[z].max));
+            fprintf(stdout, "range: %g\n",
+                    unsigned_nan(stats[z].max - stats[z].min));
             fprintf(stdout, "mean: %g\n", mean);
             fprintf(stdout, "mean of absolute values: %g\n",
-                    stats[z].sum_abs / stats[z].n);
+                    unsigned_nan(stats[z].sum_abs / stats[z].n));
             fprintf(stdout, "standard deviation: %g\n", stdev);
             fprintf(stdout, "variance: %g\n", variance);
             fprintf(stdout, "variation coefficient: %g %%\n", var_coef);
@@ -193,12 +207,13 @@ int print_stats(univar_stat *stats, enum OutputFormat format)
             fprintf(stdout, "n=%zu\n", stats[z].n);
             fprintf(stdout, "null_cells=%zu\n", stats[z].size - stats[z].n);
             fprintf(stdout, "cells=%zu\n", stats[z].size);
-            fprintf(stdout, "min=%.15g\n", stats[z].min);
-            fprintf(stdout, "max=%.15g\n", stats[z].max);
-            fprintf(stdout, "range=%.15g\n", stats[z].max - stats[z].min);
+            fprintf(stdout, "min=%.15g\n", unsigned_nan(stats[z].min));
+            fprintf(stdout, "max=%.15g\n", unsigned_nan(stats[z].max));
+            fprintf(stdout, "range=%.15g\n",
+                    unsigned_nan(stats[z].max - stats[z].min));
             fprintf(stdout, "mean=%.15g\n", mean);
             fprintf(stdout, "mean_of_abs=%.15g\n",
-                    stats[z].sum_abs / stats[z].n);
+                    unsigned_nan(stats[z].sum_abs / stats[z].n));
             fprintf(stdout, "stddev=%.15g\n", stdev);
             fprintf(stdout, "variance=%.15g\n", variance);
             fprintf(stdout, "coeff_var=%.15g\n", var_coef);
@@ -579,6 +594,10 @@ int print_stats_table(univar_stat *stats)
             variance = 0.0;
         stdev = sqrt(variance);
         var_coef = (stdev / mean) * 100.; /* perhaps stdev/fabs(mean) ? */
+        mean = unsigned_nan(mean);
+        variance = unsigned_nan(variance);
+        stdev = unsigned_nan(stdev);
+        var_coef = unsigned_nan(var_coef);
 
         if (stats[z].n == 0)
             stats[z].sum = stats[z].sum_abs = NAN;
@@ -598,15 +617,16 @@ int print_stats_table(univar_stat *stats)
         /* null cells */
         fprintf(stdout, "%zu%s", stats[z].size - stats[z].n, zone_info.sep);
         /* min */
-        fprintf(stdout, "%.15g%s", stats[z].min, zone_info.sep);
+        fprintf(stdout, "%.15g%s", unsigned_nan(stats[z].min), zone_info.sep);
         /* max */
-        fprintf(stdout, "%.15g%s", stats[z].max, zone_info.sep);
+        fprintf(stdout, "%.15g%s", unsigned_nan(stats[z].max), zone_info.sep);
         /* range */
-        fprintf(stdout, "%.15g%s", stats[z].max - stats[z].min, zone_info.sep);
+        fprintf(stdout, "%.15g%s", unsigned_nan(stats[z].max - stats[z].min),
+                zone_info.sep);
         /* mean */
         fprintf(stdout, "%.15g%s", mean, zone_info.sep);
         /* mean of abs */
-        fprintf(stdout, "%.15g%s", stats[z].sum_abs / stats[z].n,
+        fprintf(stdout, "%.15g%s", unsigned_nan(stats[z].sum_abs / stats[z].n),
                 zone_info.sep);
         /* stddev */
         fprintf(stdout, "%.15g%s", stdev, zone_info.sep);
