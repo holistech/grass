@@ -172,17 +172,17 @@ PARENT_WITH_CHILD = (
 
 
 def start_parent_with_child():
+    """Start the parent and return it with the pid of its child"""
     process = start_process_tree(
         [sys.executable, "-c", PARENT_WITH_CHILD],
         stdout=subprocess.PIPE,
         text=True,
     )
-    assert process.stdout.readline().strip().isdigit()
-    return process
+    return process, int(process.stdout.readline())
 
 
 def test_stop_process_tree_kills_the_process_and_its_child():
-    process = start_parent_with_child()
+    process, _child = start_parent_with_child()
     try:
         stop_process_tree(process)
         # Raises TimeoutExpired while the child still holds the pipe open.
@@ -194,13 +194,17 @@ def test_stop_process_tree_kills_the_process_and_its_child():
 
 def test_killing_only_the_process_leaves_its_child():
     """The check of the test above sees a child that survives"""
-    process = start_parent_with_child()
+    process, child = start_parent_with_child()
     try:
         process.kill()
         with pytest.raises(subprocess.TimeoutExpired):
             process.communicate(timeout=2)
     finally:
+        # On Windows stop_process_tree no longer reaches the child of a
+        # killed parent (see its docstring), so the child is ended by its pid.
         stop_process_tree(process)
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(child, signal.SIGTERM)
         process.communicate(timeout=30)
 
 
@@ -250,7 +254,8 @@ def test_on_windows_the_tree_starts_as_a_process_group(monkeypatch):
 
 def test_on_windows_taskkill_stops_the_tree(monkeypatch):
     monkeypatch.setattr(sys, "platform", "win32")
-    monkeypatch.delattr(os, "killpg")
+    # Windows has no os.killpg to remove.
+    monkeypatch.delattr(os, "killpg", raising=False)
     calls = []
     monkeypatch.setattr(
         subprocess, "run", lambda arguments, **options: calls.append(arguments)
