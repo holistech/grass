@@ -1,0 +1,609 @@
+"""Build dates, maps and space time datasets as input for temporal tests
+
+The datasets are made the way the tool tests need them: constant-valued maps
+registered with absolute or relative time, as intervals or as time points.
+Reading the result back is the job of grass.temporal.testing.readback.
+
+Which helper makes what:
+
+- ``register_stds`` registers maps that exist already in a new dataset;
+- ``create_stds`` makes the maps of the ``MapSpec`` list first and registers
+  them with ``register_stds``;
+- ``create_timed_stds`` is ``create_stds`` for a list of (start, end) times:
+  maps ``<prefix>_<n>`` with the value n in the dataset ``<prefix>_ds``;
+- ``create_daily_stds`` makes one set of daily maps and registers it in each
+  of several datasets. The fixture ``make_stds`` of ``temporal/conftest.py``
+  wraps it and names the datasets ``<prefix>_ds0``, ``<prefix>_ds1``, ...;
+- a map with a time stamp but in no dataset is made by ``make_map`` and
+  stamped with ``t.register maps=`` (``algebra_cases.single_map``) or with
+  ``tgis.register_maps_in_space_time_dataset(type, None, name, start=...)``
+  (``expressions_data``);
+- ``insert_old_stds`` makes an empty dataset with a dot in its name, as a
+  release before the ban of the dot made it;
+- ``register_file`` writes the input file of ``t.register`` and
+  ``t.unregister``;
+- ``import_ascii_vector``, ``points_map``, ``square_area`` and
+  ``horizontal_line`` import vector maps from text, ``vector_points`` makes
+  points with an attribute table.
+
+``windows_timeouts`` gives the conftest.py files of ``temporal`` and of the
+library tests one rule for the time limits on Windows.
+
+This module must not import pytest; fixtures belong in conftest.py files.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
+"""
+
+import contextlib
+import sys
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from io import StringIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import grass.temporal as tgis
+
+DAY0 = datetime(2001, 1, 1)
+
+# t.register and the library take the type of the maps, not of the dataset
+# that holds them. The tables are written out here, not taken from
+# grass.temporal.kinds, as an independent oracle: a wrong table in the library
+# must not drag the test data along. The kind in STDS_TYPE_OF_KIND is the map
+# kind of the algebra: raster, raster3d or vector.
+MAP_TYPE_OF_STDS = {"strds": "raster", "str3ds": "raster_3d", "stvds": "vector"}
+STDS_TYPE_OF_KIND = {"raster": "strds", "raster3d": "str3ds", "vector": "stvds"}
+_MAP_KINDS = tuple(MAP_TYPE_OF_STDS.values())
+
+# The form in which the tools print and read times
+TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+# In the OSGeo4W job of the CI (26.11.2026), eight tests ran out of their
+# time limit, among them tests with a limit of 10 s; there pytest-timeout has
+# only its thread method, which ends the whole xdist worker when a limit
+# passes. The factor and the floor are chosen values, not measured ones; the
+# next run on Windows shows whether they hold.
+WINDOWS_TIMEOUT_FACTOR = 5
+WINDOWS_TIMEOUT_MINIMUM = 60
+
+
+def windows_timeouts(items, directory):
+    """Yield the longer timeout marks of the test items below a directory
+
+    Each value is ``(item, args, kwargs)``, the arguments of the timeout mark
+    that the caller puts first on the item. Off Windows nothing is yielded.
+    A conftest.py calls this from ``pytest_collection_modifyitems`` with its
+    own directory: pytest calls that hook of every conftest.py with the items
+    of all directories, so items of other directories are left alone.
+    """
+    if sys.platform != "win32":
+        return
+    for item in items:
+        marker = item.get_closest_marker("timeout")
+        if marker is None or directory not in item.path.parents:
+            continue
+        args, kwargs = list(marker.args), dict(marker.kwargs)
+        seconds = args[0] if args else kwargs.get("timeout")
+        if not seconds:
+            continue
+        seconds = max(WINDOWS_TIMEOUT_MINIMUM, seconds * WINDOWS_TIMEOUT_FACTOR)
+        if args:
+            args[0] = seconds
+        else:
+            kwargs["timeout"] = seconds
+        yield item, args, kwargs
+
+
+def day(offset, *, hours=0):
+    """The datetime offset days (and hours) after DAY0"""
+    return DAY0 + timedelta(days=offset, hours=hours)
+
+
+def timestamp(offset):
+    """The date of day(offset) as "YYYY-MM-DD", the form t.register reads"""
+    return day(offset).strftime("%Y-%m-%d")
+
+
+def intervals(count, *, granularity="month", start=0):
+    """count adjacent (start, end) datetime pairs of one month or one day each
+
+    start counts months or days from DAY0. Months are calendar months, so
+    their lengths differ; days are 24 hours.
+    """
+    if granularity == "day":
+        return [
+            (day(number), day(number + 1)) for number in range(start, start + count)
+        ]
+    if granularity == "month":
+        return [
+            (_month_start(number), _month_start(number + 1))
+            for number in range(start, start + count)
+        ]
+    msg = f"Unknown granularity {granularity!r}, expected 'month' or 'day'"
+    raise ValueError(msg)
+
+
+def _month_start(months):
+    """The first day of the month that lies months after the month of DAY0"""
+    year, month = divmod(DAY0.month - 1 + months, 12)
+    return DAY0.replace(year=DAY0.year + year, month=month + 1)
+
+
+def quarter(index):
+    """The first day of the quarter that lies index quarters after DAY0"""
+    return _month_start(3 * index)
+
+
+def relative_intervals(count, *, step=1, start=0):
+    """count adjacent (start, end) pairs of numbers, each step long
+
+    The pairs are the start and end of MapSpec for a dataset of relative
+    time, in the unit that register_stds() is given. start is the first
+    start.
+    """
+    return [
+        (start + number * step, start + (number + 1) * step) for number in range(count)
+    ]
+
+
+@dataclass(frozen=True)
+class MapSpec:
+    """A map to create and register: a constant value and its time
+
+    start and end are datetimes for absolute time and numbers in the unit of
+    the dataset for relative time. Without end the map is a time point.
+    semantic_label is set on raster maps only. value is None only for
+    register_stds() with maps that already exist. For make_map() it is a
+    number or, for raster and raster_3d maps, also the text of an r.mapcalc
+    expression such as "null()"; a vector map needs a number.
+    """
+
+    name: str
+    value: float | str | None
+    start: datetime | int
+    end: datetime | int | None = None
+    semantic_label: str | None = None
+
+
+def make_map(tools, kind, name, value, *, region=None, overwrite=False):
+    """Create a map of kind "raster", "raster_3d" or "vector" with a constant
+
+    raster and raster_3d hold value in every cell (r.mapcalc, r3.mapcalc),
+    which may also be an expression such as "null()" because it is written
+    into the expression unchanged; a vector map gets one point at
+    (value, value) with the attribute value (v.in.ascii), so value must be a
+    number. region, if given, is a dict for g.region used only for
+    this map (the session region is restored). A vector map made here has
+    one point and its own topology and table; vector maps from other tools,
+    for example v.random, can be registered with register_stds().
+    """
+    if kind not in _MAP_KINDS:
+        msg = f"Unknown map kind {kind!r}, expected one of {list(_MAP_KINDS)}"
+        raise ValueError(msg)
+    saved = None
+    if region is not None:
+        saved = _region(tools)
+        tools.g_region(**region)
+    try:
+        if kind == "raster":
+            tools.r_mapcalc(expression=f"{name} = {value}", overwrite=overwrite)
+        elif kind == "raster_3d":
+            tools.r3_mapcalc(expression=f"{name} = {value}", overwrite=overwrite)
+        else:
+            tools.v_in_ascii(
+                input=StringIO(f"{value},{value},{value}\n"),
+                output=name,
+                format="point",
+                separator="comma",
+                columns="x double precision, y double precision,"
+                " value double precision",
+                x=1,
+                y=2,
+                z=0,
+                overwrite=overwrite,
+            )
+    finally:
+        if saved is not None:
+            tools.g_region(**saved)
+
+
+def _region(tools):
+    """The 3D region of the session as options that g.region takes back"""
+    values = tools.g_region(flags="g3").keyval
+    keys = (
+        "n", "s", "e", "w", "t", "b",
+        "nsres", "ewres", "nsres3", "ewres3", "tbres",
+    )  # fmt: skip
+    return {key: values[key] for key in keys}
+
+
+def register_stds(
+    tools,
+    stds_type,
+    name,
+    maps,
+    *,
+    temporaltype="absolute",
+    unit=None,
+    via="tool",
+    title=None,
+    description=None,
+    overwrite=False,
+):
+    """Create the dataset name and register maps, an iterable of MapSpec
+
+    The maps must exist. description defaults to the title. unit is required
+    for relative time. via="tool" uses t.create and t.register with a file;
+    via="library" uses open_new_stds() and
+    register_maps_in_space_time_dataset() in this process and needs
+    temporal_session(). Both give the same dataset. With overwrite an
+    existing dataset of that name is replaced and the maps are registered
+    again; both routes honour it.
+
+    The tool route is the default because it works in every session and
+    needs no mirrored os.environ. The library route is about twenty times as
+    fast: measured 2026-11-13 with time.perf_counter around register_stds()
+    for 12 existing raster maps of monthly intervals in an XY project under
+    temporal_session(), fresh maps for each of 5 runs per route: tool
+    1.00 s median (0.99 to 1.01 s), library 0.045 s median (0.042 to
+    0.049 s).
+    """
+    maps = list(maps)
+    map_type = MAP_TYPE_OF_STDS[stds_type]
+    title = name if title is None else title
+    description = title if description is None else description
+    if temporaltype == "relative" and unit is None:
+        msg = "A relative time dataset needs a unit"
+        raise ValueError(msg)
+    if via == "tool":
+        tools.t_create(
+            type=stds_type,
+            output=name,
+            temporaltype=temporaltype,
+            title=title,
+            description=description,
+            overwrite=overwrite,
+        )
+        if maps:
+            options = {} if unit is None else {"unit": unit}
+            # t.register opens the file itself, so it cannot read stdin.
+            # The relative name keeps the command history of the dataset
+            # independent of the path of the temporary directory; the tools
+            # inherit the directory of the process (grass.tools.Tools has no
+            # cwd option).
+            with TemporaryDirectory() as directory, contextlib.chdir(directory):
+                register_file(Path("maps.txt"), _rows(maps))
+                tools.t_register(
+                    type=map_type,
+                    input=name,
+                    file="maps.txt",
+                    overwrite=overwrite,
+                    **options,
+                )
+    elif via == "library":
+        tgis.open_new_stds(
+            name,
+            stds_type,
+            temporaltype,
+            title,
+            description,
+            "mean",
+            overwrite=overwrite,
+        )
+        if maps:
+            _register_with_library(stds_type, name, maps, unit)
+    else:
+        msg = f"Unknown route {via!r}, expected 'tool' or 'library'"
+        raise ValueError(msg)
+
+
+def create_daily_stds(tools, stds_type, names, count, *, map_prefix):
+    """Create count maps and a dataset of every name that holds all of them
+
+    Map n, counted from 1, is named <map_prefix>_<n>, holds the value n and
+    lasts one day, from day(n - 1) to day(n). The kind of the maps follows
+    stds_type. All datasets register the same maps with the same times, so
+    a test of a tool that removes a map from one dataset can look at the
+    others. Returns the map names.
+    """
+    map_type = MAP_TYPE_OF_STDS[stds_type]
+    specs = []
+    for number in range(1, count + 1):
+        name = f"{map_prefix}_{number}"
+        make_map(tools, map_type, name, number)
+        specs.append(MapSpec(name, number, day(number - 1), day(number)))
+    for name in names:
+        register_stds(tools, stds_type, name, specs)
+    return [spec.name for spec in specs]
+
+
+def _rows(maps):
+    """The rows of the register file for maps, an iterable of MapSpec"""
+    return [
+        (spec.name, spec.start) + (() if spec.end is None else (spec.end,))
+        for spec in maps
+    ]
+
+
+def _register_with_library(stds_type, name, maps, unit):
+    """Register maps, a list of MapSpec, in the dataset name in this process
+
+    All maps go into one call of register_maps_in_space_time_dataset(), which
+    opens the database and updates the dataset once, and a map of the
+    current mapset is passed as name@mapset, which spares the library the
+    lookup on the search path. With one call per map and no mapset, registering
+    the 89 maps of the 20 datasets of the algebra fixture of t.rast.algebra
+    took 3.1 s of its 4.5 s build, now 0.75 s of 2.1 s (measured 2026-11-13
+    with time.perf_counter around the build and around register_stds()).
+    cProfile of the old route showed 1.7 s in g.findfile and 1.0 s in the
+    t.connect behind each database connection.
+
+    The command history still gets one entry per map, as one call per map
+    wrote it, so the database holds the same as before; the recorded image
+    of grass.temporal.testing.database_image compares that history.
+    """
+    map_type = MAP_TYPE_OF_STDS[stds_type]
+    rows = [(_id_in_current_mapset(map_type, row[0]), *row[1:]) for row in _rows(maps)]
+    with TemporaryDirectory() as directory:
+        file = register_file(Path(directory) / "maps.txt", rows)
+        tgis.register_maps_in_space_time_dataset(
+            map_type, name, file=str(file), unit=unit
+        )
+    dbif = tgis.SQLDatabaseInterfaceConnection(mapsets=tgis.get_current_mapset())
+    dbif.connect()
+    try:
+        dataset = tgis.open_old_stds(name, stds_type, dbif)
+        for _ in maps[1:]:
+            dataset.update_command_string(dbif=dbif)
+    finally:
+        dbif.close()
+
+
+def _id_in_current_mapset(map_type, name):
+    """name@mapset for a map of the current mapset, else name unchanged
+
+    The library looks a name without a mapset up with g.findfile, one process
+    per map. The current mapset comes first in every search path, so a map
+    found there gets the id that g.findfile gives; the C library interface
+    answers without a process. Any other name is left to the library, which
+    also reports a map that does not exist.
+    """
+    if "@" in name:
+        return name
+    interface = tgis.get_tgis_c_library_interface()
+    exists = {
+        "raster": interface.raster_map_exists,
+        "raster_3d": interface.raster3d_map_exists,
+        "vector": interface.vector_map_exists,
+    }[map_type]
+    mapset = tgis.get_current_mapset()
+    if exists(name.partition(":")[0], mapset):
+        return f"{name}@{mapset}"
+    return name
+
+
+def register_file(path, rows, *, separator="|"):
+    """Write the input file of t.register file= or t.unregister file= to path
+
+    Each row is a map name, or a sequence of the name followed by a start and
+    an end. A datetime is written as "YYYY-MM-DD HH:MM:SS", any other value
+    with str(), so relative times are plain numbers. t.register takes
+    either only names (the times then come from its start and increment
+    options) or names with times in every row; the file is not checked
+    here, so a test can also write a file the tool should refuse. Returns
+    path as a Path.
+    """
+    lines = []
+    for row in rows:
+        fields = [row] if isinstance(row, str) else list(row)
+        if any(field is None for field in fields):
+            msg = f"A row of a register file may not contain None, got {row!r}"
+            raise ValueError(msg)
+        lines.append(
+            separator.join(
+                field.strftime(TIME_FORMAT)
+                if isinstance(field, datetime)
+                else str(field)
+                for field in fields
+            )
+        )
+    path = Path(path)
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+_SQL_TYPE = {int: "integer", float: "double precision", str: "text"}
+
+
+def import_ascii_vector(tools, directory, name, format_, body, **options):
+    """Write body to <directory>/<name>.txt and import it with v.in.ascii
+
+    ``format_`` is "standard" (the GRASS ASCII format with its boundaries and
+    centroids; pass ``flags="n"`` because the body has no header) or "point".
+    """
+    path = Path(directory) / f"{name}.txt"
+    path.write_text(body)
+    tools.v_in_ascii(input=path, output=name, format=format_, **options)
+
+
+def points_map(tools, directory, name, points):
+    """Import points given as (x, y) tuples; the category is the position"""
+    body = "".join(f"{x}|{y}|{i}\n" for i, (x, y) in enumerate(points, 1))
+    import_ascii_vector(tools, directory, name, "point", body, separator="pipe")
+
+
+def square_area(tools, directory, name, x, y):
+    """Import one 10x10 area with centroid, lower left corner at (x, y)"""
+    import_ascii_vector(
+        tools,
+        directory,
+        name,
+        "standard",
+        f"B 5\n {x} {y}\n {x + 10} {y}\n {x + 10} {y + 10}\n {x} {y + 10}\n"
+        f" {x} {y}\nC 1 1\n {x + 5} {y + 5}\n 1 1\n",
+        flags="n",
+    )
+
+
+def horizontal_line(tools, directory, name, x, y):
+    """Import one horizontal line of length 10 from (x, y)"""
+    import_ascii_vector(
+        tools,
+        directory,
+        name,
+        "standard",
+        f"L 2 1\n {x} {y}\n {x + 10} {y}\n 1 1\n",
+        flags="n",
+    )
+
+
+def vector_points(
+    tools, name, points, *, attributes=None, layers=(1,), overwrite=False
+):
+    """Create a point map name with one point per (x, y) and an attribute table
+
+    The categories are 1 to len(points) in the given order. With attributes,
+    a dict of column name to values (one value per point: int, float or
+    text), the table has the columns x, y and cat and then one column per
+    entry. Without attributes the table has only cat: v.in.ascii makes no
+    table for a map with nothing but coordinates, so one is added. The
+    column type follows the first value, so a column of floats starts with a
+    float (0.0, not 0). Text may not contain a comma, because the points go
+    to v.in.ascii as comma separated lines.
+
+    layers are the layers that get the categories; they must include 1.
+    Every layer gets its own copy of the table, named name for layer 1 and
+    name_<layer> for the others, the names v.db.addtable would give, so
+    that a test can register the map as name:layer for each layer, as the
+    tests of t.register, t.vect.list and t.vect.what.strds do.
+
+    Register the map with a MapSpec whose value is None. make_map() makes the
+    simplest map, one point per map; use this when a test needs several
+    points or columns.
+    """
+    points = list(points)
+    layers = sorted(set(layers))
+    if 1 not in layers:
+        msg = f"layers must include 1, got {layers}"
+        raise ValueError(msg)
+    attributes = {} if attributes is None else dict(attributes)
+    columns = [("x", float), ("y", float), ("cat", int)]
+    rows = [[x, y, number] for number, (x, y) in enumerate(points, start=1)]
+    for column, values in attributes.items():
+        values = list(values)
+        if len(values) != len(points):
+            msg = f"Column {column!r} has {len(values)} values for {len(points)} points"
+            raise ValueError(msg)
+        if any(isinstance(value, str) and "," in value for value in values):
+            msg = f"A value of column {column!r} contains a comma"
+            raise ValueError(msg)
+        columns.append((column, type(values[0]) if values else str))
+        for row, value in zip(rows, values, strict=True):
+            row.append(value)
+    # v.category cannot write its input, so with further layers the points
+    # are imported under another name first.
+    source = name if layers == [1] else f"{name}_import"
+    tools.v_in_ascii(
+        input=StringIO("".join(",".join(map(str, row)) + "\n" for row in rows)),
+        output=source,
+        format="point",
+        separator="comma",
+        columns=", ".join(f"{column} {_SQL_TYPE[kind]}" for column, kind in columns),
+        x=1,
+        y=2,
+        z=0,
+        cat=3,
+        overwrite=overwrite,
+    )
+    if not attributes:
+        tools.v_db_addtable(map=source)
+    if layers == [1]:
+        return
+    # transfer copies the table of layer 1 to name, but links no table to
+    # the new layers.
+    tools.v_category(
+        input=source,
+        output=name,
+        option="transfer",
+        layer=",".join(map(str, layers)),
+        overwrite=overwrite,
+    )
+    tools.g_remove(type="vector", name=source, flags="f")
+    for layer in layers[1:]:
+        table = f"{name}_{layer}"
+        tools.db_copy(from_table=name, to_table=table, overwrite=overwrite)
+        tools.v_db_connect(map=name, table=table, layer=layer, key="cat")
+
+
+def small_region(tools, rows, cols, *, depths=None):
+    """Set the region to rows by cols cells of size 1, from (0, 0)
+
+    With depths the 3D region gets that many layers of thickness 1 as well.
+    A map made afterwards has the cell (row, col) at the position
+    (col + 0.5, rows - row - 0.5), counting both from 0, which makes
+    coordinates for value queries easy to write down. Returns the previous
+    region as options that g.region takes back, so a test can restore it.
+    """
+    previous = _region(tools)
+    options = {"n": rows, "s": 0, "e": cols, "w": 0, "res": 1}
+    if depths is not None:
+        options.update({"t": depths, "b": 0, "res3": 1})
+    tools.g_region(**options)
+    return previous
+
+
+def create_stds(tools, stds_type, name, maps, **options):
+    """make_map() for every MapSpec, then register_stds()
+
+    options are those of register_stds(); overwrite also applies to the maps.
+    Maps that already exist, such as v.random vectors, go to register_stds().
+    """
+    maps = list(maps)
+    map_type = MAP_TYPE_OF_STDS[stds_type]
+    for spec in maps:
+        make_map(
+            tools,
+            map_type,
+            spec.name,
+            spec.value,
+            overwrite=options.get("overwrite", False),
+        )
+        if spec.semantic_label is not None:
+            if map_type != "raster":
+                msg = f"Only raster maps have a semantic label, not {map_type}"
+                raise ValueError(msg)
+            tools.r_support(map=spec.name, semantic_label=spec.semantic_label)
+    register_stds(tools, stds_type, name, maps, **options)
+
+
+def create_timed_stds(tools, prefix, times, *, stds_type="strds", **options):
+    """Make a dataset <prefix>_ds of constant maps with the times (start, end)
+
+    The maps are called <prefix>_1, <prefix>_2 and so on and hold their number.
+    Returns the name of the dataset.
+    """
+    maps = [
+        MapSpec(f"{prefix}_{number}", number, start, end)
+        for number, (start, end) in enumerate(times, 1)
+    ]
+    create_stds(tools, stds_type, f"{prefix}_ds", maps, **options)
+    return f"{prefix}_ds"
+
+
+def insert_old_stds(name, stds_type="strds", temporal_type="absolute"):
+    """Insert an empty dataset past the check of new names, as an older release did
+
+    Releases before the ban of the dot in the name of a new dataset made
+    datasets such as ``a.b``, and the readers must still open them. The checker
+    of new names refuses them now, so the dataset class inserts the row
+    directly. The dataset belongs to the current mapset of the process, which
+    must have called ``tgis.init()`` (a test in a ``temporal_session`` has).
+    """
+    dataset = tgis.dataset_factory(stds_type, f"{name}@{tgis.get_current_mapset()}")
+    dataset.set_initial_values(temporal_type, "mean", "t", "d")
+    dataset.insert()
