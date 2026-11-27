@@ -98,11 +98,9 @@ from .temporal_raster_base_algebra import TemporalRasterAlgebraLexer
 from .temporal_vector_algebra import TemporalVectorAlgebraParser
 
 # Names the package exported before and tools still take from it: t.copy
-# (AbstractMapDataset), t.rast.aggregate and t.rast.aggregate.ds
-# (aggregate_by_topology), and six raster tools that build map name suffixes.
+# (AbstractMapDataset) and six raster tools that build map name suffixes.
 # They leave the package with the revision of those tools.
 from .abstract_map_dataset import AbstractMapDataset
-from .aggregation import aggregate_by_topology
 from .datetime_math import create_suffix_from_datetime, create_time_suffix
 from .state import STATE as _STATE
 
@@ -140,7 +138,6 @@ __all__ = [
     "TemporalVectorAlgebraParser",
     "VectorDataset",
     "adjust_datetime_to_granularity",
-    "aggregate_by_topology",
     "aggregate_raster_maps",
     "check_granularity_string",
     "check_new_map_dataset",

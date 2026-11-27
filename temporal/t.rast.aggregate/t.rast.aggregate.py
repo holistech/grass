@@ -40,7 +40,7 @@
 # %option
 # % key: granularity
 # % type: string
-# % description: Aggregation granularity, format absolute time "x years, x months, x weeks, x days, x hours, x minutes, x seconds" or an integer value for relative time
+# % description: Aggregation granularity: for absolute time one number and one unit, such as "1 months" or "2 weeks" (years, months, weeks, days, hours, minutes, seconds); for relative time an integer in the unit of the dataset
 # % required: yes
 # % multiple: no
 # %end
@@ -76,14 +76,14 @@
 # %option
 # % key: file_limit
 # % type: integer
-# % description: The maximum number of open files allowed for each r.series process
+# % description: Number of maps of a granule above which r.series reopens the maps for each row (flag z); fewer maps also do when they exceed the open files of the process
 # % required: no
 # % multiple: no
 # % answer: 1000
 # %end
 
 # %option G_OPT_T_SAMPLE
-# % options: equal,overlaps,overlapped,starts,started,finishes,finished,during,contains
+# % options: equal,overlaps,overlapped,starts,started,finishes,finished,during,contains,related
 # % answer: contains
 # %end
 
@@ -95,6 +95,12 @@
 # % description: Register Null maps
 # %end
 
+# %flag
+# % key: w
+# % label: Weight each map by its temporal overlap with the granule
+# % description: For method sum the overlap is divided by the length of the map, for the other methods by the length of the granule
+# %end
+
 import grass.script as gs
 
 ############################################################################
@@ -103,121 +109,104 @@ import grass.script as gs
 def main():
     # lazy imports
     import grass.temporal as tgis
+    import grass.temporal.algebra as ta
+    from grass.exceptions import FatalError
+    from grass.temporal.aggregation_core import (
+        aggregate_series,
+        aggregation_granules,
+        set_output_metadata,
+    )
+    from grass.temporal.algebra.reducers import WEIGHTED_SERIES_METHODS
 
-    # Get the options
     input = options["input"]
     output = options["output"]
     where = options["where"]
     gran = options["granularity"]
     base = options["basename"]
     register_null = flags["n"]
+    weighting = flags["w"]
     method = options["method"]
-    sampling = options["sampling"]
+    sampling = options["sampling"].split(",")
     offset = options["offset"]
     nprocs = options["nprocs"]
     file_limit = options["file_limit"]
     time_suffix = options["suffix"]
 
-    topo_list = sampling.split(",")
+    try:
+        tgis.check_suffix(time_suffix)
+    except ValueError as error:
+        gs.fatal(str(error))
+    if weighting and method not in WEIGHTED_SERIES_METHODS:
+        # For a method without a weighted form r.series would only warn and
+        # aggregate without the weights; for the others the weighted result
+        # means nothing (see WEIGHTED_SERIES_METHODS).
+        gs.fatal(
+            _(
+                "The method <{method}> cannot be weighted by temporal overlap; "
+                "use the flag -w with one of: {methods}"
+            ).format(method=method, methods=", ".join(WEIGHTED_SERIES_METHODS))
+        )
 
     tgis.init()
-
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
+    try:
+        sp = tgis.open_old_stds(input, "strds", dbif)
+        absolute = sp.is_time_absolute()
+        tgis.check_new_stds(output, "strds", dbif, gs.overwrite())
 
-    sp = tgis.open_old_stds(input, "strds", dbif)
+        try:
+            input_series = ta.source(input, where=where)
+        except tgis.SQLStatementError as error:
+            gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+        if not input_series.slots:
+            gs.fatal(_("Space time raster dataset <{}> is empty").format(input))
+        if weighting:
+            # Every selected map, also one that no granule relates to, so
+            # that the outcome does not depend on the sampling.
+            for slot in input_series.slots:
+                if slot.extent.end is None:
+                    gs.fatal(
+                        _(
+                            "The flag -w weights each map by its overlap in time "
+                            "with the granule, but the map <{}> is a time instant"
+                        ).format(slot.content.ident)
+                    )
 
-    map_list = sp.get_registered_maps_as_objects(
-        where=where, order="start_time", dbif=dbif
-    )
+        target = aggregation_granules(
+            input_series,
+            gran,
+            absolute=absolute,
+            unit=sp.get_relative_time_unit(),
+        )
+        if not absolute:
+            # aggregation_granules() has checked the text, so this cannot fail.
+            gran = int(gran)
 
-    if not map_list:
+        dataset = aggregate_series(
+            input_series,
+            target,
+            method,
+            sampling=sampling,
+            output=output,
+            basename=base,
+            granularity=gran,
+            time_suffix=time_suffix,
+            offset=offset,
+            nprocs=nprocs,
+            file_limit=file_limit,
+            register_null=register_null,
+            overwrite=gs.overwrite(),
+            weighting=weighting,
+        )
+        if dataset is not None:
+            set_output_metadata(dataset, sp, method, dbif)
+    # The core reports wrong user input as ValueError or TypeError; the tool
+    # turns it into a fatal error with the message only.
+    except (FatalError, ValueError, TypeError) as error:
+        gs.fatal(str(error))
+    finally:
         dbif.close()
-        gs.fatal(_("Space time raster dataset <%s> is empty") % input)
-
-    # We will create the strds later, but need to check here
-    tgis.check_new_stds(output, "strds", dbif, gs.overwrite())
-
-    start_time = map_list[0].temporal_extent.get_start_time()
-
-    if sp.is_time_absolute():
-        start_time = tgis.adjust_datetime_to_granularity(start_time, gran)
-
-    # We use the end time first
-    end_time = map_list[-1].temporal_extent.get_end_time()
-    has_end_time = True
-
-    # In case no end time is available, then we use the start time of the last map layer
-    if end_time is None:
-        end_time = map_list[-1].temporal_extent.get_start_time()
-        has_end_time = False
-
-    granularity_list = []
-
-    # Build the granularity list
-    while True:
-        if has_end_time is True:
-            if start_time >= end_time:
-                break
-        else:  # noqa: PLR5501
-            if start_time > end_time:
-                break
-
-        granule = tgis.RasterDataset(None)
-        start = start_time
-        if sp.is_time_absolute():
-            end = tgis.increment_datetime_by_string(start_time, gran)
-            granule.set_absolute_time(start, end)
-        else:
-            end = start_time + int(gran)
-            granule.set_relative_time(start, end, sp.get_relative_time_unit())
-        start_time = end
-
-        granularity_list.append(granule)
-
-    output_list = tgis.aggregate_by_topology(
-        granularity_list=granularity_list,
-        granularity=gran,
-        map_list=map_list,
-        topo_list=topo_list,
-        basename=base,
-        time_suffix=time_suffix,
-        offset=offset,
-        method=method,
-        nprocs=nprocs,
-        spatial=None,
-        overwrite=gs.overwrite(),
-        file_limit=file_limit,
-    )
-
-    if output_list:
-        temporal_type, semantic_type, title, description = sp.get_initial_values()
-        output_strds = tgis.open_new_stds(
-            output,
-            "strds",
-            temporal_type,
-            title,
-            description,
-            semantic_type,
-            dbif,
-            gs.overwrite(),
-        )
-        register_null = not register_null
-
-        tgis.register_map_object_list(
-            "rast",
-            output_list,
-            output_strds,
-            register_null,
-            sp.get_relative_time_unit(),
-            dbif,
-        )
-
-        # Update the raster metadata table entries with aggregation type
-        output_strds.set_aggregation_type(method)
-        output_strds.metadata.update(dbif)
-
-    dbif.close()
 
 
 if __name__ == "__main__":
