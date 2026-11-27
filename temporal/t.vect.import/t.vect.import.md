@@ -705,11 +705,13 @@ imports a map. The second block imports it with **-o** under other names. The
 maps are not reprojected: they keep their coordinates, and the bounds of
 `again_1` are those printed in the example with the new project.
 
-The project `flat` is made with `grass -c XY` and has no coordinate reference
-system. The `pack` archive and the GML archive of the second example are
-refused there as well, and are imported with **-o**; the second import keeps
-the names of the maps, so the first one uses a **basename** (the block with the
-GML archive needs the GML driver).
+The project `flat` is made with `grass -c XY` (in Python with
+`gs.create_project()`, which makes the same when no coordinate reference
+system is given) and has no coordinate reference system. The `pack` archive
+and the GML archive of the second example are refused there as well, and are
+imported with **-o**; the second import keeps the names of the maps, so the
+first one uses a **basename** (the block with the GML archive needs the GML
+driver).
 
 === "Command line"
 
@@ -824,10 +826,10 @@ GML archive needs the GML driver).
     ```
 
     ```python
-    import subprocess
+    import grass.script as gs
 
     gisdbase = tools.g_gisenv(get="GISDBASE").stdout.strip()
-    subprocess.run(["grass", "-c", "XY", f"{gisdbase}/flat", "--exec", "true"], check=True)
+    gs.create_project(gisdbase, "flat")
     tools.g_mapset(project="flat", mapset="PERMANENT")
     Path("flat_files").mkdir()
     try:

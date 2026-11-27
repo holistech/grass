@@ -704,11 +704,13 @@ maps are not reprojected: they keep their coordinates, and the bounds of
 <code>again_1</code> are those printed in the example with the new project.
 
 <p>
-The project <code>flat</code> is made with <code>grass -c XY</code> and has no coordinate reference
-system. The <code>pack</code> archive and the GML archive of the second example are
-refused there as well, and are imported with <b>-o</b>; the second import keeps
-the names of the maps, so the first one uses a <b>basename</b> (the block with the
-GML archive needs the GML driver).
+The project <code>flat</code> is made with <code>grass -c XY</code> (in Python with
+<code>gs.create_project()</code>, which makes the same when no coordinate reference
+system is given) and has no coordinate reference system. The <code>pack</code> archive
+and the GML archive of the second example are refused there as well, and are
+imported with <b>-o</b>; the second import keeps the names of the maps, so the
+first one uses a <b>basename</b> (the block with the GML archive needs the GML
+driver).
 
 <p>Command line:</p>
 
@@ -821,10 +823,10 @@ west=151769
 </pre></div>
 
 <div class="code"><pre>
-import subprocess
+import grass.script as gs
 
 gisdbase = tools.g_gisenv(get="GISDBASE").stdout.strip()
-subprocess.run(["grass", "-c", "XY", f"{gisdbase}/flat", "--exec", "true"], check=True)
+gs.create_project(gisdbase, "flat")
 tools.g_mapset(project="flat", mapset="PERMANENT")
 Path("flat_files").mkdir()
 try:
