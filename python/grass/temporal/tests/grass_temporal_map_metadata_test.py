@@ -7,8 +7,8 @@ columns reported the other way round are detected.
 
 import pytest
 
-import grass.script as gs
 import grass.temporal as tgis
+from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
 
 ROWS = 8
@@ -18,9 +18,7 @@ COLS = 12
 @pytest.fixture
 def session_with_maps(tmp_path):
     """Start a session with a raster and a 3D raster map"""
-    project = tmp_path / "project"
-    gs.create_project(project)
-    with gs.setup.init(project) as session:
+    with temporal_session(tmp_path / "project") as session:
         tools = Tools(session=session)
         tools.g_region(n=80, s=0, e=120, w=0, t=50, b=0, res=10, res3=10)
         tools.r_mapcalc(expression="test_raster = 1")
@@ -34,7 +32,7 @@ def test_raster_rows_and_cols(session_with_maps):
     tgis.init()
     ciface = tgis.get_tgis_c_library_interface()
 
-    kvp = ciface.read_raster_info("test_raster", tgis.get_current_mapset())
+    kvp = ciface.call("read_info", "raster", "test_raster", tgis.get_current_mapset())
     info = tools.r_info(map="test_raster", format="json").json
 
     assert kvp["rows"] == ROWS
@@ -49,7 +47,9 @@ def test_raster3d_rows_and_cols(session_with_maps):
     tgis.init()
     ciface = tgis.get_tgis_c_library_interface()
 
-    kvp = ciface.read_raster3d_info("test_raster_3d", tgis.get_current_mapset())
+    kvp = ciface.call(
+        "read_info", "raster3d", "test_raster_3d", tgis.get_current_mapset()
+    )
     info = tools.r3_info(map="test_raster_3d", format="json").json
 
     assert kvp["rows"] == ROWS
