@@ -44,7 +44,7 @@ def is_valid(value, path, type):
     :type value: str
 
     :param path: Path where the directory is located
-    :type path: path
+    :type path: str
 
     :param type: it is a string defining the type that will e checked,
                  valid types are: GISBASE, GISDBASE, LOCATION_NAME, MAPSET
@@ -63,7 +63,7 @@ def _check_raise(value, path, type):
     :type value: str
 
     :param path: Path where the directory is located
-    :type path: path
+    :type path: str
 
     :param type: it is a string defining the type that will e checked,
                  valid types are: GISBASE, GISDBASE, LOCATION_NAME, MAPSET
