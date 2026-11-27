@@ -386,12 +386,17 @@ def _write_timestamp_file(tools, name, text):
     """Write the time stamp file of a raster map with plain Python.
 
     r.timestamp refuses texts the C library cannot parse, so the file is
-    written directly to the cell_misc directory of the map.
+    written directly to the cell_misc directory of the map. It is written
+    with the line end of the text, as r.timestamp writes it: libgis opens
+    files in binary mode on Windows too, and its scanner does not take the
+    carriage return of a Windows line end for space. With write_text() alone
+    the valid "1 Jan 99999" was a file libgis cannot parse there (GitHub
+    Windows runner, 26.11.2026).
     """
     env = tools.g_gisenv(flags="n", get="GISDBASE,LOCATION_NAME,MAPSET")
     gisdbase, project, mapset = env.stdout.split()
     misc = Path(gisdbase) / project / mapset / "cell_misc" / name
-    (misc / "timestamp").write_text(text)
+    (misc / "timestamp").write_text(text, newline="")
 
 
 @pytest.mark.parametrize(
