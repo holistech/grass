@@ -139,12 +139,500 @@
 from copy import copy
 
 import grass.script as gs
+from grass.exceptions import CalledModuleError
 
-############################################################################
+
+def check_options(limits, time_suffix):
+    """Check the options that need no database, return the limits as numbers"""
+    # r.series.accumulate refuses limits that do not rise, so refuse them
+    # before any map is made.
+    limits_lower, limits_upper = (float(value) for value in limits.split(","))
+    if limits_upper <= limits_lower:
+        gs.fatal(_("The upper limit must be above the lower limit"))
+
+    try:
+        tgis.check_suffix(time_suffix)
+    except ValueError as error:
+        gs.fatal(str(error))
+    return limits_lower, limits_upper
+
+
+def open_datasets(input_name, output_name, mapset, dbif):
+    """Open the input dataset and the output dataset
+
+    Returns the input dataset read from the database and the output dataset.
+    Nothing is written; an output that exists ends the run unless overwrite
+    is set.
+    """
+    id = tgis.open_stds.find_stds_id(input_name, "strds", dbif)
+    input_strds = tgis.SpaceTimeRasterDataset(id)
+
+    if not input_strds.is_in_db():
+        dbif.close()
+        gs.fatal(_("Space time raster dataset <%s> not found") % (id))
+
+    input_strds.select(dbif)
+
+    # The output is inserted by register_in_new_stds(), which does not check
+    # the name, so it is checked here before any map is computed.
+    tgis.open_stds.check_new_stds_name(output_name)
+    out_id = output_name if output_name.find("@") >= 0 else output_name + "@" + mapset
+    # The output is created in the current mapset only. Refusing another
+    # mapset here, before the computation, leaves no map behind that no
+    # dataset can register.
+    if out_id.split("@", 1)[1] != mapset:
+        dbif.close()
+        gs.fatal(_("Space time datasets can only be created in the current mapset"))
+
+    output_strds = tgis.SpaceTimeRasterDataset(out_id)
+    if output_strds.is_in_db(dbif) and not gs.overwrite():
+        dbif.close()
+        gs.fatal(
+            _(
+                "Space time raster dataset <%s> is already in the "
+                "database, use overwrite flag to overwrite"
+            )
+            % out_id
+        )
+    return input_strds, output_strds
+
+
+def check_lengths(input_strds, granularity, cycle, offset, dbif):
+    """Refuse a granularity, cycle or offset that the temporal type cannot read"""
+    if (
+        tgis.check_granularity_string(granularity, input_strds.get_temporal_type())
+        is False
+    ):
+        dbif.close()
+        gs.fatal(_("Invalid granularity"))
+
+    if tgis.check_granularity_string(cycle, input_strds.get_temporal_type()) is False:
+        dbif.close()
+        gs.fatal(_("Invalid cycle"))
+
+    if offset and (
+        tgis.check_granularity_string(offset, input_strds.get_temporal_type()) is False
+    ):
+        dbif.close()
+        gs.fatal(_("Invalid offset"))
+
+
+def open_thresholds(input_strds, lower, upper, dbif):
+    """Open the threshold datasets of the options lower and upper
+
+    Returns both, None for an option that is not given. A dataset that does
+    not exist or has another temporal type than the input ends the run, and so
+    does upper without lower.
+    """
+    lower_strds = None
+    if lower:
+        lower_id = tgis.open_stds.find_stds_id(lower, "strds", dbif)
+
+        lower_strds = tgis.SpaceTimeRasterDataset(lower_id)
+        if not lower_strds.is_in_db():
+            dbif.close()
+            gs.fatal(
+                _("Space time raster dataset <%s> not found") % (lower_strds.get_id())
+            )
+
+        # The type is read from the dataset, which select() loads.
+        lower_strds.select(dbif)
+        if lower_strds.get_temporal_type() != input_strds.get_temporal_type():
+            dbif.close()
+            gs.fatal(_("Temporal type of input strds and lower strds must be equal"))
+
+    upper_strds = None
+    if upper:
+        if not lower:
+            dbif.close()
+            gs.fatal(
+                _("The upper option works only in conjunction with the lower option")
+            )
+
+        upper_id = tgis.open_stds.find_stds_id(upper, "strds", dbif)
+        upper_strds = tgis.SpaceTimeRasterDataset(upper_id)
+        if not upper_strds.is_in_db():
+            dbif.close()
+            gs.fatal(
+                _("Space time raster dataset <%s> not found") % (upper_strds.get_id())
+            )
+
+        # The type is read from the dataset, which select() loads.
+        upper_strds.select(dbif)
+        if upper_strds.get_temporal_type() != input_strds.get_temporal_type():
+            dbif.close()
+            gs.fatal(_("Temporal type of input strds and upper strds must be equal"))
+    return lower_strds, upper_strds
+
+
+def read_start_and_stop(input_strds, start, stop, granularity, dbif):
+    """Convert the options start and stop to the time of the input dataset
+
+    An absolute start moves to the beginning of its granule, with a warning.
+    Without stop, stop is None: the cycles run to the end of the data.
+    """
+    if input_strds.is_time_absolute():
+        try:
+            start = tgis.option_to_datetime(start, "start")
+            stop = tgis.option_to_datetime(stop, "stop") if stop else None
+        except ValueError as error:
+            dbif.close()
+            gs.fatal(str(error))
+        given_start = start
+        start = tgis.adjust_datetime_to_granularity(start, granularity)
+        if start != given_start:
+            # The cycles count from the start, so a start in the middle of a
+            # month or week would give other cycles than t.rast.accdetect,
+            # which does not move it, gives for the same start.
+            gs.warning(
+                _(
+                    "The start <{given}> is moved to <{used}>, the beginning "
+                    "of the granularity <{granularity}>."
+                ).format(given=given_start, used=start, granularity=granularity)
+            )
+    else:
+        try:
+            start = int(start)
+            stop = int(stop) if stop else None
+        except ValueError:
+            dbif.close()
+            gs.fatal(_("The options start and stop must be integers"))
+    return start, stop
+
+
+def first_cycle(input_strds, start, cycle, granularity, offset, dbif):
+    """The end of the first cycle and the lengths of time as the cycles use them
+
+    Returns end, cycle, granularity and offset; in relative time the three
+    lengths become integers. A cycle or granule that does not move time
+    forward ends the run, and so does an offset that moves the next cycle back
+    to or before the start of the first.
+    """
+    if input_strds.is_time_absolute():
+        end = tgis.increment_datetime_by_string(start, cycle)
+    else:
+        # The lengths of time were checked as integers of the unit of the
+        # dataset; added to the start as text they would fail.
+        cycle = int(cycle)
+        granularity = int(granularity)
+        offset = int(offset) if offset else 0
+        end = start + cycle
+
+    # A cycle, a granule or an offset that does not move time forward would
+    # make the loops of the cycles and the granules run forever.
+    if input_strds.is_time_absolute():
+        granule_end = tgis.increment_datetime_by_string(start, granularity)
+    else:
+        granule_end = start + granularity
+    if end <= start:
+        dbif.close()
+        gs.fatal(_("The cycle must be longer than zero"))
+    if granule_end <= start:
+        dbif.close()
+        gs.fatal(_("The granularity must be longer than zero"))
+    next_start, _next_end = tgis.next_cycle(
+        start, 1, end, cycle, offset, input_strds.is_time_absolute()
+    )
+    if next_start <= start:
+        dbif.close()
+        gs.fatal(
+            _(
+                "The offset must not move the next cycle back to or before the start of this one"
+            )
+        )
+    return end, cycle, granularity, offset
+
+
+def granules(input_strds, start, end, granularity, count):
+    """Maps without data, one for each granule of the cycle, in time order
+
+    Returns three lists of copies of the same maps: one to relate the granules
+    to the input maps, one each to relate them to the lower and the upper
+    thresholds.
+    """
+    gran_list = []
+    gran_list_low = []
+    gran_list_up = []
+    gran_start = start
+    granule = 0
+    while gran_start < end:
+        map = input_strds.get_new_map_instance("%i@%i" % (count, count))
+        granule += 1
+        if input_strds.is_time_absolute():
+            # Counted from the start of the cycle, as the cycles are from
+            # the origin, so that a cut at the end of a short month does
+            # not carry over into the later granules.
+            gran_end = tgis.datetime_after_steps(start, granularity, granule)
+            map.set_absolute_time(gran_start, gran_end)
+        else:
+            gran_end = gran_start + granularity
+            map.set_relative_time(
+                gran_start, gran_end, input_strds.get_relative_time_unit()
+            )
+        gran_start = gran_end
+        gran_list.append(copy(map))
+        gran_list_low.append(copy(map))
+        gran_list_up.append(copy(map))
+    return gran_list, gran_list_low, gran_list_up
+
+
+def relate_granules(gran_lists, input_maps, lower_strds, upper_strds, dbif):
+    """Build the topology of the granules with the input and threshold maps
+
+    :raises ValueError: if the threshold maps have times with a time zone
+                        offset and the input maps without one, or the other
+                        way round
+    """
+    from grass.temporal.topology import check_time_zones
+
+    def check_against_input(threshold_maps):
+        # The builder would refuse the mix as well, but name a granule, which
+        # has no name the user knows.
+        check_time_zones(
+            (map_.get_id(), map_.get_temporal_extent_as_tuple()[0])
+            for map_ in (*input_maps, *threshold_maps)
+        )
+
+    gran_list, gran_list_low, gran_list_up = gran_lists
+    gran_topo = tgis.SpatioTemporalTopologyBuilder()
+    gran_topo.build(gran_list, input_maps)
+
+    if lower_strds is not None:
+        lower_maps = lower_strds.get_registered_maps_as_objects(dbif=dbif)
+        check_against_input(lower_maps)
+        gran_lower_topo = tgis.SpatioTemporalTopologyBuilder()
+        gran_lower_topo.build(gran_list_low, lower_maps)
+
+    if upper_strds is not None:
+        upper_maps = upper_strds.get_registered_maps_as_objects(dbif=dbif)
+        check_against_input(upper_maps)
+        gran_upper_topo = tgis.SpatioTemporalTopologyBuilder()
+        gran_upper_topo.build(gran_list_up, upper_maps)
+
+
+def granule_input_maps(granule):
+    """The input maps of the granule, by the first relation that has any"""
+    input_maps = []
+    if granule.get_equal():
+        input_maps += granule.get_equal()
+    elif granule.get_contains():
+        input_maps += granule.get_contains()
+    elif granule.get_overlaps():
+        input_maps += granule.get_overlaps()
+    elif granule.get_overlapped():
+        input_maps += granule.get_overlapped()
+    elif granule.get_during():
+        input_maps += granule.get_during()
+    return input_maps
+
+
+def run_accumulation(
+    input_maps,
+    output_map_name,
+    old_map_name,
+    lower_map_name,
+    upper_map_name,
+    settings,
+    dbif,
+):
+    """Run r.series.accumulate for one granule
+
+    settings holds the options that are the same for every granule: limits,
+    shift, scale and method. A failing run ends the tool.
+    """
+    input_map_names = [input_map.get_id() for input_map in input_maps]
+
+    # Set up the module
+    accmod = Module(
+        "r.series.accumulate",
+        input=input_map_names,
+        output=output_map_name,
+        run_=False,
+    )
+
+    if old_map_name:
+        accmod.inputs["basemap"].value = old_map_name
+    if lower_map_name:
+        accmod.inputs["lower"].value = lower_map_name
+    if upper_map_name:
+        accmod.inputs["upper"].value = upper_map_name
+
+    accmod.inputs["limits"].value = settings["limits"]
+
+    if settings["shift"]:
+        accmod.inputs["shift"].value = float(settings["shift"])
+
+    if settings["scale"]:
+        accmod.inputs["scale"].value = float(settings["scale"])
+
+    if settings["method"]:
+        accmod.inputs["method"].value = settings["method"]
+
+    try:
+        accmod.run()
+    except CalledModuleError:
+        dbif.close()
+        gs.fatal(_("Error running r.series.accumulate"))
+
+
+def new_map_names(gran_list, count, *, granularity, reverse, base, time_suffix):
+    """Name the new maps of one cycle in the order of the computation
+
+    gran_list are the granules of the cycle after relate_granules(). Returns
+    a list of (index of the granule, name of its map) for each granule with
+    input maps, the first map numbered count. The number follows the order of
+    the computation, which the flag reverse turns around. The suffix gran
+    cuts the start of a granule to the unit of granularity, the step of the
+    output: cut to the unit of the input, granules of a day on a monthly
+    series would share the name of their month.
+    """
+    names = []
+    num_maps = len(gran_list)
+    for i in range(num_maps):
+        index = num_maps - i - 1 if reverse else i
+        granule = gran_list[index]
+        if len(granule_input_maps(granule)) == 0:
+            continue
+        suffix = tgis.map_name_suffix(granule, time_suffix, granularity, count)
+        names.append((index, f"{base}_{suffix}"))
+        count += 1
+    return names
+
+
+def check_new_maps(cycles, time_suffix, output_strds, mapset, dbif):
+    """Refuse the names that the accumulation cannot use, before it writes
+
+    cycles holds one tuple per cycle, its list of granules and the names of
+    new_map_names(). A name that two granules get is refused. Within one
+    cycle the names differ, since gran cuts the start to the largest unit of
+    the granularity and the granules lie at least one such unit apart. Across
+    cycles they can repeat: when a negative offset makes the cycles overlap,
+    or when a cycle is shorter than the unit that gran cuts to, as a cycle of
+    36 hours with granules of one day.
+    Without overwrite a new map that exists as a raster or is registered in
+    the temporal database is refused. With overwrite a registered map is
+    refused only if it belongs to another dataset than the old output, so
+    that the maps of another dataset survive. Checked here, not when each map
+    is made, so that a refusal leaves no map behind.
+    """
+    granule_of = {}
+    for gran_list, names in cycles:
+        for index, name in names:
+            if name in granule_of:
+                dbif.close()
+                gs.fatal(
+                    _(
+                        "The granules starting at <{first}> and <{second}> get "
+                        "the same map name <{name}> from the suffix {suffix}. "
+                        "Use the suffix num, or change the cycle, the "
+                        "granularity or the offset so that no two granules "
+                        "start in the same unit of time."
+                    ).format(
+                        first=granule_of[name].get_temporal_extent_as_tuple()[0],
+                        second=gran_list[index].get_temporal_extent_as_tuple()[0],
+                        name=name,
+                        suffix=time_suffix,
+                    )
+                )
+            granule_of[name] = gran_list[index]
+    for name, granule in granule_of.items():
+        try:
+            tgis.open_result_map(granule, name, overwrite=False, dbif=dbif)
+        except ValueError as error:
+            if not gs.overwrite():
+                dbif.close()
+                gs.fatal(str(error))
+            registered_in = granule.get_new_instance(
+                granule.build_id(name, mapset)
+            ).get_registered_stds(dbif)
+            others = [
+                stds_id
+                for stds_id in registered_in or []
+                if stds_id != output_strds.get_id()
+            ]
+            if others:
+                dbif.close()
+                gs.fatal(
+                    _(
+                        "Map <{map}> is registered in the space time dataset "
+                        "<{stds}>, not in the output <{output}>, and is not "
+                        "replaced."
+                    ).format(
+                        map=granule.build_id(name, mapset),
+                        stds=others[0],
+                        output=output_strds.get_id(),
+                    )
+                )
+        # The temporal database knows only registered maps; r.series.accumulate
+        # would stop at a raster of another origin only when it reaches its
+        # granule, after the earlier granules wrote their maps.
+        new_id = granule.build_id(name, mapset)
+        if not gs.overwrite() and granule.get_new_instance(new_id).map_exists():
+            dbif.close()
+            gs.fatal(
+                _(
+                    "Raster map <{}> exists. To overwrite, use the --overwrite flag."
+                ).format(new_id)
+            )
+
+
+def accumulate_granules(
+    gran_lists,
+    names,
+    *,
+    lower_strds,
+    upper_strds,
+    settings,
+    dbif,
+):
+    """Accumulate the granules of one cycle, each on the result of the one before
+
+    gran_lists are the lists of granules() after relate_granules(), names those
+    of new_map_names(). Returns the new maps in the order of the computation.
+    """
+    gran_list, gran_list_low, gran_list_up = gran_lists
+    new_maps = []
+    old_map_name = None
+    for index, output_map_name in names:
+        granule = gran_list[index]
+        input_maps = granule_input_maps(granule)
+        try:
+            output_map = tgis.open_result_map(
+                granule, output_map_name, overwrite=gs.overwrite(), dbif=dbif
+            )
+        except ValueError as error:
+            gs.fatal(str(error))
+        # The threshold lists are in time order like gran_list, so they
+        # take the same index as the granule.
+        lower_map_name = (
+            tgis.first_related_map_id(gran_list_low[index])
+            if lower_strds is not None
+            else None
+        )
+        upper_map_name = (
+            tgis.first_related_map_id(gran_list_up[index])
+            if upper_strds is not None
+            else None
+        )
+        run_accumulation(
+            input_maps,
+            output_map_name,
+            old_map_name,
+            lower_map_name,
+            upper_map_name,
+            settings,
+            dbif,
+        )
+
+        new_maps.append(output_map)
+        old_map_name = output_map_name
+    return new_maps
 
 
 def main():
-    # lazy imports
+    global Module, tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
     import grass.temporal as tgis
     from grass.pygrass.modules import Module
 
@@ -167,6 +655,8 @@ def main():
     reverse = flags["r"]
     time_suffix = options["suffix"]
 
+    limits = check_options(limits, time_suffix)
+
     # Make sure the temporal database exists
     tgis.init()
 
@@ -176,354 +666,132 @@ def main():
 
     mapset = tgis.get_current_mapset()
 
-    id = input if input.find("@") >= 0 else input + "@" + mapset
-    input_strds = tgis.SpaceTimeRasterDataset(id)
+    input_strds, output_strds = open_datasets(input, output, mapset, dbif)
+    check_lengths(input_strds, granularity, cycle, offset, dbif)
+    lower_strds, upper_strds = open_thresholds(input_strds, lower, upper, dbif)
+    start, stop = read_start_and_stop(input_strds, start, stop, granularity, dbif)
+    end, cycle, granularity, offset = first_cycle(
+        input_strds, start, cycle, granularity, offset, dbif
+    )
 
-    if not input_strds.is_in_db():
+    # An empty dataset has no end for the cycles to run up to. The warning
+    # and the stop without output are those of t.rast.contour, t.rast.to.vect
+    # and t.rast.neighbors.
+    if not input_strds.metadata.get_number_of_maps():
         dbif.close()
-        gs.fatal(_("Space time raster dataset <%s> not found") % (id))
+        gs.warning(_("Space time raster dataset <%s> is empty") % input_strds.get_id())
+        return
 
-    input_strds.select(dbif)
-
-    out_id = output if output.find("@") >= 0 else output + "@" + mapset
-
-    # The output space time raster dataset
-    output_strds = tgis.SpaceTimeRasterDataset(out_id)
-    if output_strds.is_in_db(dbif):
-        if not gs.overwrite():
-            dbif.close()
-            gs.fatal(
-                _(
-                    "Space time raster dataset <%s> is already in the "
-                    "database, use overwrite flag to overwrite"
-                )
-                % out_id
-            )
-
-    if (
-        tgis.check_granularity_string(granularity, input_strds.get_temporal_type())
-        is False
-        or int(granularity.split()[0]) <= 0
-    ):
-        dbif.close()
-        gs.fatal(_("Invalid granularity"))
-
-    if (
-        tgis.check_granularity_string(cycle, input_strds.get_temporal_type()) is False
-        or int(cycle.split()[0]) <= 0
-    ):
-        dbif.close()
-        gs.fatal(_("Invalid cycle"))
-
-    if offset:
-        if (
-            tgis.check_granularity_string(offset, input_strds.get_temporal_type())
-            is False
-            or int(offset.split()[0]) < 0
-        ):
-            dbif.close()
-            gs.fatal(_("Invalid offset"))
-
-    # The lower threshold space time raster dataset
-    if lower:
-        lower_id = lower if lower.find("@") >= 0 else lower + "@" + mapset
-
-        lower_strds = tgis.SpaceTimeRasterDataset(lower_id)
-        if not lower_strds.is_in_db():
-            dbif.close()
-            gs.fatal(
-                _("Space time raster dataset <%s> not found") % (lower_strds.get_id())
-            )
-
-        lower_strds.select(dbif)
-
-        if lower_strds.get_temporal_type() != input_strds.get_temporal_type():
-            dbif.close()
-            gs.fatal(_("Temporal type of input strds and lower strds must be equal"))
-
-    # The upper threshold space time raster dataset
-    if upper:
-        if not lower:
-            dbif.close()
-            gs.fatal(
-                _("The upper option works only in conjunction with the lower option")
-            )
-
-        upper_id = upper if upper.find("@") >= 0 else upper + "@" + mapset
-        upper_strds = tgis.SpaceTimeRasterDataset(upper_id)
-        if not upper_strds.is_in_db():
-            dbif.close()
-            gs.fatal(
-                _("Space time raster dataset <%s> not found") % (upper_strds.get_id())
-            )
-
-        upper_strds.select(dbif)
-
-        if upper_strds.get_temporal_type() != input_strds.get_temporal_type():
-            dbif.close()
-            gs.fatal(_("Temporal type of input strds and upper strds must be equal"))
-
-    input_strds_start, input_strds_end = input_strds.get_temporal_extent_as_tuple()
-
-    if input_strds.is_time_absolute():
-        start = tgis.string_to_datetime(start)
-        stop = tgis.string_to_datetime(stop) if stop else input_strds_end
-        start = tgis.adjust_datetime_to_granularity(start, granularity)
-    else:
-        start = int(start)
-        stop = int(stop) if stop else input_strds_end
-        cycle = int(cycle)
-        offset = int(offset) if offset else 0
-        granularity = int(granularity)
-
-    if input_strds.is_time_absolute():
-        end = tgis.increment_datetime_by_string(start, cycle)
-    else:
-        end = start + cycle
-
-    limit_relations = ["EQUAL", "DURING", "OVERLAPS", "OVERLAPPED", "CONTAINS"]
-
+    settings = {"limits": limits, "shift": shift, "scale": scale, "method": method}
+    # All cycles are planned before the first map is computed, so that a name
+    # the run cannot use is refused with nothing written.
     count = 1
-    output_maps = []
-
-    def next_cycle(end):
-        start = end
-        if input_strds.is_time_absolute():
-            if offset:
-                start = tgis.increment_datetime_by_string(end, offset)
-
-            end = tgis.increment_datetime_by_string(start, cycle)
-        else:
-            if offset:
-                start = end + offset
-            end = start + cycle
-        return start, end
-
-    while input_strds_end > start and stop > start:
-        # Make sure that the cyclic computation will stop at the correct time
-        if stop and end > stop:
-            end = stop
-
-        where = "start_time >= '%s' AND start_time < '%s'" % (str(start), str(end))
+    cycles = []
+    try:
+        cycle_times = list(
+            tgis.dataset_cycles(
+                input_strds,
+                start,
+                end,
+                stop=stop,
+                cycle=cycle,
+                offset=offset,
+                dbif=dbif,
+            )
+        )
+    except ValueError as error:
+        dbif.close()
+        gs.fatal(str(error))
+    for cycle_start, cycle_end in cycle_times:
+        where = "start_time >= '%s' AND start_time < '%s'" % (
+            str(cycle_start),
+            str(cycle_end),
+        )
         input_maps = input_strds.get_registered_maps_as_objects(where=where, dbif=dbif)
 
-        gs.message(_("Processing cycle %s - %s") % (str(start), str(end)))
-
         if len(input_maps) == 0:
-            start, end = next_cycle(end)
+            cycles.append((cycle_start, cycle_end, None, []))
             continue
 
-        # Lets create a dummy list of maps with granularity conform intervals
-        gran_list = []
-        gran_list_low = []
-        gran_list_up = []
-        gran_start = start
-        while gran_start < end:
-            map = input_strds.get_new_map_instance("%i@%i" % (count, count))
-            if input_strds.is_time_absolute():
-                gran_end = tgis.increment_datetime_by_string(gran_start, granularity)
-                map.set_absolute_time(gran_start, gran_end)
-                gran_start = tgis.increment_datetime_by_string(gran_start, granularity)
-            else:
-                gran_end = gran_start + granularity
-                map.set_relative_time(
-                    gran_start, gran_end, input_strds.get_relative_time_unit()
-                )
-                gran_start += granularity
-            gran_list.append(copy(map))
-            gran_list_low.append(copy(map))
-            gran_list_up.append(copy(map))
-        # Lists to compute the topology with upper and lower datasets
+        gran_lists = granules(input_strds, cycle_start, cycle_end, granularity, count)
+        try:
+            relate_granules(gran_lists, input_maps, lower_strds, upper_strds, dbif)
+        except ValueError as error:
+            dbif.close()
+            gs.fatal(str(error))
+        names = new_map_names(
+            gran_lists[0],
+            count,
+            granularity=granularity,
+            reverse=reverse,
+            base=base,
+            time_suffix=time_suffix,
+        )
+        cycles.append((cycle_start, cycle_end, gran_lists, names))
+        count += len(names)
+    check_new_maps(
+        [(gran_lists[0], names) for _s, _e, gran_lists, names in cycles if names],
+        time_suffix,
+        output_strds,
+        mapset,
+        dbif,
+    )
 
-        # Create the topology between the granularity conform list and all maps
-        # of the current cycle
-        gran_topo = tgis.SpatioTemporalTopologyBuilder()
-        gran_topo.build(gran_list, input_maps)
+    output_maps = []
+    for cycle_start, cycle_end, gran_lists, names in cycles:
+        gs.message(_("Processing cycle %s - %s") % (str(cycle_start), str(cycle_end)))
+        if gran_lists is None:
+            continue
+        output_maps += accumulate_granules(
+            gran_lists,
+            names,
+            lower_strds=lower_strds,
+            upper_strds=upper_strds,
+            settings=settings,
+            dbif=dbif,
+        )
 
-        if lower:
-            lower_maps = lower_strds.get_registered_maps_as_objects(dbif=dbif)
-            gran_lower_topo = tgis.SpatioTemporalTopologyBuilder()
-            gran_lower_topo.build(gran_list_low, lower_maps)
-
-        if upper:
-            upper_maps = upper_strds.get_registered_maps_as_objects(dbif=dbif)
-            gran_upper_topo = tgis.SpatioTemporalTopologyBuilder()
-            gran_upper_topo.build(gran_list_up, upper_maps)
-
-        old_map_name = None
-
-        # Aggregate
-        num_maps = len(gran_list)
-
-        for i in reversed(range(num_maps)) if reverse else range(num_maps):
-            map = gran_list[i]
-            # Select input maps based on temporal topology relations
-            input_maps = []
-            if map.get_equal():
-                input_maps += map.get_equal()
-            elif map.get_contains():
-                input_maps += map.get_contains()
-            elif map.get_overlaps():
-                input_maps += map.get_overlaps()
-            elif map.get_overlapped():
-                input_maps += map.get_overlapped()
-            elif map.get_during():
-                input_maps += map.get_during()
-
-            # Check input maps
-            if len(input_maps) == 0:
-                continue
-
-            # New output map
-            if input_strds.get_temporal_type() == "absolute" and time_suffix == "gran":
-                suffix = tgis.create_suffix_from_datetime(
-                    map.temporal_extent.get_start_time(), input_strds.get_granularity()
-                )
-                output_map_name = "{ba}_{su}".format(ba=base, su=suffix)
-            elif (
-                input_strds.get_temporal_type() == "absolute" and time_suffix == "time"
-            ):
-                suffix = tgis.create_time_suffix(map)
-                output_map_name = "{ba}_{su}".format(ba=base, su=suffix)
-            else:
-                output_map_name = tgis.create_numeric_suffix(base, count, time_suffix)
-
-            output_map_id = map.build_id(output_map_name, mapset)
-            output_map = input_strds.get_new_map_instance(output_map_id)
-
-            # Check if new map is in the temporal database
-            if output_map.is_in_db(dbif):
-                if gs.overwrite():
-                    # Remove the existing temporal database entry
-                    output_map.delete(dbif)
-                    output_map = input_strds.get_new_map_instance(output_map_id)
-                else:
-                    gs.fatal(
-                        _(
-                            "Map <%s> is already registered in the temporal"
-                            " database, use overwrite flag to overwrite."
-                        )
-                        % (output_map.get_map_id())
-                    )
-
-            map_start, map_end = map.get_temporal_extent_as_tuple()
-
-            if map.is_time_absolute():
-                output_map.set_absolute_time(map_start, map_end)
-            else:
-                output_map.set_relative_time(
-                    map_start, map_end, map.get_relative_time_unit()
-                )
-
-            limits_vals = limits.split(",")
-            limits_lower = float(limits_vals[0])
-            limits_upper = float(limits_vals[1])
-
-            lower_map_name = None
-            if lower:
-                relations = gran_list_low[i].get_temporal_relations()
-                for relation in limit_relations:
-                    if relation in relations:
-                        lower_map_name = str(relations[relation][0].get_id())
-                        break
-
-            upper_map_name = None
-            if upper:
-                relations = gran_list_up[i].get_temporal_relations()
-                for relation in limit_relations:
-                    if relation in relations:
-                        upper_map_name = str(relations[relation][0].get_id())
-                        break
-
-            input_map_names = []
-            for input_map in input_maps:
-                input_map_names.append(input_map.get_id())
-
-            # Set up the module
-            accmod = Module(
-                "r.series.accumulate",
-                input=input_map_names,
-                output=output_map_name,
-                run_=False,
-            )
-
-            if old_map_name:
-                accmod.inputs["basemap"].value = old_map_name
-            if lower_map_name:
-                accmod.inputs["lower"].value = lower_map_name
-            if upper_map_name:
-                accmod.inputs["upper"].value = upper_map_name
-
-            accmod.inputs["limits"].value = (limits_lower, limits_upper)
-
-            if shift:
-                accmod.inputs["shift"].value = float(shift)
-
-            if scale:
-                accmod.inputs["scale"].value = float(scale)
-
-            if method:
-                accmod.inputs["method"].value = method
-
-            accmod.run()
-
-            if accmod.returncode != 0:
-                dbif.close()
-                gs.fatal(_("Error running r.series.accumulate"))
-
-            output_maps.append(output_map)
-            old_map_name = output_map_name
-            count += 1
-
-        start, end = next_cycle(end)
-
-    # Insert the maps into the output space time dataset
-    if output_strds.is_in_db(dbif):
-        if gs.overwrite():
+    # When no map is to be registered, a warning and no output dataset; with
+    # overwrite an output dataset that exists is removed, as it would be
+    # replaced by a result with maps, and the computed maps are removed as
+    # empty maps. The maps of the old dataset stay as maps. A result of only
+    # empty maps without -n is treated the same. t.rast.aggregate differs:
+    # with overwrite and no granule with a map it keeps the existing dataset.
+    if tgis.maps_to_register(output_maps, register_null=register_null):
+        empty_maps = tgis.register_in_new_stds(
+            output_maps,
+            output_strds,
+            input_strds,
+            register_null=register_null,
+            overwrite=gs.overwrite(),
+            dbif=dbif,
+        )
+    else:
+        gs.warning(
+            _(
+                "No map with values was computed in any cycle. No space time "
+                "dataset <{out}> was created."
+            ).format(out=output)
+        )
+        if gs.overwrite() and output_strds.is_in_db(dbif):
             output_strds.delete(dbif)
-            output_strds = input_strds.get_new_instance(out_id)
-
-    temporal_type, semantic_type, title, description = input_strds.get_initial_values()
-    output_strds.set_initial_values(temporal_type, semantic_type, title, description)
-    output_strds.insert(dbif)
-
-    empty_maps = []
-    # Register the maps in the database
-    count = 0
-    for output_map in output_maps:
-        count += 1
-        if count % 10 == 0:
-            gs.percent(count, len(output_maps), 1)
-        # Read the raster map data
-        output_map.load()
-        # In case of a empty map continue, do not register empty maps
-
-        if not register_null:
-            if (
-                output_map.metadata.get_min() is None
-                and output_map.metadata.get_max() is None
-            ):
-                empty_maps.append(output_map)
-                continue
-
-        # Insert map in temporal database
-        output_map.insert(dbif)
-        output_strds.register_map(output_map, dbif)
-
-    # Update the spatio-temporal extent and the metadata table entries
-    output_strds.update_from_registered_maps(dbif)
-    gs.percent(1, 1, 1)
+            gs.warning(
+                _("The existing space time dataset <{out}> was removed.").format(
+                    out=output
+                )
+            )
+        empty_maps = output_maps
 
     dbif.close()
 
     # Remove empty maps
-    if len(empty_maps) > 0:
-        for map in empty_maps:
-            gs.run_command(
-                "g.remove", flags="f", type="raster", name=map.get_name(), quiet=True
-            )
+    for map in empty_maps:
+        gs.run_command(
+            "g.remove", flags="f", type="raster", name=map.get_name(), quiet=True
+        )
 
 
 if __name__ == "__main__":
     options, flags = gs.parser()
+
     main()
