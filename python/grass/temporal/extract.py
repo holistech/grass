@@ -16,21 +16,12 @@ from grass.exceptions import CalledModuleError
 from grass.script.utils import _get_multiprocessing_context
 
 from .abstract_map_dataset import AbstractMapDataset
-
-from .core import (
-    SQLDatabaseInterfaceConnection,
-    get_current_mapset,
-    get_tgis_message_interface,
-    get_tgis_db_version,
-)
-from .datetime_math import (
-    create_numeric_suffix,
-    create_suffix_from_datetime,
-    create_time_suffix,
-)
+from .batches import run_in_batches, run_mapcalc
+from .db import SQLDatabaseInterfaceConnection, SQLStatementError, connection
+from .state import get_current_mapset, get_tgis_db_version, get_tgis_message_interface
+from .datetime_math import map_name_suffix
 from .open_stds import check_new_stds, open_new_stds, open_old_stds
-
-############################################################################
+from .tool_steps import mapcalc_name
 
 
 def compile_new_map_name(
@@ -39,35 +30,55 @@ def compile_new_map_name(
     count: int,
     map_id: str,
     semantic_label: str | None,
-    time_suffix: str | None,
+    time_suffix: str,
     dbif: SQLDatabaseInterfaceConnection,
 ) -> str:
     """Compile new map name with suffix and semantic label.
 
     :param sp: An open SpaceTimeDataSet (STDS)
+    :param base: The base name of the new map
     :param count: Running number of the map to be used as numeric suffix (if not time suffix)
     :param map_id: Map ID to compile new map name for
-    :param time_suffix: Type of time suffix to use (or None)
+    :param semantic_label: A semantic label appended to the base name, None or
+                           an empty text for none
+    :param time_suffix: Type of suffix to use: gran, time, num or num%NN
     :param dbif: initialized TGIS database interface
+    :raises ValueError: for another time_suffix
     """
     if semantic_label:
         base = f"{base}_{semantic_label}"
-    if (
-        sp.get_temporal_type() != "absolute"
-        or not time_suffix
-        or time_suffix.startswith("num")
-    ):
-        return create_numeric_suffix(base, count, time_suffix)
+    # The temporal type of a new map instance is absolute until select()
+    # reads the real one (checked 23.10.2026 with is_time_absolute() of a new
+    # RasterDataset), so a relative dataset would get time suffixes.
     old_map = sp.get_new_map_instance(map_id)
     old_map.select(dbif)
-    if time_suffix == "gran":
-        suffix = create_suffix_from_datetime(
-            old_map.temporal_extent.get_start_time(),
-            sp.get_granularity(),
-        )
-    else:
-        suffix = create_time_suffix(old_map)
+    suffix = map_name_suffix(old_map, time_suffix, sp.get_granularity(), count)
     return f"{base}_{suffix}"
+
+
+def number_clashing_names(names: list[str]) -> list[str]:
+    """Give every repeated name after its first use the number _2, _3, ...
+
+    Two different maps at one time get the same name from the time suffix.
+    The first map in the given order keeps its name, so a name that works
+    without numbering stays as it is. A number that another name of the list
+    already has is skipped, so the result has no repeated name. Names of maps
+    that exist outside this run are not considered; the caller refuses those
+    as it does for any other name.
+    """
+    taken = set(names)
+    seen = set()
+    result = []
+    for name in names:
+        if name in seen:
+            number = 2
+            while f"{name}_{number}" in taken:
+                number += 1
+            name = f"{name}_{number}"
+            taken.add(name)
+        seen.add(name)
+        result.append(name)
+    return result
 
 
 def replace_stds_names(expression: str, simple_name: str, full_name: str) -> str:
@@ -155,182 +166,301 @@ def extract_dataset(
     if expression and not base:
         msgr.fatal(_("You need to specify the base name of new created maps"))
 
-    mapset = get_current_mapset()
+    with connection() as dbif:
+        mapset = get_current_mapset()
 
-    dbif = SQLDatabaseInterfaceConnection()
-    dbif.connect()
+        tgis_version = get_tgis_db_version()
 
-    tgis_version = get_tgis_db_version()
+        sp = open_old_stds(input, type, dbif)
+        has_semantic_labels = bool(
+            tgis_version > 2 and type == "raster" and sp.metadata.semantic_labels,
+        )
 
-    sp = open_old_stds(input, type, dbif)
-    has_semantic_labels = bool(
-        tgis_version > 2 and type == "raster" and sp.metadata.semantic_labels,
-    )
+        # Check the new stds
+        new_sp = check_new_stds(output, type, dbif, gs.overwrite())
+        rows = _registered_rows(sp, type, where, has_semantic_labels, dbif, msgr)
 
-    # Check the new stds
-    new_sp = check_new_stds(output, type, dbif, gs.overwrite())
-    if type == "vector":
-        rows = sp.get_registered_maps("id,name,mapset,layer", where, "start_time", dbif)
-    else:
-        rows = sp.get_registered_maps(
-            f"id{',semantic_label' if has_semantic_labels else ''}",
-            where,
-            "start_time",
+        new_maps = {}
+        if not rows:
+            gs.warning(
+                _(
+                    "Nothing found in the database for space time dataset <{name}> "
+                    "(type: {element_type}): {detail}",
+                ).format(
+                    name=input,
+                    element_type=type,
+                    detail=(
+                        _(
+                            "Dataset is empty or where clause is too constrained or "
+                            "incorrect",
+                        )
+                        if where
+                        else _("Dataset is empty")
+                    ),
+                ),
+            )
+            return
+
+        num_rows = len(rows)
+
+        msgr.percent(0, num_rows, 1)
+
+        # Run the mapcalc expression
+        if expression:
+            new_maps = _compute_new_maps(
+                sp,
+                rows,
+                type,
+                expression,
+                base,
+                time_suffix,
+                nprocs,
+                layer,
+                vtype,
+                has_semantic_labels,
+                dbif,
+                mapset,
+            )
+
+        msgr.percent(0, num_rows, 1)
+
+        _temporal_type, semantic_type, title, description = sp.get_initial_values()
+        new_sp = open_new_stds(
+            output,
+            type,
+            sp.get_temporal_type(),
+            title,
+            description,
+            semantic_type,
+            dbif,
+            gs.overwrite(),
+        )
+
+        empty_maps = _register_maps(
+            sp,
+            new_sp,
+            rows,
+            new_maps,
+            type,
+            expression,
+            register_null,
+            has_semantic_labels,
             dbif,
         )
 
-    new_maps = {}
-    if not rows:
-        gs.warning(
-            _(
-                "Nothing found in the database for space time dataset <{name}> "
-                "(type: {element_type}): {detail}",
-            ).format(
-                name=input,
-                element_type=type,
-                detail=(
-                    _(
-                        "Dataset is empty or where clause is too constrained or "
-                        "incorrect",
-                    )
-                    if where
-                    else _("Dataset is empty")
+        # Update the spatio-temporal extent and the metadata table entries
+        new_sp.update_from_registered_maps(dbif)
+
+        msgr.percent(num_rows, num_rows, 1)
+
+        # Remove empty maps
+        if len(empty_maps) > 0:
+            gs.run_command(
+                "g.remove",
+                flags="f",
+                type=type.replace("_", ""),
+                name=",".join(
+                    [
+                        empty_map.get_name()
+                        for empty_map in empty_maps
+                        if empty_map.get_name()
+                    ]
                 ),
-            ),
-        )
-        dbif.close()
-        return
+                superquiet=True,
+            )
 
+
+def _registered_rows(sp, type, where, has_semantic_labels, dbif, msgr):
+    """Return the registered maps of the dataset that the condition selects"""
+    try:
+        if type == "vector":
+            return sp.get_registered_maps(
+                "id,name,mapset,layer", where, "start_time,id", dbif
+            )
+        return sp.get_registered_maps(
+            f"id{',semantic_label' if has_semantic_labels else ''}",
+            where,
+            "start_time,id",
+            dbif,
+        )
+    except SQLStatementError as error:
+        msgr.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+        return None
+
+
+def _map_id(map_name, row, type, mapset):
+    """Return the identifier of an extracted map: vector maps have a layer"""
+    if type != "vector":
+        return AbstractMapDataset.build_id(map_name, mapset)
+    return AbstractMapDataset.build_id(map_name, mapset, row["layer"])
+
+
+def _new_map_names(sp, rows, type, base, time_suffix, layer, has_semantic_labels, dbif):
+    """Name every new map after the time suffix and number the clashing names"""
+    new_names = []
+    for count, row in enumerate(rows, 1):
+        map_name = compile_new_map_name(
+            sp,
+            base,
+            count,
+            row["id"],
+            row["semantic_label"] if has_semantic_labels else None,
+            time_suffix,
+            dbif,
+        )
+        new_names.append(map_name)
+    if type == "vector":
+        # Two layers of one vector map registered for the same time get
+        # the same name from the time suffixes, and v.extract refuses to
+        # replace the first of them. The layer tells them apart. Maps
+        # that share the name and the layer are two different maps of one
+        # time; the layer cannot tell those apart, they are numbered below.
+        layers_of = {}
+        for name, row in zip(new_names, rows, strict=True):
+            layers_of.setdefault(name, set()).add(row["layer"] or layer)
+        new_names = [
+            f"{name}_{row['layer'] or layer}" if len(layers_of[name]) > 1 else name
+            for name, row in zip(new_names, rows, strict=True)
+        ]
+    return number_clashing_names(new_names)
+
+
+def _compute_new_maps(
+    sp,
+    rows,
+    type,
+    expression,
+    base,
+    time_suffix,
+    nprocs,
+    layer,
+    vtype,
+    has_semantic_labels,
+    dbif,
+    mapset,
+):
+    """Compute a new map from each registered map and return them by old id
+
+    Stops, with nothing computed, if a new map is already in the temporal
+    database and the run does not overwrite. If a process fails, the maps that
+    this run made are removed.
+    """
+    msgr = get_tgis_message_interface()
     num_rows = len(rows)
+    new_maps = {}
+    ctx = _get_multiprocessing_context()
 
-    msgr.percent(0, num_rows, 1)
+    # Make sure STRDS is in the expression referenced with fully qualified name
+    expression = replace_stds_names(
+        expression,
+        sp.base.get_name(),
+        sp.base.get_map_id(),
+    )
 
-    # Run the mapcalc expression
-    if expression:
-        ctx = _get_multiprocessing_context()
-        proc_count = 0
-        proc_list = []
+    # Name every new map and refuse a known one before the first process
+    # starts: nothing is computed and no dataset is made for a refused run.
+    new_names = _new_map_names(
+        sp, rows, type, base, time_suffix, layer, has_semantic_labels, dbif
+    )
+    for row, map_name in zip(rows, new_names, strict=True):
+        map_id = _map_id(map_name, row, type, mapset)
+        if not gs.overwrite() and sp.get_new_map_instance(map_id).is_in_db(dbif):
+            msgr.fatal(
+                _(
+                    "Map <%s> is already in temporal database"
+                    ", use overwrite flag to overwrite"
+                )
+                % map_id
+            )
 
-        # Make sure STRDS is in the expression referenced with fully qualified name
-        expression = replace_stds_names(
-            expression,
-            sp.base.get_name(),
-            sp.base.get_map_id(),
-        )
-        for count, row in enumerate(rows, 1):
+    # The maps that this run has made, to remove them if it fails
+    created = []
+    # The jobs are prepared and run in groups of nprocs, so the state of
+    # the temporal database when a group fails is that of a loop that
+    # starts a process per map and joins every nprocs-th.
+    group = nprocs if nprocs >= 1 else num_rows
+
+    for first in range(0, num_rows, group):
+        jobs = []
+        job_names = []
+        for count, row in enumerate(rows[first : first + group], first + 1):
             if count % 10 == 0:
                 msgr.percent(count, num_rows, 1)
 
-            map_name = compile_new_map_name(
-                sp,
-                base,
-                count,
-                row["id"],
-                row["semantic_label"] if has_semantic_labels else None,
-                time_suffix,
-                dbif,
-            )
+            map_name = new_names[count - 1]
+            map_id = _map_id(map_name, row, type, mapset)
 
             # We need to modify the r(3).mapcalc expression
             if type != "vector":
                 expr = expression
-                expr = expr.replace(sp.base.get_map_id(), row["id"])
+                expr = expr.replace(sp.base.get_map_id(), mapcalc_name(row["id"]))
                 expr = f"{map_name} = {expr}"
-
-                # We need to build the id
-                map_id = AbstractMapDataset.build_id(map_name, mapset)
-            else:
-                map_id = AbstractMapDataset.build_id(map_name, mapset, row["layer"])
 
             new_map = sp.get_new_map_instance(map_id)
 
-            # Check if new map is in the temporal database
+            # Remove the existing temporal database entry; without
+            # overwrite the check above has stopped the run
             if new_map.is_in_db(dbif):
-                if gs.overwrite():
-                    # Remove the existing temporal database entry
-                    new_map.delete(dbif)
-                    new_map = sp.get_new_map_instance(map_id)
-                else:
-                    msgr.error(
-                        _(
-                            "Map <%s> is already in temporal database"
-                            ", use overwrite flag to overwrite",
-                        )
-                        % (new_map.get_map_id()),
-                    )
-                    continue
+                new_map.delete(dbif)
+                new_map = sp.get_new_map_instance(map_id)
 
-            # Add process to the process list
             if type == "raster":
                 msgr.verbose(_('Applying r.mapcalc expression: "%s"') % expr)
-                proc_list.append(ctx.Process(target=run_mapcalc2d, args=(expr,)))
+                jobs.append((run_mapcalc, ("r.mapcalc", expr)))
             elif type == "raster3d":
                 msgr.verbose(_('Applying r3.mapcalc expression: "%s"') % expr)
-                proc_list.append(ctx.Process(target=run_mapcalc3d, args=(expr,)))
+                jobs.append((run_mapcalc, ("r3.mapcalc", expr)))
             elif type == "vector":
                 msgr.verbose(_('Applying v.extract where statement: "%s"') % expression)
-                if row["layer"]:
-                    proc_list.append(
-                        ctx.Process(
-                            target=run_vector_extraction,
-                            args=(
-                                row["name"] + "@" + row["mapset"],
-                                map_name,
-                                row["layer"],
-                                vtype,
-                                expression,
-                            ),
+                jobs.append(
+                    (
+                        run_vector_extraction,
+                        (
+                            row["name"] + "@" + row["mapset"],
+                            map_name,
+                            row["layer"] or layer,
+                            vtype,
+                            expression,
                         ),
                     )
-                else:
-                    proc_list.append(
-                        ctx.Process(
-                            target=run_vector_extraction,
-                            args=(
-                                row["name"] + "@" + row["mapset"],
-                                map_name,
-                                layer,
-                                vtype,
-                                expression,
-                            ),
-                        ),
-                    )
-
-            proc_list[proc_count].start()
-            proc_count += 1
-
-            # Join processes if the maximum number of processes are
-            # reached or the end of the loop is reached
-            if proc_count == nprocs or count == num_rows:
-                proc_count = 0
-                exitcodes = 0
-                for proc in proc_list:
-                    proc.join()
-                    exitcodes += proc.exitcode
-                if exitcodes != 0:
-                    dbif.close()
-                    msgr.fatal(_("Error in computation process"))
-
-                # Empty process list
-                proc_list = []
+                )
+            job_names.append(map_name)
 
             # Store the new maps
             new_maps[row["id"]] = new_map
 
-    msgr.percent(0, num_rows, 1)
+        succeeded = []
+        done = run_in_batches(ctx, _run_job, jobs, group, succeeded=succeeded)
+        created.extend(job_names[index] for index in succeeded)
+        if not done:
+            # A map that existed before the run and made a process
+            # fail is not in the list and stays. A map that existed
+            # before and was overwritten by a process that succeeded
+            # is in the list and goes, as its old content is gone.
+            _remove_new_maps(type, created)
+            msgr.fatal(_("Error in computation process"))
+    return new_maps
 
-    _temporal_type, semantic_type, title, description = sp.get_initial_values()
-    new_sp = open_new_stds(
-        output,
-        type,
-        sp.get_temporal_type(),
-        title,
-        description,
-        semantic_type,
-        dbif,
-        gs.overwrite(),
-    )
 
+def _register_maps(
+    sp,
+    new_sp,
+    rows,
+    new_maps,
+    type,
+    expression,
+    register_null,
+    has_semantic_labels,
+    dbif,
+):
+    """Register the maps in the new dataset and return the empty new maps
+
+    Without an expression the source maps are registered. With one, the new
+    maps are, with the time of the source map; an empty one is not registered
+    unless register_null, it is returned so that the caller removes it.
+    """
+    msgr = get_tgis_message_interface()
+    num_rows = len(rows)
     # collect empty maps to remove them
     empty_maps = []
 
@@ -345,10 +475,23 @@ def extract_dataset(
         if not expression:
             # Just register the source map in the new STRDS if no
             # the expression option is not used
-            if not old_map.is_in_db():
-                # Maps that are not part of the temporal database
-                # in the current mapset need to be inserted first
-                old_map.insert(dbif)
+            if not old_map.is_in_db(dbif, get_current_mapset()):
+                # A map that the temporal database of the current mapset
+                # lacks is inserted first, also when it belongs to another
+                # mapset: the new dataset can register only maps of its own
+                # database. The entry is made anew, as t.copy makes it, so
+                # that the datasets of the owner's database (old_map was
+                # read from it) are not copied into this one.
+                semantic_label = (
+                    old_map.metadata.get_semantic_label() if type == "raster" else None
+                )
+                fresh = sp.get_new_map_instance(row["id"])
+                fresh.set_temporal_extent(old_map.get_temporal_extent())
+                fresh.load()
+                if semantic_label is not None and semantic_label != "None":
+                    fresh.metadata.set_semantic_label(semantic_label)
+                fresh.insert(dbif)
+                old_map = fresh
             new_sp.register_map(old_map, dbif)
             continue
 
@@ -384,69 +527,32 @@ def extract_dataset(
             # Insert map in temporal database
             new_map.insert(dbif)
             new_sp.register_map(new_map, dbif)
+    return empty_maps
 
-    # Update the spatio-temporal extent and the metadata table entries
-    new_sp.update_from_registered_maps(dbif)
 
-    msgr.percent(num_rows, num_rows, 1)
+def _run_job(job) -> None:
+    """Run one job of extract_dataset() in a child process
 
-    # Remove empty maps
-    if len(empty_maps) > 0:
+    :param job: A function and the tuple of its arguments
+    """
+    function, args = job
+    function(*args)
+
+
+def _remove_new_maps(type, names):
+    """Remove the maps that a failed extraction has made
+
+    :param type: The map type of the extraction, as in extract_dataset()
+    :param names: The names of the maps, empty for nothing to remove
+    """
+    if names:
         gs.run_command(
             "g.remove",
             flags="f",
             type=type.replace("_", ""),
-            name=",".join(
-                [
-                    empty_map.get_name()
-                    for empty_map in empty_maps
-                    if empty_map.get_name()
-                ]
-            ),
+            name=",".join(names),
             superquiet=True,
         )
-
-    dbif.close()
-
-
-###############################################################################
-# Helper functions
-
-
-def run_mapcalc2d(expr: str) -> None:
-    """Run r.mapcalc on a single core in quiet mode.
-
-    Wrapper function setting nprocs to 1 and verbosity to quiet. It is
-    intended to be run in parallel in `extract_dataset`.
-    """
-    try:
-        gs.run_command(
-            "r.mapcalc",
-            expression=expr,
-            nprocs=1,
-            overwrite=gs.overwrite(),
-            quiet=True,
-        )
-    except CalledModuleError:
-        sys.exit(1)
-
-
-def run_mapcalc3d(expr: str) -> None:
-    """Run r3.mapcalc on a single core in quiet mode.
-
-    Wrapper function setting nprocs to 1 and verbosity to quiet. It is
-    intended to be run in parallel in `extract_dataset`.
-    """
-    try:
-        gs.run_command(
-            "r3.mapcalc",
-            expression=expr,
-            nprocs=1,
-            overwrite=gs.overwrite(),
-            quiet=True,
-        )
-    except CalledModuleError:
-        sys.exit(1)
 
 
 def run_vector_extraction(
