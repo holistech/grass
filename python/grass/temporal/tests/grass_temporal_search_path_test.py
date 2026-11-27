@@ -103,8 +103,8 @@ def listed_rows(tools, name):
 
 # A case is the call of a tool with a dataset of the mapset m and the check of
 # the result; the calls write to the mapset "second" with overwrite, so the
-# cases do not depend on each other. t.select passes these cases only from its
-# revision on; its cases come with it.
+# cases do not depend on each other. t.select relates ds to itself because the
+# classic algebra took no bare dataset there.
 CASES = {
     "t.rast.list": (
         lambda t, p, m: t.t_rast_list(input=f"ds@{m}"),
@@ -135,6 +135,12 @@ CASES = {
     "t.info": (
         lambda t, p, m: t.t_info(type="strds", input=f"ds@{m}", flags="g"),
         lambda t, r: "id=ds@first" in lines(r),
+    ),
+    "t.select": (
+        lambda t, p, m: t.t_select(
+            expression=f"selected = ds@{m} : ds@{m}", type="strds", overwrite=True
+        ),
+        lambda t, r: listed_rows(t, "selected") == 3,
     ),
     "t.rast.extract": (
         lambda t, p, m: t.t_rast_extract(
@@ -252,6 +258,24 @@ def test_extract_of_dataset_of_mapset_in_search_path_needs_maps_in_the_database(
 
     listing = tools.t_rast_list(input="extract_fails_out", columns="name,mapset")
     assert lines(listing) == ["name|mapset", "x1_1|first", "x1_2|first"]
+
+
+def test_extract_of_dataset_of_mapset_in_search_path_after_maps_are_in_the_database(
+    tools,
+):
+    add_first(tools)
+    # t.select inserts the maps of the dataset into the database of "second";
+    # see CASES for the relation.
+    tools.t_select(
+        expression="inserted = extract_works@first : extract_works@first",
+        type="strds",
+        overwrite=True,
+    )
+
+    extract(tools, "extract_works")
+
+    listing = tools.t_rast_list(input="extract_works_out", columns="name,mapset")
+    assert lines(listing) == ["name|mapset", "x2_1|first", "x2_2|first"]
 
 
 def test_a_dataset_copied_without_search_path_registers_the_maps_of_the_original(tools):

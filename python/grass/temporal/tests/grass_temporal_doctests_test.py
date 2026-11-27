@@ -60,16 +60,6 @@ MODULES = [
     "topology",
 ]
 
-# The modules of the old temporal algebra have doctests that no test ran
-# before; they stay out until the algebra core replaces them.
-OLD_ALGEBRA = {
-    "temporal_algebra",
-    "temporal_operator",
-    "temporal_raster_algebra",
-    "temporal_raster_base_algebra",
-    "temporal_vector_algebra",
-}
-
 # doctest name: (failed examples, reason). Empty: every doctest of the library
 # passes; whoever breaks one fixes the docstring or the code.
 KNOWN_FAILURES = {}
@@ -126,11 +116,11 @@ def test_the_doctests_of_a_module(name, tmp_path, monkeypatch):
 def test_every_module_with_doctests_is_run():
     root = Path(tgis.__file__).parent
     found = {
-        str(path.relative_to(root).with_suffix("")).replace("/", ".")
+        ".".join(path.relative_to(root).with_suffix("").parts)
         for path in root.rglob("*.py")
         if ">>>" in path.read_text()
         and "ply" not in path.parts
         and "testing" not in path.parts
         and "tests" not in path.parts
     }
-    assert found - OLD_ALGEBRA == set(MODULES)
+    assert found == set(MODULES)
