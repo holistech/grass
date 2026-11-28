@@ -18,7 +18,6 @@ Carolina sample dataset (grass.temporal.testing.nc_dataset), which the tests
 need: without it, they fail with a message that says where to get it.
 """
 
-import dataclasses
 from functools import partial
 from pathlib import Path
 
@@ -78,15 +77,6 @@ REVIEWED_MANUALS = (
     "t.vect.algebra",
 )
 
-# Blocks whose shown output comes from a tool not yet revised, by manual and
-# example, found by a text of their code. The example "Choose the sampling
-# method" of t.rast.mapcalc prints map names with t.rast.list method=comma,
-# which gives one line only from the revision of t.rast.list on. These blocks
-# run, but their output is not compared; a second run compares everything and
-# is expected to fail, strictly, so that the revision of t.rast.list has to
-# remove the entry.
-EXAMPLES_LATER = {"t.rast.mapcalc": {"Choose the sampling method": "comma"}}
-
 # The algebras, whose manuals list their expressions with the result of each.
 CATALOG_MANUALS = (
     "t.rast.algebra",
@@ -120,23 +110,9 @@ def time_limit(read_manual, variant):
 def example_runs():
     """Each reviewed manual and tab, with the time limit of its blocks"""
     for tool in REVIEWED_MANUALS:
-        later = EXAMPLES_LATER.get(tool, {})
         for variant in ("shell", "python"):
             marks = time_limit(partial(manual_of, tool), variant)
-            yield pytest.param(
-                tool, variant, later, marks=marks, id=f"{tool}-{variant}"
-            )
-            if later:
-                expected = pytest.mark.xfail(
-                    strict=True, reason=f"examples {set(later)} show a later revision"
-                )
-                yield pytest.param(
-                    tool,
-                    variant,
-                    {},
-                    marks=(*([marks] if marks else []), expected),
-                    id=f"{tool}-{variant}-whole",
-                )
+            yield pytest.param(tool, variant, marks=marks, id=f"{tool}-{variant}")
 
 
 @pytest.fixture
@@ -165,32 +141,11 @@ def dataset_at_start():
     return dataset, snapshot(dataset)
 
 
-@pytest.mark.parametrize(("tool", "variant", "later"), example_runs())
+@pytest.mark.parametrize(("tool", "variant"), example_runs())
 def test_examples_run_and_show_their_output(
-    tool, variant, later, tmp_path, example_processes, request
+    tool, variant, tmp_path, example_processes, request
 ):
-    manual = manual_of(tool)
-    if later:
-        manual = without_later_output(manual, variant, later)
-    check_examples(manual, variant, tmp_path, request)
-
-
-def without_later_output(manual, variant, later):
-    """The manual with the shown output of the blocks named in later removed"""
-    examples = []
-    unchecked = set()
-    for example in manual.examples:
-        text = later.get(example.title)
-        blocks = []
-        for block in example.blocks:
-            if text is not None and text in block.code and block.shown_output:
-                block = dataclasses.replace(block, shown_output=None)
-                if example.variant == variant:
-                    unchecked.add(example.title)
-            blocks.append(block)
-        examples.append(dataclasses.replace(example, blocks=tuple(blocks)))
-    assert unchecked == set(later), f"{manual.path}: no such blocks in {later}"
-    return dataclasses.replace(manual, examples=tuple(examples))
+    check_examples(manual_of(tool), variant, tmp_path, request)
 
 
 def test_examples_leave_the_dataset_unchanged(dataset_at_start):

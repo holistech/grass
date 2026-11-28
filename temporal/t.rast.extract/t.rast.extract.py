@@ -82,6 +82,11 @@ def main():
     register_null = flags["n"]
     time_suffix = options["suffix"]
 
+    try:
+        tgis.check_suffix(time_suffix)
+    except ValueError as error:
+        gs.fatal(str(error))
+
     # Make sure the temporal database exists
     tgis.init()
 
