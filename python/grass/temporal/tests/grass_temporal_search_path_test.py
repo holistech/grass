@@ -103,9 +103,8 @@ def listed_rows(tools, name):
 
 # A case is the call of a tool with a dataset of the mapset m and the check of
 # the result; the calls write to the mapset "second" with overwrite, so the
-# cases do not depend on each other. t.select, t.rast.mapcalc and
-# t.rast3d.mapcalc pass these cases only from their revision on; their cases
-# come with it.
+# cases do not depend on each other. t.select passes these cases only from its
+# revision on; its cases come with it.
 CASES = {
     "t.rast.list": (
         lambda t, p, m: t.t_rast_list(input=f"ds@{m}"),
@@ -159,6 +158,26 @@ CASES = {
             overwrite=True,
         ),
         lambda t, r: True,
+    ),
+    "t.rast.mapcalc": (
+        lambda t, p, m: t.t_rast_mapcalc(
+            inputs=f"ds@{m}",
+            output="calculated",
+            basename="calculated",
+            expression="ds + 1",
+            overwrite=True,
+        ),
+        lambda t, r: listed_rows(t, "calculated") == 3,
+    ),
+    "t.rast3d.mapcalc": (
+        lambda t, p, m: t.t_rast3d_mapcalc(
+            inputs=f"ds3@{m}",
+            output="calculated3",
+            basename="calculated3",
+            expression="ds3 + 1",
+            overwrite=True,
+        ),
+        lambda t, r: len(lines(t.t_rast3d_list(input="calculated3"))) == 3,
     ),
     "t.rast.algebra": (
         lambda t, p, m: t.t_rast_algebra(
