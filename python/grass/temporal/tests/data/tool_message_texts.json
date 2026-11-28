@@ -1,4 +1,6 @@
 [
     "Invalid date <{}> of the option <{}>",
+    "Invalid where condition <{}>: {}",
+    "Space time datasets can only be created in the current mapset",
     "Unable to update dataset <%(ds)s> of type %(type)s in the temporal database. The mapset of the database does not match the current mapset"
 ]

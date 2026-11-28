@@ -6,10 +6,13 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from tempfile import TemporaryDirectory
 
 import pytest
 
+import grass.temporal as tgis
+import grass.temporal.testing.data
 from grass.exceptions import CalledModuleError
 
 from grass.temporal.testing.data import (
@@ -18,6 +21,7 @@ from grass.temporal.testing.data import (
     create_daily_stds,
     create_stds,
     day,
+    insert_old_stds,
     intervals,
     make_map,
     register_file,
@@ -26,6 +30,7 @@ from grass.temporal.testing.data import (
     small_region,
     timestamp,
     vector_points,
+    windows_timeouts,
 )
 from grass.temporal.testing.readback import list_maps
 from grass.temporal.testing.session import mapset_session, temporal_session
@@ -85,7 +90,7 @@ def _specs(stds_type, case):
     """Three maps for case "interval", "point" or "relative"."""
     names = [f"{stds_type}_{case}_{number}" for number in (1, 2, 3)]
     if case == "interval":
-        times = [(start, end) for start, end in intervals(3)]
+        times = list(intervals(3))
     elif case == "point":
         times = [(day(number), None) for number in (0, 10, 20)]
     else:
@@ -431,7 +436,10 @@ def test_vector_points_coordinates(tools):
 
     out = tools.v_out_ascii(input="vp_xy", format="point", separator="comma")
 
-    assert out.text.splitlines() == ["1,2,1", "3,4,2"]
+    # split(), not splitlines(): on Windows v.out.ascii ends each row with
+    # "\r\n" (HOST_NEWLINE) in a stdout in text mode, which grass.tools
+    # reads as two line ends (OSGeo4W CI, 26.11.2026).
+    assert out.text.split() == ["1,2,1", "3,4,2"]
 
 
 def _tables(tools, name):
@@ -568,3 +576,55 @@ def test_small_region_decides_the_cells_of_a_new_map(tools):
 
     info = tools.r_info(map="sr_map", flags="g").keyval
     assert (info["rows"], info["cols"]) == (3, 5)
+
+
+def test_insert_old_stds_is_read_whole(tmp_path):
+    with temporal_session(tmp_path / "project"):
+        insert_old_stds("a.b")
+        insert_old_stds("c.d", "str3ds", "relative")
+        stds = tgis.open_old_stds("a.b", "strds")
+        assert stds.get_id() == f"a.b@{stds.get_mapset()}"
+        assert stds.get_temporal_type() == "absolute"
+        stds3 = tgis.open_old_stds("c.d", "str3ds")
+        assert stds3.get_id() == f"c.d@{stds3.get_mapset()}"
+        assert stds3.get_temporal_type() == "relative"
+
+
+def _item(path, *args, **kwargs):
+    """A stand-in for a pytest item with a timeout mark, or none without args"""
+    marker = SimpleNamespace(args=args, kwargs=kwargs) if args or kwargs else None
+    return SimpleNamespace(path=Path(path), get_closest_marker=lambda name: marker)
+
+
+def _platform(monkeypatch, platform):
+    """Let windows_timeouts see another platform, and nothing else"""
+    monkeypatch.setattr(
+        grass.temporal.testing.data, "sys", SimpleNamespace(platform=platform)
+    )
+
+
+@pytest.mark.parametrize("platform", ["linux", "darwin"])
+def test_windows_timeouts_yields_nothing_elsewhere(monkeypatch, platform):
+    _platform(monkeypatch, platform)
+
+    assert not list(windows_timeouts([_item("/t/a/x_test.py", 10)], Path("/t")))
+
+
+def test_windows_timeouts_scales_the_marks_below_the_directory(monkeypatch):
+    _platform(monkeypatch, "win32")
+    items = [
+        _item("/t/a/x_test.py", 10),
+        _item("/t/a/x_test.py", 300, method="thread"),
+        _item("/t/b/y_test.py", timeout=20),
+        _item("/t/b/y_test.py"),
+        _item("/t/b/y_test.py", 0),
+        _item("/other/z_test.py", 10),
+    ]
+
+    scaled = windows_timeouts(items, Path("/t"))
+
+    assert [(items.index(item), args, kwargs) for item, args, kwargs in scaled] == [
+        (0, [60], {}),
+        (1, [1500], {"method": "thread"}),
+        (2, [], {"timeout": 100}),
+    ]
