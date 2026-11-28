@@ -1,4 +1,7 @@
+from bisect import bisect_right
 from multiprocessing import Process, Queue
+from operator import itemgetter
+from queue import Empty
 import time
 from xml.etree.ElementTree import fromstring
 
@@ -14,6 +17,21 @@ from .env import G_debug
 
 from itertools import zip_longest
 
+# How long MultiModule.wait() waits for the modules of its child process
+# before it checks whether the child is still alive. The modules come back as
+# soon as the child sends them, so this only delays the report of a child that
+# ended without sending them.
+_POLL_SECONDS = 1
+
+# How long ParallelModuleQueue.put() sleeps between two looks at the processes
+# of a full queue. A slot so stays free for at most this long after its
+# process ended, little against the run of even a short module, and the looks
+# cost the parent almost no CPU time. Measured 2026-11-11 with a script in
+# grass --tmp-project XY: g.region -p through Module took 18 ms (median of 20
+# runs); a put() that waited 5.2 s for one of two r.mapcalc runs on
+# 8000 x 8000 cells used 1 ms of CPU time.
+_SLOT_POLL_SECONDS = 0.01
+
 
 def _get_bash(self, *args, **kargs):
     return self.get_bash()
@@ -26,19 +44,26 @@ class ParallelModuleQueue:
     Objects of type :py:class:`grass.pygrass.modules.Module` or
     :py:class:`grass.pygrass.modules.MultiModule` can be put into the
     queue using :py:meth:`put` method. When the queue is full with the maximum
-    number of parallel processes it will wait for all processes to finish,
-    sets the stdout and stderr of the Module object and removes it
-    from the queue when its finished.
+    number of parallel processes it will wait until one of the processes
+    finished, sets the stdout and stderr of its Module object, removes it
+    from the queue and starts the new process in its place. With a queue
+    of one process, :py:meth:`put` waits for each process to finish.
 
     To finish the queue before the maximum number of parallel
     processes was reached, call :py:meth:`wait`.
 
-    This class will raise a GrassError in case a Module process exits
-    with a return code other than 0.
-
-    Processes that were run asynchronously with the :py:class:`MultiModule` class
-    will not raise a GrassError in case of failure. This must be manually checked
-    by accessing finished modules by calling :py:meth:`get_finished_modules`.
+    :py:meth:`wait` waits for every process of the queue, also after one of
+    them failed, so that nothing keeps running (and writing maps) after it
+    returns. It then raises the first
+    :py:class:`~grass.exceptions.CalledModuleError` of a Module process that
+    exited with a return code other than 0. A note on the exception gives the
+    number of the further processes that failed as well. This holds for
+    :py:class:`MultiModule` processes run asynchronously, too: they report the
+    failure of their child process. If :py:meth:`put` finds a failed process
+    while it waits for a free slot, it does not start its module but calls
+    :py:meth:`wait`, so that the failure is raised in the same way by that
+    put(). In a queue of one process :py:meth:`put` raises the failure of
+    its own module at once.
 
     :Usage:
 
@@ -202,17 +227,15 @@ class ParallelModuleQueue:
         >>> new_mapcalc = copy.deepcopy(mapcalc)
         >>> mapcalc_list.append(new_mapcalc)
         >>> m = new_mapcalc(expression="test_pygrass_3 =3")
-        >>> queue.put(
-        ...     m
-        ... )  # Now it will wait until all procs finish and set the counter back to 0
+        >>> queue.put(m)  # Now all three slots are taken
         >>> queue.get_num_run_procs()
-        0
+        3
         >>> new_mapcalc = copy.deepcopy(mapcalc)
         >>> mapcalc_list.append(new_mapcalc)
-        >>> m = new_mapcalc(expression="test_pygrass_%i = %i" % (i, i))
-        >>> queue.put(m)
+        >>> m = new_mapcalc(expression="test_pygrass_4 =4")
+        >>> queue.put(m)  # Waits until one process finished, starts m in its slot
         >>> queue.get_num_run_procs()
-        1
+        3
         >>> queue.wait()
         >>> mapcalc_list = queue.get_finished_modules()
         >>> queue.get_num_run_procs()
@@ -241,8 +264,14 @@ class ParallelModuleQueue:
         nprocs = resolve_nprocs(nprocs) if nprocs else available_cpus()
         self._num_procs = nprocs
         self._list = nprocs * [None]
-        self._proc_count = 0
+        # The number of the put() call of the process in each slot. The
+        # processes end in any order; these numbers keep the finished modules
+        # and the failures in the order of put().
+        self._put_numbers = nprocs * [None]
+        self._put_count = 0
         self._finished_modules = []  # Store all processed modules in a list
+        self._finished_put_numbers = []
+        self._failures = []
 
     def put(self, module):
         r"""Put the next Module or MultiModule object in the queue
@@ -250,19 +279,80 @@ class ParallelModuleQueue:
         To run the Module objects in parallel the ``run_`` and ``finish_`` options
         of the Module must be set to False.
 
+        If all slots of the queue are taken, the method waits until one of
+        the processes ends and starts the module in its slot. If that process
+        failed, the method does not start the module: it calls
+        :py:meth:`wait`, which waits for the other processes and raises the
+        first failure. With a queue of one process the method returns after
+        the module ended and raises its failure at once.
+
         :param module: a preconfigured Module or MultiModule object that were configured
                        with ``run_`` and ``finish_`` set to False,
         :type module: Module or MultiModule object
         """
-        self._list[self._proc_count] = module
+        slot = self._free_slot()
+        # Starting more modules after a failure only adds work whose result
+        # the caller discards once the failure is raised.
+        if self._failures:
+            self.wait()
         # Force that finish is False, otherwise the execution
         # will not be parallel
-        self._list[self._proc_count].finish_ = False
-        self._list[self._proc_count].run()
-        self._proc_count += 1
+        module.finish_ = False
+        module.run()
+        self._list[slot] = module
+        self._put_numbers[slot] = self._put_count
+        self._put_count += 1
 
-        if self._proc_count == self._num_procs:
+        if self._num_procs == 1:
             self.wait()
+
+    def _free_slot(self):
+        """Return the number of a free slot, after waiting for one if needed
+
+        Neither the operating system nor the standard library offers a
+        portable way to wait for the first of several Popen and
+        multiprocessing processes to end (os.wait() would also collect
+        processes that the caller started, a pidfd exists only on Linux), so
+        the method looks at the processes and sleeps in between.
+        """
+        while True:
+            for slot, proc in enumerate(self._list):
+                if proc is None:
+                    return slot
+            for slot, proc in enumerate(self._list):
+                if _has_ended(proc):
+                    self._collect(slot)
+                    return slot
+            # A module that writes into a pipe or reads its input from one
+            # can block until Module.wait() communicates with it, so it may
+            # never end while it is only looked at. Waiting for the oldest of
+            # them keeps the queue going.
+            piped = [slot for slot, proc in enumerate(self._list) if _uses_pipes(proc)]
+            if piped:
+                slot = min(piped, key=self._put_numbers.__getitem__)
+                self._collect(slot)
+                return slot
+            time.sleep(_SLOT_POLL_SECONDS)
+
+    def _collect(self, slot):
+        """Wait for the process in the slot and free the slot
+
+        The finished modules are kept in the order of put(), a
+        CalledModuleError is kept for wait(). Any other exception is raised.
+        """
+        proc = self._list[slot]
+        number = self._put_numbers[slot]
+        self._list[slot] = None
+        self._put_numbers[slot] = None
+        try:
+            finished = proc.wait()
+        except CalledModuleError as error:
+            self._failures.append((number, error))
+            return
+        modules = [finished] if isinstance(proc, Module) else finished
+        index = bisect_right(self._finished_put_numbers, number)
+        self._finished_put_numbers[index:index] = [number] * len(modules)
+        self._finished_modules[index:index] = modules
 
     def get(self, num):
         """Get a Module object or list of Module objects from the queue
@@ -278,11 +368,11 @@ class ParallelModuleQueue:
 
     def get_num_run_procs(self):
         """Get the number of Module processes that are in the queue running
-        or finished
+        or finished, but not yet waited for
 
-        :returns: the number of Module processes running/finished in the queue
+        :returns: the number of slots of the queue that hold a process
         """
-        return self._proc_count
+        return sum(proc is not None for proc in self._list)
 
     def get_max_num_procs(self):
         """Return the maximum number of parallel Module processes
@@ -305,7 +395,8 @@ class ParallelModuleQueue:
     def get_finished_modules(self):
         """Return all finished processes that were run by this queue
 
-        :return: A list of Module objects
+        :return: A list of Module objects, in the order in which they were
+            put into the queue
         """
         return self._finished_modules
 
@@ -313,21 +404,54 @@ class ParallelModuleQueue:
         """Wait for all Module processes that are in the list to finish
         and set the modules stdout and stderr output options
 
-        :return: A list of modules that were run
+        A failing process does not stop the waiting: the remaining processes
+        are waited for as well and the queue is emptied. Afterwards the first
+        :py:class:`~grass.exceptions.CalledModuleError` is raised, with a note
+        that gives the number of further failures. First means first in the
+        order of put(); the failures of processes that :py:meth:`put` waited
+        for count as well. :py:meth:`put` calls this method as soon as it
+        has collected a failure, so a failure is raised either by the next
+        put() that needs a slot or by this method. Any other exception is
+        raised at once. The queue can be used again afterwards.
         """
-        for proc in self._list:
-            if proc:
-                if isinstance(proc, Module):
-                    self._finished_modules.extend(
-                        [
-                            proc.wait(),
-                        ]
-                    )
-                else:
-                    self._finished_modules.extend(proc.wait())
+        try:
+            for slot, proc in enumerate(self._list):
+                if proc is not None:
+                    self._collect(slot)
+        finally:
+            self._list = self._num_procs * [None]
+            self._put_numbers = self._num_procs * [None]
+            failures, self._failures = self._failures, []
+        if failures:
+            failures.sort(key=itemgetter(0))
+            first = failures[0][1]
+            if len(failures) > 1:
+                first.add_note(
+                    f"{len(failures) - 1} other module(s) of the queue failed as well"
+                )
+            raise first
 
-        self._list = self._num_procs * [None]
-        self._proc_count = 0
+
+def _has_ended(proc):
+    """Return True if the process of a Module or MultiModule has ended"""
+    if isinstance(proc, Module):
+        # Module.wait() drops the process handle; a module that the caller
+        # already waited for has ended, and waiting for it again returns at once.
+        return proc._popen is None or proc._popen.poll() is not None
+    # The child process of a MultiModule cannot end before the parent reads
+    # the modules it sends back if they fill the pipe of the queue, so modules
+    # in the queue count as an end, too; MultiModule.wait() reads them first.
+    return not proc.q.empty() or not proc.p.is_alive()
+
+
+def _uses_pipes(proc):
+    """Return True if the process of a Module has a pipe for stdin, stdout or
+    stderr; the child process of a MultiModule handles the pipes itself"""
+    # The settings of the module and not the attributes of its Popen object:
+    # grass.script.core.Popen wraps stdin also when there is no pipe.
+    if not isinstance(proc, Module):
+        return False
+    return PIPE in (proc.stdin_, proc.stdout_, proc.stderr_)
 
 
 class Module:
@@ -867,15 +991,18 @@ class Module:
             self.time = time.time() - self.start_time
             self.returncode = self._popen.returncode
             self._finished = True
+            # Drop the process handle before raising, too: it holds a lock
+            # and cannot be pickled, and MultiModule sends failed modules
+            # back to the parent process.
+            self._popen = None
 
-            if self._popen.poll():
+            if self.returncode:
                 raise CalledModuleError(
-                    returncode=self._popen.returncode,
+                    returncode=self.returncode,
                     code=self.get_bash(),
                     module=self.name,
                     errors=stderr,
                 )
-        self._popen = None
 
         return self
 
@@ -1061,12 +1188,88 @@ class MultiModule:
         in asynchronous mode, hence if finished was set False.
 
         :return: The process list with finished processes to check their return states
+        :raises CalledModuleError: if a module failed; the modules after it
+            were not run. Also if the child process failed otherwise, for
+            example by another exception or a signal; the error then names
+            the exit code of the child process, and its stderr has the details.
         """
         if self.p:
-            proc_list = self.q.get()
+            proc_list = self._receive()
             self.p.join()
 
+            # The module raised in the child process, where the exception
+            # stays; raise it again here, as Module.wait() does.
+            for module in proc_list or []:
+                if module.returncode:
+                    raise CalledModuleError(
+                        returncode=module.returncode,
+                        code=module.get_bash(),
+                        module=module.name,
+                        errors=module.outputs["stderr"].value,
+                    )
+
+            # The child catches only a failed module. Any other exception
+            # leaves it with exit code 1, a signal ends it with a negative
+            # exit code, and the modules come back only if the child reached
+            # q.put() and the queue could pickle them.
+            if proc_list is None or self.p.exitcode:
+                not_run = [
+                    module
+                    for module in proc_list or self.module_list
+                    if module.returncode is None
+                ]
+                raise CalledModuleError(
+                    returncode=self.p.exitcode,
+                    code=str(self),
+                    module=(not_run or self.module_list)[0].name,
+                    errors=(
+                        f"The child process ended with exit code {self.p.exitcode};"
+                        " see the error output above"
+                    ),
+                )
+
             return proc_list
+
+    def _receive(self):
+        """Return the modules that the child process sent back, or None if
+        it ended without sending them
+
+        A blocking get() would wait forever for a child that ended before
+        it sent the modules: an exception before the queue was filled, a
+        module the queue could not pickle, or a signal.
+        """
+        while True:
+            try:
+                return self.q.get(timeout=_POLL_SECONDS)
+            except Empty:
+                if not self.p.is_alive():
+                    break
+        # The child may have sent the modules between the timeout and the
+        # check; a child that ends normally flushes its queue first.
+        try:
+            return self.q.get_nowait()
+        except Empty:
+            return None
+
+
+def _run_until_failure(module_list):
+    """Run the modules in serial and stop at the first one that fails
+
+    The failure stays visible to the parent process through the return code
+    of the failed module, which MultiModule.wait() turns into a
+    CalledModuleError with the error output of the module. Letting the
+    exception leave the child process would add nothing but a traceback on
+    stderr: multiprocessing.Process prints it and sets exit code 1, and
+    MultiModule.wait() reports the failed module first anyway.
+
+    :param module_list: The list of modules to run in serial
+    """
+    for proc in module_list:
+        try:
+            proc.run()
+            proc.wait()
+        except CalledModuleError:
+            return
 
 
 def run_modules_in_temp_region(module_list, q):
@@ -1080,9 +1283,7 @@ def run_modules_in_temp_region(module_list, q):
     """
     use_temp_region()
     try:
-        for proc in module_list:
-            proc.run()
-            proc.wait()
+        _run_until_failure(module_list)
     finally:
         q.put(module_list)
         del_temp_region()
@@ -1098,9 +1299,7 @@ def run_modules(module_list, q):
     :param q: The process queue to put the finished process list
     """
     try:
-        for proc in module_list:
-            proc.run()
-            proc.wait()
+        _run_until_failure(module_list)
     finally:
         q.put(module_list)
 
