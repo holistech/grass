@@ -1,15 +1,13 @@
---#############################################################################
--- This SQL script generates the vector table to store
--- metadata for SQL queries and temporal GIS support.
+-- Create the metadata table of vector maps
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
-
---PRAGMA foreign_keys = ON;
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
 
 -- The metadata table
 
-CREATE TABLE  vector_metadata (
+CREATE TABLE vector_metadata (
   id VARCHAR NOT NULL,    -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary key
   is_3d BOOLEAN,          -- This is 1 if the vector map is 3d and 0 otherwise
   points INTEGER,         -- The number of points
