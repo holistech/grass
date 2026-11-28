@@ -382,7 +382,9 @@ prec_6|...|2499-11-16 21:00:00|None"""
         start, end = strds.get_absolute_time()
         self.assertEqual(start, datetime(2001, 1, 1))
         self.assertEqual(end, datetime(2599, 8, 26, 6, 0))
-        self.assertEqual(strds.check_temporal_topology(), False)
+        # Years and months of the increment form one calendar step, so the end of
+        # prec_5 (its start plus one increment) is the start of prec_6.
+        self.assertEqual(strds.check_temporal_topology(), True)
         self.assertEqual(strds.get_granularity(), "3 hours")
 
         # Check raster map metadata (time stamp)
@@ -401,7 +403,7 @@ prec_1|...|2001-01-01 00:00:00|2100-10-10 09:00:00
 prec_2|...|2100-10-10 09:00:00|2200-07-19 18:00:00
 prec_3|...|2200-07-19 18:00:00|2300-04-29 03:00:00
 prec_4|...|2300-04-29 03:00:00|2400-02-07 12:00:00
-prec_5|...|2400-02-07 12:00:00|2499-11-17 21:00:00
+prec_5|...|2400-02-07 12:00:00|2499-11-16 21:00:00
 prec_6|...|2499-11-16 21:00:00|2599-08-26 06:00:00"""
         self.assertLooksLike(str(t_rast_list.outputs.stdout), ref_str)
 

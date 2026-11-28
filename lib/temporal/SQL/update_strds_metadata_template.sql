@@ -1,13 +1,15 @@
---#############################################################################
--- This SQL is to update a space-time raster dataset metadata
+-- Update the metadata of a space-time raster dataset from its maps
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
--- UPDATE FROM syntax: Stefan Blumentrath stefan  <dot>  blumentrath <at> gmx <dot> de
---#############################################################################
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
+-- UPDATE FROM syntax: Stefan Blumentrath
 
--- SPACETIME_REGISTER_TABLE is a placeholder for specific stds map register table name (SQL compliant)
--- SPACETIME_ID is a placeholder for specific stds id: name@mapset
--- for TGIS < 3 the lines for semantic labels get replaced / commented out
+-- The caller fills in the name of the map register table of the dataset and the
+-- dataset id as an SQL literal: 'name@mapset'.
+-- For a database of version 2 the caller comments out the lines for semantic
+-- labels.
 
 UPDATE strds_metadata
    SET
@@ -39,4 +41,4 @@ UPDATE strds_metadata
             raster_metadata ON
             SPACETIME_REGISTER_TABLE.id = raster_metadata.id
        ) AS new_stats
- WHERE strds_metadata.id = 'SPACETIME_ID';
+ WHERE strds_metadata.id = SPACETIME_ID;

@@ -9,11 +9,13 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
+import calendar
 import copy
+import re
 from datetime import datetime, timedelta
 from typing import TypedDict
 
-from .core import get_tgis_message_interface
+from .state import get_tgis_message_interface
 
 try:
     from dateutil import parser
@@ -27,24 +29,9 @@ DAY_IN_SECONDS = 86400
 SECOND_AS_DAY = 1.1574074074074073e-05
 
 
-def relative_time_to_time_delta(value: float) -> timedelta:
-    """Convert the double value representing days into a timedelta object."""
-    days = int(value)
-    seconds = value % 1
-    seconds = round(seconds * DAY_IN_SECONDS)
-    return timedelta(days, seconds)
-
-
 def time_delta_to_relative_time(delta: timedelta) -> float:
     """Convert the time delta into a double value, representing days."""
     return float(delta.days) + float(delta.seconds * SECOND_AS_DAY)
-
-
-def relative_time_to_time_delta_seconds(value: float) -> timedelta:
-    """Convert the double value representing seconds into a timedelta object."""
-    days = value / 86400
-    seconds = int(value % 86400)
-    return timedelta(days, seconds)
 
 
 def time_delta_to_relative_time_seconds(delta: timedelta) -> float:
@@ -53,61 +40,34 @@ def time_delta_to_relative_time_seconds(delta: timedelta) -> float:
     return float(delta.days * DAY_IN_SECONDS) + float(delta.seconds)
 
 
-###############################################################################
+# The units of an increment or a granularity from the finest to the coarsest
+_GRANULARITY_UNITS = ("second", "minute", "hour", "day", "week", "month", "year")
+
+
+def _unit_of(word: str) -> str | None:
+    """Return the first unit of _GRANULARITY_UNITS that the word contains
+
+    So "days" names a day and "minutesecond" a second; None if there is none.
+    """
+    return next((name for name in _GRANULARITY_UNITS if name in word), None)
 
 
 def decrement_datetime_by_string(
     mydate: datetime, increment: str, mult=1
 ) -> datetime | None:
-    """Return a new datetime object decremented with the provided
-    relative dates specified as string.
-    Additional a multiplier can be specified to multiply the increment
-    before adding to the provided datetime object.
+    """Return a new datetime object decremented with the provided relative dates.
+
+    The relative dates are specified as a string. A multiplier can be specified to
+    multiply the increment before it is applied to the provided datetime object.
 
     Usage:
 
     .. code-block:: pycon
 
          >>> dt = datetime(2001, 1, 1, 0, 0, 0)
-         >>> string = "31 days"
-         >>> decrement_datetime_by_string(dt, string)
-         datetime.datetime(2000, 12, 1, 0, 0)
-
-         >>> dt = datetime(2001, 1, 1, 0, 0, 0)
          >>> string = "1 month"
          >>> decrement_datetime_by_string(dt, string)
          datetime.datetime(2000, 12, 1, 0, 0)
-
-         >>> dt = datetime(2001, 1, 1, 0, 0, 0)
-         >>> string = "2 month"
-         >>> decrement_datetime_by_string(dt, string)
-         datetime.datetime(2000, 11, 1, 0, 0)
-
-         >>> dt = datetime(2001, 1, 1, 0, 0, 0)
-         >>> string = "24 months"
-         >>> decrement_datetime_by_string(dt, string)
-         datetime.datetime(1999, 1, 1, 0, 0)
-
-         >>> dt = datetime(2001, 1, 1, 0, 0, 0)
-         >>> string = "48 months"
-         >>> decrement_datetime_by_string(dt, string)
-         datetime.datetime(1997, 1, 1, 0, 0)
-
-         >>> dt = datetime(2001, 6, 1, 0, 0, 0)
-         >>> string = "5 months"
-         >>> decrement_datetime_by_string(dt, string)
-         datetime.datetime(2001, 1, 1, 0, 0)
-
-         >>> dt = datetime(2001, 6, 1, 0, 0, 0)
-         >>> string = "7 months"
-         >>> decrement_datetime_by_string(dt, string)
-         datetime.datetime(2000, 11, 1, 0, 0)
-
-         >>> dt = datetime(2001, 1, 1, 0, 0, 0)
-         >>> string = "1 year"
-         >>> decrement_datetime_by_string(dt, string)
-         datetime.datetime(2000, 1, 1, 0, 0)
-
 
     :param mydate: A datetime object to incremented
     :param increment: A string providing increment information:
@@ -126,62 +86,19 @@ def decrement_datetime_by_string(
 def increment_datetime_by_string(
     mydate: datetime, increment: str, mult=1
 ) -> datetime | None:
-    """Return a new datetime object incremented with the provided
-    relative dates specified as string.
-    Additional a multiplier can be specified to multiply the increment
-    before adding to the provided datetime object.
+    """Return a new datetime object incremented with the provided relative dates.
+
+    The relative dates are specified as a string. A multiplier can be specified to
+    multiply the increment before it is added to the provided datetime object.
 
     Usage:
 
     .. code-block:: pycon
 
-        >>> dt = datetime(2001, 9, 1, 0, 0, 0)
-        >>> string = (
-        ...     "60 seconds, 4 minutes, 12 hours, 10 days, 1 weeks, 5 months, 1 years"
-        ... )
-        >>> increment_datetime_by_string(dt, string)
-        datetime.datetime(2003, 2, 18, 12, 5)
-
         >>> dt = datetime(2001, 11, 1, 0, 0, 0)
         >>> string = "1 months"
         >>> increment_datetime_by_string(dt, string)
         datetime.datetime(2001, 12, 1, 0, 0)
-
-        >>> dt = datetime(2001, 11, 1, 0, 0, 0)
-        >>> string = "13 months"
-        >>> increment_datetime_by_string(dt, string)
-        datetime.datetime(2002, 12, 1, 0, 0)
-
-        >>> dt = datetime(2001, 1, 1, 0, 0, 0)
-        >>> string = "72 months"
-        >>> increment_datetime_by_string(dt, string)
-        datetime.datetime(2007, 1, 1, 0, 0)
-
-        >>> dt = datetime(2001, 1, 1, 0, 0, 0)
-        >>> string = "72 months"
-        >>> increment_datetime_by_string(dt, string)
-        datetime.datetime(2007, 1, 1, 0, 0)
-
-        >>> dt = datetime(2001, 1, 1, 0, 0, 0)
-        >>> string = "5 minutes"
-        >>> increment_datetime_by_string(dt, string)
-        datetime.datetime(2001, 1, 1, 0, 5)
-
-        >>> dt = datetime(2001, 1, 1, 0, 0, 0)
-        >>> string = "49 hours"
-        >>> increment_datetime_by_string(dt, string)
-        datetime.datetime(2001, 1, 3, 1, 0)
-
-        >>> dt = datetime(2001, 1, 1, 0, 0, 0)
-        >>> string = "3600 seconds"
-        >>> increment_datetime_by_string(dt, string)
-        datetime.datetime(2001, 1, 1, 1, 0)
-
-        >>> dt = datetime(2001, 1, 1, 0, 0, 0)
-        >>> string = "30 days"
-        >>> increment_datetime_by_string(dt, string)
-        datetime.datetime(2001, 1, 31, 0, 0)
-
 
     :param mydate: A datetime object to incremented
     :param increment: A string providing increment information:
@@ -200,10 +117,10 @@ def increment_datetime_by_string(
 def modify_datetime_by_string(
     mydate: datetime, increment: str, mult=1, sign: int = 1
 ) -> datetime | None:
-    """Return a new datetime object incremented with the provided
-    relative dates specified as string.
-    Additional a multiplier can be specified to multiply the increment
-    before adding to the provided datetime object.
+    """Return a new datetime object incremented with the provided relative dates.
+
+    The relative dates are specified as a string. A multiplier can be specified to
+    multiply the increment before it is added to the provided datetime object.
 
     :param mydate: A datetime object to incremented
     :param increment: A string providing increment information:
@@ -222,132 +139,181 @@ def modify_datetime_by_string(
     if sign not in {1, -1}:
         return None
 
-    if increment:
-        seconds = 0
-        minutes = 0
-        hours = 0
-        days = 0
-        weeks = 0
-        months = 0
-        years = 0
+    if not increment:
+        return mydate
 
-        inclist = []
-        # Split the increment string
-        incparts = increment.split(",")
-        for incpart in incparts:
-            inclist.append(incpart.strip().split(" "))
-
-        for inc in inclist:
+    steps = dict.fromkeys(_GRANULARITY_UNITS, 0)
+    for part in increment.split(","):
+        inc = part.strip().split(" ")
+        unit = _unit_of(inc[1]) if len(inc) >= 2 else None
+        if unit is None:
             msgr = get_tgis_message_interface()
-            if len(inc) < 2:
-                msgr.error(_("Wrong increment format: %s") % (increment))
-                return None
-            if inc[1].find("seconds") >= 0 or inc[1].find("second") >= 0:
-                seconds = sign * mult * int(inc[0])
-            elif inc[1].find("minutes") >= 0 or inc[1].find("minute") >= 0:
-                minutes = sign * mult * int(inc[0])
-            elif inc[1].find("hours") >= 0 or inc[1].find("hour") >= 0:
-                hours = sign * mult * int(inc[0])
-            elif inc[1].find("days") >= 0 or inc[1].find("day") >= 0:
-                days = sign * mult * int(inc[0])
-            elif inc[1].find("weeks") >= 0 or inc[1].find("week") >= 0:
-                weeks = sign * mult * int(inc[0])
-            elif inc[1].find("months") >= 0 or inc[1].find("month") >= 0:
-                months = sign * mult * int(inc[0])
-            elif inc[1].find("years") >= 0 or inc[1].find("year") >= 0:
-                years = sign * mult * int(inc[0])
-            else:
-                msgr.error(_("Wrong increment format: %s") % (increment))
-                return None
+            msgr.error(_("Wrong increment format: %s") % (increment))
+            return None
+        # A unit that appears twice keeps its last number.
+        steps[unit] = sign * mult * int(inc[0])
 
-        return modify_datetime(
-            mydate, years, months, weeks, days, hours, minutes, seconds
-        )
-
-    return mydate
+    return modify_datetime(mydate, **{f"{unit}s": step for unit, step in steps.items()})
 
 
-###############################################################################
+def _replace_year_month(mydate: datetime, year: int, month: int) -> datetime:
+    """Return mydate moved to the given year and month
+
+    A day behind the last day of the target month (31 January + 1 month,
+    29 February + 1 year) is set to that last day. Raising instead would make
+    every series that starts on day 29 to 31 unusable.
+    """
+    last_day = calendar.monthrange(year, month)[1]
+    return mydate.replace(year=year, month=month, day=min(mydate.day, last_day))
 
 
 def modify_datetime(
     mydate: datetime, years=0, months=0, weeks=0, days=0, hours=0, minutes=0, seconds=0
 ) -> datetime:
-    """Return a new datetime object incremented with the provided
-    relative dates and times"""
+    """Return a new datetime object incremented with relative dates and times
 
-    tdelta_seconds = timedelta(seconds=seconds)
-    tdelta_minutes = timedelta(minutes=minutes)
-    tdelta_hours = timedelta(hours=hours)
-    tdelta_days = timedelta(days=days)
-    tdelta_weeks = timedelta(weeks=weeks)
-    tdelta_months = timedelta(0)
-    tdelta_years = timedelta(0)
+    A month or year step that ends behind the last day of the target month
+    ends on that last day. Years and months form one calendar step of
+    12 * years + months months with one cut, so "1 years, 11 months" and
+    "23 months" end on the same day:
 
-    if months > 0:
-        # Compute the actual number of days in the month to add as timedelta
-        year = mydate.year
-        month = mydate.month
+    .. code-block:: pycon
 
-        all_months = int(months) + int(month)
-        years_to_add = int(all_months / 12.001)
-        residual_months = all_months - (years_to_add * 12)
+        >>> modify_datetime(datetime(2003, 3, 31), months=23)
+        datetime.datetime(2005, 2, 28, 0, 0)
+        >>> modify_datetime(datetime(2003, 3, 31), years=1, months=11)
+        datetime.datetime(2005, 2, 28, 0, 0)
 
-        # Make a deep copy of the datetime object
-        dt1 = copy.copy(mydate)
+    :raises ValueError: If the result lies beyond the year 9999 or before the
+                        year 1, which datetime cannot hold
+    """
 
-        # Make sure the month starts with a 1
-        if residual_months == 0:
-            residual_months = 1
+    total_months = 12 * int(years) + int(months)
+    if total_months != 0:
+        target_year, target_month = divmod(
+            mydate.year * 12 + mydate.month - 1 + total_months, 12
+        )
+        mydate = _replace_year_month(mydate, target_year, target_month + 1)
 
-        dt1 = dt1.replace(year=year + years_to_add, month=residual_months)
-
-        tdelta_months = dt1 - mydate
-    elif months < 0:
-        # Compute the actual number of days in the month to add as timedelta
-        year = mydate.year
-        month = mydate.month
-        years_to_remove = 0
-
-        all_months = int(months) + int(month)
-        if all_months <= 0:
-            years_to_remove = abs(int(all_months / 12.001))
-            residual_months = all_months + (years_to_remove * 12)
-            years_to_remove += 1
-        else:
-            residual_months = all_months
-
-        # Make a deep copy of the datetime object
-        dt1 = copy.copy(mydate)
-
-        # Correct the months
-        if residual_months <= 0:
-            residual_months += 12
-
-        dt1 = dt1.replace(year=year - years_to_remove, month=residual_months)
-
-        tdelta_months = dt1 - mydate
-
-    if years != 0:
-        # Make a deep copy of the datetime object
-        dt1 = copy.copy(mydate)
-        # Compute the number of days
-        dt1 = dt1.replace(year=mydate.year + int(years))
-        tdelta_years = dt1 - mydate
-
-    return (
-        mydate
-        + tdelta_seconds
-        + tdelta_minutes
-        + tdelta_hours
-        + tdelta_days
-        + tdelta_weeks
-        + tdelta_months
-        + tdelta_years
+    step = timedelta(
+        weeks=weeks, days=days, hours=hours, minutes=minutes, seconds=seconds
     )
+    try:
+        return mydate + step
+    except OverflowError:
+        # Callers catch ValueError, which the month and year step raises
+        # beyond the same limits; OverflowError passed them and ended tools
+        # with a traceback. "from None" drops the bare "date value out of range".
+        if step < timedelta(0):
+            msg = _("The date {date} minus {step} is before the year 1").format(
+                date=mydate, step=-step
+            )
+        else:
+            msg = _("The date {date} plus {step} is beyond the year 9999").format(
+                date=mydate, step=step
+            )
+        raise ValueError(msg) from None
 
 
-###############################################################################
+def datetime_after_steps(anchor: datetime, step: str, count: int) -> datetime | None:
+    """Return the time stamp that lies count steps after the anchor
+
+    A series that is built from a start time counts from this start: the n-th
+    time stamp is the anchor plus n steps, with one cut per time stamp. Adding
+    one step to the previous time stamp instead lets a cut at the end of a
+    short month carry over into all later time stamps (31 January, 28 February,
+    28 March, 28 April).
+
+    Only a pure month or year step is counted from the anchor. A composite step
+    such as "1 months, 1 days" stays chained, because counting it from the
+    anchor would give other dates even without a cut (28 January plus two
+    times "1 months, 1 days" is 2 April chained, but 30 March counted from the
+    anchor). Steps in seconds to weeks give the same result either way and are
+    multiplied, so that a loop which asks for every time stamp of a long
+    series of days or hours takes one step per time stamp, not count steps.
+
+    Usage:
+
+    .. code-block:: pycon
+
+        >>> anchor = datetime(2001, 1, 31)
+        >>> for n in range(4):
+        ...     print(datetime_after_steps(anchor, "1 months", n))
+        2001-01-31 00:00:00
+        2001-02-28 00:00:00
+        2001-03-31 00:00:00
+        2001-04-30 00:00:00
+
+    :param anchor: The first time stamp of the series
+    :param step: An increment string as for increment_datetime_by_string()
+    :param count: The number of steps, 0 or more
+    :return: The new datetime object or None if the step cannot be read
+    :raises ValueError: If count is negative. A month step would go back in
+                        time while a chained step would return the anchor.
+    """
+    if count < 0:
+        msg = f"The number of steps must be 0 or more, not {count}"
+        raise ValueError(msg)
+    if count == 0:
+        return anchor
+    parts = step.split(",")
+    calendar_part = any(
+        len(words) == 2 and words[1].rstrip("s") in {"month", "year"}
+        for words in (part.split() for part in parts)
+    )
+    if len(parts) == 1 or not calendar_part:
+        return increment_datetime_by_string(anchor, step, mult=count)
+    current = anchor
+    for _i in range(count):
+        current = increment_datetime_by_string(current, step)
+        if current is None:
+            return None
+    return current
+
+
+def anchor_and_count(
+    anchor: datetime | None, moment: datetime, step: str
+) -> tuple[datetime, int]:
+    """Return the start of the series that moment belongs to and its steps
+
+    A series of month or year steps counts its time stamps from its first
+    one, with one cut to the end of a shorter month per time stamp (see
+    datetime_after_steps()). If moment is a time stamp of the series that
+    starts at anchor, the result is anchor and the number of steps from
+    anchor to moment, so that the next time stamp is
+    datetime_after_steps(anchor, step, count + 1): from 31 January the step
+    after 30 April ends on 31 May, not on 30 May.
+
+    Otherwise, and for steps of seconds to weeks, the result is moment and 0:
+    the series counts from moment. For steps of a fixed length this gives the
+    same time stamps as the anchor whenever moment lies whole steps after it.
+
+    :param anchor: The first time stamp of the series, or None
+    :param moment: A time stamp at or after the anchor
+    :param step: A step of the form "number unit"
+    """
+    if anchor is None or _months_of_step(step) is None:
+        return moment, 0
+    count = 0
+    current = anchor
+    while current is not None and current < moment:
+        count += 1
+        current = datetime_after_steps(anchor, step, count)
+    if current == moment:
+        return anchor, count
+    return moment, 0
+
+
+# The fields that restart when the finest unit of a granularity is given
+_START_VALUES = {
+    "second": {},
+    "minute": {"second": 0},
+    "hour": {"second": 0, "minute": 0},
+    "day": {"second": 0, "minute": 0, "hour": 0},
+    "week": {"second": 0, "minute": 0, "hour": 0},
+    "month": {"second": 0, "minute": 0, "hour": 0, "day": 1},
+    "year": {"second": 0, "minute": 0, "hour": 0, "day": 1, "month": 1},
+}
 
 
 def adjust_datetime_to_granularity(mydate: datetime, granularity):
@@ -355,6 +321,7 @@ def adjust_datetime_to_granularity(mydate: datetime, granularity):
 
     - Years will start at the first of January
     - Months will start at the first day of the month
+    - Weeks will start on the Monday on or before the date
     - Days will start at the first Hour of the day
     - Hours will start at the first minute of an hour
     - Minutes will start at the first second of a minute
@@ -364,135 +331,51 @@ def adjust_datetime_to_granularity(mydate: datetime, granularity):
     .. code-block:: pycon
 
         >>> dt = datetime(2001, 8, 8, 12, 30, 30)
-        >>> adjust_datetime_to_granularity(dt, "5 seconds")
-        datetime.datetime(2001, 8, 8, 12, 30, 30)
-
-        >>> adjust_datetime_to_granularity(dt, "20 minutes")
-        datetime.datetime(2001, 8, 8, 12, 30)
-
-        >>> adjust_datetime_to_granularity(dt, "20 minutes")
-        datetime.datetime(2001, 8, 8, 12, 30)
-
-        >>> adjust_datetime_to_granularity(dt, "3 hours")
-        datetime.datetime(2001, 8, 8, 12, 0)
-
-        >>> adjust_datetime_to_granularity(dt, "5 days")
-        datetime.datetime(2001, 8, 8, 0, 0)
-
-        >>> adjust_datetime_to_granularity(dt, "2 weeks")
-        datetime.datetime(2001, 8, 6, 0, 0)
-
         >>> adjust_datetime_to_granularity(dt, "6 months")
         datetime.datetime(2001, 8, 1, 0, 0)
 
-        >>> adjust_datetime_to_granularity(dt, "2 years")
-        datetime.datetime(2001, 1, 1, 0, 0)
-
-        >>> adjust_datetime_to_granularity(
-        ...     dt, "2 years, 3 months, 5 days, 3 hours, 3 minutes, 2 seconds"
-        ... )
-        datetime.datetime(2001, 8, 8, 12, 30, 30)
-
-        >>> adjust_datetime_to_granularity(dt, "3 months, 5 days, 3 minutes")
-        datetime.datetime(2001, 8, 8, 12, 30)
-
-        >>> adjust_datetime_to_granularity(dt, "3 weeks, 5 days")
-        datetime.datetime(2001, 8, 8, 0, 0)
-
     """
 
-    if granularity:
-        has_seconds = False
-        has_minutes = False
-        has_hours = False
-        has_days = False
-        has_weeks = False
-        has_months = False
-        has_years = False
+    if not granularity:
+        return None
 
-        seconds = mydate.second
-        minutes = mydate.minute
-        hours = mydate.hour
-        days = mydate.day
-        weekday = mydate.weekday()
-        months = mydate.month
-        years = mydate.year
+    # Split the granularity string; the finest unit in it decides where the
+    # adjusted time starts.
+    granlist = [granpart.strip().split(" ") for granpart in granularity.split(",")]
+    units = set()
+    for inc in granlist:
+        unit = _unit_of(inc[1])
+        if unit is None:
+            msgr = get_tgis_message_interface()
+            msgr.error(_("Wrong granularity format: %s") % (granularity))
+            return None
+        units.add(unit)
+    finest = next(name for name in _GRANULARITY_UNITS if name in units)
 
-        granlist = []
-        # Split the increment string
-        granparts = granularity.split(",")
-        for granpart in granparts:
-            granlist.append(granpart.strip().split(" "))
-
-        for inc in granlist:
-            if inc[1].find("seconds") >= 0 or inc[1].find("second") >= 0:
-                has_seconds = True
-            elif inc[1].find("minutes") >= 0 or inc[1].find("minute") >= 0:
-                has_minutes = True
-            elif inc[1].find("hours") >= 0 or inc[1].find("hour") >= 0:
-                has_hours = True
-            elif inc[1].find("days") >= 0 or inc[1].find("day") >= 0:
-                has_days = True
-            elif inc[1].find("weeks") >= 0 or inc[1].find("week") >= 0:
-                has_weeks = True
-            elif inc[1].find("months") >= 0 or inc[1].find("month") >= 0:
-                has_months = True
-            elif inc[1].find("years") >= 0 or inc[1].find("year") >= 0:
-                has_years = True
-            else:
-                msgr = get_tgis_message_interface()
-                msgr.error(_("Wrong granularity format: %s") % (granularity))
-                return None
-
-        if has_seconds:
-            pass
-        elif has_minutes:  # Start at 0 seconds
-            seconds = 0
-        elif has_hours:  # Start at 0 minutes and seconds
-            seconds = 0
-            minutes = 0
-        elif has_days:  # Start at 0 hours, minutes and seconds
-            seconds = 0
-            minutes = 0
-            hours = 0
-        elif has_weeks:  # Start at the first day of the week (Monday) at 00:00:00
-            seconds = 0
-            minutes = 0
-            hours = 0
-            # The Monday can be in the previous month or year.
-            monday = mydate - timedelta(days=weekday)
-            years = monday.year
-            months = monday.month
-            days = monday.day
-        elif has_months:  # Start at the first day of the month at 00:00:00
-            seconds = 0
-            minutes = 0
-            hours = 0
-            days = 1
-        elif has_years:  # Start at the first day of the first month at 00:00:00
-            seconds = 0
-            minutes = 0
-            hours = 0
-            days = 1
-            months = 1
-
-        dt = copy.copy(mydate)
-        return dt.replace(
-            year=years,
-            month=months,
-            day=days,
-            hour=hours,
-            minute=minutes,
-            second=seconds,
-        )
-
-
-###############################################################################
+    fields = {
+        "year": mydate.year,
+        "month": mydate.month,
+        "day": mydate.day,
+        "hour": mydate.hour,
+        "minute": mydate.minute,
+        "second": mydate.second,
+    }
+    # Everything below the finest unit starts at its first value.
+    fields.update(_START_VALUES[finest])
+    adjusted = copy.copy(mydate).replace(**fields)
+    if finest == "week":
+        # The week starts on the Monday on or before the date, which may lie
+        # in the month or year before.
+        adjusted -= timedelta(days=mydate.weekday())
+    return adjusted
 
 
 class datetime_delta(TypedDict):
-    """Typed dictionary to return the accumulated delta in year, month, day,
-    hour, minute and second as well as max_days. At runtime, it is a plain dict."""
+    """Typed dictionary with the accumulated delta of a datetime difference.
+
+    The keys are year, month, day, hour, minute, second and max_days. At runtime,
+    it is a plain dict.
+    """
 
     year: int
     month: int
@@ -504,127 +387,28 @@ class datetime_delta(TypedDict):
 
 
 def compute_datetime_delta(start: datetime, end: datetime) -> datetime_delta:
-    """Return a dictionary with the accumulated delta in year, month, day,
-    hour, minute and second
+    """Return the accumulated delta of two datetimes as a dictionary.
+
+    The delta is given in year, month, day, hour, minute and second.
+
+    Between two firsts of a month the months count in full, 12 for each year
+    and the difference of the months (1 January 2024 to 1 March 2025 is 14
+    months); from January to January only the years count. An hour, a minute
+    or a second counts only where the two times of the day differ in that
+    unit or a finer one, and then counts the whole delta in that unit: two
+    times at 10:30 ten days apart are 10 days apart, 10:30 to 11:30 ten days
+    later is also 241 hours. An hour or a minute that is 0 at both times
+    does not count (00:30 to 00:45 ten days later has no hours, but 14415
+    minutes).
 
     Usage:
 
     .. code-block:: pycon
 
-        >>> start = datetime(2001, 1, 1, 0, 0, 0)
-        >>> end = datetime(2001, 1, 1, 0, 0, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 0, 'day': 0, 'hour': 0, 'minute': 0, 'second': 0, 'max_days': 0}
-
         >>> start = datetime(2001, 1, 1, 0, 0, 14)
         >>> end = datetime(2001, 1, 1, 0, 0, 44)
         >>> compute_datetime_delta(start, end)
         {'year': 0, 'month': 0, 'day': 0, 'hour': 0, 'minute': 0, 'second': 30, 'max_days': 0}
-
-        >>> start = datetime(2001, 1, 1, 0, 0, 44)
-        >>> end = datetime(2001, 1, 1, 0, 1, 14)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 0, 'day': 0, 'hour': 0, 'minute': 1, 'second': 30, 'max_days': 0}
-
-        >>> start = datetime(2001, 1, 1, 0, 0, 30)
-        >>> end = datetime(2001, 1, 1, 0, 5, 30)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 0, 'day': 0, 'hour': 0, 'minute': 5, 'second': 300, 'max_days': 0}
-
-        >>> start = datetime(2001, 1, 1, 0, 0, 0)
-        >>> end = datetime(2001, 1, 1, 0, 1, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 0, 'day': 0, 'hour': 0, 'minute': 1, 'second': 0, 'max_days': 0}
-
-        >>> start = datetime(2011, 10, 31, 0, 45, 0)
-        >>> end = datetime(2011, 10, 31, 1, 45, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 0, 'day': 0, 'hour': 1, 'minute': 60, 'second': 0, 'max_days': 0}
-
-        >>> start = datetime(2011, 10, 31, 0, 45, 0)
-        >>> end = datetime(2011, 10, 31, 1, 15, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 0, 'day': 0, 'hour': 1, 'minute': 30, 'second': 0, 'max_days': 0}
-
-        >>> start = datetime(2011, 10, 31, 0, 45, 0)
-        >>> end = datetime(2011, 10, 31, 12, 15, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 0, 'day': 0, 'hour': 12, 'minute': 690, 'second': 0, 'max_days': 0}
-
-        >>> start = datetime(2011, 10, 31, 0, 0, 0)
-        >>> end = datetime(2011, 10, 31, 1, 0, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 0, 'day': 0, 'hour': 1, 'minute': 0, 'second': 0, 'max_days': 0}
-
-        >>> start = datetime(2011, 10, 31, 0, 0, 0)
-        >>> end = datetime(2011, 11, 1, 1, 0, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 0, 'day': 1, 'hour': 25, 'minute': 0, 'second': 0, 'max_days': 1}
-
-        >>> start = datetime(2011, 10, 31, 12, 0, 0)
-        >>> end = datetime(2011, 11, 1, 6, 0, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 0, 'day': 0, 'hour': 18, 'minute': 0, 'second': 0, 'max_days': 0}
-
-        >>> start = datetime(2011, 11, 1, 0, 0, 0)
-        >>> end = datetime(2011, 12, 1, 1, 0, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 1, 'day': 0, 'hour': 721, 'minute': 0, 'second': 0, 'max_days': 30}
-
-        >>> start = datetime(2011, 11, 1, 0, 0, 0)
-        >>> end = datetime(2011, 11, 5, 0, 0, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 0, 'day': 4, 'hour': 0, 'minute': 0, 'second': 0, 'max_days': 4}
-
-        >>> start = datetime(2011, 10, 6, 0, 0, 0)
-        >>> end = datetime(2011, 11, 5, 0, 0, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 0, 'day': 30, 'hour': 0, 'minute': 0, 'second': 0, 'max_days': 30}
-
-        >>> start = datetime(2011, 12, 2, 0, 0, 0)
-        >>> end = datetime(2012, 1, 1, 0, 0, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 1, 'month': 0, 'day': 30, 'hour': 0, 'minute': 0, 'second': 0, 'max_days': 30}
-
-        >>> start = datetime(2011, 1, 1, 0, 0, 0)
-        >>> end = datetime(2011, 2, 1, 0, 0, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 0, 'month': 1, 'day': 0, 'hour': 0, 'minute': 0, 'second': 0, 'max_days': 31}
-
-        >>> start = datetime(2011, 12, 1, 0, 0, 0)
-        >>> end = datetime(2012, 1, 1, 0, 0, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 1, 'month': 1, 'day': 0, 'hour': 0, 'minute': 0, 'second': 0, 'max_days': 31}
-
-        >>> start = datetime(2011, 12, 1, 0, 0, 0)
-        >>> end = datetime(2012, 6, 1, 0, 0, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 1, 'month': 6, 'day': 0, 'hour': 0, 'minute': 0, 'second': 0, 'max_days': 183}
-
-        >>> start = datetime(2011, 6, 1, 0, 0, 0)
-        >>> end = datetime(2021, 6, 1, 0, 0, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 10, 'month': 120, 'day': 0, 'hour': 0, 'minute': 0, 'second': 0, 'max_days': 3653}
-
-        >>> start = datetime(2011, 6, 1, 0, 0, 0)
-        >>> end = datetime(2012, 6, 1, 12, 0, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 1, 'month': 12, 'day': 0, 'hour': 8796, 'minute': 0, 'second': 0, 'max_days': 366}
-
-        >>> start = datetime(2011, 6, 1, 0, 0, 0)
-        >>> end = datetime(2012, 6, 1, 12, 30, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 1, 'month': 12, 'day': 0, 'hour': 8796, 'minute': 527790, 'second': 0, 'max_days': 366}
-
-        >>> start = datetime(2011, 6, 1, 0, 0, 0)
-        >>> end = datetime(2012, 6, 1, 12, 0, 5)
-        >>> compute_datetime_delta(start, end)
-        {'year': 1, 'month': 12, 'day': 0, 'hour': 8796, 'minute': 0, 'second': 31665605, 'max_days': 366}
-
-        >>> start = datetime(2011, 6, 1, 0, 0, 0)
-        >>> end = datetime(2012, 6, 1, 0, 30, 0)
-        >>> compute_datetime_delta(start, end)
-        {'year': 1, 'month': 12, 'day': 0, 'hour': 0, 'minute': 527070, 'second': 0, 'max_days': 366}
 
     :return: A dictionary with year, month, day, hour, minute, second and max_days as keys()
     """  # noqa: E501
@@ -650,63 +434,46 @@ def compute_datetime_delta(start: datetime, end: datetime) -> datetime_delta:
     if start.month == 1 and end.month == 1:
         comp["month"] = 0
     elif start.day == 1 and end.day == 1:
-        d = end.month - start.month
-        if d < 0:
-            d += 12 * comp["year"]
-        elif d == 0:
-            d = 12 * comp["year"]
-        comp["month"] = d
+        comp["month"] = 12 * comp["year"] + end.month - start.month
 
     # Count full days
     comp["day"] = 0 if start.day == 1 and end.day == 1 else day_diff
 
-    # Time
+    # Time. Each unit counts the whole interval in that unit, from the next
+    # coarser unit that is not zero: the difference of the field plus all of
+    # the interval before it. A unit in which the two times of the day and all
+    # finer units are equal does not count, or two instants at 10:30 ten days
+    # apart would have a granularity in minutes. An hour or a minute that is 0
+    # at both ends does not count either, as it never did, even where a finer
+    # unit differs (00:30 to 00:45 ten days later has no hours): the minutes
+    # then hold the whole delta, so the granularity is the same.
+    start_time = (start.hour, start.minute, start.second)
+    end_time = (end.hour, end.minute, end.second)
     # Hours
-    if start.hour == 0 and end.hour == 0:
+    if (start.hour == 0 and end.hour == 0) or start_time == end_time:
         comp["hour"] = 0
     else:
         d = end.hour - start.hour
-        if d < 0:
-            d += 24 + 24 * day_diff
-        else:
-            d += 24 * day_diff
-        comp["hour"] = d
+        comp["hour"] = d + 24 + 24 * day_diff if d < 0 else d + 24 * day_diff
 
     # Minutes
-    if start.minute == 0 and end.minute == 0:
+    if (start.minute == 0 and end.minute == 0) or start_time[1:] == end_time[1:]:
         comp["minute"] = 0
     else:
-        d = end.minute - start.minute
-        if d != 0:
-            if comp["hour"]:
-                d += 60 * comp["hour"]
-            else:
-                d += 24 * 60 * day_diff
-        elif d == 0:
-            d = 60 * comp["hour"] if comp["hour"] else 24 * 60 * day_diff
-
-        comp["minute"] = d
+        before = 60 * comp["hour"] if comp["hour"] else 24 * 60 * day_diff
+        comp["minute"] = end.minute - start.minute + before
 
     # Seconds
-    if start.second == 0 and end.second == 0:
+    if start.second == end.second:
         comp["second"] = 0
     else:
-        d = end.second - start.second
-        if d != 0:
-            if comp["minute"]:
-                d += 60 * comp["minute"]
-            elif comp["hour"]:
-                d += 3600 * comp["hour"]
-            else:
-                d += 24 * 60 * 60 * day_diff
-        elif d == 0:
-            if comp["minute"]:
-                d = 60 * comp["minute"]
-            elif comp["hour"]:
-                d = 3600 * comp["hour"]
-            else:
-                d = 24 * 60 * 60 * day_diff
-        comp["second"] = d
+        if comp["minute"]:
+            before = 60 * comp["minute"]
+        elif comp["hour"]:
+            before = 3600 * comp["hour"]
+        else:
+            before = 24 * 60 * 60 * day_diff
+        comp["second"] = end.second - start.second + before
 
     return comp
 
@@ -734,42 +501,11 @@ def check_datetime_string(time_string: str, use_dateutil: bool = True):
 
     .. code-block:: pycon
 
-        >>> s = "2000-01-01"
-        >>> check_datetime_string(s)
-        datetime.datetime(2000, 1, 1, 0, 0)
         >>> s = "2000-01-01T10:00:00"
         >>> check_datetime_string(s)
         datetime.datetime(2000, 1, 1, 10, 0)
-        >>> s = "2000-01-01 10:00:00"
-        >>> check_datetime_string(s)
-        datetime.datetime(2000, 1, 1, 10, 0)
-        >>> s = "2000-01-01T10:00:00.000001"
-        >>> check_datetime_string(s)
-        datetime.datetime(2000, 1, 1, 10, 0, 0, 1)
-        >>> s = "2000-01-01 10:00:00.000001"
-        >>> check_datetime_string(s)
-        datetime.datetime(2000, 1, 1, 10, 0, 0, 1)
-
-        # using native implementation, ignoring dateutil
-        >>> s = "2000-01-01"
-        >>> check_datetime_string(s, False)
-        datetime.datetime(2000, 1, 1, 0, 0)
-        >>> s = "2000-01-01T10:00:00"
-        >>> check_datetime_string(s, False)
-        datetime.datetime(2000, 1, 1, 10, 0)
-        >>> s = "2000-01-01 10:00:00"
-        >>> check_datetime_string(s, False)
-        datetime.datetime(2000, 1, 1, 10, 0)
-        >>> s = "2000-01-01T10:00:00.000001"
-        >>> check_datetime_string(s, False)
-        datetime.datetime(2000, 1, 1, 10, 0, 0, 1)
-        >>> s = "2000-01-01 10:00:00.000001"
-        >>> check_datetime_string(s, False)
-        datetime.datetime(2000, 1, 1, 10, 0, 0, 1)
 
     """
-
-    global has_dateutil
 
     if has_dateutil and use_dateutil is True:
         # First check if there is only a single number, which specifies
@@ -783,7 +519,9 @@ def check_datetime_string(time_string: str, use_dateutil: bool = True):
 
         try:
             time_object = parser.parse(time_string)
-        except Exception as inst:
+        except (ValueError, OverflowError) as inst:
+            # The parser reports a text it cannot read as a ParserError, a
+            # ValueError, and a number out of range as an OverflowError.
             time_object = str(inst)
         return time_object
 
@@ -849,6 +587,39 @@ def string_to_datetime(time_string: str) -> datetime | None:
     return time_object
 
 
+def time_zone_offset_text(time: datetime) -> str:
+    """Return the time zone offset of a time as +HH:MM, as t.register writes it
+
+    The time must have an offset; the messages that name the offset of a
+    space time dataset use this form.
+    """
+    text = time.strftime("%z")
+    return f"{text[:3]}:{text[3:5]}"
+
+
+def option_to_datetime(text: str, option: str) -> datetime:
+    """Convert the value of a tool option to a datetime
+
+    For text that string_to_datetime() cannot read, string_to_datetime()
+    reports its own message first.
+
+    :param text: The value of the option
+    :param option: The name of the option, for the message
+    :return: The datetime
+    :raises ValueError: "Invalid date <text> of the option <option>" for
+                        text that string_to_datetime() cannot read
+    """
+    # Without a message interface (no init()) string_to_datetime() ends in
+    # an AttributeError for text it cannot read instead of returning None.
+    try:
+        converted = string_to_datetime(text)
+    except (AttributeError, ValueError):
+        converted = None
+    if converted is None:
+        raise ValueError(_("Invalid date <{}> of the option <{}>").format(text, option))
+    return converted
+
+
 def datetime_to_grass_datetime_string(dt: datetime | None) -> str:
     """Convert a python datetime object into a GRASS datetime string
 
@@ -858,16 +629,7 @@ def datetime_to_grass_datetime_string(dt: datetime | None) -> str:
         >>> import dateutil.parser as parser
         >>> dt = parser.parse("2011-01-01 10:00:00 +01:30")
         >>> tgis.datetime_to_grass_datetime_string(dt)
-        '01 jan 2011 10:00:00 +0090'
-        >>> dt = parser.parse("2011-01-01 10:00:00 +02:30")
-        >>> tgis.datetime_to_grass_datetime_string(dt)
-        '01 jan 2011 10:00:00 +0150'
-        >>> dt = parser.parse("2011-01-01 10:00:00 +12:00")
-        >>> tgis.datetime_to_grass_datetime_string(dt)
-        '01 jan 2011 10:00:00 +0720'
-        >>> dt = parser.parse("2011-01-01 10:00:00 -01:30")
-        >>> tgis.datetime_to_grass_datetime_string(dt)
-        '01 jan 2011 10:00:00 -0090'
+        '01 jan 2011 10:00:00 +0130'
 
     """
     # GRASS datetime month names
@@ -893,38 +655,30 @@ def datetime_to_grass_datetime_string(dt: datetime | None) -> str:
 
     # Check for time zone info in the datetime object
     if dt.tzinfo is not None:
-        tz = dt.tzinfo.utcoffset(0)
-        tz = (tz.seconds - 86400) / 60 if tz.seconds > 86400 / 2 else tz.seconds / 60
+        # GRASS reads the offset as hours and minutes (+0545 is 5:45), so the
+        # minutes of the offset must not be written as one number.
+        offset_minutes = int(dt.utcoffset().total_seconds() // 60)
+        sign = "-" if offset_minutes < 0 else "+"
+        tz = f"{sign}{abs(offset_minutes) // 60:02d}{abs(offset_minutes) % 60:02d}"
 
-        string = "%.2i %s %.2i %.2i:%.2i:%.2i %+.4i" % (
-            dt.day,
-            month_names[dt.month],
-            dt.year,
-            dt.hour,
-            dt.minute,
-            dt.second,
-            tz,
+        string = (
+            f"{dt.day:02d} {month_names[dt.month]} {dt.year:02d} "
+            f"{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d} {tz}"
         )
     else:
-        string = "%.2i %s %.4i %.2i:%.2i:%.2i" % (
-            dt.day,
-            month_names[dt.month],
-            dt.year,
-            dt.hour,
-            dt.minute,
-            dt.second,
+        string = (
+            f"{dt.day:02d} {month_names[dt.month]} {dt.year:04d} "
+            f"{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}"
         )
 
     return string
 
 
-###############################################################################
-
-
 def create_suffix_from_datetime(start_time: datetime, granularity: str) -> str:
-    """Create a datetime string based on a datetime object and a provided
-    granularity that can be used as suffix for map names. The largest
-    granularity determines the suffix. E.g.:
+    """Create a datetime string based on a datetime object and a provided granularity.
+
+    The string can be used as suffix for map names. The largest granularity determines
+    the suffix. E.g.:
 
     datetime=2001-01-01 00:00:00, granularity="1 month" returns "2001_01"
     datetime=2001-01-01 00:00:00, granularity="1 year 1 month" returns "2001"
@@ -938,12 +692,8 @@ def create_suffix_from_datetime(start_time: datetime, granularity: str) -> str:
         >>> from datetime import datetime
         >>> import grass.temporal as tgis
         >>> start_time = datetime(2001, 1, 1, 10, 4, 12)
-        >>> tgis.create_suffix_from_datetime(start_time, "1 month")
+        >>> tgis.datetime_math.create_suffix_from_datetime(start_time, "1 month")
         '2001_01'
-        >>> tgis.create_suffix_from_datetime(start_time, "1 year 1 month")
-        '2001'
-        >>> tgis.create_suffix_from_datetime(start_time, "6 seconds")
-        '2001_01_01_10_04_12'
 
     """
     suffix_units = {
@@ -977,7 +727,7 @@ def create_time_suffix(mapp, end: bool = False) -> str:
     if end:
         end = mapp.temporal_extent.get_end_time()
         estring = end.isoformat().replace(":", "_").replace("-", "_")
-        return "{st}_{en}".format(st=sstring, en=estring)
+        return f"{sstring}_{estring}"
     return sstring
 
 
@@ -990,19 +740,104 @@ def create_numeric_suffix(base, count: int, zeros: str) -> str:
                   like "%05"
     """
     spli = zeros.split("%")
-    if len(spli) == 2:
-        suff = spli[1]
-        if suff.isdigit():
-            zero = suff if int(suff[0]) == 0 else "0{nu}".format(nu=suff)
-        else:
-            zero = "05"
-    else:
-        zero = "05"
+    suff = spli[1] if len(spli) == 2 else ""
+    zero = "05"
+    if suff.isdigit():
+        zero = suff if int(suff[0]) == 0 else f"0{suff}"
     s = "{ba}_{i:" + zero + "d}"
     return s.format(ba=base, i=count)
 
 
-if __name__ == "__main__":
-    import doctest
+def _months_of_step(step: str) -> int | None:
+    """Return the length of a month or year step in months, None for other units"""
+    number, unit = step.split()
+    factor = {"month": 1, "year": 12}.get(unit.rstrip("s"))
+    return None if factor is None else factor * int(number)
 
-    doctest.testmod()
+
+def next_cycle(
+    origin: datetime | float,
+    number: int,
+    end: datetime | float,
+    cycle: str | float,
+    offset: str | float | None,
+    absolute: bool,
+) -> tuple[datetime | float, datetime | float]:
+    """Return the start and end of cycle number, which follows the one ending at end
+
+    The first cycle, number 0, starts at origin. A cycle without maps is
+    skipped through the same call, so that the loop advances however a cycle
+    ends.
+
+    Month and year steps count from origin, so that a cut at the end of a
+    short month does not carry over: monthly cycles from January 31 start on
+    February 28 and March 31, not on February 28 and March 28. A cycle and an
+    offset of different kinds, such as a month and a day, do not add up to
+    one step that could be counted from origin; they count from end.
+
+    :param origin: The start of the first cycle
+    :param number: The number of the cycle to return
+    :param end: The end of the previous cycle
+    :param cycle: The length of a cycle, a granularity string in absolute
+                  time, a number in relative time
+    :param offset: The gap between a cycle and the next, same kind as cycle,
+                   None for no gap (absolute time only)
+    :param absolute: True for absolute time, False for relative time
+    :return: The tuple (start, end) of the cycle
+    """
+    if not absolute:
+        start = end + offset
+        return start, start + cycle
+    months = (_months_of_step(cycle), _months_of_step(offset) if offset else 0)
+    if None not in months:
+        period = number * (months[0] + months[1])
+        return (
+            modify_datetime(origin, months=period),
+            modify_datetime(origin, months=period + months[0]),
+        )
+    start = increment_datetime_by_string(end, offset) if offset else end
+    return start, increment_datetime_by_string(start, cycle)
+
+
+def check_suffix(suffix: str) -> None:
+    """Refuse a value of the suffix option other than gran, time, num or num%NN
+
+    The tools used to take any other text as num, so that a typing error such
+    as "gram" silently gave numbered maps instead of dated ones.
+
+    :param suffix: The value of the suffix option
+    :raises ValueError: for any other value
+    """
+    if suffix in {"gran", "time", "num"} or re.fullmatch(r"num%\d+", suffix):
+        return
+    msg = _("Invalid suffix <{}>, use gran, time, num or num%NN").format(suffix)
+    raise ValueError(msg)
+
+
+def map_name_suffix(map, suffix: str, granularity: str | None, number: int) -> str:
+    """Return the part of a new map name after the basename and an underscore
+
+    gran cuts the start time of map to the largest unit of granularity, time
+    takes the full start time, num and num%NN the number with five or NN
+    digits. In relative time every suffix gives the number, because a
+    relative time stamp has no calendar date. A dataset of a single time
+    instant has no granularity; gran then gives the full start time like
+    time, because there is no unit to cut it to and the full time is unique.
+
+    :param map: The map whose start time names the new map; its temporal type
+                must be set (selected from the temporal database or set with
+                set_absolute_time() or set_relative_time())
+    :param suffix: The value of the suffix option
+    :param granularity: The granularity for gran, None if there is none
+    :param number: The number for num and for relative time
+    :raises ValueError: for a suffix that check_suffix() refuses
+    """
+    check_suffix(suffix)
+    if suffix in {"gran", "time"} and map.is_time_absolute():
+        if suffix == "gran" and granularity is not None:
+            return create_suffix_from_datetime(
+                map.temporal_extent.get_start_time(), granularity
+            )
+        return create_time_suffix(map)
+    # The name with an empty basename starts with the underscore.
+    return create_numeric_suffix("", number, suffix)[1:]

@@ -1180,38 +1180,8 @@ class CLibrariesInterface(RPCServerBase):
         return self.call("get_mapset")
 
 
-# The package __init__ still exports RPCDefs; it goes when
-# __init__ drops the name.
-class RPCDefs:
-    # Function identifier and index
-    STOP = 0
-    HAS_TIMESTAMP = 1
-    WRITE_TIMESTAMP = 2
-    READ_TIMESTAMP = 3
-    REMOVE_TIMESTAMP = 4
-    READ_MAP_INFO = 5
-    MAP_EXISTS = 6
-    READ_MAP_INFO = 7
-    AVAILABLE_MAPSETS = 8
-    GET_DRIVER_NAME = 9
-    GET_DATABASE_NAME = 10
-    G_MAPSET = 11
-    G_LOCATION = 12
-    G_GISDBASE = 13
-    READ_MAP_FULL_INFO = 14
-    WRITE_SEMANTIC_LABEL = 15
-    READ_SEMANTIC_LABEL = 16
-    REMOVE_SEMANTIC_LABEL = 17
-    READ_MAP_HISTORY = 18
-    G_FATAL_ERROR = 49
-
-    TYPE_RASTER = 0
-    TYPE_RASTER3D = 1
-    TYPE_VECTOR = 2
-
-
-# The dataset classes and the old test of the registration functions still
-# call the per-kind methods; they go when that test moves to pytest.
+# The old test of the registration functions still calls the per-kind
+# methods; they go when that test moves to pytest.
 def _old_ciface_method(function, kind, *names):
     def method(self, *args, **kwargs):
         values = dict(zip(names, args, strict=False))

@@ -1,0 +1,686 @@
+"""
+Rows of the temporal database tables as Python objects
+
+Every dataset keeps its identification, time, space and register data in
+rows of tables of its own. A row class lists its columns once, as Column
+objects, and gets the getter, the setter and the property of each column
+generated; what a column needs beyond that, such as the identifier or a
+default time, is written by hand in the class and left alone. The row
+classes serialize themselves to INSERT, SELECT and UPDATE statements and run
+them through a database interface.
+
+SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:author: Soeren Gebbert
+"""
+
+from __future__ import annotations
+
+from contextlib import contextmanager
+from dataclasses import dataclass
+from functools import lru_cache
+from typing import TYPE_CHECKING
+
+from .db import (
+    SQLDatabaseInterfaceConnection,
+    sql_identifier,
+    sql_literal,
+    sql_placeholder,
+    sql_statement,
+)
+from .state import (
+    get_current_mapset,
+    get_tgis_dbmi_paramstyle,
+    get_tgis_message_interface,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Iterator
+
+
+@contextmanager
+def _connected(dbif: SQLDatabaseInterfaceConnection | None) -> Iterator:
+    """Yield the given database interface, or a connection made for the block
+
+    A connection made here is closed when the block ends, also on an error.
+    The interface of the caller is used as it is and left open. This differs
+    from db.connection(), which connects an interface that is not connected.
+    """
+    if dbif:
+        yield dbif
+        return
+    dbif = SQLDatabaseInterfaceConnection()
+    dbif.connect()
+    try:
+        yield dbif
+    finally:
+        dbif.close()
+
+
+def _join_terms(terms: Iterable[str], first: str, rest: str) -> str:
+    """Join the terms of a statement; the first gets the prefix first, the others rest"""
+    return "".join(
+        (first if index == 0 else rest) + term for index, term in enumerate(terms)
+    )
+
+
+# The statements of a row without their where part. The names go in only
+# after sql_identifier() has checked them; the values are bound as parameters.
+_SELECT = "SELECT {columns} FROM {table} "
+_INSERT = "INSERT INTO {table} ({columns}) VALUES ({values}) "
+_UPDATE = "UPDATE {table} SET {assignments}"
+
+
+# A row class writes the same columns into the same table again and again,
+# one statement for each map when maps are registered, so the text of each
+# shape is built and its names are checked once. The shapes are few: an
+# UPDATE leaves out the columns that are None, the rest is fixed by the class.
+@lru_cache(maxsize=1024)
+def _statement(type_: str, table: str, keys: tuple, placeholder: str) -> str:
+    """Return a SELECT, INSERT or UPDATE of the columns keys of table
+
+    :raises ValueError: if the table or a column is not a plain identifier
+    """
+    table = sql_identifier(table)
+    columns = [sql_identifier(key) for key in keys]
+    if type_ == "SELECT":
+        names = _join_terms((f"{column} " for column in columns), " ", " , ")
+        return _SELECT.format(table=table, columns=names)
+    if type_ == "INSERT":
+        names = _join_terms((f"{column} " for column in columns), " ", " ,")
+        values = _join_terms((placeholder for _column in columns), "", " ,")
+        return _INSERT.format(table=table, columns=names, values=values)
+    assignments = _join_terms(
+        (f"{column} = {placeholder} " for column in columns), " ", " ,"
+    )
+    return _UPDATE.format(table=table, assignments=assignments)
+
+
+class DictSQLSerializer:
+    """A dictionary of column values that is written as SQL statements
+
+    ``serialize`` makes SELECT, INSERT and UPDATE statements with the
+    placeholders of the paramstyle of the database module, and ``deserialize``
+    reads a row back.
+    """
+
+    def __init__(self) -> None:
+        self.D = {}
+        self.dbmi_paramstyle = get_tgis_dbmi_paramstyle()
+
+    def serialize(self, type, table, where=None, where_args=(), dbif=None, mapset=None):
+        """Convert the internal dictionary into semicolon separated SQL statements.
+
+        The keys are the column names and the values are the row entries.
+
+        Usage:
+
+        .. code-block:: pycon
+
+            >>> init()
+            >>> t = DictSQLSerializer()
+            >>> t.D["id"] = "soil@PERMANENT"
+            >>> t.D["name"] = "soil"
+            >>> t.D["mapset"] = "PERMANENT"
+            >>> t.D["creator"] = "soeren"
+            >>> t.D["creation_time"] = datetime(2001, 1, 1)
+            >>> t.D["modification_time"] = datetime(2001, 1, 1)
+            >>> t.serialize(type="SELECT", table="raster_base")
+            ('SELECT  id  , name  , mapset  , creator  , creation_time  , modification_time  FROM raster_base ;\\n', ())
+            >>> t.serialize(type="INSERT", table="raster_base")
+            ('INSERT INTO raster_base ( id  ,name  ,mapset  ,creator  ,creation_time  ,modification_time ) VALUES (? ,? ,? ,? ,? ,?) ;\\n', ('soil@PERMANENT', 'soil', 'PERMANENT', 'soeren', datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2001, 1, 1, 0, 0)))
+            >>> t.serialize(type="UPDATE", table="raster_base")
+            ('UPDATE raster_base SET  id = ?  ,name = ?  ,mapset = ?  ,creator = ?  ,creation_time = ?  ,modification_time = ? ;\\n', ('soil@PERMANENT', 'soil', 'PERMANENT', 'soeren', datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2001, 1, 1, 0, 0)))
+            >>> t.serialize(type="UPDATE ALL", table="raster_base")
+            ('UPDATE raster_base SET  id = ?  ,name = ?  ,mapset = ?  ,creator = ?  ,creation_time = ?  ,modification_time = ? ;\\n', ('soil@PERMANENT', 'soil', 'PERMANENT', 'soeren', datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2001, 1, 1, 0, 0)))
+
+        :param type: must be SELECT. INSERT, UPDATE
+        :param table: The name of the table to select, insert or update
+        :param where: The optional where statement
+        :param where_args: The values of the placeholders in the where statement,
+                           appended to the arguments of the statement
+        :param dbif: For SELECT, the interface that runs the statement, which
+                     a subclass may ask which columns its database has
+        :param mapset: For SELECT, the mapset whose database runs it
+        :return: a tuple containing the SQL string and the arguments
+
+        """  # noqa: E501
+
+        # A type that is none of these makes an empty statement, as before.
+        if type not in {"SELECT", "INSERT", "UPDATE", "UPDATE ALL"}:
+            return "", tuple(where_args)
+        if type == "SELECT":
+            keys = self._select_keys(dbif, mapset)
+            args = []
+        else:
+            # UPDATE writes only the entries which are not None.
+            keys = [
+                key
+                for key in self.D
+                if type in {"INSERT", "UPDATE ALL"} or self.D[key] is not None
+            ]
+            args = [self.D[key] for key in keys]
+        sql = _statement(
+            "UPDATE" if type == "UPDATE ALL" else type,
+            table,
+            tuple(keys),
+            sql_placeholder(self.dbmi_paramstyle),
+        )
+        if where:
+            sql += where
+        sql += ";\n"
+
+        return sql, (*args, *where_args)
+
+    def _select_keys(self, dbif=None, mapset=None) -> list[str]:
+        """Return the columns a SELECT reads: the keys of D
+
+        A subclass adds the columns that the table has but that D does not
+        hold until a value is given; dbif and mapset name the database that
+        runs the statement.
+        """
+        return list(self.D)
+
+    def deserialize(self, row) -> None:
+        """Convert the content of the dbmi dictionary like row into the internal one
+
+        :param row: The dictionary like row to store in the internal dict
+        """
+        self.D = {}
+        # A sqlite3.Row iterates over its values, only keys() gives the names.
+        for key in row.keys():  # noqa: SIM118
+            self.D[key] = row[key]
+
+    def clear(self) -> None:
+        """Initialize the internal storage"""
+        self.D = {}
+
+    def print_self(self) -> None:
+        """Print the content of the internal dictionary to stdout"""
+        print(self.D)
+
+
+class SQLDatabaseInterface(DictSQLSerializer):
+    """This class represents the SQL database interface
+
+    Functions to insert, select and update the internal
+    structure of this class in the temporal database are implemented.
+    This is the base class for raster, raster3d, vector and
+    space time datasets data management classes:
+
+    - Identification information (base)
+    - Spatial extent
+    - Temporal extent
+    - Metadata
+
+    Usage:
+
+    .. code-block:: pycon
+
+        >>> init()
+        >>> t = SQLDatabaseInterface("raster", "soil@PERMANENT")
+        >>> t.mapset = get_current_mapset()
+        >>> t.D["name"] = "soil"
+        >>> t.D["mapset"] = "PERMANENT"
+        >>> t.D["creator"] = "soeren"
+        >>> t.D["creation_time"] = datetime(2001, 1, 1)
+        >>> t.get_delete_statement()
+        "DELETE FROM raster WHERE id = 'soil@PERMANENT';\\n"
+        >>> t.get_is_in_db_statement()
+        ('SELECT id FROM raster WHERE id = ?;\\n', ('soil@PERMANENT',))
+        >>> t.get_select_statement()
+        ('SELECT  name  , mapset  , creator  , creation_time  FROM raster WHERE id = ?;\\n', ('soil@PERMANENT',))
+        >>> t.get_select_statement_mogrified()
+        "SELECT  name  , mapset  , creator  , creation_time  FROM raster WHERE id = 'soil@PERMANENT';\\n"
+        >>> t.get_insert_statement()
+        ('INSERT INTO raster ( name  ,mapset  ,creator  ,creation_time ) VALUES (? ,? ,? ,?) ;\\n', ('soil', 'PERMANENT', 'soeren', datetime.datetime(2001, 1, 1, 0, 0)))
+        >>> t.get_insert_statement_mogrified()
+        "INSERT INTO raster ( name  ,mapset  ,creator  ,creation_time ) VALUES ('soil' ,'PERMANENT' ,'soeren' ,'2001-01-01 00:00:00') ;\\n"
+        >>> t.get_update_statement()
+        ('UPDATE raster SET  name = ?  ,mapset = ?  ,creator = ?  ,creation_time = ? WHERE id = ?;\\n', ('soil', 'PERMANENT', 'soeren', datetime.datetime(2001, 1, 1, 0, 0), 'soil@PERMANENT'))
+        >>> t.get_update_statement_mogrified()
+        "UPDATE raster SET  name = 'soil'  ,mapset = 'PERMANENT'  ,creator = 'soeren'  ,creation_time = '2001-01-01 00:00:00' WHERE id = 'soil@PERMANENT';\\n"
+        >>> t.get_update_all_statement()
+        ('UPDATE raster SET  name = ?  ,mapset = ?  ,creator = ?  ,creation_time = ? WHERE id = ?;\\n', ('soil', 'PERMANENT', 'soeren', datetime.datetime(2001, 1, 1, 0, 0), 'soil@PERMANENT'))
+        >>> t.get_update_all_statement_mogrified()
+        "UPDATE raster SET  name = 'soil'  ,mapset = 'PERMANENT'  ,creator = 'soeren'  ,creation_time = '2001-01-01 00:00:00' WHERE id = 'soil@PERMANENT';\\n"
+
+    """  # noqa: E501
+
+    def __init__(self, table=None, ident=None) -> None:
+        """Constructor of this class
+
+        :param table: The name of the table
+        :param ident: The identifier (primary key) of this
+                      object in the database table
+        """
+        super().__init__()
+
+        self.table = table  # Name of the table, set in the subclass
+        self.ident = ident
+
+        if self.ident and self.ident.find("@") >= 0:
+            self.mapset = self.ident.split("@")[1]
+        else:
+            self.mapset = None
+
+    @property
+    def msgr(self):
+        """The messenger of the current session, fetched at each use"""
+        return get_tgis_message_interface()
+
+    def get_table_name(self):
+        """Return the name of the table that is inserted into, updated or selected from
+
+        :return: The name of the table
+        """
+        return self.table
+
+    def get_delete_statement(self):
+        """Return the delete string
+
+        :return: The DELETE string
+        """
+        head = sql_statement(
+            "DELETE FROM {table} WHERE id = ", table=self.get_table_name()
+        )
+        return f"{head}{sql_literal(str(self.ident))};\n"
+
+    def _where_id(self, ident):
+        """Return the where statement for an identifier and its argument"""
+        placeholder = sql_placeholder(self.dbmi_paramstyle)
+        return f"WHERE id = {placeholder}", (str(ident),)
+
+    def delete(self, dbif=None) -> None:
+        """Delete the entry of this object from the temporal database
+
+        :param dbif: The database interface to be used,
+                     if None a temporary connection will be established
+        """
+        where, args = self._where_id(self.ident)
+        head = sql_statement("DELETE FROM {table} ", table=self.get_table_name())
+        sql = f"{head}{where};\n"
+
+        # must use the temporal database of the current mapset,
+        # also if the map to be deleted is in a different mapset
+        mapset = get_current_mapset()
+        with _connected(dbif) as dbif:
+            dbif.execute(sql, args, mapset=mapset)
+
+    def get_is_in_db_statement(self):
+        """Return the selection string that checks if this object is registered.
+
+        The check runs against the temporal database.
+
+        :return: The SELECT string and the argument list
+        """
+        where, args = self._where_id(self.ident)
+        head = sql_statement("SELECT id FROM {table} ", table=self.get_table_name())
+        return f"{head}{where};\n", args
+
+    def is_in_db(self, dbif=None, mapset=None) -> bool:
+        """Check if this object is present in the temporal database
+
+        :param dbif: The database interface to be used,
+                     if None a temporary connection will be established
+        :param mapset: The mapset with a temporal database to be used
+                       The mapset of the database can be different from
+                       the mapset of the map
+        :return: True if this object is present in the temporal database,
+                 False otherwise
+        """
+
+        sql, args = self.get_is_in_db_statement()
+
+        # default: search temporal database in the mapset of the map
+        if mapset is None:
+            mapset = self.mapset
+
+        with _connected(dbif) as dbif:
+            dbif.execute(sql, args, mapset=mapset)
+            row = dbif.fetchone(mapset=mapset)
+
+        # Nothing found
+        return row is not None
+
+    def get_select_statement(self, dbif=None, mapset=None):
+        """Return the sql statement and the argument list in database specific style
+
+        :param dbif: The interface that will run it, see serialize()
+        :param mapset: The mapset whose database will run it
+
+        :return: The SELECT string
+        """
+        return self.serialize(
+            "SELECT",
+            self.get_table_name(),
+            *self._where_id(self.ident),
+            dbif=dbif,
+            mapset=mapset,
+        )
+
+    def get_select_statement_mogrified(self, dbif=None):
+        """Return the select statement as mogrified string
+
+        :param dbif: The database interface to be used,
+                     if None a temporary connection will be established
+        :return: The SELECT string
+        """
+        if not dbif:
+            dbif = SQLDatabaseInterfaceConnection()
+
+        return dbif.mogrify_sql_statement(
+            self.get_select_statement(dbif, self.mapset), mapset=self.mapset
+        )
+
+    def select(self, dbif=None, mapset=None) -> bool:
+        """Select the content from the temporal database.
+
+        The content is stored in the internal dictionary structure.
+
+        :param dbif: The database interface to be used,
+                     if None a temporary connection will be established
+        :param mapset: The mapset of the temporal database to select from,
+                       None for the mapset of this map
+        :return: True if the entry was found, False otherwise
+        """
+        # default: use the temporal database in the mapset of this map
+        if mapset is None:
+            mapset = self.mapset
+
+        self.msgr.debug(2, f"SQLDatabaseInterface.select() from mapset {mapset}")
+
+        # The statement always has the identifier as argument.
+        with _connected(dbif) as dbif:
+            sql, args = self.get_select_statement(dbif, mapset)
+            dbif.execute(sql, args, mapset=mapset)
+            row = dbif.fetchone(mapset=mapset)
+
+        # Nothing found
+        if row is None:
+            return False
+
+        if len(row) > 0:
+            self.deserialize(row)
+        else:
+            self.msgr.fatal(_("Object not found in the temporal database"))
+
+        return True
+
+    def get_insert_statement(self):
+        """Return the sql statement and the argument list in database specific style
+
+        :return: The INSERT string
+        """
+        return self.serialize("INSERT", self.get_table_name())
+
+    def get_insert_statement_mogrified(self, dbif=None):
+        """Return the insert statement as mogrified string
+
+        :param dbif: The database interface to be used,
+                     if None a temporary connection will be established
+        :return: The INSERT string
+        """
+        if not dbif:
+            dbif = SQLDatabaseInterfaceConnection()
+
+        # mapset must be the mapset of the temporal database
+        # not of the map
+        mapset = get_current_mapset()
+        return dbif.mogrify_sql_statement(self.get_insert_statement(), mapset=mapset)
+
+    def insert(self, dbif=None) -> None:
+        """Serialize the content of this object and store it in the temporal database.
+
+        The internal identifier is used.
+
+        :param dbif: The database interface to be used,
+                     if None a temporary connection will be established
+        """
+        sql, args = self.get_insert_statement()
+
+        # use the temporal database in the current mapset
+        mapset = get_current_mapset()
+
+        with _connected(dbif) as dbif:
+            dbif.execute(sql, args, mapset=mapset)
+
+    def get_update_statement(self, ident=None):
+        """Return the sql statement and the argument list in database specific style
+
+        :param ident: The identifier to be updated, useful for renaming
+        :return: The UPDATE string
+        """
+        return self.serialize(
+            "UPDATE", self.get_table_name(), *self._where_id(ident or self.ident)
+        )
+
+    def get_update_statement_mogrified(self, dbif=None, ident=None):
+        """Return the update statement as mogrified string
+
+        :param dbif: The database interface to be used,
+                     if None a temporary connection will be established
+        :param ident: The identifier to be updated, useful for renaming
+        :return: The UPDATE string
+        """
+
+        # use the temporal database in the current mapset
+        mapset = get_current_mapset()
+
+        if not dbif:
+            dbif = SQLDatabaseInterfaceConnection()
+
+        return dbif.mogrify_sql_statement(
+            self.get_update_statement(ident), mapset=mapset
+        )
+
+    def update(self, dbif=None, ident=None) -> None:
+        """Serialize the content of this object and update it in the temporal database.
+
+        The internal identifier is used.
+
+        Only object entries which are exists (not None) are updated
+
+        :param dbif: The database interface to be used,
+                     if None a temporary connection will be established
+        :param ident: The identifier to be updated, useful for renaming
+        """
+        if self.ident is None:
+            self.msgr.fatal(_("Missing identifier"))
+
+        # use the temporal database in the current mapset
+        mapset = get_current_mapset()
+
+        sql, args = self.get_update_statement(ident)
+
+        with _connected(dbif) as dbif:
+            dbif.execute(sql, args, mapset=mapset)
+
+    def get_update_all_statement(self, ident=None):
+        """Return the sql statement and the argument list in database specific style
+
+        :param ident: The identifier to be updated, useful for renaming
+        :return: The UPDATE string
+        """
+        return self.serialize(
+            "UPDATE ALL", self.get_table_name(), *self._where_id(ident or self.ident)
+        )
+
+    def get_update_all_statement_mogrified(self, dbif=None, ident=None):
+        """Return the update all statement as mogrified string
+
+        :param dbif: The database interface to be used,
+                     if None a temporary connection will be established
+        :param ident: The identifier to be updated, useful for renaming
+        :return: The UPDATE string
+        """
+        if not dbif:
+            dbif = SQLDatabaseInterfaceConnection()
+
+        return dbif.mogrify_sql_statement(self.get_update_all_statement(ident))
+
+    def update_all(self, dbif=None, ident=None) -> None:
+        """Serialize this object, including None objects, and update the database.
+
+        The internal identifier is used.
+
+        :param dbif: The database interface to be used,
+                    if None a temporary connection will be established
+        :param ident: The identifier to be updated, useful for renaming
+        """
+        if self.ident is None:
+            self.msgr.fatal(_("Missing identifier"))
+
+        # use the temporal database in the current mapset
+        mapset = get_current_mapset()
+
+        sql, args = self.get_update_all_statement(ident)
+
+        with _connected(dbif) as dbif:
+            dbif.execute(sql, args, mapset=mapset)
+
+
+@dataclass(frozen=True)
+class Column:
+    """A column of a table, with the accessors that are generated for it
+
+    :param name: The name of the column, the key in the dictionary D of the
+                 row and the column in the table
+    :param alias: The name the accessors carry when it is not the name of
+                  the column, such as ctime for creation_time
+    :param convert: Applied to a value before it is stored, such as float
+                    for an edge of a spatial extent; None passes the value on
+    :param keyword: The name under which the generated setter takes its value
+                    as a keyword argument when it is not the name of the
+                    accessor, as OSGeo main named the parameter of
+                    ``set_3d_info`` ``is_3d``
+    :param doc: What the column holds, for the docstrings of the accessors
+    :param writable: False for a value the database computes, which gets a
+                     getter and a read-only property but no setter
+    :param init: Whether a constructor that stores the columns (the metadata
+                 rows) puts the column in the row when no value is given: a
+                 bool, or a function that decides when the row is made
+    :param default: The value that constructor stores when none is given
+    """
+
+    name: str
+    alias: str | None = None
+    convert: Callable[[object], object] | None = None
+    keyword: str | None = None
+    doc: str | None = None
+    writable: bool = True
+    init: bool | Callable[[], bool] = True
+    default: object = None
+
+    @property
+    def accessor(self) -> str:
+        """The name that ``get_``, ``set_`` and the property are built from"""
+        return self.alias or self.name
+
+
+_NO_VALUE = object()
+
+
+def _generate_accessors(cls: type, column: Column) -> None:
+    """Add get_<name>, set_<name> and the property <name> of a column to cls
+
+    A column that is not writable gets no setter, and its property no fset.
+
+    A name that the class or a base class already has is left alone: the
+    identifier of a dataset, a default time or a validated type are written
+    by hand where a plain store is not enough.
+    """
+    accessor = column.accessor
+    what = column.doc or f"the {column.name.replace('_', ' ')}"
+    key, convert = column.name, column.convert
+    parameter = column.keyword or accessor
+
+    def getter(self):
+        return self.D.get(key)
+
+    setter_name = f"set_{accessor}"
+
+    def setter(self, value=_NO_VALUE, /, **keyword) -> None:
+        refusal = None
+        if keyword:
+            # The setters on OSGeo main were written by hand, each with the
+            # name of its value as parameter, and addons call them as
+            # set_name(name=...). Only that name is accepted, so that a typo
+            # is an error and not silently dropped.
+            unexpected = [name for name in keyword if name != parameter]
+            if unexpected:
+                refusal = f"got an unexpected keyword argument '{unexpected[0]}'"
+            elif value is not _NO_VALUE:
+                refusal = f"got multiple values for argument '{parameter}'"
+            else:
+                value = keyword[parameter]
+        elif value is _NO_VALUE:
+            refusal = f"missing 1 required argument: '{parameter}'"
+        if refusal:
+            message = f"{setter_name}() {refusal}"
+            raise TypeError(message)
+        self.D[key] = value if convert is None else convert(value)
+
+    accessors = [
+        ("get", getter, f"Get {what}\n\n        :return: None if not found\n        ")
+    ]
+    if column.writable:
+        accessors.append(("set", setter, f"Set {what}"))
+    for prefix, function, text in accessors:
+        name = f"{prefix}_{accessor}"
+        if not hasattr(cls, name):
+            function.__name__ = name
+            function.__qualname__ = f"{cls.__qualname__}.{name}"
+            function.__doc__ = text
+            setattr(cls, name, function)
+    if not hasattr(cls, accessor):
+        setattr(cls, accessor, accessor_property(accessor, column.writable))
+
+
+def accessor_property(accessor: str, writable: bool = True) -> property:
+    """Return the property that calls get_<accessor> and set_<accessor>
+
+    The accessors are looked up on the instance, so that a class that
+    overrides one, such as the setter of the identifier, is called by the
+    property of its base class, too.
+    """
+    return property(
+        fget=lambda self: getattr(self, f"get_{accessor}")(),
+        fset=(lambda self, value: getattr(self, f"set_{accessor}")(value))
+        if writable
+        else None,
+    )
+
+
+class Row(SQLDatabaseInterface):
+    """A row of a table, whose columns are listed in the class
+
+    A subclass lists the columns it adds in its class attribute ``columns``;
+    the accessors of each are generated when the class is created. The order
+    of the keys in D, which is the order of the columns in the INSERT
+    statement, is not the order of ``columns``: it is the order in which the
+    constructor stores the values, and the constructors keep it as it was
+    before the accessors were generated.
+    """
+
+    columns: tuple[Column, ...] = ()
+
+    def set_id(self, ident) -> None:
+        """Convenient method to set the unique identifier (primary key)"""
+        self.ident = ident
+        self.D["id"] = ident
+
+    def get_id(self):
+        """Convenient method to get the unique identifier (primary key)
+
+        :return: None if not found
+        """
+        return self.D.get("id")
+
+    id = accessor_property("id")
+
+    def __init_subclass__(cls, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
+        for column in cls.__dict__.get("columns", ()):
+            _generate_accessors(cls, column)
