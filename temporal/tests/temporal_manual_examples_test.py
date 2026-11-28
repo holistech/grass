@@ -59,6 +59,8 @@ REVIEWED_MANUALS = (
     "t.rast3d.mapcalc",
     "t.rast3d.univar",
     "t.sample",
+    "t.select",
+    "t.vect.algebra",
 )
 
 # Blocks whose shown output comes from a tool not yet revised, by manual and
@@ -70,11 +72,12 @@ REVIEWED_MANUALS = (
 # remove the entry.
 EXAMPLES_LATER = {"t.rast.mapcalc": {"Choose the sampling method": "comma"}}
 
-# The algebras list their expressions with the result of each; the manuals of
-# t.select and t.vect.algebra join with the stage that rewrites them.
+# The algebras, whose manuals list their expressions with the result of each.
 CATALOG_MANUALS = (
     "t.rast.algebra",
     "t.rast3d.algebra",
+    "t.select",
+    "t.vect.algebra",
 )
 
 TOOLS = Path(__file__).parents[1]
