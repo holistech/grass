@@ -104,3 +104,25 @@ def test_microsecond_precision_is_preserved() -> None:
 def test_scan_rejects_invalid_input(text) -> None:
     ret, _dt = scan(text)
     assert ret != 0
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "2147483648",
+        "1 jan 99999999999",
+        "jan 99999999999",
+        "1 jan 2000 99999999999:00",
+        "1 jan 2000 12:99999999999",
+    ],
+)
+def test_scan_rejects_a_number_beyond_the_range_of_int(text) -> None:
+    # The digits overflowed an int, which is undefined behavior; GCC on Linux
+    # made a valid year of "1 jan 99999999999" and the Windows build did not
+    # (GitHub Windows runner, 26.11.2026).
+    ret, _dt = scan(text)
+    assert ret != 0
+
+
+def test_scan_takes_the_largest_int_as_a_year() -> None:
+    assert round_trip("1 jan 2147483647") == "1 Jan 2147483647"
