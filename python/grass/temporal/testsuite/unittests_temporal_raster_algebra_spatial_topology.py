@@ -12,6 +12,10 @@ from grass.gunittest.main import test
 
 import grass.temporal as tgis
 
+# The old algebra under test: the package exports the parser of the algebra
+# core from now on. The file goes with the old algebra.
+from grass.temporal.temporal_raster_algebra import TemporalRasterAlgebraParser
+
 
 class TestTemporalRasterAlgebraSpatialTopology(TestCase):
     @classmethod
@@ -114,7 +118,7 @@ class TestTemporalRasterAlgebraSpatialTopology(TestCase):
         r3 = a4 + b4  # 8
 
         """
-        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=True, spatial=True)
+        ta = TemporalRasterAlgebraParser(run=True, debug=True, spatial=True)
         ta.parse(
             expression="R = A {+,equal|equivalent,l} B", basename="r", overwrite=True
         )
@@ -146,7 +150,7 @@ class TestTemporalRasterAlgebraSpatialTopology(TestCase):
         r3 = a4 + b2       # 6
 
         """
-        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=True, spatial=True)
+        ta = TemporalRasterAlgebraParser(run=True, debug=True, spatial=True)
         ta.parse(expression="R = A {+,equal|overlap,l} B", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -176,7 +180,7 @@ class TestTemporalRasterAlgebraSpatialTopology(TestCase):
         r3 = a4 + b2       # 6
 
         """
-        ta = tgis.TemporalRasterAlgebraParser(
+        ta = TemporalRasterAlgebraParser(
             run=True, debug=True, spatial=True, register_null=True
         )
         ta.parse(expression="R = A {+,equal|overlap,l} B", basename="r", overwrite=True)
@@ -205,7 +209,7 @@ class TestTemporalRasterAlgebraSpatialTopology(TestCase):
         r0 = a2 + b3       # 4
 
         """
-        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=True, spatial=True)
+        ta = TemporalRasterAlgebraParser(run=True, debug=True, spatial=True)
         ta.parse(expression="R = A {+,equal|contain,l} B", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")
@@ -236,7 +240,7 @@ class TestTemporalRasterAlgebraSpatialTopology(TestCase):
         r3 = a4 + b4       # 8
 
         """
-        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=True, spatial=True)
+        ta = TemporalRasterAlgebraParser(run=True, debug=True, spatial=True)
         ta.parse(
             expression="R = A {+,equal|equivalent|contain,l} B",
             basename="r",
@@ -270,7 +274,7 @@ class TestTemporalRasterAlgebraSpatialTopology(TestCase):
         r3 = a4 + b4  # 8
 
         """
-        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=True, spatial=True)
+        ta = TemporalRasterAlgebraParser(run=True, debug=True, spatial=True)
         ta.parse(
             expression="R = if({equal|equivalent}, A > 0 {&&,equal|equivalent} B < 10, A {+,equal|equivalent,l} B)",
             basename="r",

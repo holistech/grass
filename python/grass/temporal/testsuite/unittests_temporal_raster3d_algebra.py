@@ -13,6 +13,10 @@ from grass.gunittest.main import test
 
 import grass.temporal as tgis
 
+# The old algebra under test: the package exports the parser of the algebra
+# core from now on. The file goes with the old algebra.
+from grass.temporal.temporal_raster3d_algebra import TemporalRaster3DAlgebraParser
+
 
 class TestTemporalRaster3dAlgebra(TestCase):
     @classmethod
@@ -62,7 +66,7 @@ class TestTemporalRaster3dAlgebra(TestCase):
         A = tgis.open_old_stds("A", type="str3ds")
         A.print_info()
 
-        tra = tgis.TemporalRaster3DAlgebraParser(run=True, debug=True)
+        tra = TemporalRaster3DAlgebraParser(run=True, debug=True)
         tra.parse(expression="D = A[-1] + A[1]", basename="d", overwrite=True)
 
         D = tgis.open_old_stds("D", type="str3ds")
@@ -80,7 +84,7 @@ class TestTemporalRaster3dAlgebra(TestCase):
         A = tgis.open_old_stds("A", type="str3ds")
         A.print_info()
 
-        tra = tgis.TemporalRaster3DAlgebraParser(run=True, debug=True)
+        tra = TemporalRaster3DAlgebraParser(run=True, debug=True)
         tra.parse(
             expression="D = A[0,0,0,-1] + A[0,0,0,1]", basename="d", overwrite=True
         )

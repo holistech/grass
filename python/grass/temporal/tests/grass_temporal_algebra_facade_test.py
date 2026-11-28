@@ -12,6 +12,7 @@ import pickle
 
 import pytest
 
+import grass.temporal as tgis
 from grass.temporal.algebra.parser import facade
 
 CLASSES = [
@@ -20,8 +21,11 @@ CLASSES = [
     ("TemporalVectorAlgebraParser", facade.TemporalVectorAlgebraParser),
 ]
 
-# The package still exports the parsers of the old algebra; the test that it
-# exports these classes comes with the move of the algebra tools to the core.
+
+# The package takes the vector parser from the core once t.vect.algebra moves to it.
+@pytest.mark.parametrize(("name", "parser_class"), CLASSES[:2])
+def test_the_package_exports_the_facade(name, parser_class):
+    assert getattr(tgis, name) is parser_class
 
 
 @pytest.mark.parametrize(("name", "parser_class"), CLASSES)
