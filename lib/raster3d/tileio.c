@@ -64,6 +64,10 @@
  * in the buffer has not been written to the file corresponding to <em>map</em>
  * yet, the tile is copied into the file-cache.<br>
  *
+ * If <em>map</em> is old, the tile holds the values of the file also when the
+ * 3d-mask is turned on for <em>map</em>: the read functions apply the mask to
+ * each value they read (see Rast3d_mask_on()).<br>
+ *
  * Care has to be taken if this function is used in non-cache mode since it is
  * implicitly invoked every time a read or write request is issued.  The only
  * I/O-functions for which it is safe to assume that they do not invoke
@@ -97,8 +101,9 @@ void *Rast3d_get_tile_ptr(RASTER3D_Map *map, int tileIndex)
         return map->data;
 
     map->currentIndex = tileIndex;
-    if (!Rast3d_read_tile(map, map->currentIndex, map->data, map->typeIntern)) {
-        Rast3d_error("Rast3d_get_tile_ptr: error in Rast3d_read_tile");
+    if (!Rast3d_read_tile_into_buffer(map, map->currentIndex, map->data)) {
+        Rast3d_error(
+            "Rast3d_get_tile_ptr: error in Rast3d_read_tile_into_buffer");
         return NULL;
     }
 

@@ -109,6 +109,12 @@ static void read_data_fp_compressed(int fd, int row, unsigned char *data_buf,
         G_fatal_error(_("Error uncompressing fp raster data for row %d of "
                         "<%s>: error code %d"),
                       row, fcb->name, ret);
+    /* G_read_compressed() returns the number of bytes it decompressed,
+     * which may be fewer than asked for; the rest of the row would be
+     * left undefined. */
+    if ((size_t)ret != bufsize)
+        G_fatal_error(_("Error uncompressing raster data for row %d of <%s>"),
+                      row, fcb->name);
 }
 
 static void rle_decompress(unsigned char *dst, const unsigned char *src,
