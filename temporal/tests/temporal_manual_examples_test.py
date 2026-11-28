@@ -52,8 +52,10 @@ from grass.temporal.testing.nc_dataset import (
 REVIEWED_MANUALS = (
     "t.rast.aggregate",
     "t.rast.aggregate.ds",
+    "t.rast.algebra",
     "t.rast.mapcalc",
     "t.rast.univar",
+    "t.rast3d.algebra",
     "t.rast3d.mapcalc",
     "t.rast3d.univar",
     "t.sample",
@@ -68,9 +70,12 @@ REVIEWED_MANUALS = (
 # remove the entry.
 EXAMPLES_LATER = {"t.rast.mapcalc": {"Choose the sampling method": "comma"}}
 
-# The algebras list their expressions with the result of each; their manuals
-# join with the tool stages that rewrite them.
-CATALOG_MANUALS = ()
+# The algebras list their expressions with the result of each; the manuals of
+# t.select and t.vect.algebra join with the stage that rewrites them.
+CATALOG_MANUALS = (
+    "t.rast.algebra",
+    "t.rast3d.algebra",
+)
 
 TOOLS = Path(__file__).parents[1]
 
