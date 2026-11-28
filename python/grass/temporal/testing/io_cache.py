@@ -26,14 +26,7 @@ from types import SimpleNamespace
 
 import grass.pygrass.modules.interface.module as pygrass_module
 import grass.temporal as tgis
-
-# core stands in for db, schema and state; the fallback goes with the database layer.
-try:
-    from grass.temporal import core, db, schema, state
-except ImportError:
-    from grass.temporal import core
-
-    db = schema = state = core
+from grass.temporal import core, db, schema, state
 
 
 def _gisrc_state():
