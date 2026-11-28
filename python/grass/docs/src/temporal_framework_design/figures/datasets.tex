@@ -1,0 +1,93 @@
+% The abstract dataset classes, their topology links and the register of a
+% space time dataset. Abstract methods are in italics.
+\begin{tikzpicture}[font=\scriptsize]
+\begin{class}[text width=4.7cm]{TopologyLinks}{-1.0,0}
+\operation{get_temporal_relations()}
+\operation{get_spatial_relations()}
+\operation{get_number_of_temporal_relations()}
+\operation{reset_topology()}
+\operation{next()}
+\operation{prev()}
+\operation{get_equal()}
+\operation{get_follows()}
+\operation{get_precedes()}
+\operation{get_overlaps()}
+\operation{get_overlapped()}
+\operation{get_during()}
+\operation{get_contains()}
+\operation{get_starts()}
+\attribute{contains}
+\end{class}
+\begin{class}[text width=4.4cm]{SpatioTemporalTopologyBuilder}{5.4,0}
+\operation{build()}
+\operation{get_first()}
+\end{class}
+\draw[dashed,->] (SpatioTemporalTopologyBuilder) -- node[above]{links} (TopologyLinks);
+\begin{abstractclass}[text width=4.4cm]{AbstractDataset}{-1.0,-5.6}
+\inherit{TopologyLinks}
+\attribute{temporal_extent}
+\operation{get_id()}
+\operation{get_absolute_time()}
+\operation{get_temporal_extent()}
+\operation{get_spatial_extent()}
+\operation{temporal_relation()}
+\operation{temporal_intersection()}
+\operation{select()}
+\operation{insert()}
+\operation{update()}
+\operation[0]{delete()}
+\operation[0]{spatial_relation()}
+\operation[0]{spatial_intersection()}
+\end{abstractclass}
+\begin{abstractclass}[text width=4.2cm]{AbstractMapDataset}{-5.0,-11.0}
+\inherit{AbstractDataset}
+\operation{set_absolute_time()}
+\operation{set_relative_time()}
+\operation{set_temporal_extent()}
+\operation{set_spatial_extent_from_values()}
+\operation{temporal_buffer()}
+\operation{spatial_buffer_2d()}
+\operation{get_registered_stds()}
+\operation{add_stds_to_register()}
+\operation{remove_stds_from_register()}
+\operation{unregister()}
+\operation[0]{load()}
+\operation[0]{map_exists()}
+\end{abstractclass}
+\begin{abstractclass}[text width=6.4cm]{AbstractSpaceTimeDataset}{2.7,-11.0}
+\inherit{AbstractDataset}
+\operation{register_map()}
+\operation{unregister_map()}
+\operation{update_from_registered_maps()}
+\operation{get_granularity()}
+\operation{get_registered_maps()}
+\operation{get_registered_maps_as_objects()}
+\operation{get_registered_maps_as_objects_with_gaps()}
+\operation{get_registered_maps_as_objects_by_granularity()}
+\operation{count_temporal_relations()}
+\operation{check_temporal_topology()}
+\operation{shift()}
+\operation{snap()}
+\operation{snap_map_list()}
+\operation[0]{get_new_map_instance()}
+\end{abstractclass}
+\begin{class}[text width=4.2cm]{MapDataset}{-5.0,-16.6}
+\inherit{AbstractMapDataset}
+\operation{load()}
+\operation{map_exists()}
+\operation{read_timestamp_from_grass()}
+\operation{write_timestamp_to_grass()}
+\end{class}
+\begin{class}[text width=3.6cm]{StdsDataset}{1.4,-17.0}
+\inherit{AbstractSpaceTimeDataset}
+\operation{get_new_map_instance()}
+\operation{get_map_register()}
+\end{class}
+\begin{class}[text width=2.8cm]{StdsMapRegister}{6.4,-17.0}
+\operation{register()}
+\operation{unregister()}
+\operation{rows()}
+\operation{update_extent()}
+\end{class}
+\composition{AbstractSpaceTimeDataset}{map_register}{1}{StdsMapRegister}
+\end{tikzpicture}

@@ -34,6 +34,7 @@ from grass.temporal.testing.manual_examples import (
     ManualFormatError,
     check_manual,
     example_session,
+    needs_bash,
     parse_manual,
     stop_example_processes,
     timeout_for,
@@ -109,32 +110,38 @@ CATALOG_MANUALS = (
 )
 
 TOOLS = Path(__file__).parents[1]
+# The introduction and the page of the changes in GRASS 8.6 are checked like
+# manuals, but they describe no tool, so they have no options to show.
+INTRODUCTION = TOOLS / "temporalintro.md"
+CHANGES = TOOLS / "temporalchanges.md"
 
 
 def manual_of(tool):
     return parse_manual(TOOLS / tool / f"{tool}.md")
 
 
-def time_limit(read_manual, variant):
-    """The time limit of the blocks of one tab as a mark, none for a manual
-    that cannot be read
+def tab_marks(read_manual, variant):
+    """Return the marks of the test of one tab
 
-    The test of the manual reports the error; until then, the limit of the
-    repository applies. Reading the manual while the tests are collected must
-    not fail, or one broken manual would stop the whole file.
+    needs_bash() for the shell tab, and the time limit of the blocks, none for
+    a manual that cannot be read: the test of the manual reports the error;
+    until then, the limit of the repository applies. Reading the manual while
+    the tests are collected must not fail, or one broken manual would stop the
+    whole file.
     """
+    marks = [needs_bash()] if variant == "shell" else []
     try:
         manual = read_manual()
     except ManualFormatError:
-        return ()
-    return pytest.mark.timeout(timeout_for(manual, variant))
+        return marks
+    return [*marks, pytest.mark.timeout(timeout_for(manual, variant))]
 
 
 def example_runs():
-    """Each reviewed manual and tab, with the time limit of its blocks"""
+    """Each reviewed manual and tab, with the marks of its test"""
     for tool in REVIEWED_MANUALS:
         for variant in ("shell", "python"):
-            marks = time_limit(partial(manual_of, tool), variant)
+            marks = tab_marks(partial(manual_of, tool), variant)
             yield pytest.param(tool, variant, marks=marks, id=f"{tool}-{variant}")
 
 
@@ -222,14 +229,60 @@ def test_markdown_and_html_agree(tool):
     assert check_html_sync(manual, manual.path.with_suffix(".html")) == []
 
 
+@pytest.mark.parametrize(
+    "variant",
+    [
+        pytest.param(
+            variant,
+            marks=tab_marks(lambda: parse_manual(INTRODUCTION), variant),
+            id=variant,
+        )
+        for variant in ("shell", "python")
+    ],
+)
+def test_introduction_examples_run_and_show_their_output(
+    variant, tmp_path, example_processes, request
+):
+    check_examples(parse_manual(INTRODUCTION), variant, tmp_path, request)
+
+
 def test_minimum_time_limit_is_the_limit_of_the_repository(pytestconfig):
     """A manual gets at least the time limit that every test of the
     repository gets; the two are set in different places"""
     assert int(pytestconfig.getini("timeout")) == MINIMUM_TEST_SECONDS
 
 
+def test_introduction_markdown_and_html_agree():
+    manual = parse_manual(INTRODUCTION)
+    assert check_html_sync(manual, INTRODUCTION.with_suffix(".html")) == []
+
+
+@pytest.mark.parametrize(
+    "variant",
+    [
+        pytest.param(
+            variant,
+            marks=tab_marks(lambda: parse_manual(CHANGES), variant),
+            id=variant,
+        )
+        for variant in ("shell", "python")
+    ],
+)
+def test_changes_page_examples_run_and_show_their_output(
+    variant, tmp_path, example_processes, request
+):
+    check_examples(parse_manual(CHANGES), variant, tmp_path, request)
+
+
+def test_changes_page_markdown_and_html_agree():
+    manual = parse_manual(CHANGES)
+    assert check_html_sync(manual, CHANGES.with_suffix(".html")) == []
+
+
 def test_shell_only_examples_are_catalog_manuals():
     manuals = {tool: manual_of(tool) for tool in REVIEWED_MANUALS}
+    manuals["temporalintro"] = parse_manual(INTRODUCTION)
+    manuals["temporalchanges"] = parse_manual(CHANGES)
     users = {
         name
         for name, manual in manuals.items()
