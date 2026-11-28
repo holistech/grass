@@ -1,0 +1,617 @@
+"""Test the options of t.rast.aggregate that the other modules leave out
+
+nprocs, one sampling relation at a time, the input that is empty or has
+instants of relative time, and the refusals of wrong values. The expected
+values are derived from the data in the comments.
+"""
+
+from io import StringIO
+
+import pytest
+
+from grass.temporal.testing.data import (
+    MapSpec,
+    create_stds,
+    day,
+    make_map,
+    register_stds,
+)
+from grass.temporal.testing.readback import list_maps, message
+from grass.tools import ToolError
+
+
+def _rows(tools, name):
+    return [
+        (row.name, row.start, row.end, row.min)
+        for row in list_maps(tools, "strds", name)
+    ]
+
+
+@pytest.fixture(scope="module")
+def four_hourly(tools):
+    """120 maps that follow each other: map k holds k, from 4 (k-1) to 4 k hours"""
+    count = 120
+    tools.r_mapcalc(
+        file=StringIO("".join(f"ah{k} = {k}\n" for k in range(1, count + 1)))
+    )
+    register_stds(
+        tools,
+        "strds",
+        "four_hourly",
+        [
+            MapSpec(f"ah{k}", k, day(0, hours=4 * (k - 1)), day(0, hours=4 * k))
+            for k in range(1, count + 1)
+        ],
+    )
+    return "four_hourly"
+
+
+def _suffixes(rows, output):
+    return [row[0].removeprefix(f"{output}_") for row in rows]
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+def test_nprocs_gives_the_same_maps_as_one_process(tools, four_hourly):
+    # A granule of 12 hours holds three maps, 3j+1 to 3j+3, so it sums to
+    # 9j+6 for j = 0 to 39 (6 to 357). A granule of a day holds six maps,
+    # 6j+1 to 6j+6, and sums to 36j+21 for j = 0 to 19 (21 to 705).
+    results = {}
+    for nprocs in (1, 2, 4, 9):
+        output = f"par_{nprocs}"
+        tools.t_rast_aggregate(
+            input=four_hourly,
+            output=output,
+            basename=output,
+            granularity="12 hours",
+            method="sum",
+            nprocs=nprocs,
+            file_limit=2,
+        )
+        results[nprocs] = _rows(tools, output)
+
+    one = results[1]
+    assert [row[3] for row in one] == [9.0 * j + 6 for j in range(40)]
+    assert one[0][1:3] == (
+        day(0).strftime("%Y-%m-%d %H:%M:%S"),
+        day(0, hours=12).strftime("%Y-%m-%d %H:%M:%S"),
+    )
+    for nprocs in (2, 4, 9):
+        assert _suffixes(results[nprocs], f"par_{nprocs}") == _suffixes(one, "par_1")
+        assert [row[1:] for row in results[nprocs]] == [row[1:] for row in one]
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+@pytest.mark.parametrize("nprocs", [1, 2, 3, 4])
+def test_one_day_sum_with_nprocs(tools, four_hourly, nprocs):
+    output = f"day_{nprocs}"
+
+    tools.t_rast_aggregate(
+        input=four_hourly,
+        output=output,
+        basename=output,
+        granularity="1 day",
+        method="sum",
+        nprocs=nprocs,
+    )
+
+    assert [row[3] for row in _rows(tools, output)] == [
+        36.0 * j + 21 for j in range(20)
+    ]
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+def test_nprocs_below_one_runs_one_process(tools, four_hourly):
+    # No value is refused: 0 and -1 aggregate like 1.
+    for nprocs in (0, -1):
+        output = f"par_n{abs(nprocs)}"
+        tools.t_rast_aggregate(
+            input=four_hourly,
+            output=output,
+            basename=output,
+            granularity="1 day",
+            method="sum",
+            nprocs=nprocs,
+        )
+
+        assert [row[3] for row in _rows(tools, output)] == [
+            36.0 * j + 21 for j in range(20)
+        ]
+
+
+@pytest.mark.parametrize(
+    "sampling",
+    [
+        "equal",
+        "contains",
+        "during",
+        "overlaps",
+        "overlapped",
+        "started",
+        "starts",
+        "finished",
+        "finishes",
+        "overlaps,overlapped",
+        "equal,contains",
+    ],
+)
+def test_one_sampling_relation_at_a_time(tools, sampling_relations, sampling):
+    # The data and the sums are described in temporal/conftest.py.
+    output = "rel_" + sampling.replace(",", "_")
+
+    tools.t_rast_aggregate(
+        input=sampling_relations.dataset,
+        output=output,
+        basename=output,
+        granularity="10 days",
+        method="sum",
+        sampling=sampling,
+    )
+
+    second = [row for row in _rows(tools, output) if row[1] == sampling_relations.start]
+    assert [row[3] for row in second] == [float(sampling_relations.sums[sampling])]
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+def test_relative_instants_get_a_final_granule(tools):
+    # Instants at 0, 1 and 2 with a granularity of 1: the granules [0,1),
+    # [1,2) and [2,3), the last one for the final instant.
+    create_stds(
+        tools,
+        "strds",
+        "inst_rel",
+        [MapSpec(f"ir{k}", k + 1, k, None) for k in range(3)],
+        temporaltype="relative",
+        unit="days",
+    )
+
+    tools.t_rast_aggregate(
+        input="inst_rel",
+        output="inst_rel_out",
+        basename="inst_rel_out",
+        granularity=1,
+        method="sum",
+    )
+
+    assert [(row[1], row[2], row[3]) for row in _rows(tools, "inst_rel_out")] == [
+        (0, 1, 1.0),
+        (1, 2, 2.0),
+        (2, 3, 3.0),
+    ]
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+def test_a_relative_instant_at_the_end_adds_no_granule_after_it(tools):
+    # The long map [0,30) holds 7, the instant on 3 holds 2. The grid ends
+    # after the map that starts last, as before the move to the algebra
+    # core, not at the end of the dataset: one unit after the instant, at 4,
+    # so there is the single granule [0,10). With sampling "during" it
+    # collects the long map, which it starts (7), not the instant inside
+    # it. A grid that ended a whole granularity after the instant, at 13,
+    # would add [10,20), which lies during the long map and gives a second
+    # map.
+    create_stds(
+        tools,
+        "strds",
+        "tail_rel",
+        [MapSpec("tr_long", 7, 0, 30), MapSpec("tr_inst", 2, 3, None)],
+        temporaltype="relative",
+        unit="days",
+    )
+
+    tools.t_rast_aggregate(
+        input="tail_rel",
+        output="tail_rel_out",
+        basename="tail_rel_out",
+        granularity=10,
+        method="sum",
+        sampling="during",
+    )
+
+    assert [(row[1], row[2], row[3]) for row in _rows(tools, "tail_rel_out")] == [
+        (0, 10, 7.0)
+    ]
+
+
+def test_an_input_that_where_empties_is_refused(tools, four_hourly):
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_aggregate(
+            input=four_hourly,
+            output="where_empty",
+            basename="where_empty",
+            granularity="1 day",
+            method="sum",
+            where="start_time > '2010-01-01'",
+        )
+
+    assert f"Space time raster dataset <{four_hourly}> is empty" in message(error.value)
+
+
+def test_an_unknown_input_is_refused(tools):
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_aggregate(
+            input="no_such_dataset",
+            output="unknown_out",
+            basename="unknown_out",
+            granularity="1 day",
+            method="sum",
+        )
+
+    assert "Space time dataset <no_such_dataset> of type <strds> not found" in message(
+        error.value
+    )
+
+
+@pytest.mark.parametrize(
+    ("granularity", "text"),
+    [
+        ("1 fortnight", "Wrong granularity format: 1 fortnight"),
+        ("1.5 days", "Cannot read '1.5 days' as a time step"),
+    ],
+)
+def test_a_wrong_absolute_granularity_is_refused(tools, four_hourly, granularity, text):
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_aggregate(
+            input=four_hourly,
+            output="bad_gran",
+            basename="bad_gran",
+            granularity=granularity,
+            method="sum",
+        )
+
+    assert text in message(error.value)
+
+
+@pytest.mark.parametrize("granularity", ["abc", "2"])
+def test_a_granularity_without_a_unit_is_refused_with_a_message(
+    tools, four_hourly, granularity
+):
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_aggregate(
+            input=four_hourly,
+            output="bad_gran",
+            basename="bad_gran",
+            granularity=granularity,
+            method="sum",
+        )
+
+    assert "Invalid granularity <{}>".format(granularity) in message(error.value)
+    assert "Traceback" not in message(error.value)
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    ("granularity", "text"),
+    [
+        ("1 day", "Invalid granularity <1 day>"),
+        ("abc", "Invalid granularity <abc>"),
+        ("1.5", "Invalid granularity <1.5>"),
+        ("0", "The granularity 0 must be positive"),
+        ("-1", "The granularity -1 must be positive"),
+    ],
+)
+def test_a_wrong_relative_granularity_is_refused(tools, granularity, text):
+    create_stds(
+        tools,
+        "strds",
+        "rel_for_errors",
+        [MapSpec("rfe1", 1, 0, 1)],
+        temporaltype="relative",
+        unit="days",
+        overwrite=True,
+    )
+
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_aggregate(
+            input="rel_for_errors",
+            output="bad_rel",
+            basename="bad_rel",
+            granularity=granularity,
+            method="sum",
+        )
+
+    assert text in message(error.value)
+    assert "Traceback" not in message(error.value)
+
+
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [("method", "bogus"), ("sampling", "nonsense")],
+)
+def test_a_value_out_of_range_is_refused(tools, four_hourly, option, value):
+    options = {"method": "sum", option: value}
+
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_aggregate(
+            input=four_hourly,
+            output="bad_option",
+            basename="bad_option",
+            granularity="1 day",
+            **options,
+        )
+
+    assert f"Value <{value}> out of range for parameter <{option}>" in message(
+        error.value
+    )
+
+
+@pytest.mark.parametrize("missing", ["input", "output", "basename", "granularity"])
+def test_the_required_options(tools, four_hourly, missing):
+    options = {
+        "input": four_hourly,
+        "output": "req_out",
+        "basename": "req_out",
+        "granularity": "1 day",
+        "method": "sum",
+    }
+    del options[missing]
+
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_aggregate(**options)
+
+    assert f"Required parameter <{missing}> not set" in message(error.value)
+
+
+@pytest.fixture(scope="module")
+def half_days(tools):
+    """Two maps of 12 hours on the first two days: one map per daily granule"""
+    create_stds(
+        tools,
+        "strds",
+        "half_days",
+        [MapSpec(f"hd{k}", k + 1, day(k, hours=6), day(k, hours=18)) for k in range(2)],
+    )
+    return "half_days"
+
+
+def test_the_numeric_suffix_has_five_digits_unless_told_otherwise(tools, half_days):
+    # Any other text than gran, time, num and num%NN is refused, see
+    # t_rast_aggregate_suffix_test.py.
+    output = "suf_num"
+
+    tools.t_rast_aggregate(
+        input=half_days,
+        output=output,
+        basename=output,
+        granularity="1 day",
+        method="sum",
+        suffix="num",
+    )
+
+    assert _suffixes(_rows(tools, output), output) == ["00001", "00002"]
+
+
+def _aggregate_refused(tools, **options):
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_aggregate(**options)
+    return message(error.value)
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(
+    tools, four_hourly, prefix
+):
+    text = _aggregate_refused(
+        tools,
+        input=four_hourly,
+        output=prefix,
+        basename=prefix,
+        granularity="1 day",
+        where="nonsense =",
+    )
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
+    assert prefix not in tools.t_list(type="strds,str3ds,stvds", columns="name").stdout
+
+
+@pytest.fixture(scope="module")
+def month_ends(tools):
+    """Three monthly intervals from 2001-01-31 in <month_ends>
+
+    t.register -i with a step of one month counts from the anchor 31 January:
+    me1 [31 Jan, 28 Feb), me2 [28 Feb, 31 Mar), me3 [31 Mar, 30 Apr). No map
+    starts on the first of a month.
+    """
+    for number in (1, 2, 3):
+        make_map(tools, "raster", f"me{number}", number)
+    tools.t_create(output="month_ends", title="t", description="d")
+    tools.t_register(
+        type="raster",
+        input="month_ends",
+        maps="me1,me2,me3",
+        start="2001-01-31",
+        increment="1 months",
+        flags="i",
+    )
+    return "month_ends"
+
+
+def test_an_empty_result_warns_and_makes_no_dataset(tools, month_ends, has_dataset):
+    # The default sampling is "contains", and every map lasts a month, so none
+    # lies inside a monthly granule.
+    result = tools.t_rast_aggregate(
+        input=month_ends,
+        output="empty_out",
+        basename="empty_out",
+        granularity="1 months",
+        method="sum",
+    )
+
+    text = message(result)
+    assert "No map is related to any granule" in text
+    assert "1 months" in text
+    assert "contains" in text
+    assert not has_dataset("empty_out")
+
+
+def test_overlaps_sampling_helps_monthly_maps_that_start_late(tools, month_ends):
+    # Granules: January, February and March 2001. A map is related by
+    # overlaps when it starts inside the granule and ends after it: me1
+    # (31 Jan, ends 28 Feb) for January, me2 (28 Feb, ends 31 Mar) for
+    # February, me3 (31 Mar, ends 30 Apr) for March. Each granule gets one
+    # map, so the sums are 1, 2 and 3.
+    tools.t_rast_aggregate(
+        input=month_ends,
+        output="overlap_out",
+        basename="overlap_out",
+        granularity="1 months",
+        method="sum",
+        sampling="overlaps",
+    )
+
+    assert _rows(tools, "overlap_out") == [
+        ("overlap_out_2001_01", "2001-01-01 00:00:00", "2001-02-01 00:00:00", 1.0),
+        ("overlap_out_2001_02", "2001-02-01 00:00:00", "2001-03-01 00:00:00", 2.0),
+        ("overlap_out_2001_03", "2001-03-01 00:00:00", "2001-04-01 00:00:00", 3.0),
+    ]
+
+
+# 20 maps of one hour make one granule of 20 hours, and r.series on 8 threads
+# holds two files for each map and thread, 320 files, more than the soft limit
+# of 256 allows. The sum of a granule is derived from the values: map k holds
+# k, so the first granule sums to 1 + ... + 20 = 210 and the second one to
+# 21 + ... + 40 = 610.
+HOURLY_MAPS = 40
+
+
+@pytest.fixture(scope="module")
+def hourly_maps(tools):
+    """Datasets hourly20 (the first 20 maps) and hourly40 (all 40 maps)"""
+    tools.r_mapcalc(
+        file=StringIO("".join(f"oh{k} = {k}\n" for k in range(1, HOURLY_MAPS + 1)))
+    )
+    specs = [
+        MapSpec(f"oh{k}", k, day(0, hours=k - 1), day(0, hours=k))
+        for k in range(1, HOURLY_MAPS + 1)
+    ]
+    register_stds(tools, "strds", "hourly40", specs)
+    register_stds(tools, "strds", "hourly20", specs[:20])
+
+
+@pytest.fixture
+def few_open_files(tools, monkeypatch):
+    """Lower the soft limit of open files to 256 and let r.series run 8 threads
+
+    The tools run as children of this process and inherit the limit. The
+    environment of the session is changed through monkeypatch, so the
+    modules of the other tests keep their files. The limit is set back
+    afterwards.
+    """
+    # Only this fixture needs the module, which Windows lacks.
+    resource = pytest.importorskip("resource")
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (256, hard))
+    monkeypatch.setitem(tools._original_env, "OMP_NUM_THREADS", "8")  # noqa: SLF001
+    yield
+    resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+
+
+def test_an_aggregate_past_the_open_files_runs_and_sums(
+    tools, hourly_maps, few_open_files
+):
+    result = tools.t_rast_aggregate(
+        input="hourly20",
+        output="ofl_one",
+        basename="ofl_one",
+        granularity="20 hours",
+        method="sum",
+    )
+
+    assert [row[3] for row in _rows(tools, "ofl_one")] == [210.0]
+    # file_limit is 1000, so the open files of the process gave the reason.
+    assert message(result).count("limit of open files") == 1
+
+
+def test_nprocs_of_the_session_counts_for_an_aggregate(
+    tools, hourly_maps, few_open_files, monkeypatch
+):
+    # NPROCS=8 of the session makes r.series run 8 threads although
+    # OMP_NUM_THREADS says one.
+    monkeypatch.setitem(tools._original_env, "OMP_NUM_THREADS", "1")  # noqa: SLF001
+    tools.g_gisenv(set="NPROCS=8")
+    try:
+        tools.t_rast_aggregate(
+            input="hourly20",
+            output="ofl_session",
+            basename="ofl_session",
+            granularity="20 hours",
+            method="sum",
+        )
+    finally:
+        tools.g_gisenv(unset="NPROCS")
+
+    assert [row[3] for row in _rows(tools, "ofl_session")] == [210.0]
+
+
+# With a raster mask r.series reads on one thread, which needs 2 x 20 + 64
+# files, within the 256 that 8 threads would exceed. Without the warning the
+# maps stay open, so the sum shows that r.series ran without -z.
+def test_a_raster_mask_keeps_the_maps_of_an_aggregate_open(
+    tools, hourly_maps, few_open_files
+):
+    tools.r_mask(raster="oh1")
+    try:
+        result = tools.t_rast_aggregate(
+            input="hourly20",
+            output="ofl_mask",
+            basename="ofl_mask",
+            granularity="20 hours",
+            method="sum",
+        )
+    finally:
+        tools.r_mask(flags="r")
+
+    assert [row[3] for row in _rows(tools, "ofl_mask")] == [210.0]
+    assert "limit of open files" not in message(result)
+
+
+def test_grass_mask_keeps_the_maps_of_an_aggregate_open(
+    tools, hourly_maps, few_open_files, monkeypatch
+):
+    monkeypatch.setitem(tools._original_env, "GRASS_MASK", "oh2")  # noqa: SLF001
+    result = tools.t_rast_aggregate(
+        input="hourly20",
+        output="ofl_grass_mask",
+        basename="ofl_grass_mask",
+        granularity="20 hours",
+        method="sum",
+    )
+
+    assert [row[3] for row in _rows(tools, "ofl_grass_mask")] == [210.0]
+    assert "limit of open files" not in message(result)
+
+
+def test_parallel_granules_past_the_open_files_run_and_sum(
+    tools, hourly_maps, few_open_files
+):
+    # Each of the two r.series processes holds 8 threads of its own.
+    tools.t_rast_aggregate(
+        input="hourly40",
+        output="ofl_parallel",
+        basename="ofl_parallel",
+        granularity="20 hours",
+        method="sum",
+        nprocs=2,
+    )
+
+    assert [row[3] for row in _rows(tools, "ofl_parallel")] == [210.0, 610.0]
+
+
+def test_each_granule_read_row_by_row_warns_once(tools, hourly_maps):
+    # file_limit=1 puts both granules of 20 maps past the limit.
+    result = tools.t_rast_aggregate(
+        input="hourly40",
+        output="ofl_warn",
+        basename="ofl_warn",
+        granularity="20 hours",
+        method="sum",
+        file_limit=1,
+    )
+
+    assert message(result).count("limit of open files") == 2
