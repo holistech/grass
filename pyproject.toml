@@ -63,6 +63,7 @@ ignore-words-list = [
     "expressio",   # Abbreviated option names tested in parse_mapcalc_cmd doctests
     "loner",       # Name of a raster map that is not in any dataset in a test
     "rin",         # Name of a space time dataset in a sampling test
+    "preceedes",   # Misspelling in the caption of the published paper, refused on purpose in tests
     "TimeRE",      # Class of the standard library module _strptime
 ]
 quiet-level = 3
