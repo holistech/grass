@@ -1,0 +1,399 @@
+"""Datasets and checks of the algebra cases with expected values derived by hand
+
+Each builder below makes the datasets of a group of cases in a test session
+and its docstring lists the maps with their values and times. Every map is
+constant, so the region is small and the expected value of a result follows
+from the values of the maps. check_case() and check_dry() compare what the
+algebra core makes with the expected maps. A case is (expression, options
+of evaluate(), expected), the format of the t.rast.algebra cases;
+``expected`` is a list of maps (start, end, min, max) or, for vector maps,
+(start, end, points, lines, areas), or the name of the error class that the
+expression raises.
+
+This module must not import pytest; fixtures belong in conftest.py files.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
+"""
+
+import datetime
+import re
+
+import grass.temporal as tgis
+from grass.temporal.testing.data import (
+    MAP_TYPE_OF_STDS,
+    STDS_TYPE_OF_KIND,
+    MapSpec,
+    create_stds,
+    make_map,
+    register_stds,
+    small_region,
+)
+from grass.temporal.testing.outcomes import outcome, run_core
+
+
+def when(month, day=1, year=2001):
+    """A date, by default of 2001
+
+    The cases and the builders name their times as dates of 2001, such as
+    "January 3" or "the months January to June", so they are written as
+    dates here and not as the day offsets of data.day().
+    """
+    return datetime.datetime(year, month, day)
+
+
+def january(number):
+    """The beginning of the day number of January 2001, data.day(number - 1)"""
+    return when(1, number)
+
+
+def single_map(tools, kind, name, value, start=None, end=None):
+    """Make a map that is in no dataset
+
+    With start it gets that time stamp, an instant if end is None.
+    """
+    map_type = MAP_TYPE_OF_STDS[STDS_TYPE_OF_KIND[kind]]
+    make_map(tools, map_type, name, value, overwrite=True)
+    if start is not None:
+        times = {"start": start.isoformat(sep=" ")}
+        if end is not None:
+            times["end"] = end.isoformat(sep=" ")
+        tools.t_register(type=map_type, maps=name, **times)
+
+
+def daily_datasets(tools, kind="raster"):
+    """Make the daily datasets A, B, C and D
+
+    A a1..a4 = 1..4 daily from January 1; B b1 = 5 and b2 = 6 on two days
+    each from January 1; C c1 = 7 on January 2 and 3; D d1..d3 = 8..10 daily
+    from January 3.
+    """
+    for name, values, first, length in (
+        ("A", [1, 2, 3, 4], 1, 1),
+        ("B", [5, 6], 1, 2),
+        ("C", [7], 2, 2),
+        ("D", [8, 9, 10], 3, 1),
+    ):
+        create_stds(
+            tools,
+            STDS_TYPE_OF_KIND[kind],
+            name,
+            [
+                MapSpec(
+                    f"{name.lower()}{number}",
+                    value,
+                    january(first + length * (number - 1)),
+                    january(first + length * number),
+                )
+                for number, value in enumerate(values, 1)
+            ],
+        )
+
+
+def algebra(tools):
+    """The daily datasets and singletmap = 99 on January 3"""
+    small_region(tools, 3, 3)
+    daily_datasets(tools)
+    single_map(tools, "raster", "singletmap", 99, january(3), january(4))
+
+
+def raster_algebra(tools):
+    """As algebra() and singlemap = 100 without time"""
+    algebra(tools)
+    make_map(tools, "raster", "singlemap", 100, overwrite=True)
+
+
+def monthly_datasets(tools):
+    """Make the monthly datasets A, B and C
+
+    A a1..a6 = 1..6 on the months January to June; B b1 = 7 for January to
+    March and b2 = 8 for April to June; C c1 = 9 for the year 2001.
+    """
+    create_stds(
+        tools,
+        "strds",
+        "A",
+        [MapSpec(f"a{k}", k, when(k), when(k + 1)) for k in range(1, 7)],
+    )
+    create_stds(
+        tools,
+        "strds",
+        "B",
+        [MapSpec("b1", 7, when(1), when(4)), MapSpec("b2", 8, when(4), when(7))],
+    )
+    create_stds(tools, "strds", "C", [MapSpec("c1", 9, when(1), when(1, 1, 2002))])
+
+
+def raster_granularity(tools):
+    """Make the monthly datasets for the raster granularity cases
+
+    Dataset D d1..d3 = 10, 11, 12 for five days from the first of January,
+    March and May; singletmap = 99 for March; nullmap, a null map for
+    January to June.
+    """
+    small_region(tools, 3, 3)
+    monthly_datasets(tools)
+    create_stds(
+        tools,
+        "strds",
+        "D",
+        [
+            MapSpec(f"d{k}", 9 + k, when(m), when(m, 6))
+            for k, m in enumerate((1, 3, 5), 1)
+        ],
+    )
+    single_map(tools, "raster", "singletmap", 99, when(3), when(4))
+    single_map(tools, "raster", "nullmap", "null()", when(1), when(7))
+
+
+def mixed_types(tools):
+    """Make one dataset each of a 3D raster, a raster and a vector type
+
+    A (str3ds) a1..a4 = 1..4 daily from January 1, B (strds) b1 = 5 and
+    b2 = 6 on two days each, C (stvds) c1 = 20 random points on January 2
+    and 3.
+    """
+    small_region(tools, 3, 3, depths=3)
+    create_stds(
+        tools,
+        "str3ds",
+        "A",
+        [MapSpec(f"a{k}", k, january(k), january(k + 1)) for k in range(1, 5)],
+    )
+    create_stds(
+        tools,
+        "strds",
+        "B",
+        [
+            MapSpec("b1", 5, january(1), january(3)),
+            MapSpec("b2", 6, january(3), january(5)),
+        ],
+    )
+    tools.v_random(output="c1", npoints=20, seed=3)
+    register_stds(tools, "stvds", "C", [MapSpec("c1", None, january(2), january(4))])
+
+
+def conditionals(tools):
+    """Make the daily datasets and the datasets for the conditional cases
+
+    Dataset E e1..e3 = 11..13 on two days each from December 31, 2000, and
+    singletmap = 99.
+    """
+    algebra(tools)
+    start = when(12, 31, 2000)
+    create_stds(
+        tools,
+        "strds",
+        "E",
+        [
+            MapSpec(
+                f"e{k}",
+                10 + k,
+                start + datetime.timedelta(days=2 * (k - 1)),
+                start + datetime.timedelta(days=2 * k),
+            )
+            for k in range(1, 4)
+        ],
+    )
+
+
+def raster3d_algebra(tools):
+    """A (str3ds) a1..a4 = 1..4 daily from January 1"""
+    small_region(tools, 3, 3, depths=3)
+    create_stds(
+        tools,
+        "str3ds",
+        "A",
+        [MapSpec(f"a{k}", k, january(k), january(k + 1)) for k in range(1, 5)],
+    )
+
+
+def equal_time_stamps(tools):
+    """Make a dataset whose maps share one instant
+
+    A a1..a4 = 1..4, all four at the instant January 1; singletmap = 100 at
+    that instant; singlemap = 1000 without time.
+    """
+    small_region(tools, 3, 3)
+    create_stds(
+        tools, "strds", "A", [MapSpec(f"a{k}", k, january(1)) for k in range(1, 5)]
+    )
+    single_map(tools, "raster", "singletmap", 100, january(1))
+    make_map(tools, "raster", "singlemap", 1000, overwrite=True)
+
+
+def spatial_topology(tools):
+    """Make two datasets of maps that overlap in space at one instant
+
+    A a1..a4 and B b1..b4, map k holding k, all eight at the instant
+    January 1; the maps k cover (west, east, south, north) 0-30, 20-50,
+    25-40 and 40-60 (the same extent in A and B); singletmap = 100 at the
+    instant; singlemap = 1000.
+    """
+    extents = {1: (0, 30, 0, 30), 2: (20, 50, 20, 50), 3: (25, 40, 25, 40)}
+    extents[4] = (40, 60, 40, 60)
+    for k, (west, east, south, north) in extents.items():
+        region = {"n": north, "s": south, "e": east, "w": west, "res": 10}
+        make_map(tools, "raster", f"a{k}", k, region=region, overwrite=True)
+        make_map(tools, "raster", f"b{k}", k, region=region, overwrite=True)
+    tools.g_region(n=60, s=0, e=60, w=0, res=10)
+    for name in "AB":
+        register_stds(
+            tools,
+            "strds",
+            name,
+            [MapSpec(f"{name.lower()}{k}", k, january(1)) for k in range(1, 5)],
+        )
+    single_map(tools, "raster", "singletmap", 100, january(1))
+    make_map(tools, "raster", "singlemap", 1000, overwrite=True)
+
+
+def conditional_complement(tools):
+    """Make the datasets for the complement of a conditional
+
+    A a1..a6 = 1..6 daily from January 1; B b1 = 7 on January 2 and 3,
+    b2 = 8 on January 4 and 5.
+    """
+    small_region(tools, 3, 3)
+    create_stds(
+        tools,
+        "strds",
+        "A",
+        [MapSpec(f"a{k}", k, january(k), january(k + 1)) for k in range(1, 7)],
+    )
+    create_stds(
+        tools,
+        "strds",
+        "B",
+        [
+            MapSpec("b1", 7, january(2), january(4)),
+            MapSpec("b2", 8, january(4), january(6)),
+        ],
+    )
+
+
+def raster_conditionals(tools):
+    """The daily datasets, but D has a fourth map d4 = 11 on January 6"""
+    small_region(tools, 3, 3)
+    daily_datasets(tools)
+    create_stds(
+        tools,
+        "strds",
+        "D",
+        [MapSpec(f"d{k}", 7 + k, january(2 + k), january(3 + k)) for k in range(1, 5)],
+        overwrite=True,
+    )
+
+
+def vector_algebra(tools):
+    """Make the daily datasets as vector maps
+
+    Each map has 20 random points, with the seed 1 (A), 2 (B), 3 (C) and 4
+    (D), so the maps of a dataset are copies of each other; singletmap
+    (seed 5) on January 3; singlemap (seed 6) without time.
+    """
+    tools.g_region(n=80, s=0, e=120, w=0, res=10)
+    datasets = {
+        "A": (1, 4, 1, 1),
+        "B": (2, 2, 1, 2),
+        "C": (3, 1, 2, 2),
+        "D": (4, 3, 3, 1),
+    }
+    for name, (seed, count, first, length) in datasets.items():
+        maps = []
+        for number in range(1, count + 1):
+            vector = f"{name.lower()}{number}"
+            tools.v_random(output=vector, npoints=20, seed=seed, overwrite=True)
+            maps.append(
+                MapSpec(
+                    vector,
+                    None,
+                    january(first + length * (number - 1)),
+                    january(first + length * number),
+                )
+            )
+        register_stds(tools, "stvds", name, maps)
+    single_map(tools, "vector", "singletmap", 5, january(3), january(4))
+    make_map(tools, "vector", "singlemap", 6, overwrite=True)
+
+
+def _date(text):
+    """A time stamp of a result without the midnight, so cases stay short"""
+    if text is not None and text.endswith("T00:00:00"):
+        return text[: -len("T00:00:00")]
+    return text
+
+
+def _order(row):
+    # Maps without values (register_null) have None where others have numbers.
+    return tuple((value is None, str(value)) for value in row)
+
+
+def check_case(
+    kind, expression, options, expected, shape=None, message=None, names=None
+):
+    """Run an expression on the core and compare the result with the case
+
+    :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``
+    :param expression: The right hand side, run as ``R = <expression>``
+    :param expected: See the module docstring; dates are ``"2001-01-02"`` or,
+        off midnight, ``"2001-01-02T12:00:00"``; an instant has the end None
+    :param options: The options of ``outcome()``; ``result_type`` is not one, it
+        names the dataset type to read the result as, if it differs from the
+        type of the kind (a mixed expression)
+    :param shape: ``(check_temporal_topology(), get_granularity())`` of the
+        result, checked if given and if the result has maps
+    :param message: A regular expression that the message of an expected
+        error must match
+    :param names: The names of the result maps (without the mapset) in the
+        order of their start times
+    """
+    base = "lc"
+    result = outcome(kind, expression, basename=base, **options)
+    if isinstance(expected, str):
+        assert result.get("error") == expected, result
+        if message:
+            assert re.search(message, result["msg"]), result["msg"]
+        return
+    assert "error" not in result, result
+    maps = sorted(
+        (
+            (_date(start), _date(end), *values)
+            for _, start, end, *values in result["maps"]
+        ),
+        key=_order,
+    )
+    assert maps == sorted(expected, key=_order)
+    if names is not None:
+        by_start = sorted(result["maps"], key=lambda row: row[1])
+        assert [row[0].split("@")[0] for row in by_start] == names
+    if shape is not None and expected:
+        stdstype = options.get("stdstype") or STDS_TYPE_OF_KIND.get(kind, "strds")
+        stds = tgis.open_old_stds(f"R{base}", options.get("result_type") or stdstype)
+        assert (stds.check_temporal_topology(), stds.get_granularity()) == shape
+
+
+def check_dry(kind, expression, options, expected):
+    """Plan an expression on the core and compare the process chain
+
+    ``expected`` is a dict with the numbers of the maps to register
+    (``register``) and of the planned processes (``processes``), optionally
+    the names of the first and last process (``names``) and the type of the
+    result (``stdstype``, default strds); the result is always named R.
+    """
+    chain = run_core(
+        kind, f"R = {expression}", basename="r", overwrite=True, run=True,
+        dry_run=True, **options,
+    )  # fmt: skip
+    assert len(chain["register"]) == expected["register"]
+    if "processes" in expected:
+        assert len(chain["processes"]) == expected["processes"]
+    if "names" in expected:
+        planned = [process["name"] for process in chain["processes"]]
+        assert planned[0] == expected["names"][0]
+        assert planned[-1] == expected["names"][-1]
+    assert chain["STDS"]["name"] == "R"
+    assert chain["STDS"]["stdstype"] == expected.get("stdstype", "strds")
