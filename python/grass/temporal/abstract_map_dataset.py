@@ -107,21 +107,6 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-
-    # The old aggregate_by_topology() still reads the relations of a granule as
-    # attributes (granule.during); they go when the aggregation moves to the
-    # algebra core. TopologyLinks has "contains" as a property already.
-    equal = property(lambda self: self.get_temporal_relations().get("EQUAL"))
-    during = property(lambda self: self.get_temporal_relations().get("DURING"))
-    starts = property(lambda self: self.get_temporal_relations().get("STARTS"))
-    started = property(lambda self: self.get_temporal_relations().get("STARTED"))
-    finishes = property(lambda self: self.get_temporal_relations().get("FINISHES"))
-    finished = property(lambda self: self.get_temporal_relations().get("FINISHED"))
-    overlaps = property(lambda self: self.get_temporal_relations().get("OVERLAPS"))
-    overlapped = property(lambda self: self.get_temporal_relations().get("OVERLAPPED"))
-
     @property
     def ciface(self):
         """The C-library interface of the current session
