@@ -46,6 +46,7 @@
 import sys
 
 import grass.script as gs
+from grass.exceptions import FatalError
 
 ############################################################################
 
@@ -53,17 +54,32 @@ import grass.script as gs
 def main():
     # lazy imports
     import grass.temporal as tgis
+    from grass.temporal.algebra.maptypes import KINDS_OF_STDS
+    from grass.temporal.algebra.parser import evaluate
 
     expression = options["expression"]
     spatial = flags["s"]
     dry_run = flags["d"]
     stdstype = options["type"]
 
-    tgis.init(True)
-    p = tgis.TemporalAlgebraParser(
-        run=True, debug=False, spatial=spatial, dry_run=dry_run
-    )
-    pc = p.parse(expression, stdstype, overwrite=gs.overwrite())
+    tgis.init()
+    # t.select has no basename option; the copies of retimed maps are named
+    # after the result dataset, otherwise they would be None_1, None_2, ...
+    basename = expression.partition("=")[0].strip().partition("@")[0]
+    try:
+        pc = evaluate(
+            expression,
+            kind=KINDS_OF_STDS[stdstype],
+            basename=basename,
+            overwrite=gs.overwrite(),
+            run=True,
+            dry_run=dry_run,
+            debug=False,
+            spatial=spatial,
+            selection=True,
+        )
+    except (SyntaxError, FatalError, ValueError, TypeError) as error:
+        gs.fatal(str(error))
 
     if dry_run is True:
         import pprint
