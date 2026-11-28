@@ -93,29 +93,14 @@ from .univar_statistics import (
     print_vector_dataset_univar_statistics,
 )
 
-# Names the package exported before and tools still take from it: t.copy
-# (AbstractMapDataset) and six raster tools that build map name suffixes.
-# They leave the package with the revision of those tools.
-from .abstract_map_dataset import AbstractMapDataset
+# Names the package exported before and tools still take from it: the map name
+# suffix builders of the raster tools that are not revised yet. They leave the
+# package with the revision of those tools.
 from .datetime_math import create_suffix_from_datetime, create_time_suffix
-from .state import STATE as _STATE
-
-
-# The package offered these two getters before the database layer replaced
-# core; they stay importable until the package gets its final list of names.
-def get_tgis_backend():
-    """Return the name of the database backend of the session"""
-    return _STATE.backend
-
-
-def get_tgis_database():
-    """Return the database connection string of the session"""
-    return _STATE.database_string
 
 
 __all__ = [
     "AbsoluteTemporalExtent",
-    "AbstractMapDataset",
     "AbstractSpaceTimeDataset",
     "FatalError",
     "Raster3DDataset",
@@ -156,9 +141,7 @@ __all__ = [
     "get_current_mapset",
     "get_dataset_list",
     "get_sql_template_path",
-    "get_tgis_backend",
     "get_tgis_c_library_interface",
-    "get_tgis_database",
     "get_tgis_database_string",
     "get_tgis_db_version_from_metadata",
     "get_tgis_message_interface",

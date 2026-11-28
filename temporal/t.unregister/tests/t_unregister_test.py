@@ -149,7 +149,8 @@ def test_cannot_unregister_from_foreign_mapset_strds(session_with_strds):
         description="local",
     )
 
-    with pytest.raises(ToolError, match="current mapset"):
+    # The error message is wrapped, so a line break may stand between the words.
+    with pytest.raises(ToolError, match=r"current\s+mapset"):
         tools.t_unregister(input="A@PERMANENT", type="raster", maps="a1")
 
     tools.g_mapset(mapset="PERMANENT")
