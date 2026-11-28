@@ -28,9 +28,9 @@
 
 # %option G_OPT_M_DIR
 # % key: directory
-# % description: Path to the work directory, default is /tmp
+# % label: Working directory for the export (the archive is written to output)
+# % description: The maps are exported and packed in a temporary subdirectory of it, which is removed afterwards; default is the temporary directory of the system
 # % required: no
-# % answer: /tmp
 # %end
 
 # %option
@@ -57,6 +57,8 @@
 # %option G_OPT_T_WHERE
 # %end
 
+import tempfile
+
 import grass.script as gs
 
 
@@ -69,7 +71,8 @@ def main():
     input_ = options["input"]
     output = options["output"]
     compression = options["compression"]
-    directory = options["directory"]
+    # A fixed default such as /tmp does not exist on Windows.
+    directory = options["directory"] or tempfile.gettempdir()
     where = options["where"]
     format_ = options["format"]
 
